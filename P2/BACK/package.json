@@ -1,0 +1,19 @@
+{
+  "name": "btm-back",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend BTM — Supabase (PostgreSQL, Auth, RLS, Edge Functions)",
+  "scripts": {
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "db:seed:remote": "supabase db query --linked -f supabase/seed.sql",
+    "functions:serve": "supabase functions serve estimation --no-verify-jwt",
+    "functions:deploy": "supabase functions deploy estimation",
+    "link": "supabase link --project-ref $SUPABASE_PROJECT_REF"
+  },
+  "devDependencies": {
+    "supabase": "^1.200.0"
+  }
+}

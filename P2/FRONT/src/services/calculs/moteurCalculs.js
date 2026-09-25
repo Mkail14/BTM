@@ -4,7 +4,7 @@
  */
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
 import { materiaux as catalogueLocal } from '@/donnees/materiaux.js'
-import { calculerMur } from './formuleMur.js'
+import { calculerMur, listerMurs } from './formuleMur.js'
 import { calculerDalle } from './formuleDalle.js'
 import { calculerFondation } from './formuleFondation.js'
 import { calculerTerrasse } from './formuleTerrasse.js'
@@ -28,33 +28,48 @@ export function validerDimensions(typeId, dimensions = {}) {
   const erreurs = {}
   if (!type) return { valide: false, erreurs: { type: 'Type de projet inconnu' } }
 
-  for (const champ of type.champs) {
-    const brut = dimensions[champ.nom]
+  validerChamps(type.champs, dimensions, erreurs)
+
+  if (typeId === 'mur') {
+    verifierOuvertures(dimensions, erreurs)
+    ;(dimensions.autresMurs || []).forEach((mur, i) => {
+      validerChamps(type.champs, mur, erreurs, `autresMurs.${i}.`)
+      verifierOuvertures(mur, erreurs, `autresMurs.${i}.`)
+    })
+  }
+
+  return { valide: Object.keys(erreurs).length === 0, erreurs }
+}
+
+/** Les erreurs sont indexées par `prefixe + nom du champ` (ex. « autresMurs.0.longueur ») */
+function validerChamps(champs, valeurs, erreurs, prefixe = '') {
+  for (const champ of champs) {
+    const cle = prefixe + champ.nom
+    const brut = valeurs[champ.nom]
     if (champ.type === 'select') {
-      if (!brut) erreurs[champ.nom] = MESSAGES.obligatoire
+      if (!brut) erreurs[cle] = MESSAGES.obligatoire
       continue
     }
     const vide = brut === undefined || brut === null || String(brut).trim() === ''
     if (vide) {
-      if (!champ.optionnel) erreurs[champ.nom] = MESSAGES.obligatoire
+      if (!champ.optionnel) erreurs[cle] = MESSAGES.obligatoire
       continue
     }
     const n = nombre(brut)
     if (!Number.isFinite(n) || (champ.optionnel ? n < 0 : n <= 0)) {
-      erreurs[champ.nom] = MESSAGES.nombreInvalide
+      erreurs[cle] = MESSAGES.nombreInvalide
       continue
     }
     if (champ.max !== undefined && n > champ.max) {
-      erreurs[champ.nom] = `Valeur maximale : ${champ.max} ${champ.unite}`
+      erreurs[cle] = `Valeur maximale : ${champ.max} ${champ.unite}`
     }
   }
+}
 
-  if (typeId === 'mur' && !erreurs.longueur && !erreurs.hauteur && !erreurs.ouvertures) {
-    const surface = nombre(dimensions.longueur) * nombre(dimensions.hauteur)
-    if (nombre(dimensions.ouvertures) >= surface && surface > 0) erreurs.ouvertures = MESSAGES.ouverturesTropGrandes
-  }
-
-  return { valide: Object.keys(erreurs).length === 0, erreurs }
+function verifierOuvertures(mur, erreurs, prefixe = '') {
+  if (erreurs[`${prefixe}longueur`] || erreurs[`${prefixe}hauteur`] || erreurs[`${prefixe}ouvertures`]) return
+  const surface = nombre(mur.longueur) * nombre(mur.hauteur)
+  if (nombre(mur.ouvertures) >= surface && surface > 0) erreurs[`${prefixe}ouvertures`] = MESSAGES.ouverturesTropGrandes
 }
 
 /**
@@ -79,6 +94,11 @@ export function calculerEstimation(typeId, dimensions, options = {}) {
 
   const dims = {}
   for (const c of type.champs) dims[c.nom] = c.type === 'select' ? (dimensions[c.nom] ?? c.defaut) : nombre(dimensions[c.nom])
+  if (typeId === 'mur' && dimensions.autresMurs?.length) {
+    dims.autresMurs = dimensions.autresMurs.map((m) => ({
+      longueur: nombre(m.longueur), hauteur: nombre(m.hauteur), ouvertures: nombre(m.ouvertures)
+    }))
+  }
 
   return {
     type: type.id,
@@ -93,10 +113,20 @@ export function calculerEstimation(typeId, dimensions, options = {}) {
 export function resumerDimensions(typeId, dimensions = {}) {
   const type = trouverTypeProjet(typeId)
   if (!type) return ''
-  return type.champs
+  const resume = type.champs
     .filter((c) => c.type !== 'select' && dimensions[c.nom] !== undefined && dimensions[c.nom] !== '')
     .map((c) => `${dimensions[c.nom]} ${c.unite}`)
     .join(' × ')
+  const autres = dimensions.autresMurs?.length || 0
+  return autres ? `${resume} (+ ${autres} mur${autres > 1 ? 's' : ''})` : resume
+}
+
+/** Une ligne par mur (« Mur 1 », « Mur 2 »…) quand l'estimation en compte plusieurs — résultats et PDF */
+export function lignesMurs(dimensions = {}) {
+  return listerMurs(dimensions).map((m, i) => {
+    const ouvertures = nombre(m.ouvertures) ? ` − ${formaterNombre(m.ouvertures, 2)} m² d’ouvertures` : ''
+    return { label: `Mur ${i + 1}`, valeur: `${formaterNombre(m.longueur, 2)} m × ${formaterNombre(m.hauteur, 2)} m${ouvertures}` }
+  })
 }
 
 export const formaterEuros = (n) =>
@@ -104,3 +134,20 @@ export const formaterEuros = (n) =>
 
 export const formaterNombre = (n, decimales = 2) =>
   new Intl.NumberFormat('fr-FR', { maximumFractionDigits: decimales }).format(Number(n) || 0)
+
+const UNITES_EN_TOUTES_LETTRES = { u: ['unité', 'unités'], sac: ['sac', 'sacs'], t: ['tonne', 'tonnes'] }
+
+/** « 13 sacs », « 1,5 tonne », « 3,2 m³ » — quantité lisible pour un particulier */
+export function formaterQuantite(quantite, unite) {
+  const mots = UNITES_EN_TOUTES_LETTRES[unite]
+  const n = formaterNombre(quantite, 2)
+  return mots ? `${n} ${quantite >= 2 ? mots[1] : mots[0]}` : `${n} ${unite}`
+}
+
+/** « Votre mur », « Vos murs », « Vos fondations »… + accord du verbe */
+export function sujetEstimation(resultat) {
+  const type = trouverTypeProjet(resultat?.type)
+  if (!type) return { sujet: 'Votre projet', pluriel: false }
+  if (resultat.dimensions?.autresMurs?.length) return { sujet: type.sujetPluriel, pluriel: true }
+  return { sujet: type.sujet, pluriel: type.sujet.startsWith('Vos') }
+}

@@ -15,9 +15,9 @@ const parts = computed(() => {
 <template>
   <section class="budget" id="resume-budget" aria-labelledby="budget-titre">
     <div class="budget-halo" aria-hidden="true"></div>
-    <p class="budget-surtitre" id="budget-titre"><i class="fa-solid fa-coins"></i> Coût total indicatif</p>
+    <p class="budget-surtitre" id="budget-titre"><i class="fa-solid fa-coins"></i> Coût total</p>
     <p class="budget-total prix">{{ formaterEuros(resultat.total) }}</p>
-    <p class="budget-note">TTC estimé — hors imprévus, hors terrassement et études.</p>
+    <p class="budget-note">TTC — hors terrassement et études.</p>
 
     <div class="budget-barre" role="img" :aria-label="parts.map(p => `${p.label} ${p.pct} %`).join(', ')">
       <span v-for="p in parts" :key="p.label" :style="{ width: p.pct + '%', background: p.couleur }"></span>

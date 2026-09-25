@@ -25,8 +25,8 @@ const lienSite = (url) => (url?.startsWith('http') ? url : `https://${url}`)
 </script>
 
 <template>
-  <CarteBase titre="Choisir un fournisseur" icone="fa-solid fa-truck" id="selecteur-fournisseur">
-    <p class="texte-secondaire sf-intro">Associez un fournisseur de Mayotte à votre estimation pour retrouver ses coordonnées dans le PDF.</p>
+  <CarteBase titre="Où acheter ? (facultatif)" icone="fa-solid fa-store" id="selecteur-fournisseur">
+    <p class="texte-secondaire sf-intro">Choisissez un fournisseur de Mayotte : son adresse et son téléphone seront ajoutés au PDF.</p>
     <div v-if="chargement" class="sf-chargement"><span class="spinner spinner-grand"></span></div>
     <div v-else class="sf-liste" role="radiogroup" aria-label="Fournisseurs">
       <button

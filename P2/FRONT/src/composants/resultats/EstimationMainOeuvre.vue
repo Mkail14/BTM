@@ -8,7 +8,7 @@ defineProps({ mainOeuvre: { type: Object, required: true }, livraison: { type: N
   <CarteBase titre="Main-d’œuvre & livraison" icone="fa-solid fa-helmet-safety" id="estimation-main-oeuvre">
     <ul class="mo-liste">
       <li>
-        <span class="mo-label"><i class="fa-regular fa-clock"></i> Temps estimé</span>
+        <span class="mo-label"><i class="fa-regular fa-clock"></i> Temps de travail</span>
         <strong class="mono">{{ formaterNombre(mainOeuvre.heures, 1) }} h</strong>
       </li>
       <li>
@@ -20,7 +20,7 @@ defineProps({ mainOeuvre: { type: Object, required: true }, livraison: { type: N
         <strong class="prix">{{ formaterEuros(mainOeuvre.total) }}</strong>
       </li>
       <li class="mo-total">
-        <span class="mo-label"><i class="fa-solid fa-truck-fast"></i> Livraison estimée</span>
+        <span class="mo-label"><i class="fa-solid fa-truck-fast"></i> Livraison</span>
         <strong class="prix">{{ formaterEuros(livraison) }}</strong>
       </li>
     </ul>

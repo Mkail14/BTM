@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { utilisateurCourant } from '@/services/supabase/serviceAuth.js'
+import { estAdmin } from '@/services/supabase/serviceAdmin.js'
 
 const routes = [
   { path: '/', name: 'accueil', component: () => import('@/vues/AccueilVue.vue'), meta: { titre: 'Accueil' } },
@@ -9,6 +10,9 @@ const routes = [
   { path: '/dashboard', name: 'dashboard', component: () => import('@/vues/TableauDeBordVue.vue'), meta: { titre: 'Mes projets', necessiteConnexion: true } },
   { path: '/connexion', name: 'connexion', component: () => import('@/vues/AuthentificationVue.vue'), props: { mode: 'connexion' }, meta: { titre: 'Connexion' } },
   { path: '/inscription', name: 'inscription', component: () => import('@/vues/AuthentificationVue.vue'), props: { mode: 'inscription' }, meta: { titre: 'Inscription' } },
+  { path: '/admin', name: 'admin', component: () => import('@/vues/AdminVue.vue'), meta: { titre: 'Administration', necessiteConnexion: true, necessiteAdmin: true } },
+  { path: '/nouveau-mot-de-passe', name: 'nouveau-mot-de-passe', component: () => import('@/vues/NouveauMotDePasseVue.vue'), meta: { titre: 'Nouveau mot de passe' } },
+  { path: '/conditions', name: 'conditions', component: () => import('@/vues/ConditionsVue.vue'), meta: { titre: 'Conditions générales d’utilisation' } },
   { path: '/:pathMatch(.*)*', name: 'introuvable', component: () => import('@/vues/IntrouvableVue.vue'), meta: { titre: 'Page introuvable' } }
 ]
 
@@ -25,7 +29,10 @@ const routeur = createRouter({
 routeur.beforeEach(async (to) => {
   if (!to.meta.necessiteConnexion) return true
   const utilisateur = await utilisateurCourant()
-  return utilisateur ? true : { name: 'connexion', query: { redirect: to.fullPath } }
+  if (!utilisateur) return { name: 'connexion', query: { redirect: to.fullPath } }
+  // le rôle est revérifié côté base (RLS) ; ici on évite seulement d'afficher une page vide aux non-admins
+  if (to.meta.necessiteAdmin && !(await estAdmin(utilisateur.id))) return { name: 'accueil' }
+  return true
 })
 
 routeur.afterEach((to) => {

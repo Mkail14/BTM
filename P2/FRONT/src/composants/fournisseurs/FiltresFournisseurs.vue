@@ -1,53 +1,57 @@
 <script setup>
+/** Recherche + onglets de catégories */
 import { categories } from '@/donnees/fournisseurs.js'
-const props = defineProps({ recherche: { type: String, default: '' }, categorie: { type: String, default: '' }, nbResultats: { type: Number, default: 0 } })
-const emit = defineEmits(['update:recherche', 'update:categorie', 'reinitialiser'])
+defineProps({ recherche: { type: String, default: '' }, categorie: { type: String, default: '' } })
+const emit = defineEmits(['update:recherche', 'update:categorie'])
+const onglets = categories.map((c) => (c.id ? c : { ...c, libelle: 'Tous' }))
 </script>
 
 <template>
   <section class="filtres" aria-label="Recherche et filtres">
-    <div class="filtres-recherche champ">
+    <div class="filtres-recherche">
       <label for="recherche-fournisseur" class="visually-hidden">Rechercher un fournisseur</label>
-      <div class="champ-saisie">
-        <i class="fa-solid fa-magnifying-glass filtres-loupe" aria-hidden="true"></i>
-        <input id="recherche-fournisseur" type="search" :value="recherche" placeholder="Nom, commune ou description… (ex. béton, Koungou)" autocomplete="off"
-          style="font-family: var(--font-corps); padding-left: 44px" @input="emit('update:recherche', $event.target.value)" />
-        <button v-if="recherche" type="button" class="filtres-effacer" aria-label="Effacer la recherche" @click="emit('update:recherche', '')"><i class="fa-solid fa-xmark"></i></button>
-      </div>
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <input
+        id="recherche-fournisseur" type="search" :value="recherche" placeholder="Rechercher : béton, Koungou…" autocomplete="off"
+        @input="emit('update:recherche', $event.target.value)"
+      />
+      <button v-if="recherche" type="button" aria-label="Effacer la recherche" @click="emit('update:recherche', '')"><i class="fa-solid fa-xmark"></i></button>
     </div>
 
-    <div class="filtres-categories" role="radiogroup" aria-label="Filtrer par catégorie">
+    <div class="filtres-onglets" role="group" aria-label="Catégories">
       <button
-        v-for="c in categories" :key="c.id" type="button" role="radio" :aria-checked="categorie === c.id"
-        class="filtres-puce" :class="{ actif: categorie === c.id }" @click="emit('update:categorie', c.id)"
-      >
-        <i :class="c.icone" aria-hidden="true"></i> {{ c.libelle }}
-      </button>
+        v-for="c in onglets" :key="c.id" type="button" :aria-pressed="categorie === c.id"
+        :class="{ actif: categorie === c.id }" @click="emit('update:categorie', c.id)"
+      >{{ c.libelle }}</button>
     </div>
-
-    <p class="filtres-compteur" role="status" aria-live="polite">
-      <strong class="mono">{{ nbResultats }}</strong> fournisseur{{ nbResultats > 1 ? 's' : '' }} trouvé{{ nbResultats > 1 ? 's' : '' }}
-      <button v-if="recherche || categorie" type="button" class="filtres-reset" @click="emit('reinitialiser')"><i class="fa-solid fa-rotate-left"></i> Réinitialiser</button>
-    </p>
   </section>
 </template>
 
 <style scoped>
-.filtres { display: flex; flex-direction: column; gap: 16px; margin-bottom: 32px; }
-.filtres-recherche input { padding: 15px 44px 15px 44px !important; border-radius: 999px !important; font-size: 1rem; box-shadow: var(--ombre-sm); }
-.filtres-loupe { position: absolute; left: 18px; color: var(--lagon-600); pointer-events: none; }
-.filtres-effacer { position: absolute; right: 12px; width: 30px; height: 30px; border-radius: 50%; border: none; background: var(--gris-100); color: var(--gris-600); display: grid; place-items: center; }
-.filtres-effacer:hover { background: var(--gris-200); }
-.filtres-categories { display: flex; flex-wrap: wrap; gap: 8px; }
-.filtres-puce {
-  display: inline-flex; gap: 8px; align-items: center; padding: 9px 16px; border-radius: 999px; font-size: .9rem; font-weight: 500;
-  border: 1.5px solid var(--bordure); background: var(--blanc); color: var(--gris-700);
-  transition: all var(--transition);
+.filtres { display: flex; flex-direction: column; gap: 20px; margin-bottom: 8px; }
+
+.filtres-recherche { position: relative; display: flex; align-items: center; }
+.filtres-recherche > i { position: absolute; left: 16px; color: var(--gris-400); pointer-events: none; }
+.filtres-recherche input {
+  width: 100%; padding: 14px 44px; border: 1px solid var(--gris-200); border-radius: 14px; background: var(--gris-50);
+  font: inherit; font-size: 1rem; color: var(--ardoise); transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
-.filtres-puce:hover { border-color: var(--lagon-300); color: var(--lagon-800); transform: translateY(-1px); }
-.filtres-puce.actif { background: var(--lagon-700); border-color: var(--lagon-700); color: #fff; box-shadow: 0 6px 16px rgba(14,116,144,.3); }
-.filtres-compteur { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; color: var(--texte-secondaire); font-size: .92rem; }
-.filtres-compteur strong { color: var(--lagon-700); font-size: 1.1rem; margin-right: 4px; }
-.filtres-reset { background: none; border: none; color: var(--lagon-700); font-weight: 600; display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; border-radius: 6px; }
-.filtres-reset:hover { background: var(--lagon-50); }
+.filtres-recherche input::placeholder { color: var(--gris-400); }
+.filtres-recherche input:focus { outline: none; background: #fff; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .14); }
+.filtres-recherche input::-webkit-search-cancel-button { display: none; }
+.filtres-recherche button {
+  position: absolute; right: 10px; width: 28px; height: 28px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: var(--gris-200); color: var(--gris-600); cursor: pointer;
+}
+
+.filtres-onglets { display: flex; gap: 24px; overflow-x: auto; border-bottom: 1px solid var(--gris-200); scrollbar-width: none; }
+.filtres-onglets::-webkit-scrollbar { display: none; }
+.filtres-onglets button {
+  flex-shrink: 0; padding: 0 0 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none;
+  font: inherit; font-size: .92rem; font-weight: 500; color: var(--gris-500); cursor: pointer; white-space: nowrap;
+  transition: color var(--transition), border-color var(--transition);
+}
+.filtres-onglets button:hover { color: var(--ardoise); }
+.filtres-onglets button.actif { color: var(--ardoise); border-bottom-color: var(--ardoise); }
+.filtres-onglets button:focus-visible { outline: 2px solid var(--lagon-600); outline-offset: 2px; border-radius: 4px; }
 </style>

@@ -20,13 +20,28 @@ export function useProjets() {
     if (!connecte.value) { projets.value = locaux; return }
     chargement.value = true
     try {
-      const cloud = await listerProjetsCloud()
+      let cloud = await listerProjetsCloud()
       const idsCloud = new Set(cloud.map((p) => p.id))
-      projets.value = [...cloud, ...locaux.filter((p) => !idsCloud.has(p.id))]
+      // Projets créés hors connexion : on les envoie au cloud puis on les retire du stockage local
+      let envoyes = 0
+      for (const p of locaux.filter((x) => !idsCloud.has(x.id))) {
+        try {
+          await creerProjetCloud(utilisateur.value.id, {
+            ...p,
+            fournisseur_uuid: p.fournisseur_uuid || (/^[0-9a-f-]{36}$/i.test(p.fournisseur_id || '') ? p.fournisseur_id : null),
+            cout_total: p.cout_total ?? p.resultat?.total ?? 0
+          })
+          local.supprimerProjet(p.id)
+          envoyes++
+        } catch (e) { console.warn('Envoi cloud impossible pour', p.nom, e) }
+      }
+      if (envoyes) cloud = await listerProjetsCloud()
+      const idsFinal = new Set(cloud.map((p) => p.id))
+      projets.value = [...cloud, ...local.lireProjets().filter((p) => !idsFinal.has(p.id))]
         .sort((a, b) => new Date(b.cree_le) - new Date(a.cree_le))
     } catch (e) {
       console.warn(e)
-      erreur.value = 'Synchronisation cloud impossible — projets locaux affichés.'
+      erreur.value = `Synchronisation cloud impossible — projets locaux affichés.${e?.message ? ` (${e.message})` : ''}`
       projets.value = locaux
     } finally {
       chargement.value = false

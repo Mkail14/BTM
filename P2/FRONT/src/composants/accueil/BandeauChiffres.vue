@@ -13,8 +13,7 @@ const regles = [
   <section id="regles-calcul" class="section regles fond-plan" aria-labelledby="regles-titre">
     <div class="conteneur regles-grille">
       <div class="reveal">
-        <p>Chaque estimation détaille les formules appliquées, les quantités arrondies et les prix unitaires utilisés.
-          Les hypothèses sont provisoires et destinées à être ajustées avec les professionnels locaux.</p>
+        <p>Chaque devis détaille les formules appliquées, les quantités arrondies et les prix unitaires utilisés.</p>
         <BoutonBase to="/calculateur" variante="primaire" icone-droite="fa-solid fa-arrow-right">Tester le calculateur</BoutonBase>
       </div>
       <dl class="regles-liste">

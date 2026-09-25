@@ -34,3 +34,9 @@ enable_confirmations = false
 
 [functions.estimation]
 verify_jwt = false
+
+[functions.supprimer-compte]
+verify_jwt = true
+
+[functions.admin-utilisateurs]
+verify_jwt = true

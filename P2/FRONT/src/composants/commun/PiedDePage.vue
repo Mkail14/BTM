@@ -8,7 +8,7 @@ const annee = new Date().getFullYear()
     <div class="conteneur pied-grille">
       <section class="pied-marque">
         <router-link to="/" class="pied-logo"><LogoBtm :taille="46" /> <span>BTM</span></router-link>
-        <p>Bâtiment & Travaux Mayotte — plateforme d’estimation de projets BTP et annuaire des fournisseurs de matériaux à Mayotte.</p>
+        <p>Bâtiment & Travaux Mayotte — plateforme de devis BTP et annuaire des fournisseurs de matériaux à Mayotte.</p>
         <p class="pied-localisation"><i class="fa-solid fa-location-dot"></i> Mamoudzou, Mayotte (976)</p>
       </section>
 
@@ -21,7 +21,7 @@ const annee = new Date().getFullYear()
       </nav>
 
       <nav class="pied-nav" aria-label="Types de projets">
-        <h4>Estimer</h4>
+        <h4>Devis</h4>
         <router-link :to="{ path: '/calculateur', query: { type: 'mur' } }">Un mur</router-link>
         <router-link :to="{ path: '/calculateur', query: { type: 'dalle' } }">Une dalle</router-link>
         <router-link :to="{ path: '/calculateur', query: { type: 'fondation' } }">Une fondation</router-link>
@@ -32,12 +32,12 @@ const annee = new Date().getFullYear()
         <h4>Contact</h4>
         <a href="mailto:contact@btm-mayotte.yt"><i class="fa-regular fa-envelope"></i> contact@btm-mayotte.yt</a>
         <a href="tel:+262269000000"><i class="fa-solid fa-phone"></i> 0269 00 00 00</a>
-        <p class="pied-note">Plateforme BTM — Estimation et accompagnement des travaux à Mayotte</p>
+        <p class="pied-note">Plateforme BTM — Devis et accompagnement des travaux à Mayotte</p>
       </section>
     </div>
 
     <div class="conteneur pied-bas">
-      <p>© {{ annee }} BTM — Bâtiment & Travaux Mayotte. Estimations indicatives, sans valeur de devis.</p>
+      <p>© {{ annee }} BTM — Bâtiment & Travaux Mayotte. · <router-link to="/conditions">Conditions générales d’utilisation</router-link></p>
       <p class="pied-tech">Vue 3 · Vite · Supabase · Vercel</p>
     </div>
   </footer>
@@ -46,6 +46,10 @@ const annee = new Date().getFullYear()
 <style scoped>
 .pied { position: relative; background: var(--ardoise); color: rgba(255,255,255,.78); border-top: 3px solid var(--lagon-700); }
 .pied-grille { display: grid; gap: 36px; padding: 64px 20px 40px; grid-template-columns: 1fr; }
+@media (max-width: 639px) {
+  .pied-grille { grid-template-columns: 1fr 1fr; gap: 28px 20px; padding-top: 44px; }
+  .pied-marque, .pied-nav:last-child { grid-column: 1 / -1; }
+}
 @media (min-width: 640px) { .pied-grille { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 900px) { .pied-grille { grid-template-columns: 1.6fr 1fr 1fr 1.2fr; padding-inline: 32px; } }
 .pied-logo { display: inline-flex; align-items: center; gap: 12px; font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; letter-spacing: .06em; color: #fff; margin-bottom: 14px; }

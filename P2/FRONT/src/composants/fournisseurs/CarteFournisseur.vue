@@ -1,47 +1,81 @@
 <script setup>
-defineProps({ fournisseur: { type: Object, required: true } })
+/** Ligne de l'annuaire : identité + appel direct ; se déplie pour afficher description, adresse, horaires et site. */
+import { ref } from 'vue'
+
+const props = defineProps({ fournisseur: { type: Object, required: true } })
+const ouvert = ref(false)
 const lienSite = (url) => (url?.startsWith('http') ? url : `https://${url}`)
+const domaine = (url) => url?.replace(/^https?:\/\//, '').replace(/\/$/, '')
+const idDetails = `fournisseur-${props.fournisseur.id}`
 </script>
 
 <template>
-  <article class="carte carte-interactive cf" :style="{ '--couleur': fournisseur.couleur || 'var(--lagon-600)' }">
-    <header class="cf-entete">
-      <img :src="fournisseur.logo" :alt="`Logo ${fournisseur.nom}`" width="60" height="60" loading="lazy" class="cf-logo" />
-      <div class="cf-titre">
-        <h3>{{ fournisseur.nom }}</h3>
-        <span class="badge">{{ fournisseur.categorie }}</span>
-      </div>
-      <span v-if="fournisseur.livraison" class="badge badge-vert cf-livraison" title="Livraison disponible"><i class="fa-solid fa-truck-fast"></i> Livraison</span>
-    </header>
-
-    <p class="cf-desc">{{ fournisseur.description }}</p>
-
-    <ul class="cf-infos">
-      <li><i class="fa-solid fa-location-dot"></i><span>{{ fournisseur.adresse || fournisseur.commune }}</span></li>
-      <li v-if="fournisseur.horaires"><i class="fa-regular fa-clock"></i><span>{{ fournisseur.horaires }}</span></li>
-    </ul>
-
-    <footer class="cf-actions">
-      <a :href="`tel:${fournisseur.telephone.replace(/\s/g, '')}`" class="btn btn-primaire btn-sm"><i class="fa-solid fa-phone"></i> {{ fournisseur.telephone }}</a>
-      <a v-if="fournisseur.site_web" :href="lienSite(fournisseur.site_web)" target="_blank" rel="noopener noreferrer" class="btn btn-secondaire btn-sm">
-        <i class="fa-solid fa-arrow-up-right-from-square"></i> Site web
+  <li class="fr" :class="{ ouvert }">
+    <div class="fr-ligne">
+      <button type="button" class="fr-principal" :aria-expanded="ouvert" :aria-controls="idDetails" @click="ouvert = !ouvert">
+        <img :src="fournisseur.logo" alt="" width="48" height="48" loading="lazy" class="fr-logo" />
+        <span class="fr-texte">
+          <strong>{{ fournisseur.nom }}</strong>
+          <span>{{ fournisseur.categorie }} · {{ fournisseur.commune }}<template v-if="fournisseur.livraison"> · Livraison</template></span>
+        </span>
+        <i class="fa-solid fa-chevron-down fr-chevron" aria-hidden="true"></i>
+      </button>
+      <a :href="`tel:${fournisseur.telephone.replace(/\s/g, '')}`" class="fr-appel" :aria-label="`Appeler ${fournisseur.nom} au ${fournisseur.telephone}`">
+        <i class="fa-solid fa-phone" aria-hidden="true"></i><span>{{ fournisseur.telephone }}</span>
       </a>
-    </footer>
-  </article>
+    </div>
+
+    <div v-show="ouvert" :id="idDetails" class="fr-details">
+      <p v-if="fournisseur.description">{{ fournisseur.description }}</p>
+      <dl>
+        <div><dt>Adresse</dt><dd>{{ fournisseur.adresse || fournisseur.commune }}</dd></div>
+        <div v-if="fournisseur.horaires"><dt>Horaires</dt><dd>{{ fournisseur.horaires }}</dd></div>
+        <div v-if="fournisseur.site_web">
+          <dt>Site web</dt>
+          <dd><a :href="lienSite(fournisseur.site_web)" target="_blank" rel="noopener noreferrer">{{ domaine(fournisseur.site_web) }} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a></dd>
+        </div>
+      </dl>
+    </div>
+  </li>
 </template>
 
 <style scoped>
-.cf { display: flex; flex-direction: column; gap: 16px; position: relative; overflow: hidden; }
-.cf::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--lagon-700); }
-.cf-entete { display: flex; gap: 14px; align-items: flex-start; }
-.cf-logo { width: 60px; height: 60px; border-radius: 16px; box-shadow: var(--ombre-sm); flex-shrink: 0; }
-.cf-titre { flex: 1; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
-.cf-titre h3 { font-size: 1.55rem; color: var(--ardoise); }
-.cf-livraison { flex-shrink: 0; }
-.cf-desc { color: var(--texte-secondaire); font-size: .93rem; line-height: 1.55; flex: 1; }
-.cf-infos { display: flex; flex-direction: column; gap: 8px; font-size: .88rem; color: var(--gris-700); }
-.cf-infos li { display: flex; gap: 10px; align-items: flex-start; }
-.cf-infos i { color: var(--lagon-600); width: 16px; margin-top: 3px; }
-.cf-actions { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 6px; border-top: 1px solid var(--bordure); }
-.cf-actions .btn { text-transform: none; font-family: var(--font-mono); letter-spacing: 0; }
+.fr { border-bottom: 1px solid var(--gris-100); }
+
+.fr-ligne { display: flex; align-items: center; gap: 12px; }
+.fr-principal {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 16px; padding: 18px 0;
+  border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.fr-principal:focus-visible { outline: 2px solid var(--lagon-600); outline-offset: 4px; border-radius: 8px; }
+.fr-logo { width: 48px; height: 48px; flex-shrink: 0; border-radius: 12px; border: 1px solid var(--gris-100); background: #fff; object-fit: contain; }
+.fr-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.fr-texte strong { font-size: 1.05rem; font-weight: 600; color: var(--ardoise); }
+.fr-texte span { font-size: .86rem; color: var(--gris-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fr-chevron { color: var(--gris-400); font-size: .8rem; transition: transform var(--transition); }
+.fr.ouvert .fr-chevron { transform: rotate(180deg); }
+
+.fr-appel {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px;
+  border: 1px solid var(--gris-200); color: var(--ardoise); font-size: .88rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+.fr-appel i { font-size: .8rem; color: var(--lagon-600); transition: color var(--transition); }
+.fr-appel:hover { background: var(--ardoise); border-color: var(--ardoise); color: #fff; }
+.fr-appel:hover i { color: #fff; }
+
+.fr-details { padding: 0 0 22px 64px; animation: apparaitre .2s ease; }
+.fr-details p { margin: 0 0 16px; max-width: 560px; color: var(--gris-600); font-size: .92rem; line-height: 1.6; }
+.fr-details dl { display: grid; gap: 8px; margin: 0; }
+.fr-details dl > div { display: grid; grid-template-columns: 90px 1fr; gap: 12px; font-size: .88rem; }
+.fr-details dt { color: var(--gris-400); }
+.fr-details dd { margin: 0; color: var(--ardoise); }
+.fr-details a { color: var(--lagon-700); font-weight: 600; }
+.fr-details a i { font-size: .7rem; margin-left: 2px; }
+
+@media (max-width: 600px) {
+  .fr-appel { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .fr-appel span { display: none; }
+  .fr-details { padding-left: 0; }
+}
 </style>

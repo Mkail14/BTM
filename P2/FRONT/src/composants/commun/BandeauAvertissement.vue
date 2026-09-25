@@ -1,5 +1,5 @@
 <script setup>
-/** Disclaimer légal (BNF10 / C05) — types : avertissement | info | erreur | succes */
+/** Bandeau de message — types : avertissement | info | erreur | succes */
 defineProps({ type: { type: String, default: 'avertissement' }, compact: Boolean })
 const icones = { avertissement: 'fa-solid fa-triangle-exclamation', info: 'fa-solid fa-circle-info', erreur: 'fa-solid fa-circle-xmark', succes: 'fa-solid fa-circle-check' }
 </script>
@@ -8,11 +8,7 @@ const icones = { avertissement: 'fa-solid fa-triangle-exclamation', info: 'fa-so
   <aside class="bandeau" :class="[`bandeau-${type}`, { 'bandeau-compact': compact }]" role="note">
     <i :class="icones[type]" aria-hidden="true"></i>
     <div class="bandeau-contenu">
-      <slot>
-        <strong>Estimation indicative.</strong> Cette estimation est fournie à titre informatif et ne constitue pas un devis officiel.
-        Les prix et quantités peuvent varier selon les fournisseurs, la région et les conditions du marché.
-        Contactez directement les fournisseurs locaux pour obtenir un devis précis et validé.
-      </slot>
+      <slot></slot>
     </div>
   </aside>
 </template>

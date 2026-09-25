@@ -1,6 +1,7 @@
 <script setup>
 import EnteteApp from '@/composants/commun/EnteteApp.vue'
 import PiedDePage from '@/composants/commun/PiedDePage.vue'
+import AideFlottante from '@/composants/commun/AideFlottante.vue'
 </script>
 
 <template>
@@ -14,6 +15,7 @@ import PiedDePage from '@/composants/commun/PiedDePage.vue'
     </router-view>
   </main>
   <PiedDePage />
+  <AideFlottante />
 </template>
 
 <style>

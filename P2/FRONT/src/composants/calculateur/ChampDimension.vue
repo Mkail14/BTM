@@ -3,10 +3,12 @@
 const props = defineProps({
   champ: { type: Object, required: true },
   modelValue: { type: [String, Number], default: '' },
-  erreur: { type: String, default: '' }
+  erreur: { type: String, default: '' },
+  cle: { type: String, default: '' } // clé d'erreur si différente du nom (ex. « autresMurs.0.longueur »)
 })
 const emit = defineEmits(['update:modelValue', 'blur'])
-const id = `champ-${props.champ.nom}`
+const cleChamp = props.cle || props.champ.nom
+const id = `champ-${cleChamp}`
 </script>
 
 <template>
@@ -22,7 +24,7 @@ const id = `champ-${props.champ.nom}`
           :placeholder="champ.placeholder" :value="modelValue" :aria-invalid="!!erreur"
           :aria-describedby="erreur ? `${id}-erreur` : champ.aide ? `${id}-aide` : undefined"
           :required="!champ.optionnel"
-          @input="emit('update:modelValue', $event.target.value)" @blur="emit('blur', champ.nom)"
+          @input="emit('update:modelValue', $event.target.value)" @blur="emit('blur', cleChamp)"
         />
         <span class="champ-unite">{{ champ.unite }}</span>
       </template>

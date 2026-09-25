@@ -2,7 +2,7 @@
 const etapes = [
   { num: '01', icone: 'fa-solid fa-list-check', titre: 'Sélectionnez l’ouvrage', texte: 'Mur, dalle, fondation ou terrasse. Chaque type possède son formulaire et ses règles de calcul.' },
   { num: '02', icone: 'fa-solid fa-ruler-combined', titre: 'Renseignez les dimensions', texte: 'Longueur, hauteur, épaisseur, ouvertures… Les saisies sont contrôlées avant le calcul.' },
-  { num: '03', icone: 'fa-solid fa-calculator', titre: 'Obtenez le chiffrage', texte: 'Quantités par matériau, coût, temps de main-d’œuvre, livraison et total indicatif.' },
+  { num: '03', icone: 'fa-solid fa-calculator', titre: 'Obtenez votre devis', texte: 'Quantités par matériau, coût, temps de main-d’œuvre, livraison et total.' },
   { num: '04', icone: 'fa-solid fa-file-invoice', titre: 'Exportez et contactez', texte: 'PDF récapitulatif, sauvegarde du projet et coordonnées directes des fournisseurs de Mayotte.' }
 ]
 </script>

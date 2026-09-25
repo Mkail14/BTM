@@ -44,6 +44,18 @@ export function useCalculateur() {
     persister()
   }
 
+  function ajouterMur() {
+    dimensions.autresMurs = [...(dimensions.autresMurs || []), { longueur: '', hauteur: '', ouvertures: '' }]
+    persister()
+  }
+
+  function retirerMur(index) {
+    dimensions.autresMurs = (dimensions.autresMurs || []).filter((_, i) => i !== index)
+    // les indices des murs suivants changent : on retire leurs erreurs
+    for (const k of Object.keys(erreurs)) if (k.startsWith('autresMurs.')) delete erreurs[k]
+    persister()
+  }
+
   function validerChamp(nom) {
     const { erreurs: e } = validerDimensions(typeId.value, dimensions)
     if (e[nom]) erreurs[nom] = e[nom]
@@ -116,7 +128,7 @@ export function useCalculateur() {
 
   return {
     typeId, type, dimensions, resultat, erreurs, erreurGlobale, chargement, fournisseurId, sourcePrix,
-    choisirType, definirDimensions, validerChamp, calculer, choisirFournisseur,
+    choisirType, definirDimensions, ajouterMur, retirerMur, validerChamp, calculer, choisirFournisseur,
     chargerDepuisProjet, afficherResultat, reinitialiser
   }
 }

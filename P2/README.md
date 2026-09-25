@@ -131,3 +131,26 @@ npm run build && npm run preview
 - Tests unitaires Vitest sur `services/calculs` et tests E2E Playwright.
 
 *Dernière mise à jour : 2026-09-11*
+
+
+
+dernier conv IA 
+
+J'ai corrigé l'erreur de récursion, mais la correction n'est pas encore appliquée sur ta base Supabase. J'ai aussi vérifié ta base à l'instant : `fournisseurs`, `types_projets` et `materiaux` n'existent toujours pas. Le premier script n'a donc pas été exécuté jusqu'au bout. Si une erreur survient, l'éditeur SQL annule tout le script.
+
+**D'où vient l'erreur :** les règles « admin » du guide [guide-auth-supabase.md](BACK/guide-auth-supabase.md) ont été appliquées sur ta base. Chacune vérifie le rôle en lisant la table `profils`. Or `profils` a elle-même une règle qui relit `profils`, et Postgres tourne en boucle. `projets` casse aussi, parce que sa règle admin lit `profils`.
+
+**Ce que j'ai corrigé :**
+- [0004_role_admin.sql](BACK/supabase/migrations/0004_role_admin.sql) crée une fonction `est_admin()`. Elle lit `profils` avec les droits du propriétaire de la base, donc sans relancer les règles, et la boucle disparaît. La migration supprime aussi toutes les règles qui lisent `profils`, quel que soit le nom que tu leur as donné, puis recrée les règles admin proprement. Tes règles « chacun voit ses propres données » restent en place.
+- J'ai corrigé la section 5 du guide pour que personne ne réapplique la version en boucle.
+- J'ai régénéré [reparation_distante.sql](BACK/supabase/reparation_distante.sql), qui contient maintenant 0001 à 0004 et les données de départ. On peut toujours le relancer sans risque.
+
+**Deux façons de l'appliquer :**
+
+1. **Toi, en 2 minutes :** dans Supabase, ouvre **SQL Editor** puis **New query**. Colle tout le contenu de `reparation_distante.sql` et clique sur **Run**. Si une erreur rouge apparaît, envoie-la-moi : c'est sûrement elle qui a bloqué la première fois.
+
+2. **Moi, directement :** pour exécuter le SQL sur ta base, il me faut le mot de passe de la base. Tu le trouves dans Supabase, sous **Project Settings**, **Database**, **Database password**. Tu peux le réinitialiser à cet endroit si tu ne l'as plus. **Ne le colle pas dans le chat.** Ajoute plutôt cette ligne dans [BACK/.env](BACK/.env) :
+   ```
+   SUPABASE_DB_PASSWORD=ton_mot_de_passe
+   ```
+   Dis-moi ensuite que c'est fait. J'appliquerai les migrations, puis je vérifierai que les tables et la page Mes projets répondent.

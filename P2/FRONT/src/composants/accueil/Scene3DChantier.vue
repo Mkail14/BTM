@@ -40,7 +40,7 @@ function setup3DScene() {
 
   scene = new THREE.Scene()
   camera = new THREE.PerspectiveCamera(28, width / height, 0.1, 100)
-  camera.position.set(0.9, 1.15, 5.6)
+  camera.position.set(0.4, 1.15, 5.6)
 
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -91,8 +91,8 @@ function setup3DScene() {
       const targetScale = 2.8 / maxDimension
       loadedModel.scale.setScalar(targetScale)
 
-      const fitDistance = sphere.radius / Math.tan((camera.fov * Math.PI / 180) / 2) * 1.55
-      camera.position.set(0.9, 1.1, fitDistance)
+      const fitDistance = sphere.radius / Math.tan((camera.fov * Math.PI / 180) / 2) * (window.innerWidth < 640 ? 1.25 : 1.8)
+      camera.position.set(0.4, 1.1, fitDistance)
       camera.lookAt(0, 0.1, 0)
 
       model = loadedModel
@@ -121,7 +121,7 @@ function setup3DScene() {
     }
 
     const baseDistance = camera.position.z || 5.6
-    camera.position.x += ((0.9 + pointer.x * 0.5) - camera.position.x) * 0.05
+    camera.position.x += ((0.4 + pointer.x * 0.5) - camera.position.x) * 0.05
     camera.position.y += ((1.1 + pointer.y * 0.35) - camera.position.y) * 0.05
     camera.position.z += ((baseDistance) - camera.position.z) * 0.05
     camera.lookAt(0, 0.15, 0)
@@ -189,7 +189,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .scene {
-  position: relative; width: 100%; max-width: 520px; aspect-ratio: 1 / .85; margin: 0 auto; overflow: hidden;
+  position: relative; width: 100%; max-width: 620px; aspect-ratio: 1 / .92; margin: 0 auto; overflow: hidden;
   user-select: none; display: grid; place-items: center;
 }
 .scene :deep(canvas) { display: block; width: 100%; height: 100%; }

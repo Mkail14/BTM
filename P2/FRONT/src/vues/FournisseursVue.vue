@@ -4,19 +4,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { chargerFournisseurs } from '@/services/supabase/serviceFournisseurs.js'
 import CarteFournisseur from '@/composants/fournisseurs/CarteFournisseur.vue'
 import FiltresFournisseurs from '@/composants/fournisseurs/FiltresFournisseurs.vue'
-import EtatVide from '@/composants/commun/EtatVide.vue'
-import BoutonBase from '@/composants/commun/BoutonBase.vue'
-import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 
 const route = useRoute()
 const router = useRouter()
 const liste = ref([])
 const chargement = ref(true)
-const source = ref('local')
 const recherche = ref(String(route.query.q || ''))
 const categorie = ref(String(route.query.categorie || ''))
 
-const normaliser = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const normaliser = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 const resultats = computed(() => {
   const q = normaliser(recherche.value.trim())
@@ -30,7 +26,6 @@ const resultats = computed(() => {
 onMounted(async () => {
   const r = await chargerFournisseurs()
   liste.value = r.donnees
-  source.value = r.source
   chargement.value = false
 })
 
@@ -46,38 +41,49 @@ function reinitialiser() { recherche.value = ''; categorie.value = '' }
 
 <template>
   <div id="page-fournisseurs" class="page">
-    <div class="conteneur">
-      <header class="page-entete">
-        <span class="section-surtitre"><i class="fa-solid fa-truck"></i> Annuaire BTP</span>
-        <h1 class="page-titre">Fournisseurs de Mayotte</h1>
-        <p class="page-sous-titre">Trouvez et contactez directement les entreprises de matériaux de l’île : béton, granulats, parpaings, ciment, carrelage…</p>
+    <div class="conteneur annuaire">
+      <header class="annuaire-entete">
+        <h1 class="annuaire-titre">Fournisseurs</h1>
+        <p>Les entreprises de matériaux de Mayotte, à contacter directement.</p>
       </header>
 
-      <FiltresFournisseurs v-model:recherche="recherche" v-model:categorie="categorie" :nb-resultats="resultats.length" @reinitialiser="reinitialiser" />
+      <FiltresFournisseurs v-model:recherche="recherche" v-model:categorie="categorie" />
 
-      <div v-if="chargement" class="fournisseurs-chargement" role="status"><span class="spinner spinner-grand"></span><p>Chargement de l’annuaire…</p></div>
+      <div v-if="chargement" class="annuaire-vide" role="status"><span class="spinner spinner-grand"></span></div>
 
-      <transition-group v-else-if="resultats.length" name="liste" tag="div" class="grille grille-3">
-        <CarteFournisseur v-for="f in resultats" :key="f.id" :fournisseur="f" />
-      </transition-group>
+      <template v-else-if="resultats.length">
+        <p class="annuaire-compteur" role="status" aria-live="polite">{{ resultats.length }} fournisseur{{ resultats.length > 1 ? 's' : '' }}</p>
+        <ul class="annuaire-liste">
+          <CarteFournisseur v-for="f in resultats" :key="f.id" :fournisseur="f" />
+        </ul>
+      </template>
 
-      <EtatVide v-else icone="fa-solid fa-magnifying-glass" titre="Aucun résultat"
-        :message="`Aucun fournisseur ne correspond à « ${recherche || 'ces filtres'} ». Essayez un autre mot-clé ou une autre catégorie.`">
-        <BoutonBase variante="secondaire" icone="fa-solid fa-rotate-left" @click="reinitialiser">Réinitialiser les filtres</BoutonBase>
-      </EtatVide>
+      <div v-else class="annuaire-vide" role="status">
+        <p>Aucun fournisseur ne correspond à votre recherche.</p>
+        <button type="button" class="annuaire-lien" @click="reinitialiser">Tout afficher</button>
+      </div>
 
-      <BandeauAvertissement type="info" compact class="fournisseurs-note">
-        Les informations des fournisseurs sont enregistrées dans l’application{{ source === 'supabase' ? ' (base Supabase BTM)' : '' }} et doivent être vérifiées avant toute commande. Vous êtes fournisseur ? <a href="mailto:contact@btm-mayotte.yt" class="lien-inline">Contactez-nous</a> pour être référencé.
-      </BandeauAvertissement>
+      <p class="annuaire-pied">
+        Vous êtes fournisseur ? <a href="mailto:contact@btm-mayotte.yt" class="annuaire-lien">Être référencé</a>
+      </p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.fournisseurs-chargement { display: grid; place-items: center; gap: 12px; padding: 60px 0; color: var(--texte-secondaire); }
-.fournisseurs-note { margin-top: 40px; }
-.lien-inline { font-weight: 700; text-decoration: underline; }
-.liste-enter-active, .liste-leave-active { transition: all .35s ease; }
-.liste-enter-from, .liste-leave-to { opacity: 0; transform: translateY(14px) scale(.98); }
-.liste-move { transition: transform .35s ease; }
+.annuaire { max-width: 820px; }
+.annuaire-entete { margin-bottom: 32px; }
+.annuaire-titre { font-size: clamp(2.2rem, 5vw, 3rem); font-weight: 700; color: var(--ardoise); }
+.annuaire-entete p { margin: 8px 0 0; color: var(--gris-500); font-size: 1.02rem; }
+
+.annuaire-compteur { margin: 20px 0 0; font-size: .82rem; color: var(--gris-400); }
+.annuaire-liste { list-style: none; margin: 0; padding: 0; }
+
+.annuaire-vide { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 72px 20px; color: var(--gris-500); text-align: center; }
+.annuaire-vide p { margin: 0; }
+
+.annuaire-lien { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--lagon-700); cursor: pointer; }
+.annuaire-lien:hover { text-decoration: underline; }
+
+.annuaire-pied { margin: 48px 0 0; font-size: .88rem; color: var(--gris-500); }
 </style>

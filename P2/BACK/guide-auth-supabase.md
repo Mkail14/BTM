@@ -183,61 +183,34 @@ Le fichier [BACK/supabase/migrations/0002_politiques_rls.sql](BACK/supabase/migr
 
 Il faut maintenant ajouter les règles pour l’admin.
 
+> ⚠️ Ne jamais écrire `exists (select … from public.profils …)` dans une politique : sur la table `profils`, cela provoque
+> « infinite recursion detected in policy for relation "profils" » (et casse aussi `projets` / `fournisseurs`).
+> La vérification passe par la fonction `public.est_admin()` (SECURITY DEFINER), définie dans
+> [migrations/0004_role_admin.sql](supabase/migrations/0004_role_admin.sql), qui crée aussi toutes les politiques ci-dessous.
+
 ### 5.1. Profil : un utilisateur voit son profil, l’admin voit tous les profils
 ```sql
 create policy "profils : lecture admin"
-on public.profils for select
-to authenticated
-using (
-  exists (
-    select 1 from public.profils p
-    where p.id = auth.uid() and p.role = 'admin'
-  )
-  or auth.uid() = id
-);
+  on public.profils for select
+  to authenticated using (public.est_admin());
 ```
 
 ### 5.2. Projets : l’admin voit tous les projets
 ```sql
 create policy "projets : lecture admin"
-on public.projets for select
-to authenticated
-using (
-  exists (
-    select 1 from public.profils p
-    where p.id = auth.uid() and p.role = 'admin'
-  )
-  or auth.uid() = utilisateur_id
-);
+  on public.projets for select
+  to authenticated using (public.est_admin());
 ```
 
 ### 5.3. Fournisseurs : lecture publique, écriture admin uniquement
 ```sql
 create policy "fournisseurs : ecriture admin"
-on public.fournisseurs for insert
-to authenticated
-with check (
-  exists (
-    select 1 from public.profils p
-    where p.id = auth.uid() and p.role = 'admin'
-  )
-);
+  on public.fournisseurs for insert
+  to authenticated with check (public.est_admin());
 
 create policy "fournisseurs : mise a jour admin"
-on public.fournisseurs for update
-to authenticated
-using (
-  exists (
-    select 1 from public.profils p
-    where p.id = auth.uid() and p.role = 'admin'
-  )
-)
-with check (
-  exists (
-    select 1 from public.profils p
-    where p.id = auth.uid() and p.role = 'admin'
-  )
-);
+  on public.fournisseurs for update
+  to authenticated using (public.est_admin()) with check (public.est_admin());
 ```
 
 ---

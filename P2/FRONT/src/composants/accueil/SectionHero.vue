@@ -1,7 +1,28 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
+import { useAuth } from '@/composables/useAuth.js'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
-import Scene3DChantier from './Scene3DChantier.vue'
+import { typesProjets } from '@/donnees/typesProjets.js'
+const Scene3DChantier = defineAsyncComponent(() => import('./Scene3DChantier.vue'))
+import HeroPaysage from './HeroPaysage.vue'
+
+const { utilisateur } = useAuth()
+// « Bonjour Monsieur Dupont » si la civilité est connue, sinon « Bonjour Prénom Nom » (anciens comptes)
+const salutation = computed(() => {
+  const infos = utilisateur.value?.user_metadata
+  if (!utilisateur.value) return ''
+  const civilite = { 'M.': 'Monsieur', Mme: 'Madame' }[infos?.civilite]
+  if (civilite && infos?.nom) return `Bonjour ${civilite} ${infos.nom}`
+  const nomComplet = [infos?.prenom, infos?.nom].filter(Boolean).join(' ')
+  return `Bonjour ${nomComplet || infos?.pseudo || utilisateur.value.email.split('@')[0]}`
+})
+
+// Téléphone (< 640 px) : la maquette 3D est remplacée par des raccourcis vers les 4 types de devis
+const requete = typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)') : null
+const telephone = ref(!!requete?.matches)
+const surTaille = (e) => { telephone.value = e.matches }
+onMounted(() => requete?.addEventListener('change', surTaille))
+onBeforeUnmount(() => requete?.removeEventListener('change', surTaille))
 
 const decalage = ref(0)
 let raf = null
@@ -15,59 +36,66 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
 </script>
 
 <template>
-  <section id="hero-section" class="hero fond-plan" aria-labelledby="hero-titre">
-    <div class="hero-fond-parallax" :style="{ transform: `translate3d(0, ${decalage * 0.25}px, 0)` }" aria-hidden="true"></div>
+  <section id="hero-section" class="hero" aria-labelledby="hero-titre">
+    <HeroPaysage :style="{ transform: `translate3d(0, ${decalage * 0.2}px, 0)` }" />
 
     <div class="conteneur hero-grille">
       <div class="hero-texte" :style="{ transform: `translate3d(0, ${decalage * 0.08}px, 0)` }">
-        <p class="hero-surtitre">Plateforme d’estimation BTP · Mayotte</p>
+        <p class="hero-surtitre">Plateforme de devis BTP · Mayotte</p>
         <h1 id="hero-titre" class="hero-titre">
-          Estimer vos travaux
+          {{ salutation || 'Le devis de vos travaux' }}
         </h1>
         <p class="hero-desc">
           Budget, quantités et fournisseurs pour mur, dalle, fondation ou terrasse.
         </p>
         <div class="hero-actions">
-          <BoutonBase to="/calculateur" variante="primaire" icone-droite="fa-solid fa-arrow-right">Lancer une estimation</BoutonBase>
+          <BoutonBase to="/calculateur" variante="primaire" icone-droite="fa-solid fa-arrow-right">Faire mon devis</BoutonBase>
           <BoutonBase to="/fournisseurs" variante="contour-clair">Annuaire des fournisseurs</BoutonBase>
         </div>
       </div>
 
-      <div class="hero-visuel" :style="{ transform: `translate3d(0, ${decalage * -0.06}px, 0)` }">
+      <div v-if="!telephone" class="hero-visuel" :style="{ transform: `translate3d(0, ${decalage * -0.06}px, 0)` }">
         <Scene3DChantier />
       </div>
+
+      <!-- Téléphone : accès direct à chaque type de devis -->
+      <nav v-else class="hero-raccourcis" aria-label="Commencer un devis">
+        <p class="hero-raccourcis-titre">Que voulez-vous construire ?</p>
+        <ul>
+          <li v-for="t in typesProjets" :key="t.id">
+            <router-link :to="{ path: '/calculateur', query: { type: t.id } }">
+              <i :class="t.icone" aria-hidden="true"></i>
+              <span>{{ t.libelle }}</span>
+            </router-link>
+          </li>
+        </ul>
+      </nav>
     </div>
 
-    <div class="hero-bas" aria-hidden="true">
-      <span class="hero-bas-item"><i class="fa-solid fa-circle-check"></i> Formules issues des règles de gestion BTP</span>
-      <span class="hero-bas-item"><i class="fa-solid fa-circle-check"></i> Export PDF</span>
-      <span class="hero-bas-item"><i class="fa-solid fa-circle-check"></i> Fournisseurs vérifiés localement</span>
-    </div>
+    <a href="#types-projets" class="hero-defiler" aria-label="Voir la suite"><span></span></a>
   </section>
 </template>
 
 <style scoped>
 .hero {
   position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; overflow: hidden;
-  color: #fff; padding: calc(var(--hauteur-entete) + 48px) 0 0; isolation: isolate;
-}
-.hero-fond-parallax {
-  position: absolute; inset: -20% -10%; z-index: -1; pointer-events: none;
-  background:
-    radial-gradient(ellipse 50% 60% at 78% 45%, rgba(8,145,178,.22), transparent 70%),
-    radial-gradient(ellipse 40% 40% at 10% 90%, rgba(14,116,144,.18), transparent 70%);
+  color: #fff; padding: calc(var(--hauteur-entete) + 48px) 0 0; isolation: isolate; background: #0a0f14;
 }
 .hero-grille {
   display: grid; gap: 32px 56px; grid-template-columns: 1fr; align-items: center; justify-items: center;
-  flex: 1; width: min(100%, 1260px); margin: 0 auto; padding-bottom: 40px;
+  flex: 1; width: 100%; margin: 0 auto; padding: 0 7vw 40px;
 }
 @media (min-width: 900px) {
   .hero-grille {
-    grid-template-columns: minmax(0, 1fr) minmax(340px, 520px);
-    gap: 48px; justify-items: center; align-items: center;
+    grid-template-columns: minmax(0, 1fr) minmax(460px, 1fr);
+    gap: 4vw; justify-items: stretch; align-items: center;
   }
 }
-
+@media (min-width: 1200px) {
+  .hero-grille { max-width: 1800px; padding-inline: 5vw; }
+  .hero-titre { white-space: nowrap; }
+  .hero-actions { flex-wrap: nowrap; }
+}
 .hero-texte {
   display: flex; flex-direction: column; justify-content: center; width: 100%; max-width: 610px; margin-inline: auto;
   text-align: left;
@@ -76,9 +104,9 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
 
 .hero-surtitre {
   display: inline-flex; align-items: center; gap: 10px; font-size: .78rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--lagon-300); margin-bottom: 22px; animation: apparaitre .6s ease both;
+  color: #f7c77a; margin-bottom: 22px; animation: apparaitre .6s ease both;
 }
-.hero-surtitre::before { content: ''; width: 26px; height: 2px; background: var(--lagon-400); }
+.hero-surtitre::before { content: ''; width: 26px; height: 2px; background: #f59e0b; }
 .hero-titre {
   font-size: clamp(2.6rem, 6vw, 4.6rem); font-weight: 700; line-height: 1.02; letter-spacing: -.01em;
   animation: apparaitre .7s .08s ease both;
@@ -86,16 +114,62 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
 .hero-desc { margin-top: 24px; font-size: clamp(1rem, 1.4vw, 1.15rem); line-height: 1.65; color: var(--beton); max-width: 560px; animation: apparaitre .7s .18s ease both; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; animation: apparaitre .7s .28s ease both; }
 .hero-visuel {
-  width: 100%; max-width: 520px; display: flex; align-items: center; justify-content: center; position: relative; top: 48px;
+  width: 100%; max-width: 620px; display: flex; align-items: center; justify-content: center; position: relative; top: 48px;
   transform: translateY(18px);
   animation: apparaitre .9s .2s ease both;
 }
-@media (min-width: 900px) { .hero-visuel { justify-self: center; transform: translateY(26px); } }
-
-.hero-bas {
-  display: flex; flex-wrap: wrap; gap: 12px 32px; justify-content: center; padding: 18px 20px;
-  border-top: 1px solid rgba(255,255,255,.08); background: rgba(15,23,42,.55); font-size: .84rem; color: var(--gris-400);
+/* Téléphone : hero centré, boutons larges, raccourcis à la place de la maquette 3D */
+@media (max-width: 639px) {
+  .hero { padding-top: calc(var(--hauteur-entete) + 20px); justify-content: flex-start; }
+  .hero-grille { grid-template-columns: minmax(0, 1fr); gap: 26px; padding: 8px 20px 96px; align-content: center; }
+  .hero-grille > * { min-width: 0; }
+  .hero-texte { max-width: none; }
+  .hero-surtitre { font-size: .7rem; letter-spacing: .12em; margin-bottom: 14px; }
+  .hero-titre { font-size: clamp(1.9rem, 10.5vw, 3rem); overflow-wrap: break-word; hyphens: auto; }
+  .hero-desc { margin-top: 14px; font-size: 1.02rem; line-height: 1.55; }
+  .hero-actions { flex-direction: column; align-items: stretch; gap: 10px; margin-top: 24px; }
+  .hero-actions :deep(.btn), .hero-actions :deep(a) { width: 100%; justify-content: center; min-height: 50px; }
+  .hero-defiler { display: none; }
 }
-.hero-bas-item { display: inline-flex; gap: 8px; align-items: center; }
-.hero-bas-item i { color: var(--lagon-400); }
+/* Petits téléphones (≤ 360 px) */
+@media (max-width: 360px) {
+  .hero-grille { padding-inline: 16px; gap: 22px; }
+  .hero-surtitre { font-size: .62rem; letter-spacing: .08em; gap: 8px; }
+  .hero-surtitre::before { width: 18px; }
+  .hero-desc { font-size: .95rem; }
+  .hero-raccourcis ul { gap: 8px; }
+  .hero-raccourcis a { gap: 8px; padding: 0 10px; min-height: 54px; font-size: .92rem; }
+  .hero-raccourcis i { width: 28px; height: 28px; font-size: .82rem; }
+}
+
+/* Raccourcis (téléphone uniquement) */
+.hero-raccourcis { width: 100%; animation: apparaitre .8s .3s ease both; }
+.hero-raccourcis-titre { margin: 0 0 10px; font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
+.hero-raccourcis ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hero-raccourcis a {
+  display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 0 14px; border-radius: 14px; color: #fff; font-weight: 600;
+  background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .14); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  transition: background var(--transition), transform var(--transition);
+}
+.hero-raccourcis a:active { background: rgba(6, 182, 212, .22); transform: scale(.98); }
+.hero-raccourcis i { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: rgba(6, 182, 212, .2); color: #67e8f9; font-size: .95rem; }
+@media (min-width: 900px) { .hero-texte { justify-self: start; } .hero-visuel { justify-self: end; transform: translateY(26px); } }
+@media (min-width: 1800px) {
+  .hero-grille { max-width: 2100px; grid-template-columns: minmax(0, 1fr) minmax(720px, 1fr); }
+  .hero-visuel, .scene { max-width: 720px; }
+}
+
+.hero-titre { text-shadow: 0 2px 30px rgba(10, 15, 20, .5); }
+.hero-desc { color: rgba(255, 255, 255, .72); }
+
+/* Indicateur de défilement : une souris dont la molette descend */
+.hero-defiler {
+  position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+  width: 26px; height: 40px; border: 1.5px solid rgba(255, 255, 255, .45); border-radius: 14px;
+  transition: border-color var(--transition);
+}
+.hero-defiler:hover { border-color: #fff; }
+.hero-defiler span { position: absolute; left: 50%; top: 8px; width: 3px; height: 8px; margin-left: -1.5px; border-radius: 2px; background: #fff; animation: molette 1.8s ease-in-out infinite; }
+@keyframes molette { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(12px); } }
+@media (prefers-reduced-motion: reduce) { .hero-defiler span { animation: none; } }
 </style>

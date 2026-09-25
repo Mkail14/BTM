@@ -1,37 +1,42 @@
 <script setup>
+import { ref } from 'vue'
 import { typesProjets } from '@/donnees/typesProjets.js'
-import Objet3D from './Objet3D.vue'
-const details = {
-  mur: ['Parpaings 20×20×40', 'Ciment & sable', 'Ouvertures déduites'],
-  dalle: ['Béton 2,4 t/m³', 'Treillis soudé', 'Hérisson de gravier'],
-  fondation: ['Semelles filantes', 'Béton armé', 'Armatures acier HA'],
-  terrasse: ['Base dalle béton', 'Carrelage ou béton lissé', 'Usage extérieur']
+import Maquette3D from './Maquette3D.vue'
+
+const accroches = {
+  mur: 'Parpaings, ciment, sable',
+  dalle: 'Béton, treillis, hérisson',
+  fondation: 'Semelles en béton armé',
+  terrasse: 'Carrelage ou béton lissé'
 }
+const survol = ref(null)
 </script>
 
 <template>
   <section id="types-projets" class="section vitrine" aria-labelledby="vitrine-titre">
     <div class="conteneur">
       <header class="section-entete reveal">
-        <span class="section-surtitre">Quatre types de projets</span>
-        <h2 id="vitrine-titre" class="section-titre">Les ouvrages les plus courants, modélisés.</h2>
-        <p class="section-sous-titre">Chaque type de projet applique ses propres règles de calcul : quantités, marges, main-d’œuvre et frais de livraison.</p>
+        <span class="section-surtitre">Ouvrages</span>
+        <h2 id="vitrine-titre" class="section-titre">Que construisez-vous ?</h2>
       </header>
 
-      <div class="grille grille-4">
+      <div class="ouvrages">
         <router-link
           v-for="(t, i) in typesProjets" :key="t.id"
           :to="{ path: '/calculateur', query: { type: t.id } }"
-          class="vitrine-carte objet3d-hote reveal" :data-delai="i + 1"
+          class="ouvrage reveal" :data-delai="i + 1"
+          :aria-label="`Faire le devis : ${t.libelle}`"
+          @mouseenter="survol = t.id" @mouseleave="survol = null"
+          @focus="survol = t.id" @blur="survol = null"
         >
-          <div class="vitrine-visuel fond-plan"><Objet3D :type="t.id" :taille="150" /></div>
-          <div class="vitrine-corps">
-            <h3>{{ t.libelle }}</h3>
-            <p>{{ t.description }}</p>
-            <ul class="vitrine-details">
-              <li v-for="d in details[t.id]" :key="d"><i class="fa-solid fa-check"></i>{{ d }}</li>
-            </ul>
-            <span class="vitrine-cta">Estimer ce projet <i class="fa-solid fa-arrow-right"></i></span>
+          <span class="ouvrage-num">0{{ i + 1 }}</span>
+          <div class="ouvrage-scene"><Maquette3D :type="t.id" :actif="survol === t.id" /></div>
+          <div class="ouvrage-pied">
+            <div>
+              <h3>{{ t.libelle }}</h3>
+              <p>{{ accroches[t.id] }}</p>
+            </div>
+            <span class="ouvrage-fleche"><i class="fa-solid fa-arrow-right"></i></span>
           </div>
         </router-link>
       </div>
@@ -40,20 +45,37 @@ const details = {
 </template>
 
 <style scoped>
-.vitrine { background: #fff; border-top: 1px solid var(--bordure); border-bottom: 1px solid var(--bordure); }
-.vitrine-carte {
-  display: flex; flex-direction: column; background: #fff; border: 1px solid var(--bordure); border-radius: var(--rayon-lg); overflow: hidden;
-  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+.vitrine { background: #fff; }
+.ouvrages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+.ouvrage {
+  position: relative; display: flex; flex-direction: column; overflow: hidden;
+  background: #f2f0eb; border-radius: 22px; color: inherit;
+  transition: background var(--transition);
 }
-.vitrine-carte:hover { transform: translateY(-4px); box-shadow: var(--ombre-lg); border-color: var(--gris-300); }
-.vitrine-visuel { display: grid; place-items: center; height: 190px; background-size: 24px 24px; }
-.vitrine-corps { padding: 22px 22px 24px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
-.vitrine-corps h3 { font-size: 1.6rem; font-weight: 700; color: var(--ardoise); }
-.vitrine-corps p { color: var(--texte-secondaire); font-size: .92rem; line-height: 1.55; }
-.vitrine-details { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; font-size: .86rem; color: var(--gris-700); flex: 1; }
-.vitrine-details li { display: flex; gap: 8px; align-items: center; }
-.vitrine-details i { color: var(--lagon-600); font-size: .7rem; }
-.vitrine-cta { font-weight: 600; font-size: .9rem; color: var(--lagon-700); display: inline-flex; gap: 8px; align-items: center; }
-.vitrine-cta i { transition: transform var(--transition); }
-.vitrine-carte:hover .vitrine-cta i { transform: translateX(4px); }
+.ouvrage:hover { background: #ebe7df; }
+.ouvrage:focus-visible { outline: 2px solid var(--lagon-600); outline-offset: 3px; }
+
+.ouvrage-num {
+  position: absolute; top: 18px; left: 22px; z-index: 1;
+  font-family: var(--font-mono); font-size: .75rem; letter-spacing: .1em; color: var(--gris-400);
+}
+.ouvrage-scene { position: relative; aspect-ratio: 1 / 1.05; }
+
+.ouvrage-pied { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 0 22px 22px; }
+.ouvrage h3 { font-size: 1.85rem; font-weight: 700; color: var(--ardoise); }
+.ouvrage p { margin: 4px 0 0; font-size: .86rem; color: var(--gris-500); }
+
+.ouvrage-fleche {
+  flex-shrink: 0; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
+  background: #fff; color: var(--ardoise); font-size: .85rem;
+  transition: background var(--transition), color var(--transition), transform var(--transition);
+}
+.ouvrage:hover .ouvrage-fleche, .ouvrage:focus-visible .ouvrage-fleche { background: var(--lagon-600); color: #fff; transform: rotate(-45deg); }
+
+@media (max-width: 1080px) { .ouvrages { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 560px) {
+  .ouvrages { grid-template-columns: 1fr; }
+  .ouvrage-scene { aspect-ratio: 4 / 3; }
+}
 </style>

@@ -1,0 +1,137 @@
+<script setup>
+/**
+ * Espace administrateur — pilote tout le site : textes, prix et formules du calculateur,
+ * fournisseurs, avis, utilisateurs et projets. Mise en page propre (barre latérale),
+ * sans l'en-tête ni le pied du site public (meta.pleinEcran).
+ * L'accès est contrôlé par la base (RLS + est_admin()) : un non-admin ne reçoit aucune donnée.
+ */
+import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuth } from '@/composables/useAuth.js'
+import { useAdmin, initiales } from '@/composables/useAdmin.js'
+import LogoBtm from '@/composants/commun/LogoBtm.vue'
+import AdminRetours from '@/composants/admin/AdminRetours.vue'
+import AdminCompte from '@/composants/admin/AdminCompte.vue'
+import '@/composants/admin/admin.css'
+
+const sections = [
+  { id: 'apercu', label: 'Tableau de bord', icone: 'fa-solid fa-chart-simple', titre: 'Tableau de bord', sousTitre: 'L’activité de BTM en un coup d’œil.', composant: () => import('@/composants/admin/SectionApercu.vue') },
+  { id: 'contenus', label: 'Contenu du site', icone: 'fa-solid fa-pen-nib', titre: 'Contenu du site', sousTitre: 'Modifiez les textes affichés sur le site, sans toucher au code.', composant: () => import('@/composants/admin/SectionContenus.vue') },
+  { id: 'calculateur', label: 'Calculateur & prix', icone: 'fa-solid fa-calculator', titre: 'Calculateur & prix', sousTitre: 'Prix des matériaux et constantes utilisées par chaque devis.', composant: () => import('@/composants/admin/SectionCalculateur.vue') },
+  { id: 'codes', label: 'Codes promo', icone: 'fa-solid fa-ticket', titre: 'Codes promo', sousTitre: 'Réductions que vos clients saisissent sur leur devis.', recherche: 'Rechercher un code, une note…', composant: () => import('@/composants/admin/SectionCodes.vue') },
+  { id: 'fournisseurs', label: 'Fournisseurs', icone: 'fa-solid fa-truck', titre: 'Fournisseurs', sousTitre: 'Annuaire affiché sur la page Fournisseurs et dans les résultats.', recherche: 'Rechercher un fournisseur, une commune…', composant: () => import('@/composants/admin/SectionFournisseurs.vue') },
+  { id: 'avis', label: 'Avis', icone: 'fa-solid fa-star', titre: 'Avis clients', sousTitre: 'Modérez les avis affichés sur la page d’accueil.', recherche: 'Rechercher un nom, une ville, un mot…', composant: () => import('@/composants/admin/SectionAvis.vue') },
+  { id: 'utilisateurs', label: 'Utilisateurs', icone: 'fa-solid fa-users', titre: 'Utilisateurs', sousTitre: 'Comptes, rôles et accès.', recherche: 'Rechercher un nom, un e-mail…', composant: () => import('@/composants/admin/SectionUtilisateurs.vue') },
+  { id: 'projets', label: 'Projets', icone: 'fa-solid fa-folder-open', titre: 'Projets', sousTitre: 'Estimations enregistrées par les utilisateurs.', recherche: 'Rechercher un projet, un propriétaire…', composant: () => import('@/composants/admin/SectionProjets.vue') }
+].map((s) => ({ ...s, composant: defineAsyncComponent(s.composant) }))
+
+const route = useRoute()
+const router = useRouter()
+const { utilisateur, deconnexion } = useAuth()
+const { recherche, charger, migrationManquante, compteOuvert } = useAdmin()
+// Vérifie dès l'ouverture que la base contient les tables récentes (contenus 0007, codes promo 0009)
+onMounted(() => charger(['contenus', 'codes'], { force: true }))
+const refProjet = (import.meta.env.VITE_SUPABASE_URL || '').match(/https:\/\/([^.]+)\.supabase\.co/)?.[1]
+const lienSql = refProjet ? `https://supabase.com/dashboard/project/${refProjet}/sql/new` : 'https://supabase.com/dashboard'
+
+const section = computed(() => sections.find((s) => s.id === route.params.section) || sections[0])
+const menuOuvert = ref(false)
+
+watch(() => section.value.id, () => { recherche.value = ''; menuOuvert.value = false })
+watch(section, (s) => { document.title = `${s.titre} — Administration BTM` }, { immediate: true })
+
+const infos = computed(() => utilisateur.value?.user_metadata || {})
+const nomAdmin = computed(() => [infos.value.prenom, infos.value.nom].filter(Boolean).join(' ') || infos.value.pseudo || utilisateur.value?.email?.split('@')[0] || 'Admin')
+
+async function seDeconnecter() {
+  await deconnexion()
+  router.push('/connexion')
+}
+</script>
+
+<template>
+  <div class="adm adm-cadre" :class="{ 'ecran-fixe': section.id === 'apercu' }">
+    <!-- Barre latérale -->
+    <aside class="adm-lat" :class="{ ouvert: menuOuvert }" aria-label="Navigation de l’administration">
+      <router-link to="/admin" class="adm-lat-logo" aria-label="Tableau de bord">
+        <span class="adm-lat-logo-icone"><LogoBtm :taille="30" /></span>
+        <span class="adm-lat-logo-texte"><strong>BTM</strong><small>Administration</small></span>
+      </router-link>
+
+      <nav class="adm-lat-nav">
+        <router-link
+          v-for="s in sections" :key="s.id" :to="s.id === 'apercu' ? '/admin' : `/admin/${s.id}`"
+          class="adm-lat-lien" :class="{ actif: section.id === s.id }" :aria-current="section.id === s.id ? 'page' : undefined"
+        >
+          <i :class="s.icone" aria-hidden="true"></i><span>{{ s.label }}</span>
+        </router-link>
+      </nav>
+
+      <div class="adm-lat-bas">
+        <button type="button" class="adm-lat-lien" @click="compteOuvert = true; menuOuvert = false"><i class="fa-solid fa-building-columns" aria-hidden="true"></i><span>Compte & reversements</span></button>
+        <button type="button" class="adm-lat-lien" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Déconnexion</span></button>
+      </div>
+    </aside>
+    <div v-if="menuOuvert" class="adm-lat-voile" @click="menuOuvert = false"></div>
+
+    <!-- Contenu -->
+    <div class="adm-principal">
+      <header class="adm-haut">
+        <button type="button" class="adm-icone-btn adm-icone-btn-bord adm-burger" :aria-expanded="menuOuvert" aria-label="Ouvrir le menu" @click="menuOuvert = true">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="adm-haut-titre">
+          <h1>{{ section.titre }}</h1>
+          <p>{{ section.sousTitre }}</p>
+        </div>
+        <label v-if="section.recherche" class="adm-haut-recherche">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input v-model="recherche" type="search" :placeholder="section.recherche" :aria-label="section.recherche" />
+        </label>
+        <button type="button" class="adm-haut-profil" aria-haspopup="dialog" title="Compte & reversements" @click="compteOuvert = true">
+          <span class="adm-avatar rond">{{ initiales(nomAdmin) }}</span>
+          <span><strong>{{ nomAdmin }}</strong><small>Compte & reversements</small></span>
+          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </button>
+      </header>
+
+      <div v-if="migrationManquante" class="adm-carte adm-migration" role="alert">
+        <span class="adm-migration-icone"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
+        <div>
+          <strong>La base Supabase n’est pas à jour</strong>
+          <p>
+            Les textes du site, les frais de service et la modération des avis ont besoin de nouvelles tables.
+            Dans le SQL Editor, exécutez une à une les migrations manquantes du dossier <span class="adm-mono">BACK/supabase/migrations/</span> (0007, 0008, 0009), puis rechargez cette page.
+          </p>
+        </div>
+        <a :href="lienSql" target="_blank" rel="noopener noreferrer" class="adm-btn adm-btn-noir">Ouvrir le SQL Editor <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+      </div>
+
+      <component :is="section.composant" :key="section.id" />
+    </div>
+
+    <AdminCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
+    <AdminRetours />
+  </div>
+</template>
+
+<style scoped>
+/* Tableau de bord : exactement la hauteur de l'écran, sans défilement de la page (ordinateur) */
+@media (min-width: 1024px) and (min-height: 640px) {
+  .adm-cadre.ecran-fixe { height: 100dvh; grid-template-rows: minmax(0, 1fr); }
+  .adm-cadre.ecran-fixe .adm-principal { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; }
+  .adm-cadre.ecran-fixe .adm-haut { flex: none; margin-bottom: 16px; }
+  .adm-cadre.ecran-fixe .adm-migration { flex: none; margin-bottom: 14px; }
+  .adm-cadre.ecran-fixe .adm-principal > .apercu { flex: 1; min-height: 0; }
+}
+@media (min-width: 1024px) and (max-height: 820px) {
+  .adm-cadre.ecran-fixe .adm-haut { margin-bottom: 10px; }
+  .adm-cadre.ecran-fixe .adm-haut-titre h1 { font-size: 1.5rem; }
+  .adm-cadre.ecran-fixe .adm-haut-titre p { display: none; }
+}
+.adm-migration { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; margin-bottom: 20px; padding: 20px 22px; box-shadow: inset 0 0 0 1px #fde68a, var(--adm-ombre); background: #fffbeb; }
+.adm-migration > div { flex: 1 1 320px; }
+.adm-migration strong { font-size: .98rem; }
+.adm-migration p { margin: 4px 0 0; color: #78350f; font-size: .88rem; line-height: 1.55; }
+.adm-migration-icone { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: #fef3c7; color: #b45309; }
+</style>

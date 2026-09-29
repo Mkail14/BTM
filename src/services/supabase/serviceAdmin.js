@@ -1,0 +1,262 @@
+/**
+ * Administration — toutes ces requêtes passent par les politiques RLS :
+ * elles ne renvoient / n'écrivent des données que si le compte connecté a le rôle « admin »
+ * (fonction SQL est_admin(), migrations 0004, 0006 et 0007).
+ */
+import { supabase, supabaseConfigure } from './client.js'
+import { normaliserResultat } from '@/services/calculs/moteurCalculs.js'
+
+const verifier = () => { if (!supabaseConfigure) throw new Error('Backend Supabase non configuré') }
+const ok = ({ data, error }) => { if (error) throw traduire(error); return data }
+
+// Codes signalant une base en retard sur le code : table / colonne absente, droit manquant
+const CODES_MIGRATION = ['PGRST205', 'PGRST204', '42P01', '42703', '42501']
+
+/** Messages PostgreSQL / PostgREST → phrases lisibles pour l'admin ; `migration` = base à mettre à jour */
+function traduire(error) {
+  const messages = {
+    '23503': 'Élément encore utilisé ailleurs : retirez d’abord ce qui y fait référence.',
+    '23505': 'Cet élément existe déjà (identifiant ou code en double).'
+  }
+  const migration = CODES_MIGRATION.includes(error.code)
+  const e = new Error(migration ? 'La base Supabase n’est pas à jour : appliquez les dernières migrations (0007 à 0009).' : messages[error.code] || error.message || 'Erreur inconnue')
+  e.migration = migration
+  return e
+}
+
+/** Rôle et type du compte : { role, fournisseur_id, type_profil, pro } (select * : fonctionne avant les migrations 0010/0011) */
+export async function lireRoleCompte(utilisateurId) {
+  if (!supabaseConfigure || !utilisateurId) return { role: null, fournisseur_id: null, type_profil: null, pro: null }
+  const { data, error } = await supabase.from('profils').select('*').eq('id', utilisateurId).maybeSingle()
+  if (error || !data) return { role: null, fournisseur_id: null, type_profil: null, pro: null }
+  return {
+    role: data.role, fournisseur_id: data.fournisseur_id || null, type_profil: data.type_profil || 'particulier',
+    // demande de compte professionnel (migration 0011) : statut, entreprise, motif d'un éventuel refus
+    pro: data.pro_statut ? { statut: data.pro_statut, raisonSociale: data.pro_raison_sociale, siret: data.pro_siret, motif: data.pro_motif_refus, demandeLe: data.pro_demande_le } : null
+  }
+}
+
+export async function estAdmin(utilisateurId) {
+  if (!supabaseConfigure || !utilisateurId) return false
+  const { data, error } = await supabase.from('profils').select('role').eq('id', utilisateurId).maybeSingle()
+  return !error && data?.role === 'admin'
+}
+
+// ---------- Utilisateurs ---------------------------------------------------------
+export async function listerProfils() {
+  verifier()
+  return ok(await supabase.from('profils').select('*').order('cree_le', { ascending: false }))
+}
+
+/** Appelle la fonction serveur (qui revérifie le rôle admin) et remonte son message d'erreur */
+async function fonctionAdmin(corps) {
+  verifier()
+  const { data, error } = await supabase.functions.invoke('admin-utilisateurs', { body: corps })
+  if (error) {
+    let message = error.message
+    try { message = (await error.context.json()).erreur || message } catch { /* corps non JSON */ }
+    throw new Error(message)
+  }
+  if (data?.erreur) throw new Error(data.erreur)
+  return data
+}
+export const lireUtilisateur = (id) => fonctionAdmin({ action: 'lire', id })
+export const modifierUtilisateur = (id, champs) => fonctionAdmin({ action: 'modifier', id, ...champs })
+export const reinitialiserMotDePasse = (id) => fonctionAdmin({ action: 'reinitialiser', id, origine: window.location.origin })
+// ---------- Accès fournisseur (fonction admin-utilisateurs) ----------
+// Statut lu dans Auth : { id, email, statut: 'invite'|'actif', invite_le, derniere_connexion, fournisseur_id }
+export const listerAccesFournisseurs = async () => (await fonctionAdmin({ action: 'acces_fournisseurs' })).acces || []
+/** Invite le responsable par e-mail ; { envoye: false, lien } si l'e-mail n'a pas pu partir, { relie: true } si le compte existait */
+export const inviterFournisseur = (email, fournisseurId) => fonctionAdmin({ action: 'inviter_fournisseur', email, fournisseur_id: fournisseurId, origine: window.location.origin })
+/** Renvoie l'invitation (compte pas encore activé) ou un e-mail de nouveau mot de passe (compte actif) */
+export const relancerFournisseur = (id) => fonctionAdmin({ action: 'relancer_fournisseur', id, origine: window.location.origin })
+/** Lien d'invitation à transmettre soi-même (quand l'e-mail ne part pas) */
+export const lienFournisseur = async (id) => (await fonctionAdmin({ action: 'lien_fournisseur', id, origine: window.location.origin })).lien
+/** Retire l'accès : compte jamais activé supprimé, compte actif redevenu particulier */
+export const retirerFournisseur = (id) => fonctionAdmin({ action: 'retirer_fournisseur', id })
+
+// ---------- Projets --------------------------------------------------------------
+export async function listerProjets() {
+  verifier()
+  // `frais` : montant des frais de service BTM enregistré dans le devis (absent des devis antérieurs aux frais)
+  const lignes = ok(await supabase.from('projets')
+    .select('id, utilisateur_id, nom, type_projet_id, cout_total, fournisseur_id, cree_le, frais:resultat->fraisService->>montant, remise:resultat->remise->>montant, code:resultat->remise->>code')
+    .order('cree_le', { ascending: false }).limit(1000))
+  // remise : réduction d'un code promo (déduite du revenu BTM) ; code : le code utilisé
+  return lignes.map((p) => ({ ...p, frais: p.frais === null || p.frais === undefined ? null : Number(p.frais), remise: Number(p.remise) || 0 }))
+}
+export async function lireProjet(id) {
+  verifier()
+  const p = ok(await supabase.from('projets').select('*').eq('id', id).single())
+  return { ...p, resultat: normaliserResultat(p.resultat) }
+}
+export const supprimerProjet = async (id) => { verifier(); ok(await supabase.from('projets').delete().eq('id', id)) }
+
+// ---------- Avis -----------------------------------------------------------------
+export async function listerAvis() {
+  verifier()
+  const lignes = ok(await supabase.from('avis').select('*').order('cree_le', { ascending: false }))
+  return lignes.map((a) => ({ ...a, visible: a.visible !== false })) // colonne absente avant 0007 : tout est visible
+}
+export const definirAvisVisible = async (id, visible) => { verifier(); ok(await supabase.from('avis').update({ visible }).eq('id', id)) }
+export const supprimerAvis = async (id) => { verifier(); ok(await supabase.from('avis').delete().eq('id', id)) }
+
+// ---------- Fournisseurs et catégories ---------------------------------------------
+export async function listerFournisseurs() {
+  verifier()
+  return ok(await supabase.from('fournisseurs').select('*').order('nom'))
+}
+export const definirFournisseurActif = async (id, actif) => { verifier(); ok(await supabase.from('fournisseurs').update({ actif }).eq('id', id)) }
+export const supprimerFournisseur = async (id) => { verifier(); ok(await supabase.from('fournisseurs').delete().eq('id', id)) }
+
+export const slugifier = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+/** Crée ou met à jour un fournisseur (id présent = mise à jour) */
+export async function enregistrerFournisseur(f) {
+  verifier()
+  const champs = {
+    nom: f.nom.trim(),
+    categorie_id: f.categorie_id,
+    commune: f.commune.trim(),
+    adresse: f.adresse?.trim() || null,
+    telephone: f.telephone.trim(),
+    email: f.email?.trim() || null,
+    site_web: f.site_web?.trim() || null,
+    description: f.description?.trim() || null,
+    horaires: f.horaires?.trim() || null,
+    logo_url: f.logo_url?.trim() || null,
+    livraison: !!f.livraison,
+    actif: f.actif !== false
+  }
+  if (f.id) return ok(await supabase.from('fournisseurs').update(champs).eq('id', f.id).select().single())
+  return ok(await supabase.from('fournisseurs').insert({ ...champs, slug: `${slugifier(champs.nom)}-${Math.random().toString(36).slice(2, 6)}` }).select().single())
+}
+
+export async function listerCategories() {
+  verifier()
+  return ok(await supabase.from('categories_fournisseurs').select('id, libelle, icone, ordre').order('ordre'))
+}
+/** Nouvelle catégorie : l'identifiant est dérivé du libellé et ne change plus ensuite (clé étrangère) */
+export async function enregistrerCategorie(c, creation) {
+  verifier()
+  const champs = { libelle: c.libelle.trim(), icone: c.icone?.trim() || null, ordre: Number(c.ordre) || 0 }
+  if (creation) return ok(await supabase.from('categories_fournisseurs').insert({ id: slugifier(champs.libelle), ...champs }).select().single())
+  return ok(await supabase.from('categories_fournisseurs').update(champs).eq('id', c.id).select().single())
+}
+export const supprimerCategorie = async (id) => { verifier(); ok(await supabase.from('categories_fournisseurs').delete().eq('id', id)) }
+
+// ---------- Calculateur : matériaux et types de projets ---------------------------
+export async function listerMateriaux() {
+  verifier()
+  return ok(await supabase.from('materiaux').select('*').order('libelle'))
+}
+export async function enregistrerMateriau(m) {
+  verifier()
+  const champs = { libelle: m.libelle.trim(), unite: m.unite.trim(), prix_unitaire: Number(m.prix_unitaire), source: m.source?.trim() || null }
+  return ok(await supabase.from('materiaux').update(champs).eq('id', m.id).select().single())
+}
+
+export async function listerTypesProjets() {
+  verifier()
+  return ok(await supabase.from('types_projets').select('*').order('ordre'))
+}
+export async function enregistrerTypeProjet(t) {
+  verifier()
+  const champs = {
+    libelle: t.libelle.trim(),
+    description: t.description?.trim() || null,
+    accroche: t.accroche?.trim() || null,
+    hypotheses: t.hypotheses?.trim() || null,
+    parametres: t.parametres
+  }
+  return ok(await supabase.from('types_projets').update(champs).eq('id', t.id).select().single())
+}
+
+// ---------- Contenus du site ------------------------------------------------------
+export async function listerContenus() {
+  verifier()
+  return ok(await supabase.from('contenus_site').select('*'))
+}
+export async function enregistrerContenu(cle, valeur, auteurId) {
+  verifier()
+  return ok(await supabase.from('contenus_site').upsert({ cle, valeur, mis_a_jour_par: auteurId || null }).select().single())
+}
+
+// ---------- Codes promo ---------------------------------------------------------
+export async function listerCodes() {
+  verifier()
+  return ok(await supabase.from('codes_promo').select('*').order('cree_le', { ascending: false }))
+}
+/** Crée ou met à jour un code (id présent = mise à jour) ; le code est toujours enregistré en majuscules */
+export async function enregistrerCode(c) {
+  verifier()
+  const champs = {
+    code: String(c.code).toUpperCase().replace(/\s+/g, ''),
+    type: c.type,
+    valeur: Number(c.valeur),
+    portee: c.portee,
+    expire_le: c.expire_le || null,
+    actif: c.actif !== false,
+    note: c.note?.trim() || null
+  }
+  if (c.id) return ok(await supabase.from('codes_promo').update(champs).eq('id', c.id).select().single())
+  return ok(await supabase.from('codes_promo').insert(champs).select().single())
+}
+export const definirCodeActif = async (id, actif) => { verifier(); ok(await supabase.from('codes_promo').update({ actif }).eq('id', id)) }
+export const supprimerCode = async (id) => { verifier(); ok(await supabase.from('codes_promo').delete().eq('id', id)) }
+
+// ---------- Paiements : revenus encaissés -----------------------------------------------
+export async function listerPaiements() {
+  verifier()
+  return ok(await supabase.from('paiements').select('*').order('paye_le', { ascending: false }))
+    .map((p) => ({ ...p, montant_devis: Number(p.montant_devis), revenu_btm: Number(p.revenu_btm) }))
+}
+// Confirmation des paiements : uniquement par le fournisseur, depuis son espace (serviceEspaceFournisseur.js)
+
+/** Relie un compte à une fiche fournisseur (null = délier) ; le rôle suit automatiquement */
+export async function lierCompteFournisseur(profilId, fournisseurId) {
+  verifier()
+  const { error } = await supabase.rpc('lier_compte_fournisseur', { p_profil: profilId, p_fournisseur: fournisseurId || null })
+  if (error) throw traduire(error)
+}
+
+// ---------- RIB de BTM (communiqué aux fournisseurs pour leurs reversements) ----------------
+export async function lireParametresVersement() {
+  verifier()
+  const lignes = ok(await supabase.from('parametres_versement').select('*').eq('id', 1))
+  const p = lignes[0]
+  return p ? { ...p, seuil_minimum: Number(p.seuil_minimum) } : null
+}
+export async function enregistrerParametresVersement(p, auteurId) {
+  verifier()
+  const champs = {
+    id: 1,
+    titulaire: p.titulaire?.trim() || null,
+    iban: p.iban ? p.iban.toUpperCase().replace(/\s+/g, '') : null,
+    bic: p.bic ? p.bic.toUpperCase().replace(/\s+/g, '') : null,
+    banque: p.banque?.trim() || null,
+    frequence: p.frequence,
+    jour: Number(p.jour),
+    seuil_minimum: Number(p.seuil_minimum) || 0,
+    mis_a_jour_par: auteurId || null
+  }
+  const ligne = ok(await supabase.from('parametres_versement').upsert(champs).select().single())
+  return { ...ligne, seuil_minimum: Number(ligne.seuil_minimum) }
+}
+// ---------- Reversements des fournisseurs à BTM (migration 0014) ----------
+// Le fournisseur encaisse tout et reverse les frais de service BTM ; pris en compte dès sa déclaration.
+export async function listerReversements() {
+  verifier()
+  const { data, error } = await supabase.from('reversements').select('*, fournisseurs(nom)').order('declare_le', { ascending: false })
+  if (error) throw traduire(error)
+  return data.map((r) => ({ ...r, montant: Number(r.montant), fournisseur_nom: r.fournisseurs?.nom || 'Fournisseur supprimé' }))
+}
+
+
+// ---------- Comptes professionnels : vérification (migration 0011) ----------------------
+/** decision : 'verifie' | 'refuse' (motif obligatoire, affiché à l'utilisateur) */
+export async function statuerVerificationPro(profilId, decision, motif) {
+  verifier()
+  const { error } = await supabase.rpc('statuer_verification_pro', { p_profil: profilId, p_decision: decision, p_motif: motif || null })
+  if (error) throw traduire(error)
+}

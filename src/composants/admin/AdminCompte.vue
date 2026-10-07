@@ -5,9 +5,11 @@
  *    Un virement déclaré par le fournisseur est pris en compte tout de suite : l'admin en garde l'historique.
  *    BTM ne déclenche aucun virement ; la rémunération interne est gérée hors du site (RH).
  *  - RIB de BTM : communiqué aux fournisseurs pour leurs reversements (IBAN contrôlé par sa clé).
+ *  - Administrateurs : désigner un administrateur par l'e-mail de son compte, ou lui retirer ses droits.
+ *    Le changement de rôle passe par la fonction serveur admin-utilisateurs, qui revérifie le rôle de l'appelant.
  */
 import { computed, onMounted, ref, watch } from 'vue'
-import { useAdmin, formatDate } from '@/composables/useAdmin.js'
+import { useAdmin, formatDate, initiales } from '@/composables/useAdmin.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 import { ibanValide, bicValide, normaliserIban, formaterIban, masquerIban } from '@/services/versements.js'
@@ -17,7 +19,7 @@ const emit = defineEmits(['fermer'])
 const { api, donnees, erreurs, charger, confirmer, executer, notifier } = useAdmin()
 const { utilisateur } = useAuth()
 const onglet = ref('reversements')
-onMounted(() => charger(['versement', 'reversements', 'paiements', 'fournisseurs'], { force: true }))
+onMounted(() => charger(['versement', 'reversements', 'paiements', 'fournisseurs', 'profils'], { force: true }))
 
 // ---------- Reversements ----------
 const somme = (liste) => Math.round(liste.reduce((s, x) => s + (Number(x) || 0), 0) * 100) / 100
@@ -78,20 +80,74 @@ async function supprimerRib() {
   }, 'RIB supprimé.')
   enregistrement.value = false
 }
+
+// ---------- Administrateurs ----------
+const ROLES = { admin: 'Administrateur', fournisseur: 'Fournisseur', user: 'Utilisateur' }
+const nomDe = (p) => p.nom_affiche || p.email
+const moi = computed(() => utilisateur.value?.id)
+// soi-même d'abord, puis par nom
+const admins = computed(() => (donnees.profils || []).filter((p) => p.role === 'admin')
+  .sort((a, b) => (b.id === moi.value) - (a.id === moi.value) || nomDe(a).localeCompare(nomDe(b), 'fr')))
+
+const emailSaisi = ref('')
+const email = computed(() => emailSaisi.value.trim().toLowerCase())
+const emailComplet = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value))
+const candidat = computed(() => (emailComplet.value ? (donnees.profils || []).find((p) => (p.email || '').toLowerCase() === email.value) || null : null))
+// '' (rien à dire) | 'inconnu' | 'deja' | 'banni' | 'ok'
+const etatCandidat = computed(() => {
+  if (!emailComplet.value || !donnees.profils) return ''
+  const c = candidat.value
+  if (!c) return 'inconnu'
+  if (c.role === 'admin') return 'deja'
+  return api.banActif(c) ? 'banni' : 'ok'
+})
+
+const roleEnCours = ref('') // id du compte dont le rôle est en train de changer
+/** Même enchaînement que la fiche d'un utilisateur : lecture du compte, puis enregistrement avec le nouveau rôle */
+async function changerRole(profil, role, succes) {
+  roleEnCours.value = profil.id
+  const ok = await executer(async () => {
+    const { id: _id, derniereConnexion: _d, fournisseur_id: _f, ...champs } = await api.lireUtilisateur(profil.id)
+    await api.modifierUtilisateur(profil.id, { ...champs, role })
+    if (profil.fournisseur_id) await api.lierCompteFournisseur(profil.id, null) // un administrateur ne représente plus une entreprise
+    await charger(['profils'], { force: true })
+  }, succes)
+  roleEnCours.value = ''
+  return ok
+}
+
+async function designer() {
+  const c = candidat.value
+  if (etatCandidat.value !== 'ok' || roleEnCours.value) return
+  const texte = `${c.email} pourra modifier tout le site, les prix et les comptes, et désigner d’autres administrateurs.`
+    + (c.role === 'fournisseur' ? ' Ce compte perdra son accès à l’espace fournisseur.' : '')
+  if (!(await confirmer({ titre: 'Désigner cet administrateur ?', texte, libelle: 'Désigner administrateur' }))) return
+  if (await changerRole(c, 'admin', `${nomDe(c)} est maintenant administrateur : l’accès s’ouvre à sa prochaine connexion.`)) emailSaisi.value = ''
+}
+
+async function retirer(p) {
+  if (p.id === moi.value || roleEnCours.value) return
+  if (!(await confirmer({
+    titre: 'Retirer les droits administrateur ?', libelle: 'Retirer les droits', danger: true,
+    texte: `${p.email} redeviendra un simple utilisateur et n’aura plus accès à l’administration. Son compte et ses projets sont conservés.`
+  }))) return
+  await changerRole(p, 'user', `${nomDe(p)} n’est plus administrateur.`)
+}
 </script>
 
 <template>
-  <AdminPanneau titre="Compte & reversements" sous-titre="Les fournisseurs vous reversent vos frais de service sur ce compte." large @fermer="emit('fermer')">
+  <AdminPanneau titre="Compte BTM" sous-titre="Reversements des fournisseurs, RIB et administrateurs." large @fermer="emit('fermer')">
     <div class="compte">
       <div class="adm-segments compte-onglets" role="tablist" aria-label="Compte et reversements">
         <button type="button" role="tab" :aria-selected="onglet === 'reversements'" @click="onglet = 'reversements'">
           <i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> Reversements
         </button>
         <button type="button" role="tab" :aria-selected="onglet === 'rib'" @click="onglet = 'rib'"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> RIB de BTM</button>
+        <button type="button" role="tab" :aria-selected="onglet === 'admins'" @click="onglet = 'admins'"><i class="fa-solid fa-user-shield" aria-hidden="true"></i> Administrateurs</button>
       </div>
 
-      <p v-if="erreurs.versement || erreurs.reversements || erreurs.paiements" class="adm-alerte" role="alert">
-        <i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.versement || erreurs.reversements || erreurs.paiements }}
+      <p v-if="onglet === 'admins' ? erreurs.profils : erreurs.versement || erreurs.reversements || erreurs.paiements" class="adm-alerte" role="alert">
+        <i class="fa-solid fa-circle-exclamation"></i> {{ onglet === 'admins' ? erreurs.profils : erreurs.versement || erreurs.reversements || erreurs.paiements }}
       </p>
 
       <!-- ===================== Reversements ===================== -->
@@ -142,6 +198,49 @@ async function supprimerRib() {
         <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> BTM ne déclenche aucun virement : les fournisseurs vous reversent vos frais sur ce RIB et les enregistrent dans leur espace.</p>
       </template>
 
+      <!-- ===================== Administrateurs ===================== -->
+      <template v-else-if="onglet === 'admins'">
+        <form class="admins-ajout" novalidate @submit.prevent="designer">
+          <div class="adm-champ">
+            <label for="a-email">Désigner un administrateur</label>
+            <div class="admins-saisie">
+              <input id="a-email" v-model="emailSaisi" type="email" inputmode="email" autocomplete="off" spellcheck="false" placeholder="E-mail de son compte BTM" />
+              <button type="submit" class="adm-btn adm-btn-noir" :disabled="etatCandidat !== 'ok' || !!roleEnCours">
+                <span v-if="candidat && roleEnCours === candidat.id" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-user-shield" aria-hidden="true"></i> Désigner
+              </button>
+            </div>
+          </div>
+          <div aria-live="polite">
+            <p v-if="etatCandidat === 'ok'" class="admins-trouve">
+              <span class="adm-identite">
+                <span class="adm-avatar rond">{{ initiales(nomDe(candidat)) }}</span>
+                <span><strong>{{ nomDe(candidat) }}</strong><small>{{ candidat.email }}</small></span>
+              </span>
+              <span class="adm-badge">{{ ROLES[candidat.role] || candidat.role }}</span>
+            </p>
+            <p v-else-if="etatCandidat === 'inconnu'" class="admins-etat"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Aucun compte BTM avec cette adresse. La personne doit d’abord créer son compte sur le site ; vous pourrez ensuite la désigner ici.</p>
+            <p v-else-if="etatCandidat === 'deja'" class="admins-etat"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Ce compte est déjà administrateur.</p>
+            <p v-else-if="etatCandidat === 'banni'" class="admins-etat attention"><i class="fa-solid fa-ban" aria-hidden="true"></i> Ce compte est banni : levez le bannissement (page Utilisateurs) avant de le désigner.</p>
+            <p v-else class="compte-note"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Un administrateur peut tout modifier : textes, prix, comptes et reversements. Ne désignez qu’une personne de confiance.</p>
+          </div>
+        </form>
+
+        <h3 class="compte-titre">Administrateurs actuels<template v-if="donnees.profils"> · {{ admins.length }}</template></h3>
+        <div v-if="!donnees.profils && !erreurs.profils" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
+        <ul v-else class="admins-liste">
+          <li v-for="p in admins" :key="p.id">
+            <span class="adm-identite">
+              <span class="adm-avatar rond">{{ initiales(nomDe(p)) }}</span>
+              <span><strong>{{ nomDe(p) }}</strong><small>{{ p.email }}</small></span>
+            </span>
+            <span v-if="p.id === moi" class="adm-badge adm-badge-info sans-point">Vous</span>
+            <button v-else type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="!!roleEnCours" @click="retirer(p)">
+              <span v-if="roleEnCours === p.id" class="spinner" aria-hidden="true"></span> Retirer
+            </button>
+          </li>
+        </ul>
+      </template>
+
       <!-- ===================== RIB ===================== -->
       <template v-else>
         <div v-if="ribRenseigne && !modeRib" class="rib-carte">
@@ -182,7 +281,8 @@ async function supprimerRib() {
 
 <style scoped>
 .compte { display: flex; flex-direction: column; gap: 18px; }
-.compte-onglets { align-self: flex-start; box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.compte-onglets { align-self: flex-start; max-width: 100%; overflow-x: auto; scrollbar-width: none; box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.compte-onglets button { flex: none; white-space: nowrap; }
 .compte-titre { margin: 6px 0 0; font-family: var(--font-corps); font-size: .95rem; font-weight: 600; letter-spacing: 0; }
 .compte-intro { margin: 0; color: var(--adm-encre-2); font-size: .9rem; }
 .compte-note { display: flex; gap: 8px; margin: 0; color: var(--adm-muet); font-size: .8rem; line-height: 1.5; }
@@ -209,12 +309,12 @@ async function supprimerRib() {
 .historique { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .historique li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--adm-ligne-2); }
 .historique li:last-child { border-bottom: 0; }
-.historique-icone { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 12px; background: #ecfdf5; color: #047857; }
+.historique-icone { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
 .historique-texte { flex: 1 1 200px; display: flex; flex-direction: column; min-width: 0; }
 .historique-texte small { color: var(--adm-muet); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .compte-table td, .compte-table th { padding: 10px 12px; }
-.compte-table strong.reste { color: #b45309; }
+.compte-table strong.reste { color: var(--adm-attention-texte); }
 
 .rib-carte {
   display: flex; flex-direction: column; gap: 8px; padding: 22px; border-radius: 20px; color: #fff;
@@ -226,5 +326,17 @@ async function supprimerRib() {
 .rib-ligne { display: flex; justify-content: space-between; gap: 12px; font-size: .9rem; }
 .rib-carte small { color: rgba(255, 255, 255, .55); font-size: .78rem; }
 .rib-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+.admins-ajout { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: var(--adm-ligne-2); }
+.admins-saisie { display: flex; flex-wrap: wrap; gap: 8px; }
+.admins-saisie input { flex: 1 1 220px; width: auto; }
+.admins-trouve { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 10px 14px; border-radius: 14px; background: var(--adm-carte); box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.admins-trouve .adm-identite, .admins-liste .adm-identite { flex: 1; }
+.admins-etat { display: flex; gap: 8px; margin: 0; color: var(--adm-encre-2); font-size: .86rem; line-height: 1.5; }
+.admins-etat i { margin-top: 4px; color: var(--adm-muet); }
+.admins-etat.attention, .admins-etat.attention i { color: var(--adm-attention-texte); }
+.admins-liste { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.admins-liste li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--adm-ligne-2); }
+.admins-liste li:last-child { border-bottom: 0; }
 @media (max-width: 560px) { .chiffres { grid-template-columns: 1fr; } }
 </style>

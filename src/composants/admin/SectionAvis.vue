@@ -195,7 +195,7 @@ async function enregistrerGoogle() {
 
 .avis-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
 .avis-carte { display: flex; flex-direction: column; gap: 14px; padding: 20px; transition: opacity var(--transition); }
-.avis-carte.masque { background: #fbfbfc; box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.avis-carte.masque { background: var(--adm-survol); box-shadow: inset 0 0 0 1px var(--adm-ligne); }
 .avis-carte.masque .avis-texte { color: var(--adm-muet); }
 .avis-carte-tete { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .avis-carte-tete time { margin-left: auto; font-size: .78rem; color: var(--adm-muet); }

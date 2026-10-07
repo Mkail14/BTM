@@ -44,14 +44,16 @@ watch(confirmation, async (c) => { if (c) { await nextTick(); boutonAnnuler.valu
 }
 .toast-succes i { color: #6ee7b7; }
 .toast-erreur { background: #9f1239; }
+/* thème sombre : la toile est presque de la couleur du message, on l'en détache */
+.adm-sombre .toast { box-shadow: 0 0 0 1px var(--adm-ligne-forte), 0 14px 34px rgba(0, 0, 0, .4); }
 .toast-info i { color: var(--lagon-300); }
 .toast-enter-active, .toast-leave-active { transition: opacity .25s ease, transform .25s ease; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(10px); }
 
 .confirm-fond { position: fixed; inset: 0; z-index: 350; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 42, .4); backdrop-filter: blur(3px); }
-.confirm { width: min(420px, 100%); padding: 28px; border-radius: 24px; background: #fff; text-align: center; box-shadow: 0 30px 80px rgba(15, 23, 42, .3); }
+.confirm { width: min(420px, 100%); padding: 28px; border-radius: 24px; background: var(--adm-carte); text-align: center; box-shadow: 0 30px 80px rgba(15, 23, 42, .3); }
 .confirm-icone { width: 52px; height: 52px; margin: 0 auto 16px; display: grid; place-items: center; border-radius: 50%; background: var(--adm-ligne-2); color: var(--adm-encre); font-size: 1.2rem; }
-.confirm-icone.danger { background: #fff1f2; color: var(--adm-baisse); }
+.confirm-icone.danger { background: var(--adm-danger-fond); color: var(--adm-baisse); }
 .confirm h2 { margin: 0 0 8px; font-family: var(--font-corps); font-size: 1.15rem; font-weight: 700; letter-spacing: 0; word-break: break-word; }
 .confirm p { margin: 0; color: var(--adm-encre-2); font-size: .92rem; line-height: 1.55; }
 .confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 24px; }

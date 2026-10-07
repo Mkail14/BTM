@@ -21,9 +21,81 @@
   --adm-rayon: 22px;
   --adm-rayon-sm: 14px;
   --adm-ombre: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px rgba(15, 23, 42, .05);
+  /* surfaces et états : toute couleur qui dépend du thème passe par un jeton (voir le thème sombre plus bas) */
+  --adm-survol: #fafbfc;
+  --adm-champ: #ffffff;
+  --adm-ligne-forte: #cfd5de;
+  --adm-lat: var(--adm-noir);
+  --adm-info-texte: var(--lagon-800);
+  --adm-info-bord: var(--lagon-200);
+  --adm-ok-fond: #ecfdf5;
+  --adm-ok-texte: #047857;
+  --adm-ok-bord: #a7f3d0;
+  --adm-attention-fond: #fffbeb;
+  --adm-attention-fond-2: #fef3c7;
+  --adm-attention-texte: #b45309;
+  --adm-attention-texte-2: #92400e;
+  --adm-attention-bord: #fde68a;
+  --adm-danger-fond: #fff1f2;
+  --adm-danger-fond-2: #ffe4e6;
+  --adm-danger-texte: #9f1239;
+  --adm-violet-fond: #f5f3ff;
+  --adm-violet-texte: #6d28d9;
+  --adm-violet-bord: #ddd6fe;
   font-family: var(--font-corps);
   color: var(--adm-encre);
 }
+
+/* ---------- Thème sombre (bouton lune de l'en-tête, useThemeAdmin) ----------
+   Posé sur le cadre de l'admin ; « .adm-sombre .adm » couvre les panneaux et dialogues, qui redéclarent .adm.
+   --adm-noir reste la couleur d'accent fort (boutons, onglet actif) sous du texte blanc : en sombre, c'est le lagon. */
+.adm.adm-sombre, .adm-sombre .adm {
+  color-scheme: dark;
+  --adm-toile: #0b1220;
+  --adm-carte: #151d2e;
+  --adm-encre: #e9eef6;
+  --adm-encre-2: #a9b4c6;
+  --adm-muet: #7d899d;
+  --adm-ligne: #2a364c;
+  --adm-ligne-2: #1e2940;
+  --adm-ligne-forte: #3b4963;
+  --adm-survol: #1a2437;
+  --adm-champ: #0f1727;
+  --adm-noir: #0e7490;
+  --adm-noir-2: #0891b2;
+  --adm-lat: #111a2b;
+  --adm-accent-doux: #10323f;
+  --adm-info-texte: #a5f3fc;
+  --adm-info-bord: #1f5566;
+  --adm-hausse: #34d399;
+  --adm-baisse: #fb7185;
+  --adm-ombre: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .28);
+  --adm-ok-fond: rgba(16, 185, 129, .14);
+  --adm-ok-texte: #6ee7b7;
+  --adm-ok-bord: rgba(16, 185, 129, .32);
+  --adm-attention-fond: rgba(245, 158, 11, .13);
+  --adm-attention-fond-2: rgba(245, 158, 11, .22);
+  --adm-attention-texte: #fbbf24;
+  --adm-attention-texte-2: #fcd34d;
+  --adm-attention-bord: rgba(245, 158, 11, .35);
+  --adm-danger-fond: rgba(244, 63, 94, .14);
+  --adm-danger-fond-2: rgba(244, 63, 94, .24);
+  --adm-danger-texte: #fda4af;
+  --adm-violet-fond: rgba(139, 92, 246, .16);
+  --adm-violet-texte: #c4b5fd;
+  --adm-violet-bord: rgba(139, 92, 246, .38);
+  /* petits titres posés sur les cartes d'accent (solde, simulation) : plus clairs pour rester lisibles sur le lagon */
+  --lagon-300: #cffafe;
+  /* composants du site public réutilisés dans l'admin (ChampTelephone) */
+  --blanc: var(--adm-champ);
+  --texte: var(--adm-encre);
+  --gris-300: var(--adm-ligne);
+  --gris-400: var(--adm-muet);
+  --erreur-clair: var(--adm-danger-fond);
+}
+.adm-sombre .adm-lat-lien.actif { background: var(--adm-noir); color: #fff; }
+.adm-sombre .adm-lat { box-shadow: inset 0 0 0 1px var(--adm-ligne-2); }
+.adm-sombre .spinner-grand { border-color: var(--adm-ligne); border-top-color: var(--lagon-400); }
 
 /* ---------- Cartes ---------- */
 .adm-carte { background: var(--adm-carte); border-radius: var(--adm-rayon); box-shadow: var(--adm-ombre); }
@@ -45,12 +117,12 @@
 .adm-btn:disabled { opacity: .45; cursor: not-allowed; }
 .adm-btn-noir { background: var(--adm-noir); color: #fff; }
 .adm-btn-noir:hover:not(:disabled) { background: var(--adm-noir-2); box-shadow: 0 6px 16px rgba(15, 23, 42, .18); }
-.adm-btn-clair { background: #fff; color: var(--adm-encre); border-color: var(--adm-ligne); }
+.adm-btn-clair { background: var(--adm-carte); color: var(--adm-encre); border-color: var(--adm-ligne); }
 .adm-btn-clair:hover:not(:disabled) { border-color: var(--adm-encre); }
 .adm-btn-fantome { background: transparent; color: var(--adm-encre-2); }
 .adm-btn-fantome:hover:not(:disabled) { background: var(--adm-ligne-2); color: var(--adm-encre); }
-.adm-btn-danger { background: #fff1f2; color: var(--adm-baisse); }
-.adm-btn-danger:hover:not(:disabled) { background: #ffe4e6; }
+.adm-btn-danger { background: var(--adm-danger-fond); color: var(--adm-baisse); }
+.adm-btn-danger:hover:not(:disabled) { background: var(--adm-danger-fond-2); }
 .adm-btn-sm { min-height: 34px; padding: 0 14px; font-size: .84rem; }
 .adm-btn .spinner { width: 16px; height: 16px; border-width: 2px; }
 
@@ -59,14 +131,14 @@
   background: transparent; color: var(--adm-muet); cursor: pointer; transition: background var(--transition), color var(--transition);
 }
 .adm-icone-btn:hover { background: var(--adm-ligne-2); color: var(--adm-encre); }
-.adm-icone-btn.danger:hover { background: #fff1f2; color: var(--adm-baisse); }
-.adm-icone-btn-bord { border: 1px solid var(--adm-ligne); background: #fff; }
+.adm-icone-btn.danger:hover { background: var(--adm-danger-fond); color: var(--adm-baisse); }
+.adm-icone-btn-bord { border: 1px solid var(--adm-ligne); background: var(--adm-carte); }
 
 /* ---------- Pilules (filtres, périodes) ---------- */
 .adm-pilules { display: flex; flex-wrap: wrap; gap: 6px; }
 .adm-pilule {
   display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px;
-  background: #fff; color: var(--adm-encre-2); font: inherit; font-size: .87rem; font-weight: 500; cursor: pointer;
+  background: var(--adm-carte); color: var(--adm-encre-2); font: inherit; font-size: .87rem; font-weight: 500; cursor: pointer;
   box-shadow: inset 0 0 0 1px var(--adm-ligne); transition: background var(--transition), color var(--transition), box-shadow var(--transition);
 }
 .adm-pilule:hover { color: var(--adm-encre); box-shadow: inset 0 0 0 1px var(--adm-muet); }
@@ -80,21 +152,21 @@
 }
 .adm-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .8; }
 .adm-badge.sans-point::before { display: none; }
-.adm-badge-ok { background: #ecfdf5; color: #047857; box-shadow: inset 0 0 0 1px #a7f3d0; }
-.adm-badge-attention { background: #fffbeb; color: #b45309; box-shadow: inset 0 0 0 1px #fde68a; }
-.adm-badge-info { background: var(--adm-accent-doux); color: var(--lagon-800); box-shadow: inset 0 0 0 1px var(--lagon-200); }
-.adm-badge-violet { background: #f5f3ff; color: #6d28d9; box-shadow: inset 0 0 0 1px #ddd6fe; }
+.adm-badge-ok { background: var(--adm-ok-fond); color: var(--adm-ok-texte); box-shadow: inset 0 0 0 1px var(--adm-ok-bord); }
+.adm-badge-attention { background: var(--adm-attention-fond); color: var(--adm-attention-texte); box-shadow: inset 0 0 0 1px var(--adm-attention-bord); }
+.adm-badge-info { background: var(--adm-accent-doux); color: var(--adm-info-texte); box-shadow: inset 0 0 0 1px var(--adm-info-bord); }
+.adm-badge-violet { background: var(--adm-violet-fond); color: var(--adm-violet-texte); box-shadow: inset 0 0 0 1px var(--adm-violet-bord); }
 .adm-badge-noir { background: var(--adm-noir); color: #fff; box-shadow: none; }
 
 /* ---------- Champs ---------- */
 .adm-champ { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .adm-champ > label, .adm-champ > .adm-champ-label { font-size: .82rem; font-weight: 600; color: var(--adm-encre-2); }
 .adm-champ input, .adm-champ select, .adm-champ textarea, .adm-saisie {
-  width: 100%; min-height: 44px; padding: 10px 14px; border: 1px solid var(--adm-ligne); border-radius: 12px; background: #fff;
+  width: 100%; min-height: 44px; padding: 10px 14px; border: 1px solid var(--adm-ligne); border-radius: 12px; background: var(--adm-champ);
   color: var(--adm-encre); font: inherit; font-size: .93rem; transition: border-color var(--transition), box-shadow var(--transition);
 }
 .adm-champ textarea { min-height: 96px; resize: vertical; line-height: 1.5; }
-.adm-champ input:hover, .adm-champ select:hover, .adm-champ textarea:hover, .adm-saisie:hover { border-color: #cfd5de; }
+.adm-champ input:hover, .adm-champ select:hover, .adm-champ textarea:hover, .adm-saisie:hover { border-color: var(--adm-ligne-forte); }
 .adm-champ input:focus, .adm-champ select:focus, .adm-champ textarea:focus, .adm-saisie:focus {
   outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 4px rgba(8, 145, 178, .14);
 }
@@ -123,7 +195,7 @@
 }
 .adm-table td { padding: 14px 16px; border-bottom: 1px solid var(--adm-ligne-2); vertical-align: middle; }
 .adm-table tbody tr { transition: background var(--transition); }
-.adm-table tbody tr:hover { background: #fafbfc; }
+.adm-table tbody tr:hover { background: var(--adm-survol); }
 .adm-table tbody tr:last-child td { border-bottom: 0; }
 .adm-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .adm-table .actions { width: 1%; white-space: nowrap; text-align: right; }
@@ -155,23 +227,23 @@
 
 /* ---------- États ---------- */
 .adm-vide { display: grid; place-items: center; gap: 10px; padding: 48px 20px; text-align: center; color: var(--adm-muet); }
-.adm-vide i { font-size: 1.6rem; color: #cbd2dc; }
+.adm-vide i { font-size: 1.6rem; color: var(--adm-ligne-forte); }
 .adm-vide p { margin: 0; font-size: .92rem; }
 .adm-chargement { display: grid; place-items: center; min-height: 240px; }
 .adm-alerte {
   display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; padding: 14px 18px; border-radius: var(--adm-rayon-sm);
-  background: #fff1f2; color: #9f1239; font-size: .9rem; line-height: 1.5;
+  background: var(--adm-danger-fond); color: var(--adm-danger-texte); font-size: .9rem; line-height: 1.5;
 }
 .adm-alerte i { margin-top: 3px; }
-.adm-alerte-info { background: var(--adm-accent-doux); color: var(--lagon-900); }
+.adm-alerte-info { background: var(--adm-accent-doux); color: var(--adm-info-texte); }
 
 /* Squelette de chargement */
-.adm-squelette { border-radius: 10px; background: linear-gradient(90deg, #eef0f3 25%, #f6f7f9 50%, #eef0f3 75%); background-size: 200% 100%; animation: adm-onde 1.4s linear infinite; }
+.adm-squelette { border-radius: 10px; background: linear-gradient(90deg, var(--adm-ligne-2) 25%, var(--adm-survol) 50%, var(--adm-ligne-2) 75%); background-size: 200% 100%; animation: adm-onde 1.4s linear infinite; }
 @keyframes adm-onde { to { background-position: -200% 0; } }
 
 /* ---------- Interrupteur ---------- */
 .adm-interrupteur {
-  position: relative; width: 42px; height: 24px; flex: none; border: 0; border-radius: 999px; background: #d5dae2; cursor: pointer;
+  position: relative; width: 42px; height: 24px; flex: none; border: 0; border-radius: 999px; background: var(--adm-ligne-forte); cursor: pointer;
   transition: background var(--transition);
 }
 .adm-interrupteur::after {
@@ -182,7 +254,7 @@
 .adm-interrupteur[aria-checked="true"]::after { transform: translateX(18px); }
 
 /* ---------- Onglets internes (segmented control) ---------- */
-.adm-segments { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: #fff; box-shadow: var(--adm-ombre); }
+.adm-segments { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre); }
 .adm-segments button {
   display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 18px; border: 0; border-radius: 999px;
   background: transparent; color: var(--adm-encre-2); font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
@@ -193,7 +265,7 @@
 
 /* ---------- Étoiles ---------- */
 .adm-etoiles { display: inline-flex; gap: 2px; color: #f59e0b; font-size: .78rem; }
-.adm-etoiles .eteinte { color: #e2e6ec; }
+.adm-etoiles .eteinte { color: var(--adm-ligne-forte); }
 
 .adm-mono { font-family: var(--font-mono); font-size: .82rem; }
 
@@ -203,7 +275,7 @@
 /* ---------- Barre latérale ---------- */
 .adm-lat {
   position: sticky; top: 16px; height: calc(100dvh - 32px); display: flex; flex-direction: column; gap: 22px; padding: 18px 14px;
-  border-radius: 28px; background: var(--adm-noir); color: #fff; overflow-y: auto; scrollbar-width: none;
+  border-radius: 28px; background: var(--adm-lat); color: #fff; overflow-y: auto; scrollbar-width: none;
 }
 .adm-lat-logo { display: flex; align-items: center; gap: 12px; padding: 4px 6px; }
 .adm-lat-logo-icone { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 16px; background: #fff; }
@@ -233,12 +305,12 @@
 .adm-haut-recherche { position: relative; flex: 0 1 340px; }
 .adm-haut-recherche i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--adm-muet); font-size: .9rem; }
 .adm-haut-recherche input {
-  width: 100%; height: 46px; padding: 0 18px 0 42px; border: 0; border-radius: 999px; background: #fff; font: inherit; font-size: .92rem;
+  width: 100%; height: 46px; padding: 0 18px 0 42px; border: 0; border-radius: 999px; background: var(--adm-carte); color: var(--adm-encre); font: inherit; font-size: .92rem;
   box-shadow: var(--adm-ombre); transition: box-shadow var(--transition);
 }
 .adm-haut-recherche input:focus { outline: none; box-shadow: 0 0 0 2px var(--adm-accent), var(--adm-ombre); }
 .adm-haut-profil {
-  display: flex; align-items: center; gap: 10px; padding: 5px 16px 5px 5px; border: 0; border-radius: 999px; background: #fff; box-shadow: var(--adm-ombre);
+  display: flex; align-items: center; gap: 10px; padding: 5px 16px 5px 5px; border: 0; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre);
   font: inherit; color: inherit; text-align: left; cursor: pointer; transition: box-shadow var(--transition);
 }
 .adm-haut-profil:hover { box-shadow: 0 0 0 1px var(--adm-muet), var(--adm-ombre); }

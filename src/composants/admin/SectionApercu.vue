@@ -426,7 +426,7 @@ const erreurGlobale = computed(() => Object.values(erreurs)[0])
 .repartition-barre span { display: block; height: 100%; min-width: 0; border-radius: 999px; background: var(--adm-noir); transition: width .5s cubic-bezier(.22, .61, .36, 1); }
 .repartition-nombre { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.adm-table th { position: sticky; top: 0; z-index: 1; background: #fff; }
+.adm-table th { position: sticky; top: 0; z-index: 1; background: var(--adm-carte); }
 .adm-table td { padding-block: 9px; }
 .adm-table td .adm-avatar { width: 34px; height: 34px; font-size: .85rem; }
 
@@ -439,7 +439,7 @@ const erreurGlobale = computed(() => Object.values(erreurs)[0])
 .statut { display: block; font-size: .72rem; font-weight: 600; }
 .statut.paye { color: var(--adm-hausse); }
 .statut.attente { color: var(--adm-muet); }
-.vigilance-icone { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 10px; background: #fffbeb; color: #b45309; font-size: .8rem; }
+.vigilance-icone { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--adm-attention-fond); color: var(--adm-attention-texte); font-size: .8rem; }
 .vigilance-icone.ok { background: var(--adm-ligne-2); color: var(--adm-encre-2); }
 
 /* Écrans d'ordinateur peu hauts (ex. 1366 × 768) : on resserre pour que tout reste visible */

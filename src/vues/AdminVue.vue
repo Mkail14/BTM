@@ -14,6 +14,7 @@ import AdminRetours from '@/composants/admin/AdminRetours.vue'
 import AdminCompte from '@/composants/admin/AdminCompte.vue'
 import { useMessagerie } from '@/composables/useMessagerie.js'
 import { useSupport } from '@/composables/useSupport.js'
+import { useThemeAdmin } from '@/composables/useThemeAdmin.js'
 import '@/composants/admin/admin.css'
 
 const sections = [
@@ -33,6 +34,7 @@ const route = useRoute()
 const router = useRouter()
 const { utilisateur, deconnexion } = useAuth()
 const { recherche, charger, migrationManquante, compteOuvert } = useAdmin()
+const { sombre, basculer: basculerTheme } = useThemeAdmin()
 // Vérifie dès l'ouverture que la base contient les tables récentes (contenus 0007, codes promo 0009)
 onMounted(() => charger(['contenus', 'codes'], { force: true }))
 // Messages non lus de contact@btm.yt : pastille du bouton du haut et du menu, relue toutes les 2 minutes
@@ -62,7 +64,7 @@ async function seDeconnecter() {
 </script>
 
 <template>
-  <div class="adm adm-cadre" :class="{ 'ecran-fixe': ['apercu', 'messagerie', 'support'].includes(section.id) }">
+  <div class="adm adm-cadre" :class="{ 'adm-sombre': sombre, 'ecran-fixe': ['apercu', 'messagerie', 'support', 'contenus', 'utilisateurs', 'calculateur'].includes(section.id) }">
     <!-- Barre latérale -->
     <aside class="adm-lat" :class="{ ouvert: menuOuvert }" aria-label="Navigation de l’administration">
       <router-link to="/admin" class="adm-lat-logo" aria-label="Tableau de bord">
@@ -82,7 +84,6 @@ async function seDeconnecter() {
       </nav>
 
       <div class="adm-lat-bas">
-        <button type="button" class="adm-lat-lien" @click="compteOuvert = true; menuOuvert = false"><i class="fa-solid fa-building-columns" aria-hidden="true"></i><span>Compte & reversements</span></button>
         <button type="button" class="adm-lat-lien" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Déconnexion</span></button>
       </div>
     </aside>
@@ -102,17 +103,22 @@ async function seDeconnecter() {
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
           <input v-model="recherche" type="search" :placeholder="section.recherche" :aria-label="section.recherche" />
         </label>
-        <router-link to="/admin/support" class="adm-haut-mail" :class="{ actif: section.id === 'support' }" :title="enAttente ? `${enAttente} client${enAttente > 1 ? 's' : ''} attend${enAttente > 1 ? 'ent' : ''} un conseiller` : 'Support : discussions avec les clients'" :aria-label="enAttente ? `Support : ${enAttente} en attente` : 'Support'">
-          <i class="fa-solid fa-headset" aria-hidden="true"></i>
-          <strong v-if="enAttente" class="adm-haut-mail-pastille">{{ enAttente > 99 ? '99+' : enAttente }}</strong>
-        </router-link>
-        <router-link to="/admin/messagerie" class="adm-haut-mail" :class="{ actif: section.id === 'messagerie' }" :title="nonLus ? `${nonLus} message${nonLus > 1 ? 's' : ''} non lu${nonLus > 1 ? 's' : ''} — contact@btm.yt` : 'Messagerie contact@btm.yt'" :aria-label="nonLus ? `Messagerie : ${nonLus} non lus` : 'Messagerie'">
-          <i class="fa-solid fa-envelope" aria-hidden="true"></i>
-          <strong v-if="nonLus" class="adm-haut-mail-pastille">{{ nonLus > 99 ? '99+' : nonLus }}</strong>
-        </router-link>
-        <button type="button" class="adm-haut-profil" aria-haspopup="dialog" title="Compte & reversements" @click="compteOuvert = true">
+        <div class="adm-haut-outils">
+          <button type="button" class="adm-haut-outil" :aria-pressed="sombre" :title="sombre ? 'Passer au thème clair' : 'Passer au thème sombre'" :aria-label="sombre ? 'Passer au thème clair' : 'Passer au thème sombre'" @click="basculerTheme">
+            <i :class="sombre ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+          </button>
+          <router-link to="/admin/support" class="adm-haut-outil" :class="{ actif: section.id === 'support' }" :title="enAttente ? `${enAttente} client${enAttente > 1 ? 's' : ''} attend${enAttente > 1 ? 'ent' : ''} un conseiller` : 'Support : discussions avec les clients'" :aria-label="enAttente ? `Support : ${enAttente} en attente` : 'Support'">
+            <i class="fa-solid fa-headset" aria-hidden="true"></i>
+            <strong v-if="enAttente" class="adm-haut-outil-pastille alerte">{{ enAttente > 99 ? '99+' : enAttente }}</strong>
+          </router-link>
+          <router-link to="/admin/messagerie" class="adm-haut-outil" :class="{ actif: section.id === 'messagerie' }" :title="nonLus ? `${nonLus} message${nonLus > 1 ? 's' : ''} non lu${nonLus > 1 ? 's' : ''} — contact@btm.yt` : 'Messagerie contact@btm.yt'" :aria-label="nonLus ? `Messagerie : ${nonLus} non lus` : 'Messagerie'">
+            <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+            <strong v-if="nonLus" class="adm-haut-outil-pastille">{{ nonLus > 99 ? '99+' : nonLus }}</strong>
+          </router-link>
+        </div>
+        <button type="button" class="adm-haut-profil" aria-haspopup="dialog" title="Compte BTM : reversements, RIB et administrateurs" @click="compteOuvert = true">
           <span class="adm-avatar rond">{{ initiales(nomAdmin) }}</span>
-          <span><strong>{{ nomAdmin }}</strong><small>Compte & reversements</small></span>
+          <span><strong>{{ nomAdmin }}</strong><small>Administrateur</small></span>
           <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
         </button>
       </header>
@@ -144,28 +150,38 @@ async function seDeconnecter() {
   .adm-cadre.ecran-fixe .adm-principal { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; }
   .adm-cadre.ecran-fixe .adm-haut { flex: none; margin-bottom: 16px; }
   .adm-cadre.ecran-fixe .adm-migration { flex: none; margin-bottom: 14px; }
-  .adm-cadre.ecran-fixe .adm-principal > .apercu, .adm-cadre.ecran-fixe .adm-principal > .messagerie, .adm-cadre.ecran-fixe .adm-principal > .support { flex: 1; min-height: 0; padding-bottom: 20px; }
+  .adm-cadre.ecran-fixe .adm-principal > .apercu, .adm-cadre.ecran-fixe .adm-principal > .messagerie, .adm-cadre.ecran-fixe .adm-principal > .support, .adm-cadre.ecran-fixe .adm-principal > .contenus, .adm-cadre.ecran-fixe .adm-principal > .utils, .adm-cadre.ecran-fixe .adm-principal > .calc { flex: 1; min-height: 0; padding-bottom: 20px; }
 }
 @media (min-width: 1024px) and (max-height: 820px) {
   .adm-cadre.ecran-fixe .adm-haut { margin-bottom: 10px; }
   .adm-cadre.ecran-fixe .adm-haut-titre h1 { font-size: 1.5rem; }
   .adm-cadre.ecran-fixe .adm-haut-titre p { display: none; }
 }
-/* Messagerie : bouton enveloppe à côté du compte, pastille des non lus (ici et dans le menu) */
-.adm-haut-mail {
-  position: relative; width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 50%;
-  background: #fff; color: var(--adm-encre-2); box-shadow: inset 0 0 0 1px var(--adm-ligne); transition: color var(--transition), box-shadow var(--transition);
+/* Outils de l'en-tête : thème, support et messagerie dans une capsule de la hauteur du profil ; pastilles des non lus */
+.adm-haut-outils { display: flex; flex: none; gap: 2px; padding: 4px; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre); }
+.adm-haut-outil {
+  position: relative; width: 38px; height: 38px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: transparent; color: var(--adm-encre-2); cursor: pointer; transition: background var(--transition), color var(--transition);
 }
-.adm-haut-mail:hover, .adm-haut-mail.actif { color: var(--adm-accent); box-shadow: inset 0 0 0 1px var(--adm-accent); }
-.adm-haut-mail-pastille {
-  position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; display: grid; place-items: center;
-  border: 2px solid var(--adm-toile); border-radius: 999px; background: var(--adm-baisse); color: #fff; font-size: .68rem; font-weight: 700;
+.adm-haut-outil:hover { background: var(--adm-ligne-2); color: var(--adm-encre); }
+.adm-haut-outil.actif { background: var(--adm-accent-doux); color: var(--adm-info-texte); }
+.adm-haut-outil:focus-visible { outline: 2px solid var(--adm-accent); outline-offset: 2px; }
+.adm-haut-outil-pastille {
+  position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center;
+  border: 2px solid var(--adm-carte); border-radius: 999px; background: var(--adm-baisse); color: #fff; font-size: .66rem; font-weight: 700;
+}
+.adm-haut-outil-pastille.alerte, .adm-sombre .adm-haut-outil-pastille { color: #0b1220; }
+.adm-haut-outil-pastille.alerte { background: #f59e0b; }
+/* Tablette et téléphone : le profil reste le seul accès au compte BTM, réduit à son avatar */
+@media (max-width: 1023px) {
+  .adm-haut-profil { display: flex; flex: none; padding: 5px; }
+  .adm-haut-profil > span:nth-child(2), .adm-haut-profil > i { display: none; }
 }
 .adm-lat-pastille-alerte { background: #f59e0b !important; }
 .adm-lat-pastille { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--adm-accent); color: #fff; font-size: .74rem; text-align: center; }
-.adm-migration { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; margin-bottom: 20px; padding: 20px 22px; box-shadow: inset 0 0 0 1px #fde68a, var(--adm-ombre); background: #fffbeb; }
+.adm-migration { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; margin-bottom: 20px; padding: 20px 22px; box-shadow: inset 0 0 0 1px var(--adm-attention-bord), var(--adm-ombre); background: var(--adm-attention-fond); }
 .adm-migration > div { flex: 1 1 320px; }
 .adm-migration strong { font-size: .98rem; }
-.adm-migration p { margin: 4px 0 0; color: #78350f; font-size: .88rem; line-height: 1.55; }
-.adm-migration-icone { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: #fef3c7; color: #b45309; }
+.adm-migration p { margin: 4px 0 0; color: var(--adm-attention-texte-2); font-size: .88rem; line-height: 1.55; }
+.adm-migration-icone { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--adm-attention-fond-2); color: var(--adm-attention-texte); }
 </style>

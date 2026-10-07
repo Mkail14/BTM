@@ -76,7 +76,7 @@ async function envoyer(r) {
 }
 
 async function decliner(r) {
-  if (!window.confirm('Ne pas publier ce projet sur la page d’accueil ? BTM ne vous le proposera plus.')) return
+  if (!window.confirm('Ne pas publier ce projet sur la page d’accueil ?')) return
   try { remplacer(await declinerRealisation(r.id)) } catch (e) { erreur.value = e?.message || 'Action impossible.' }
 }
 </script>

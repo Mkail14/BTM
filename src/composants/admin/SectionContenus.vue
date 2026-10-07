@@ -149,16 +149,16 @@ async function retablir() {
 
 .contenus-liste { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 8px; }
 .contenus-item {
-  position: relative; display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 0; border-radius: 18px;
+  position: relative; display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 16px 12px 14px; border: 0; border-radius: 16px;
   font: inherit; text-align: left; cursor: pointer; transition: background var(--transition), color var(--transition), transform var(--transition);
 }
 .contenus-item:hover { transform: translateX(2px); }
 .contenus-item.actif { background: var(--adm-noir); color: #fff; }
-.contenus-icone { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-ligne-2); color: var(--adm-encre); }
+.contenus-icone { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-ligne-2); color: var(--adm-encre); }
 .contenus-item.actif .contenus-icone { background: rgba(255, 255, 255, .12); color: #fff; }
-.contenus-item-texte { display: flex; flex-direction: column; min-width: 0; }
+.contenus-item-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.35; }
 .contenus-item-texte strong { font-size: .92rem; font-weight: 600; }
-.contenus-item-texte small { font-size: .78rem; color: var(--adm-muet); }
+.contenus-item-texte small { font-size: .8rem; color: var(--adm-muet); }
 .contenus-item.actif small { color: rgba(255, 255, 255, .6); }
 .contenus-point { position: absolute; right: 16px; width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, .18); }
 .contenus-point-alerte { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, .2); }
@@ -171,8 +171,19 @@ async function retablir() {
 .editeur-interrupteur { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--adm-ligne-2); }
 .editeur-interrupteur label { font-weight: 600; font-size: .92rem; cursor: pointer; }
 .editeur-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 16px 26px; border-top: 1px solid var(--adm-ligne-2); }
-.editeur-etat { flex: 1; text-align: right; font-size: .82rem; color: #b45309; }
+.editeur-etat { flex: 1; text-align: right; font-size: .82rem; color: var(--adm-attention-texte); }
 
+/* Ordinateur : la page tient dans l'écran (voir « ecran-fixe » dans AdminVue), seuls les champs ou les réalisations défilent */
+@media (min-width: 1024px) and (min-height: 640px) {
+  .contenus { grid-template-rows: auto minmax(0, 1fr); row-gap: 0; }
+  .contenus > .adm-alerte { grid-row: 1; margin-bottom: 16px; }
+  .contenus-liste, .contenus-editeur, .contenus > .gr { grid-row: 2; min-height: 0; max-height: 100%; }
+  .contenus-liste { position: static; align-self: stretch; margin: 0 -8px; padding: 0 8px 4px; overflow: hidden auto; scrollbar-width: none; }
+  /* les entrées se partagent la hauteur : aérées sur un grand écran, plus fines sur un petit, sans défilement */
+  .contenus-item { flex: 1 1 0; min-height: 52px; max-height: 70px; padding-block: 0; }
+  .contenus > .gr { align-self: stretch; }
+  .editeur-champs { min-height: 0; overflow-y: auto; }
+}
 @media (max-width: 1023px) {
   .contenus { grid-template-columns: minmax(0, 1fr); }
   .contenus-liste { position: static; flex-direction: row; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }

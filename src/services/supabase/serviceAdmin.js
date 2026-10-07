@@ -126,6 +126,11 @@ export async function proposerRealisation(p) {
     utilisateur_id: p.utilisateur_id, projet_id: p.projet_id || null, message_admin: p.message_admin?.trim() || null, statut: 'proposee'
   }).select().single())
 }
+/** Relance d'une proposition déclinée par l'utilisateur : elle réapparaît dans « Mes projets » */
+export async function relancerRealisation(id, message) {
+  verifier()
+  return ok(await supabase.from('realisations').update({ statut: 'proposee', message_admin: message?.trim() || null }).eq('id', id).eq('statut', 'declinee').select().single())
+}
 /** Création (saisie directe par l'admin, puis publiée) ou modification d'une réalisation */
 export async function enregistrerRealisation(r) {
   verifier()

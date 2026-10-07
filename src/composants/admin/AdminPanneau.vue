@@ -43,14 +43,14 @@ onBeforeUnmount(() => {
 .panneau-fond { position: fixed; inset: 0; z-index: 300; display: flex; justify-content: flex-end; padding: 12px; background: rgba(15, 23, 42, .32); backdrop-filter: blur(3px); animation: fond .2s ease; }
 .panneau {
   width: min(520px, 100%); height: 100%; display: flex; flex-direction: column; overflow: hidden;
-  background: #fff; border-radius: 24px; box-shadow: 0 30px 80px rgba(15, 23, 42, .25); animation: entree .28s cubic-bezier(.22, .61, .36, 1);
+  background: var(--adm-carte); border-radius: 24px; box-shadow: 0 30px 80px rgba(15, 23, 42, .25); animation: entree .28s cubic-bezier(.22, .61, .36, 1);
 }
 .panneau.large { width: min(680px, 100%); }
 .panneau-tete { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 24px 24px 18px; border-bottom: 1px solid var(--adm-ligne-2); }
 .panneau-tete h2 { margin: 0; font-family: var(--font-corps); font-size: 1.2rem; font-weight: 700; letter-spacing: 0; }
 .panneau-tete p { margin: 4px 0 0; color: var(--adm-muet); font-size: .86rem; }
 .panneau-corps { flex: 1; overflow-y: auto; padding: 22px 24px; }
-.panneau-pied { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--adm-ligne-2); background: #fcfcfd; }
+.panneau-pied { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--adm-ligne-2); background: var(--adm-survol); }
 @media (max-width: 640px) {
   .panneau-fond { padding: 0; align-items: flex-end; }
   .panneau, .panneau.large { width: 100%; height: 92dvh; border-radius: 24px 24px 0 0; animation-name: monter; }

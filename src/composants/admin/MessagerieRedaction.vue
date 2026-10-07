@@ -119,9 +119,9 @@ async function envoyer() {
 .mr-pieces span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mr-pieces small { color: var(--adm-muet); }
 .mr-pieces button { width: 24px; height: 24px; border: 0; border-radius: 50%; background: transparent; color: var(--adm-muet); cursor: pointer; }
-.mr-pieces button:hover { background: #fff; color: var(--adm-baisse); }
+.mr-pieces button:hover { background: var(--adm-carte); color: var(--adm-baisse); }
 .mr .adm-erreur-texte { margin: 0 22px 10px; }
-.mr-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 22px; border-top: 1px solid var(--adm-ligne); background: #fafbfc; }
+.mr-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 22px; border-top: 1px solid var(--adm-ligne); background: var(--adm-survol); }
 .mr-joindre { cursor: pointer; }
 .mr-limite { flex: 1; color: var(--adm-muet); font-size: .8rem; }
 @media (max-width: 640px) { .mr-fond { padding: 0; } .mr { max-height: 100%; height: 100%; border-radius: 0; } }

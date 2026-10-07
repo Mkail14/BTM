@@ -201,8 +201,8 @@ async function retirer() {
 .pa-bandeau > i { margin-top: 2px; font-size: 1.1rem; }
 .pa-bandeau strong { font-size: .95rem; }
 .pa-bandeau p { margin: 4px 0 0; font-size: .86rem; line-height: 1.5; }
-.pa-ok { background: #ecfdf5; color: #065f46; }
-.pa-attention { background: #fffbeb; color: #78350f; }
+.pa-ok { background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
+.pa-attention { background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); }
 .pa-bandeau-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 
 /* Compte */
@@ -217,18 +217,18 @@ async function retirer() {
 .pa-suivi li { position: relative; display: flex; gap: 14px; padding-bottom: 16px; }
 .pa-suivi li:last-child { padding-bottom: 0; }
 .pa-suivi li:not(:last-child)::before { content: ''; position: absolute; left: 6px; top: 18px; bottom: 0; width: 2px; background: var(--adm-ligne); }
-.pa-suivi li > span { width: 14px; height: 14px; flex: none; margin-top: 4px; border-radius: 50%; border: 2px solid var(--adm-muet); background: #fff; }
-.pa-suivi li.fait > span { border-color: #059669; background: #059669; box-shadow: 0 0 0 3px #d1fae5; }
+.pa-suivi li > span { width: 14px; height: 14px; flex: none; margin-top: 4px; border-radius: 50%; border: 2px solid var(--adm-muet); background: var(--adm-carte); }
+.pa-suivi li.fait > span { border-color: #059669; background: #059669; box-shadow: 0 0 0 3px var(--adm-ok-bord); }
 .pa-suivi div { display: flex; flex-direction: column; }
 
 /* Gestion */
 .pa-gestion { display: flex; flex-direction: column; border-radius: 16px; box-shadow: inset 0 0 0 1px var(--adm-ligne); overflow: hidden; }
 .pa-action {
   display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 0; border-top: 1px solid var(--adm-ligne-2);
-  background: #fff; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background var(--transition);
+  background: var(--adm-carte); color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background var(--transition);
 }
 .pa-action:first-child { border-top: 0; }
-.pa-action:hover:not(:disabled) { background: #fafbfc; }
+.pa-action:hover:not(:disabled) { background: var(--adm-survol); }
 .pa-action:disabled { opacity: .55; cursor: wait; }
 .pa-action > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .pa-action strong { font-size: .92rem; font-weight: 600; }
@@ -237,5 +237,5 @@ async function retirer() {
 .pa-action-icone .spinner { width: 16px; height: 16px; border-width: 2px; }
 .pa-chevron { color: var(--adm-muet); font-size: .75rem; }
 .pa-action-danger strong { color: var(--adm-baisse); }
-.pa-action-danger .pa-action-icone { background: #fff1f2; color: var(--adm-baisse); }
+.pa-action-danger .pa-action-icone { background: var(--adm-danger-fond); color: var(--adm-baisse); }
 </style>

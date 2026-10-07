@@ -28,7 +28,7 @@ const donnees = reactive(Object.fromEntries(Object.keys(chargeurs).map((c) => [c
 const erreurs = reactive({})
 const enCours = reactive({})
 const recherche = ref('')
-const compteOuvert = ref(false) // panneau « Compte & reversements », ouvrable depuis le profil, le menu et le tableau de bord
+const compteOuvert = ref(false) // panneau « Compte BTM », ouvrable depuis le profil et le tableau de bord
 const migrationManquante = ref(false) // une table ou colonne de la migration 0007 manque : bandeau d'aide global
 
 // Changement de compte : rien de ce qu'a chargé l'admin précédent ne reste en mémoire

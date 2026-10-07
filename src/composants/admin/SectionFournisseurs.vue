@@ -143,7 +143,7 @@ async function supprimerCategorie(c) {
               <tr v-for="f in liste" :key="f.id" :class="{ estompe: !f.actif }">
                 <td class="principal">
                   <span class="adm-identite">
-                    <span class="adm-avatar" :style="{ background: teinte(f.categorie_id) }">
+                    <span class="adm-avatar" :style="{ background: teinte(f.categorie_id), color: '#0f172a' }">
                       <img v-if="f.logo_url" :src="f.logo_url" alt="" class="four-logo" />
                       <template v-else>{{ initiales(f.nom) }}</template>
                     </span>
@@ -271,7 +271,7 @@ async function supprimerCategorie(c) {
 .cat-icones { border: 0; margin: 0; padding: 0; }
 .cat-icones legend { margin-bottom: 8px; }
 .cat-icones > div { display: flex; flex-wrap: wrap; gap: 8px; }
-.cat-icone-choix { width: 46px; height: 46px; display: grid; place-items: center; border: 1px solid var(--adm-ligne); border-radius: 12px; background: #fff; color: var(--adm-encre-2); cursor: pointer; transition: all var(--transition); }
+.cat-icone-choix { width: 46px; height: 46px; display: grid; place-items: center; border: 1px solid var(--adm-ligne); border-radius: 12px; background: var(--adm-carte); color: var(--adm-encre-2); cursor: pointer; transition: all var(--transition); }
 .cat-icone-choix:hover { border-color: var(--adm-encre); color: var(--adm-encre); }
 .cat-icone-choix.actif { background: var(--adm-noir); border-color: var(--adm-noir); color: #fff; }
 </style>

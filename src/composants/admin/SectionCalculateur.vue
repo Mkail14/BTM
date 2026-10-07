@@ -14,7 +14,7 @@ import { calculerEstimation, formaterEuros } from '@/services/calculs/moteurCalc
 import { useContenuSite, appliquerSection } from '@/composables/useContenuSite.js'
 import { useAuth } from '@/composables/useAuth.js'
 
-const { api, donnees, erreurs, charger, notifier, executer } = useAdmin()
+const { api, donnees, erreurs, charger, notifier, executer, confirmer } = useAdmin()
 const contenu = useContenuSite()
 const { utilisateur } = useAuth()
 const onglet = ref('prix')
@@ -32,6 +32,7 @@ const estModifie = (m) => {
   return b && (b.libelle !== m.libelle || b.unite !== m.unite || nombre(b.prix_unitaire) !== Number(m.prix_unitaire) || (b.source || '') !== (m.source || ''))
 }
 const prixInvalide = (m) => { const n = nombre(brouillons[m.id]?.prix_unitaire); return !Number.isFinite(n) || n < 0 }
+const prixChange = (m) => nombre(brouillons[m.id]?.prix_unitaire) !== Number(m.prix_unitaire)
 const modifies = computed(() => (donnees.materiaux || []).filter(estModifie))
 const enregistrementPrix = ref(false)
 
@@ -52,6 +53,7 @@ async function enregistrerPrix(liste = modifies.value) {
   enregistrementPrix.value = false
 }
 const annulerPrix = (m) => { brouillons[m.id] = { ...m, prix_unitaire: String(m.prix_unitaire).replace('.', ',') } }
+const annulerTousPrix = () => [...modifies.value].forEach(annulerPrix)
 
 // =============================== Ouvrages ===============================
 const LIBELLES_PARAMETRES = {
@@ -89,6 +91,12 @@ const typeModifie = computed(() => {
     || cles.value.some((k) => parametresNumeriques.value[k] !== t.parametres[k])
 })
 const parametresModifies = computed(() => cles.value.some((k) => parametresNumeriques.value[k] !== type.value.parametres[k]))
+// changer d'ouvrage recharge le formulaire : on prévient si des modifications seraient perdues
+async function choisirType(id) {
+  if (id === typeActif.value) return
+  if (typeModifie.value && !(await confirmer({ titre: 'Quitter sans enregistrer ?', texte: `Les modifications de « ${type.value.libelle} » seront perdues.`, libelle: 'Quitter' }))) return
+  typeActif.value = id
+}
 
 // Simulation : exemple type (valeurs d'exemple du formulaire public), avant / après modification
 const catalogue = computed(() => (donnees.materiaux?.length ? { ...materiauxLocaux, ...indexerMateriaux(donnees.materiaux) } : materiauxLocaux))
@@ -160,9 +168,9 @@ async function enregistrerTaux() {
   <div class="calc">
     <div class="calc-onglets">
       <div class="adm-segments" role="tablist" aria-label="Paramètres du calculateur">
-        <button type="button" role="tab" :aria-selected="onglet === 'prix'" @click="onglet = 'prix'"><i class="fa-solid fa-tags" aria-hidden="true"></i> Prix des matériaux</button>
-        <button type="button" role="tab" :aria-selected="onglet === 'ouvrages'" @click="onglet = 'ouvrages'"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Ouvrages & formules</button>
-        <button type="button" role="tab" :aria-selected="onglet === 'frais'" @click="onglet = 'frais'"><i class="fa-solid fa-percent" aria-hidden="true"></i> Commission & fidélité</button>
+        <button type="button" role="tab" :aria-selected="onglet === 'prix'" @click="onglet = 'prix'"><i class="fa-solid fa-tags" aria-hidden="true"></i> Prix des matériaux<span v-if="modifies.length" class="calc-point"><span class="visually-hidden">(modifications non enregistrées)</span></span></button>
+        <button type="button" role="tab" :aria-selected="onglet === 'ouvrages'" @click="onglet = 'ouvrages'"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Ouvrages & formules<span v-if="typeModifie" class="calc-point"><span class="visually-hidden">(modifications non enregistrées)</span></span></button>
+        <button type="button" role="tab" :aria-selected="onglet === 'frais'" @click="onglet = 'frais'"><i class="fa-solid fa-percent" aria-hidden="true"></i> Commission & fidélité<span v-if="tauxModifie" class="calc-point"><span class="visually-hidden">(modifications non enregistrées)</span></span></button>
       </div>
     </div>
 
@@ -171,10 +179,11 @@ async function enregistrerTaux() {
       <div class="adm-carte-tete adm-carte-pad prix-tete">
         <div>
           <h2>Prix unitaires</h2>
-          <p>Utilisés pour chaque devis. Modifiez une valeur puis enregistrez la ligne, ou tout d’un coup.</p>
+          <p>Utilisés pour chaque devis. Cliquez sur une valeur pour la modifier, puis enregistrez.</p>
         </div>
         <div class="prix-actions">
           <span v-if="modifies.length" class="adm-badge adm-badge-attention">{{ modifies.length }} modification{{ modifies.length > 1 ? 's' : '' }}</span>
+          <button v-if="modifies.length" type="button" class="adm-btn adm-btn-clair" :disabled="enregistrementPrix" @click="annulerTousPrix">Annuler</button>
           <button type="button" class="adm-btn adm-btn-noir" :disabled="!modifies.length || enregistrementPrix" @click="enregistrerPrix()">
             <span v-if="enregistrementPrix" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Tout enregistrer
           </button>
@@ -192,15 +201,18 @@ async function enregistrerTaux() {
             <tr v-for="m in donnees.materiaux" :key="m.id" :class="{ modifiee: estModifie(m) }">
               <td class="principal">
                 <label class="visually-hidden" :for="`m-lib-${m.id}`">Libellé</label>
-                <input :id="`m-lib-${m.id}`" v-model="brouillons[m.id].libelle" class="adm-saisie" maxlength="80" />
-                <small class="adm-mono prix-id">{{ m.id }}</small>
+                <input :id="`m-lib-${m.id}`" v-model="brouillons[m.id].libelle" class="adm-saisie prix-libelle" maxlength="80" />
               </td>
               <td data-label="Unité"><input v-model="brouillons[m.id].unite" class="adm-saisie prix-unite" maxlength="8" :aria-label="`Unité — ${m.libelle}`" /></td>
               <td data-label="Prix unitaire">
-                <span class="adm-saisie-unite prix-montant">
-                  <input v-model="brouillons[m.id].prix_unitaire" class="adm-saisie" inputmode="decimal" :aria-invalid="prixInvalide(m) || undefined" :aria-label="`Prix — ${m.libelle}`" @keydown.enter.prevent="enregistrerPrix([m])" />
-                  <span>€ / {{ brouillons[m.id].unite || '—' }}</span>
-                </span>
+                <div class="prix-cellule">
+                  <span class="adm-saisie-unite prix-montant">
+                    <input v-model="brouillons[m.id].prix_unitaire" class="adm-saisie" inputmode="decimal" :aria-invalid="prixInvalide(m) || undefined" :aria-label="`Prix — ${m.libelle}`" @keydown.enter.prevent="enregistrerPrix([m])" />
+                    <span>€ / {{ brouillons[m.id].unite || '—' }}</span>
+                  </span>
+                  <small v-if="prixInvalide(m)" class="prix-avant invalide">Prix invalide</small>
+                  <small v-else-if="prixChange(m)" class="prix-avant">Avant : {{ formaterEuros(m.prix_unitaire) }}</small>
+                </div>
               </td>
               <td data-label="Source"><input v-model="brouillons[m.id].source" class="adm-saisie" maxlength="120" placeholder="Fournisseur, date…" :aria-label="`Source — ${m.libelle}`" /></td>
               <td data-label="Mis à jour" class="prix-date">{{ formatDate(m.mis_a_jour_le) }}</td>
@@ -223,7 +235,7 @@ async function enregistrerTaux() {
       <div class="ouvrages-choix" role="tablist" aria-label="Ouvrage">
         <button
           v-for="t in typesProjets" :key="t.id" type="button" role="tab" class="adm-carte ouvrage-choix" :class="{ actif: typeActif === t.id }"
-          :aria-selected="typeActif === t.id" @click="typeActif = t.id"
+          :aria-selected="typeActif === t.id" @click="choisirType(t.id)"
         >
           <span class="ouvrage-choix-icone"><i :class="t.icone" aria-hidden="true"></i></span>
           <span><strong>{{ t.libelle }}</strong><small>{{ t.accroche }}</small></span>
@@ -308,7 +320,7 @@ async function enregistrerTaux() {
         </div>
         <ul class="frais-infos">
           <li><i class="fa-solid fa-hand-holding-heart" aria-hidden="true"></i> Le client paie le prix BTM du fournisseur, sans frais : passer par BTM est toujours son meilleur choix.</li>
-          <li><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Le fournisseur reverse la commission sur votre RIB (Compte & reversements).</li>
+          <li><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Le fournisseur reverse la commission sur votre RIB (votre profil, en haut à droite).</li>
           <li><i class="fa-solid fa-gift" aria-hidden="true"></i> Le crédit fidélité s’utilise au comptoir lors d’un prochain retrait ; il est déduit de votre commission.</li>
         </ul>
         <div class="frais-actions">
@@ -336,6 +348,8 @@ async function enregistrerTaux() {
 <style scoped>
 .calc { display: flex; flex-direction: column; gap: 16px; }
 .calc-onglets { display: flex; }
+.calc-point { width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
+.calc [aria-invalid="true"] { border-color: var(--adm-baisse); background: var(--adm-danger-fond); }
 
 /* Prix */
 .prix-tete { margin: 0; flex-wrap: wrap; }
@@ -344,18 +358,36 @@ async function enregistrerTaux() {
 .prix-table td { padding-block: 10px; }
 .prix-table .adm-saisie { min-height: 40px; padding: 8px 12px; }
 .prix-table td.principal { min-width: 220px; }
-.prix-id { display: block; margin: 4px 0 0 2px; color: var(--adm-muet); font-size: .72rem; }
+.prix-libelle { font-weight: 600; }
+.prix-cellule { display: flex; flex-direction: column; gap: 4px; width: 170px; }
+.prix-avant { color: var(--adm-muet); font-size: .76rem; text-align: right; }
+.prix-avant.invalide { color: var(--adm-baisse); font-weight: 600; }
 .prix-unite { width: 72px; }
-.prix-montant { display: block; width: 170px; }
-.prix-montant input { padding-right: 70px !important; text-align: right; }
+.prix-montant { display: block; }
+.prix-montant input { padding-right: 70px !important; font-weight: 600; text-align: right; }
 .prix-montant span { font-size: .74rem; }
 .prix-date { white-space: nowrap; color: var(--adm-muet); font-size: .84rem; }
-.prix-table tr.modifiee { background: #fffbeb; }
-.prix-table tr.modifiee:hover { background: #fef3c7; }
+.prix-table tr.modifiee { background: var(--adm-attention-fond); }
+.prix-table tr.modifiee:hover { background: var(--adm-attention-fond-2); }
 .prix-table td.actions { min-width: 90px; }
 @media (max-width: 760px) {
-  .prix-table td .adm-saisie, .prix-montant, .prix-unite { width: 60%; }
-  .prix-table td.principal .adm-saisie { width: 100%; }
+  .prix-table td .adm-saisie, .prix-cellule, .prix-unite { width: 60%; }
+  .prix-table td.principal .adm-saisie, .prix-table td .prix-montant .adm-saisie { width: 100%; }
+}
+/* Souris : le tableau se lit comme un tableau ; un champ ne montre son cadre qu'au survol ou à la saisie (le prix le garde) */
+@media (hover: hover) and (min-width: 761px) {
+  .prix-table .adm-saisie:not(:hover):not(:focus):not([aria-invalid]) { border-color: transparent; background: transparent; }
+  .prix-table .prix-montant .adm-saisie:not(:focus):not([aria-invalid]) { border-color: var(--adm-ligne); background: var(--adm-champ); }
+}
+/* Ordinateur : page fixe (« ecran-fixe » dans AdminVue). Les onglets et l'en-tête restent en place, seul le contenu défile */
+@media (min-width: 1024px) and (min-height: 640px) {
+  .calc-onglets, .calc > .adm-alerte, .ouvrages-choix, .prix-tete, .prix-alerte { flex: none; }
+  .calc > section.adm-carte { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .calc .adm-table-cadre { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+  /* box-shadow : une bordure de cellule collée ne suit pas l'en-tête dans un tableau à bordures fusionnées */
+  .prix-table thead th { position: sticky; top: 0; z-index: 2; border-bottom: 0; background: var(--adm-carte); box-shadow: inset 0 -1px 0 var(--adm-ligne); }
+  .ouvrage-grille, .frais-grille { flex: 1; min-height: 0; grid-auto-rows: max-content; align-content: start; margin: 0 -8px; padding: 0 8px 24px; overflow-y: auto; scrollbar-width: thin; }
+  .ouvrage-grille .simulation, .frais-grille .simulation { top: 0; }
 }
 
 /* Ouvrages */

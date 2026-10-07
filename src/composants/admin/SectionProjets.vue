@@ -179,15 +179,15 @@ async function supprimer(p) {
 .detail-synthese div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; font-size: .9rem; }
 .detail-synthese dt small { display: block; color: var(--adm-muet); font-size: .76rem; }
 .detail-synthese dd { margin: 0; font-variant-numeric: tabular-nums; }
-.detail-frais { margin: 4px -10px; padding: 8px 10px !important; border-radius: 10px; background: #fff; font-weight: 600; }
+.detail-frais { margin: 4px -10px; padding: 8px 10px !important; border-radius: 10px; background: var(--adm-carte); font-weight: 600; }
 .detail-grand-total { margin-top: 6px; padding-top: 12px !important; border-top: 1px solid var(--adm-ligne); font-weight: 700; }
 .detail-note { margin: 14px 0 0; color: var(--adm-muet); font-size: .8rem; }
 .detail-paiement { display: flex; align-items: flex-start; gap: 12px; margin-top: 18px; padding: 14px 16px; border-radius: 14px; }
 .detail-paiement i { margin-top: 3px; font-size: 1.1rem; }
 .detail-paiement div { display: flex; flex-direction: column; gap: 2px; }
 .detail-paiement small { font-size: .82rem; opacity: .85; }
-.detail-paiement.paye { background: #ecfdf5; color: #047857; }
-.detail-paiement.attente { background: #fffbeb; color: #92400e; }
+.detail-paiement.paye { background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
+.detail-paiement.attente { background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); }
 .projets-selects { display: flex; gap: 8px; }
 .projets-selects .adm-saisie { width: auto; min-height: 38px; padding: 6px 12px; border-radius: 999px; font-size: .86rem; }
 .statut { display: block; margin-top: 2px; font-size: .74rem; font-weight: 600; white-space: nowrap; }

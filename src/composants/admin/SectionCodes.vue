@@ -236,7 +236,7 @@ async function enregistrer() {
 .code-cellule { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 .code-cellule small { color: var(--adm-muet); font-size: .8rem; }
 .code-puce {
-  display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border: 1px dashed #b8c1cf; border-radius: 8px;
+  display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px; border: 1px dashed var(--adm-ligne-forte); border-radius: 8px;
   background: var(--adm-ligne-2); color: var(--adm-encre); font-weight: 600; letter-spacing: .04em; cursor: pointer;
 }
 .code-puce i { color: var(--adm-muet); font-size: .8rem; }
@@ -244,7 +244,7 @@ async function enregistrer() {
 .code-portee { display: block; color: var(--adm-muet); font-size: .78rem; }
 .code-date { display: flex; flex-direction: column; font-size: .88rem; }
 .code-date small { color: var(--adm-muet); font-size: .76rem; }
-.code-date small.bientot { color: #b45309; font-weight: 600; }
+.code-date small.bientot { color: var(--adm-attention-texte); font-weight: 600; }
 
 /* Formulaire */
 .code-form { display: flex; flex-direction: column; gap: 20px; }
@@ -259,8 +259,8 @@ async function enregistrer() {
   display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid var(--adm-ligne); border-radius: 14px; cursor: pointer;
   transition: border-color var(--transition), background var(--transition);
 }
-.code-option:hover { border-color: #b8c1cf; }
-.code-option.actif { border-color: var(--adm-noir); background: #fafbfc; }
+.code-option:hover { border-color: var(--adm-ligne-forte); }
+.code-option.actif { border-color: var(--adm-noir); background: var(--adm-survol); }
 /* le style des champs admin (.adm-champ input : pleine largeur, 44 px) ne doit pas toucher les boutons radio */
 .code-bloc .code-option input[type="radio"] { flex: none; width: 18px; height: 18px; min-height: 0; margin: 2px 0 0; padding: 0; border: 0; box-shadow: none; accent-color: var(--adm-noir); }
 .code-option span { display: flex; flex-direction: column; gap: 2px; }

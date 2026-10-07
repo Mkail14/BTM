@@ -400,8 +400,8 @@ watch(dossier, () => { selection.value = [] })
 .mg-dossier i { width: 18px; color: var(--adm-muet); }
 .mg-dossier span { flex: 1; }
 .mg-dossier:hover { background: var(--adm-ligne-2); color: var(--adm-encre); }
-.mg-dossier.actif { background: var(--adm-accent-doux); color: var(--lagon-800); font-weight: 600; }
-.mg-dossier.actif i { color: var(--lagon-700); }
+.mg-dossier.actif { background: var(--adm-accent-doux); color: var(--adm-info-texte); font-weight: 600; }
+.mg-dossier.actif i { color: var(--adm-info-texte); }
 .mg-compteur { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--adm-accent); color: #fff; font-size: .74rem; text-align: center; }
 .mg-boite { margin: auto 0 0; padding: 12px 8px 0; color: var(--adm-muet); font-size: .8rem; }
 
@@ -413,9 +413,9 @@ watch(dossier, () => { selection.value = [] })
 .mg-nb { flex: 1; margin-left: 8px; color: var(--adm-muet); font-size: .82rem; }
 .mg-messages { flex: 1; margin: 0; padding: 0; overflow-y: auto; list-style: none; }
 .mg-message { display: flex; align-items: flex-start; gap: 8px; padding: 10px 10px 10px 18px; border-bottom: 1px solid var(--adm-ligne-2); }
-.mg-message:hover { background: #fafbfc; }
+.mg-message:hover { background: var(--adm-survol); }
 .mg-message.actif { background: var(--adm-accent-doux); }
-.mg-message.coche { background: #f1f5f9; }
+.mg-message.coche { background: var(--adm-ligne-2); }
 .mg-message > input { margin-top: 4px; }
 .mg-message-corps { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .mg-de { overflow: hidden; color: var(--adm-encre-2); font-size: .88rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -425,11 +425,11 @@ watch(dossier, () => { selection.value = [] })
 .mg-icones { color: var(--adm-muet); font-size: .78rem; text-align: right; }
 .mg-message.non-lu .mg-de, .mg-message.non-lu .mg-objet { color: var(--adm-encre); font-weight: 700; }
 .mg-message.non-lu { box-shadow: inset 3px 0 0 var(--adm-accent); }
-.mg-etoile { width: 28px; height: 28px; flex: none; border: 0; border-radius: 50%; background: none; color: #cbd5e1; cursor: pointer; }
+.mg-etoile { width: 28px; height: 28px; flex: none; border: 0; border-radius: 50%; background: none; color: var(--adm-ligne-forte); cursor: pointer; }
 .mg-etoile:hover, .mg-etoile.on { color: #f59e0b; }
 .mg-pages { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px; border-top: 1px solid var(--adm-ligne); color: var(--adm-muet); font-size: .84rem; }
 .mg-vide { display: grid; place-items: center; flex: 1; min-height: 160px; margin: 0; color: var(--adm-muet); font-size: .9rem; }
-.mg-erreur { display: flex; gap: 10px; margin: 14px; padding: 12px 14px; border-radius: 12px; background: #fff1f2; color: var(--adm-baisse); font-size: .88rem; line-height: 1.45; }
+.mg-erreur { display: flex; gap: 10px; margin: 14px; padding: 12px 14px; border-radius: 12px; background: var(--adm-danger-fond); color: var(--adm-baisse); font-size: .88rem; line-height: 1.45; }
 .mg-lien { border: 0; background: none; color: var(--adm-accent); font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; }
 
 /* Lecture */
@@ -440,7 +440,7 @@ watch(dossier, () => { selection.value = [] })
 .mg-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--adm-ligne); }
 .mg-espace { flex: 1; }
 .mg-retour { display: none; }
-.mg-deplacer { min-height: 34px; padding: 0 10px; border: 1px solid var(--adm-ligne); border-radius: 10px; background: #fff; color: var(--adm-encre-2); font: inherit; font-size: .84rem; }
+.mg-deplacer { min-height: 34px; padding: 0 10px; border: 1px solid var(--adm-ligne); border-radius: 10px; background: var(--adm-champ); color: var(--adm-encre-2); font: inherit; font-size: .84rem; }
 .mg-jaune { color: #f59e0b; }
 .mg-entete { padding: 16px 20px 12px; border-bottom: 1px solid var(--adm-ligne-2); }
 .mg-entete h2 { margin: 0 0 12px; font-family: var(--font-corps); font-size: 1.2rem; font-weight: 700; line-height: 1.3; }
@@ -449,7 +449,7 @@ watch(dossier, () => { selection.value = [] })
 .mg-expediteur small { color: var(--adm-muet); }
 .mg-expediteur p { margin: 2px 0 0; overflow: hidden; color: var(--adm-muet); font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
 .mg-expediteur time { color: var(--adm-muet); font-size: .78rem; white-space: nowrap; }
-.mg-images { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 8px 20px; background: #fffbeb; color: #92400e; font-size: .82rem; }
+.mg-images { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 8px 20px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .82rem; }
 .mg-corps-attente { display: grid; place-content: center; justify-items: center; gap: 10px; flex: 1; color: var(--adm-muet); font-size: .88rem; }
 .mg-corps-html { flex: 1; width: 100%; min-height: 300px; border: 0; background: #fff; }
 .mg-corps-texte { flex: 1; margin: 0; padding: 18px 20px; overflow: auto; color: var(--adm-encre); font: inherit; font-size: .93rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }

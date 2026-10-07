@@ -1,7 +1,8 @@
 <script setup>
 /**
  * Réalisations de la page d'accueil (contenu du site) :
- *  - à valider : envoyées par les utilisateurs après une proposition (page Utilisateurs) → publier ou refuser ;
+ *  - proposition à un utilisateur de publier l'un de ses projets (aussi depuis la page Utilisateurs), relance si déclinée ;
+ *  - à valider : envoyées par les utilisateurs après une proposition → publier ou refuser ;
  *  - en ligne : 10 au maximum, la plus ancienne est retirée quand on en publie une 11e ;
  *  - création et modification directes (infos + photo) par l'admin.
  */
@@ -10,10 +11,11 @@ import { useAdmin, formatDate } from '@/composables/useAdmin.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
 import { MAX_REALISATIONS, supprimerPhotos } from '@/services/supabase/serviceRealisations.js'
 import AdminPanneau from './AdminPanneau.vue'
+import PanneauPropositionRealisation from './PanneauPropositionRealisation.vue'
 
 const { api, donnees, erreurs, charger, confirmer, executer, notifier } = useAdmin()
 onMounted(async () => {
-  await charger(['realisations', 'fournisseurs', 'profils'], { force: true })
+  await charger(['realisations', 'fournisseurs', 'profils', 'projets'], { force: true })
   if (parStatut('soumise').length) filtre.value = 'soumise' // des envois attendent : on les montre d'abord
 })
 
@@ -29,7 +31,13 @@ const toutes = computed(() => donnees.realisations || [])
 const parStatut = (s) => toutes.value.filter((r) => r.statut === s)
 const enLigne = computed(() => parStatut('publiee').sort((a, b) => new Date(b.publiee_le) - new Date(a.publiee_le)))
 const plusAncienne = computed(() => (enLigne.value.length >= MAX_REALISATIONS ? enLigne.value.at(-1) : null))
-const FILTRES = [['soumise', 'À valider'], ['publiee', 'En ligne'], ['proposee', 'Proposées'], ['refusee', 'Refusées']]
+const FILTRES = [['soumise', 'À valider'], ['publiee', 'En ligne'], ['proposee', 'Proposées'], ['refusee', 'Refusées ou déclinées']]
+const VIDES = {
+  soumise: 'Aucune réalisation à valider.',
+  publiee: 'Aucune réalisation en ligne : la page d’accueil affiche des exemples.',
+  proposee: 'Aucune proposition en attente de réponse.',
+  refusee: 'Aucune réalisation refusée ou déclinée.'
+}
 const nombre = (f) => (f === 'refusee' ? toutes.value.filter((r) => r.statut === 'refusee' || r.statut === 'declinee').length : parStatut(f).length)
 const filtre = ref('publiee')
 const liste = computed(() => {
@@ -39,6 +47,14 @@ const liste = computed(() => {
 })
 const compteDe = computed(() => Object.fromEntries((donnees.profils || []).map((p) => [p.id, p.nom_affiche || p.email])))
 const lieu = (r) => [r.quartier, r.commune].filter(Boolean).join(', ') || 'Lieu à compléter'
+
+// ---------- Proposition à un utilisateur / relance ----------
+const proposition = ref(false)
+async function relancer(r) {
+  const ok = await executer(async () => { Object.assign(r, await api.relancerRealisation(r.id, r.message_admin)) },
+    'Proposition relancée : l’utilisateur la revoit dans « Mes projets ».')
+  if (ok) filtre.value = 'proposee'
+}
 
 // ---------- Publication / refus / suppression ----------
 async function publier(r) {
@@ -141,15 +157,13 @@ async function enregistrer() {
     <header class="adm-carte gr-tete">
       <div>
         <h2>Réalisations de la page d’accueil</h2>
-        <p>
-          Proposez à un utilisateur de publier son projet depuis la page <strong>Utilisateurs</strong>, ou ajoutez une réalisation vous-même.
-          {{ MAX_REALISATIONS }} au maximum : en publier une de plus retire la plus ancienne.
-        </p>
+        <p>Proposez à un utilisateur de publier son projet, ou ajoutez une réalisation vous-même. {{ MAX_REALISATIONS }} au maximum : en publier une de plus retire la plus ancienne.</p>
       </div>
       <div class="gr-tete-actions">
         <span class="gr-compteur" :class="{ plein: enLigne.length >= MAX_REALISATIONS }"><strong>{{ enLigne.length }}</strong> / {{ MAX_REALISATIONS }} en ligne</span>
-        <a href="/#realisations" target="_blank" rel="noopener" class="adm-btn adm-btn-clair adm-btn-sm"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Voir sur le site</a>
-        <button type="button" class="adm-btn adm-btn-noir adm-btn-sm" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle réalisation</button>
+        <a href="/#realisations" target="_blank" rel="noopener" class="adm-btn adm-btn-fantome adm-btn-sm"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Voir sur le site</a>
+        <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter moi-même</button>
+        <button type="button" class="adm-btn adm-btn-noir adm-btn-sm" @click="proposition = true"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Proposer à un utilisateur</button>
       </div>
     </header>
 
@@ -178,7 +192,7 @@ async function enregistrer() {
           <small class="gr-date">
             <template v-if="r.statut === 'publiee'">En ligne depuis le {{ formatDate(r.publiee_le) }}</template>
             <template v-else-if="r.statut === 'soumise'">Envoyée le {{ formatDate(r.soumise_le) }}</template>
-            <template v-else>Créée le {{ formatDate(r.cree_le) }}</template>
+            <template v-else>Proposée le {{ formatDate(r.cree_le) }}</template>
           </small>
           <p v-if="r.message_admin && r.statut !== 'publiee'" class="gr-message"><i class="fa-regular fa-comment" aria-hidden="true"></i> {{ r.message_admin }}</p>
           <p v-if="r === plusAncienne" class="gr-message gr-alerte"><i class="fa-solid fa-hourglass-end" aria-hidden="true"></i> La plus ancienne : retirée à la prochaine publication.</p>
@@ -186,6 +200,7 @@ async function enregistrer() {
         <div class="gr-actions">
           <button v-if="r.statut === 'soumise' || r.statut === 'refusee'" type="button" class="adm-btn adm-btn-noir adm-btn-sm" @click="publier(r)"><i class="fa-solid fa-check" aria-hidden="true"></i> Publier</button>
           <button v-if="r.statut === 'soumise'" type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="refus = { r, motif: '' }">Refuser</button>
+          <button v-if="r.statut === 'declinee'" type="button" class="adm-btn adm-btn-noir adm-btn-sm" @click="relancer(r)"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Relancer</button>
           <span class="gr-icones">
             <button v-if="r.statut !== 'proposee'" type="button" class="adm-icone-btn" title="Modifier" :aria-label="`Modifier ${r.titre}`" @click="ouvrir(r)"><i class="fa-solid fa-pen"></i></button>
             <button type="button" class="adm-icone-btn danger" :title="r.statut === 'proposee' ? 'Annuler la proposition' : 'Supprimer'" :aria-label="`Supprimer ${r.titre}`" @click="supprimer(r)"><i class="fa-solid fa-trash-can"></i></button>
@@ -195,9 +210,12 @@ async function enregistrer() {
     </ul>
     <div v-else class="adm-carte adm-vide">
       <i class="fa-regular fa-images"></i>
-      <p v-if="filtre === 'soumise'">Aucune réalisation à valider. Proposez à un utilisateur de publier son projet depuis la page Utilisateurs.</p>
-      <p v-else>Rien dans cette liste.</p>
+      <p>{{ VIDES[filtre] }}</p>
+      <button v-if="filtre !== 'refusee'" type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="proposition = true"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Proposer à un utilisateur</button>
     </div>
+
+    <!-- Proposer à un utilisateur de publier l'un de ses projets -->
+    <PanneauPropositionRealisation v-if="proposition" @envoyee="filtre = 'proposee'" @fermer="proposition = false" />
 
     <!-- Création / modification -->
     <AdminPanneau v-if="formulaire" :titre="formulaire.id ? 'Modifier la réalisation' : 'Nouvelle réalisation'" :sous-titre="formulaire.id ? STATUTS[formulaire.statut]?.label : 'Elle sera mise en ligne dès l’enregistrement.'" @fermer="formulaire = null">
@@ -265,7 +283,7 @@ async function enregistrer() {
 .gr-tete-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .gr-compteur { padding: 6px 12px; border-radius: 999px; background: var(--adm-ligne-2); font-size: .85rem; color: var(--adm-encre-2); }
 .gr-compteur strong { color: var(--adm-encre); }
-.gr-compteur.plein { background: #fef3c7; color: #92400e; }
+.gr-compteur.plein { background: var(--adm-attention-fond-2); color: var(--adm-attention-texte-2); }
 
 .gr-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
 .gr-carte { display: flex; flex-direction: column; overflow: hidden; }
@@ -279,9 +297,16 @@ async function enregistrer() {
 .gr-corps small { color: var(--adm-muet); font-size: .78rem; }
 .gr-date { margin-top: 2px; }
 .gr-message { margin: 6px 0 0; padding: 8px 10px; border-radius: 10px; background: var(--adm-ligne-2); font-size: .8rem; line-height: 1.45; }
-.gr-alerte { background: #fef3c7; color: #92400e; }
+.gr-alerte { background: var(--adm-attention-fond-2); color: var(--adm-attention-texte-2); }
 .gr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 12px 12px 16px; }
 .gr-icones { display: flex; margin-left: auto; }
+
+/* Ordinateur : l'en-tête et les filtres restent en place, seules les réalisations défilent (page fixe de SectionContenus) */
+@media (min-width: 1024px) and (min-height: 640px) {
+  .gr-tete, .gr > .adm-pilules { flex: none; }
+  /* max-content : sans lui, les cartes (overflow: hidden) sont écrasées pour tenir dans la hauteur au lieu de défiler */
+  .gr-grille { flex: 1; min-height: 0; grid-auto-rows: max-content; align-content: start; margin: 0 -8px; padding: 0 8px 24px; overflow-y: auto; scrollbar-width: thin; }
+}
 
 .gr-depot {
   display: grid; place-items: center; aspect-ratio: 16 / 9; overflow: hidden; border: 1.5px dashed var(--adm-ligne); border-radius: 14px;

@@ -8,28 +8,34 @@ import { useAdmin, formatDate } from '@/composables/useAdmin.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { useContenuSite, appliquerSection } from '@/composables/useContenuSite.js'
 import { sectionsContenus, contenusParDefaut } from '@/donnees/contenusSite.js'
+import GestionRealisations from './GestionRealisations.vue'
 
 const { api, donnees, erreurs, charger, confirmer, executer } = useAdmin()
 const { utilisateur } = useAuth()
 const contenu = useContenuSite()
-onMounted(() => charger(['contenus'], { force: true }))
+onMounted(() => charger(['contenus', 'realisations'], { force: true }))
+
+// entrée à part : les réalisations (photos + infos) ne sont pas des textes de contenus_site
+const GALERIE = 'galerie-realisations'
+const aValider = computed(() => (donnees.realisations || []).filter((r) => r.statut === 'soumise').length)
+const enLigne = computed(() => (donnees.realisations || []).filter((r) => r.statut === 'publiee').length)
 
 const active = ref(sectionsContenus[0].cle)
 const section = computed(() => sectionsContenus.find((s) => s.cle === active.value))
 const brouillon = ref({})
 const enregistrement = ref(false)
 
-const copie = (o) => JSON.parse(JSON.stringify(o))
+const copie = (o) => JSON.parse(JSON.stringify(o ?? {}))
 const reinitialiserBrouillon = () => { brouillon.value = copie(contenu[active.value]) }
 watch(active, reinitialiserBrouillon, { immediate: true })
 // les contenus distants arrivent après l'ouverture : on recale le brouillon s'il n'a pas été touché
 watch(() => contenu[active.value], (v) => { if (!modifie.value) brouillon.value = copie(v) }, { deep: true })
 
-const modifie = computed(() => JSON.stringify(brouillon.value) !== JSON.stringify(contenu[active.value]))
+const modifie = computed(() => !!section.value && JSON.stringify(brouillon.value) !== JSON.stringify(contenu[active.value]))
 const ligne = (cle) => donnees.contenus?.find((c) => c.cle === cle)
 const personnalise = (cle) => JSON.stringify(contenu[cle]) !== JSON.stringify(contenusParDefaut[cle])
 const trop = (champ) => champ.max && String(brouillon.value[champ.nom] ?? '').length > champ.max
-const invalide = computed(() => section.value.champs.some(trop))
+const invalide = computed(() => !!section.value?.champs.some(trop))
 
 async function choisir(cle) {
   if (cle === active.value) return
@@ -74,10 +80,24 @@ async function retablir() {
         </span>
         <span v-if="s.cle === 'annonce' && contenu.annonce.actif" class="contenus-point" aria-hidden="true"></span>
       </button>
+      <button
+        type="button" class="contenus-item adm-carte" :class="{ actif: active === GALERIE }"
+        :aria-current="active === GALERIE ? 'true' : undefined" @click="choisir(GALERIE)"
+      >
+        <span class="contenus-icone"><i class="fa-solid fa-images" aria-hidden="true"></i></span>
+        <span class="contenus-item-texte">
+          <strong>Réalisations — projets affichés</strong>
+          <small>{{ aValider ? `${aValider} à valider · ` : '' }}{{ enLigne }} en ligne</small>
+        </span>
+        <span v-if="aValider" class="contenus-point contenus-point-alerte" aria-hidden="true"></span>
+      </button>
     </nav>
 
+    <!-- Réalisations : photos et infos des projets affichés sur l'accueil -->
+    <GestionRealisations v-if="active === GALERIE" />
+
     <!-- Éditeur -->
-    <form class="adm-carte contenus-editeur" novalidate @submit.prevent="enregistrer()">
+    <form v-else class="adm-carte contenus-editeur" novalidate @submit.prevent="enregistrer()">
       <header class="editeur-tete">
         <div>
           <h2>{{ section.titre }}</h2>
@@ -141,6 +161,7 @@ async function retablir() {
 .contenus-item-texte small { font-size: .78rem; color: var(--adm-muet); }
 .contenus-item.actif small { color: rgba(255, 255, 255, .6); }
 .contenus-point { position: absolute; right: 16px; width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, .18); }
+.contenus-point-alerte { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, .2); }
 
 .contenus-editeur { display: flex; flex-direction: column; }
 .editeur-tete { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 24px 26px 20px; border-bottom: 1px solid var(--adm-ligne-2); }

@@ -9,6 +9,7 @@ import ProfilTypeCompte from './ProfilTypeCompte.vue'
 import { formaterTelephone } from '@/services/telephone.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import { useCreditFidelite } from '@/composables/useCreditFidelite.js'
+import { useMesRealisations } from '@/composables/useMesRealisations.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
 const AuthentificationVue = defineAsyncComponent(() => import('@/vues/AuthentificationVue.vue'))
@@ -48,6 +49,9 @@ const liensVisibles = computed(() => [
   ...liens.filter((l) => l.to !== '/dashboard' || connecte.value),
   ...(fournisseurLie.value ? [{ to: '/espace-fournisseur', label: 'Espace fournisseur', icone: 'fa-solid fa-store' }] : [])
 ])
+// pastille sur « Mes projets » : une proposition de BTM (mettre un projet en avant sur l'accueil) attend une réponse
+const { enAttente: propositions, charger: chargerPropositions } = useMesRealisations()
+watch(() => utilisateur.value?.id, (id) => { if (id) chargerPropositions() }, { immediate: true })
 const pseudo = computed(() => utilisateur.value?.user_metadata?.pseudo || utilisateur.value?.email?.split('@')[0] || '')
 const initiale = computed(() => pseudo.value.charAt(0).toUpperCase() || '?')
 
@@ -198,6 +202,7 @@ async function supprimerCompte() {
             <li v-for="l in liensVisibles" :key="l.to">
               <router-link :to="l.to" class="nav-lien" active-class="actif" :data-label="l.label">
                 <i :class="l.icone" aria-hidden="true"></i><span>{{ l.label }}</span>
+                <b v-if="l.to === '/dashboard' && propositions" class="nav-pastille" :title="`${propositions} proposition de BTM à voir`">{{ propositions }}</b>
               </router-link>
             </li>
           </ul>
@@ -266,6 +271,7 @@ async function supprimerCompte() {
         </button>
         <router-link v-for="l in liensVisibles" :key="l.to" :to="l.to" class="menu-mobile-lien" active-class="actif">
           <i :class="l.icone" aria-hidden="true"></i>{{ l.label }}
+          <b v-if="l.to === '/dashboard' && propositions" class="nav-pastille nav-pastille-menu">{{ propositions }}</b>
         </router-link>
         <div class="menu-mobile-actions">
           <button v-if="!connecte && backendDisponible" type="button" class="btn btn-contour-clair btn-bloc" @click="ouvrirAuth()">Connexion</button>
@@ -369,6 +375,13 @@ async function supprimerCompte() {
 /* Navigation (cachée en mobile, voir media queries) */
 .nav-principale { display: none; }
 .nav-principale ul { display: flex; gap: 2px; }
+/* proposition de BTM en attente (mettre un projet en avant sur l'accueil) */
+.nav-pastille {
+  position: absolute; top: 2px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center;
+  border-radius: 999px; background: #f59e0b; color: #fff; font-size: .68rem; font-weight: 800; line-height: 1;
+  box-shadow: 0 0 0 2px var(--abysse, #0b2a36);
+}
+.nav-pastille-menu { position: static; margin-left: auto; box-shadow: none; }
 .nav-lien {
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 40px; padding: 0 14px; border-radius: 999px; color: rgba(255, 255, 255, .72);

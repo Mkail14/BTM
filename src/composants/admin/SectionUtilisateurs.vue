@@ -9,10 +9,12 @@ import { useAuth } from '@/composables/useAuth.js'
 import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
 import AdminPanneau from './AdminPanneau.vue'
 import { formaterSiret, lienAnnuaire, rechercherSiret } from '@/services/entreprises.js'
+import { typesProjets } from '@/donnees/typesProjets.js'
+import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
 const { utilisateur: moi } = useAuth()
-onMounted(() => charger(['profils', 'projets', 'fournisseurs'], { force: true }))
+onMounted(() => charger(['profils', 'projets', 'fournisseurs', 'realisations'], { force: true }))
 const nomFournisseur = computed(() => Object.fromEntries((donnees.fournisseurs || []).map((f) => [f.id, f.nom])))
 
 const ROLES = { admin: { label: 'Administrateur', classe: 'adm-badge-noir' }, fournisseur: { label: 'Fournisseur', classe: 'adm-badge-info' }, user: { label: 'Utilisateur', classe: '' } }
@@ -127,6 +129,41 @@ async function supprimer(p) {
   if (!ok) return
   if (edition.value?.id === p.id) edition.value = null
   await charger(['profils', 'projets'], { force: true })
+}
+
+// ---------- Proposer de publier un projet sur l'accueil (réalisations, migration 0025) ----------
+// L'utilisateur reçoit l'invitation dans « Mes projets » : il ajoute une photo et ses infos, puis l'admin valide.
+const TYPES_OUVRAGE = Object.fromEntries(typesProjets.map((t) => [t.id, t.libelle]))
+const ETATS_REALISATION = { proposee: 'proposition envoyée', soumise: 'à valider', publiee: 'en ligne', refusee: 'refusée', declinee: 'déclinée' }
+const projetsDe = (id) => (donnees.projets || []).filter((p) => p.utilisateur_id === id)
+// projet déjà proposé (ou en ligne) : pas de seconde proposition pour le même projet
+const realisationDuProjet = (projetId) => (donnees.realisations || []).find((r) => r.projet_id === projetId && ['proposee', 'soumise', 'publiee'].includes(r.statut))
+
+const proposition = ref(null) // { profil, projetId, message, envoi, erreur }
+function ouvrirProposition(p) {
+  const libre = projetsDe(p.id).find((x) => !realisationDuProjet(x.id))
+  proposition.value = {
+    profil: p, projetId: libre?.id || '', envoi: false, erreur: '',
+    message: 'Votre projet nous plaît ! Acceptez-vous qu’il apparaisse sur la page d’accueil de BTM, avec une photo de votre chantier ?'
+  }
+}
+async function envoyerProposition() {
+  const prop = proposition.value
+  const projet = projetsDe(prop.profil.id).find((x) => x.id === prop.projetId)
+  if (!projet) { prop.erreur = 'Choisissez le projet à mettre en avant.'; return }
+  prop.envoi = true
+  prop.erreur = ''
+  const ok = await executer(async () => {
+    const ligne = await api.proposerRealisation({
+      utilisateur_id: prop.profil.id, projet_id: projet.id, titre: projet.nom,
+      type_projet: TYPES_OUVRAGE[projet.type_projet_id] ? projet.type_projet_id : null,
+      fournisseur_id: projet.fournisseur_id || null, fournisseur_nom: nomFournisseur.value[projet.fournisseur_id] || null,
+      message_admin: prop.message
+    })
+    donnees.realisations = [ligne, ...(donnees.realisations || [])]
+  }, `Proposition envoyée : ${prop.profil.nom_affiche || prop.profil.email} la verra dans « Mes projets ».`)
+  prop.envoi = false
+  if (ok) proposition.value = null
 }
 
 // ---------- Bannissement (migration 0022) ----------
@@ -280,6 +317,7 @@ async function lever(p) {
               <td data-label="Inscrit le">{{ formatDate(p.cree_le) }}</td>
               <td class="actions">
                 <button type="button" class="adm-icone-btn" title="Modifier" :aria-label="`Modifier ${p.email}`" @click="ouvrir(p)"><i class="fa-solid fa-user-pen"></i></button>
+                <button type="button" class="adm-icone-btn" :disabled="!projetsPar[p.id]" :title="projetsPar[p.id] ? 'Proposer de publier un projet sur l’accueil' : 'Aucun projet enregistré'" :aria-label="`Proposer à ${p.email} de publier un projet`" @click="ouvrirProposition(p)"><i class="fa-solid fa-images"></i></button>
                 <button type="button" class="adm-icone-btn" title="Réinitialiser le mot de passe" :aria-label="`Réinitialiser le mot de passe de ${p.email}`" @click="reinitialiser(p)"><i class="fa-solid fa-key"></i></button>
                 <button v-if="p.id !== moi?.id" type="button" class="adm-icone-btn danger" :title="banActif(p) ? 'Modifier le bannissement' : 'Bannir'" :aria-label="`${banActif(p) ? 'Modifier le bannissement de' : 'Bannir'} ${p.email}`" @click="ouvrirBan(p)"><i class="fa-solid fa-ban"></i></button>
                 <button v-if="p.id !== moi?.id" type="button" class="adm-icone-btn danger" title="Supprimer le compte" :aria-label="`Supprimer le compte ${p.email}`" @click="supprimer(p)"><i class="fa-solid fa-trash-can"></i></button>
@@ -290,6 +328,40 @@ async function lever(p) {
         <div v-if="!liste.length" class="adm-vide"><i class="fa-solid fa-users"></i><p>Aucun utilisateur ne correspond.</p></div>
       </div>
     </section>
+
+    <!-- Proposer de publier un projet sur la page d'accueil -->
+    <AdminPanneau v-if="proposition" titre="Proposer de publier un projet" :sous-titre="proposition.profil.nom_affiche || proposition.profil.email" @fermer="proposition = null">
+      <p class="utils-prop-intro">
+        L’utilisateur verra l’invitation dans <strong>Mes projets</strong> : il ajoute une photo de son chantier et ses infos, puis vous validez la publication
+        dans <strong>Contenus du site → Réalisations</strong>.
+      </p>
+      <fieldset class="adm-champ">
+        <legend class="adm-champ-label">Projet à mettre en avant</legend>
+        <ul class="utils-prop-projets">
+          <li v-for="pr in projetsDe(proposition.profil.id)" :key="pr.id">
+            <label class="utils-prop-projet" :class="{ choisi: proposition.projetId === pr.id, pris: realisationDuProjet(pr.id) }">
+              <input v-model="proposition.projetId" type="radio" :value="pr.id" :disabled="!!realisationDuProjet(pr.id)" />
+              <span>
+                <strong>{{ pr.nom }}</strong>
+                <small>{{ TYPES_OUVRAGE[pr.type_projet_id] || pr.type_projet_id }} · {{ formaterEuros(pr.cout_total) }} · {{ formatDate(pr.cree_le) }}<template v-if="nomFournisseur[pr.fournisseur_id]"> · {{ nomFournisseur[pr.fournisseur_id] }}</template></small>
+              </span>
+              <span v-if="realisationDuProjet(pr.id)" class="adm-badge adm-badge-info">{{ ETATS_REALISATION[realisationDuProjet(pr.id).statut] }}</span>
+            </label>
+          </li>
+        </ul>
+      </fieldset>
+      <div class="adm-champ">
+        <label for="prop-message">Message à l’utilisateur</label>
+        <textarea id="prop-message" v-model="proposition.message" rows="4" maxlength="400"></textarea>
+      </div>
+      <p v-if="proposition.erreur" class="adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ proposition.erreur }}</p>
+      <template #pied>
+        <button type="button" class="adm-btn adm-btn-clair" @click="proposition = null">Annuler</button>
+        <button type="button" class="adm-btn adm-btn-noir" :disabled="proposition.envoi || !proposition.projetId" @click="envoyerProposition">
+          <span v-if="proposition.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-paper-plane" aria-hidden="true"></i> Envoyer la proposition
+        </button>
+      </template>
+    </AdminPanneau>
 
     <AdminPanneau v-if="edition" titre="Modifier l’utilisateur" :sous-titre="edition.email" @fermer="edition = null">
       <div v-if="edition.chargement" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
@@ -414,6 +486,14 @@ async function lever(p) {
 .utils-bannis-entete h3 i { color: var(--adm-baisse); }
 .utils-bannis-entete p { margin: 4px 0 0; color: var(--adm-muet); font-size: .86rem; }
 .utils-motif { max-width: 280px; color: var(--adm-encre-2); font-size: .86rem; }
+.utils-prop-intro { margin: 0 0 16px; color: var(--adm-encre-2); font-size: .88rem; line-height: 1.55; }
+.utils-prop-projets { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; padding: 0; list-style: none; }
+.utils-prop-projet { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--adm-ligne); border-radius: 14px; cursor: pointer; }
+.utils-prop-projet.choisi { border-color: var(--adm-noir); background: var(--adm-ligne-2); }
+.utils-prop-projet.pris { opacity: .6; cursor: default; }
+.utils-prop-projet > span:first-of-type { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.utils-prop-projet strong { font-size: .92rem; }
+.utils-prop-projet small { color: var(--adm-muet); font-size: .78rem; }
 .utils-ban-actuel { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #fafbfc; color: var(--adm-encre-2); font-size: .88rem; }
 .utils-ban-resume { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #fffbeb; color: #92400e; font-size: .88rem; line-height: 1.45; }
 .utils-ban-resume.vie { background: #fff1f2; color: var(--adm-baisse); }

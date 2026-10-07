@@ -7,6 +7,7 @@ import { useCalculateur } from '@/composables/useCalculateur.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 import CarteProjet from '@/composants/tableau-de-bord/CarteProjet.vue'
+import PropositionsRealisation from '@/composants/tableau-de-bord/PropositionsRealisation.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 
 const router = useRouter()
@@ -48,6 +49,9 @@ async function confirmerSuppression() {
         </div>
         <BoutonBase to="/calculateur" icone="fa-solid fa-plus">Nouveau</BoutonBase>
       </header>
+
+      <!-- invitation de BTM à mettre un projet en avant sur la page d'accueil -->
+      <PropositionsRealisation v-if="connecte" />
 
       <p v-if="erreur" class="tdb-note" :title="erreur">Synchronisation indisponible — projets de cet appareil uniquement.</p>
       <p v-else-if="!connecte && backendDisponible" class="tdb-note">

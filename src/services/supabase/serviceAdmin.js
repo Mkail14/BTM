@@ -5,6 +5,7 @@
  */
 import { supabase, supabaseConfigure } from './client.js'
 import { normaliserResultat } from '@/services/calculs/moteurCalculs.js'
+import { televerserPhoto, supprimerPhotos } from './serviceRealisations.js'
 
 const verifier = () => { if (!supabaseConfigure) throw new Error('Backend Supabase non configuré') }
 const ok = ({ data, error }) => { if (error) throw traduire(error); return data }
@@ -19,7 +20,7 @@ function traduire(error) {
     '23505': 'Cet élément existe déjà (identifiant ou code en double).'
   }
   const migration = CODES_MIGRATION.includes(error.code)
-  const e = new Error(migration ? 'La base Supabase n’est pas à jour : appliquez les dernières migrations (0007 à 0009).' : messages[error.code] || error.message || 'Erreur inconnue')
+  const e = new Error(migration ? 'La base Supabase n’est pas à jour : appliquez les dernières migrations (dossier BACK/supabase/migrations).' : messages[error.code] || error.message || 'Erreur inconnue')
   e.migration = migration
   return e
 }
@@ -109,6 +110,47 @@ export async function listerAvis() {
 }
 export const definirAvisVisible = async (id, visible) => { verifier(); ok(await supabase.from('avis').update({ visible }).eq('id', id)) }
 export const supprimerAvis = async (id) => { verifier(); ok(await supabase.from('avis').delete().eq('id', id)) }
+// ---------- Réalisations (accueil, migration 0025) ------------------------------------------
+export async function listerRealisations() {
+  verifier()
+  return ok(await supabase.from('realisations').select('*').order('cree_le', { ascending: false }))
+}
+const CHAMPS_REALISATION = ['titre', 'type_projet', 'auteur', 'commune', 'quartier', 'fournisseur_id', 'fournisseur_nom', 'detail', 'annee', 'photo_url', 'photo_chemin']
+const champsRealisation = (r) => Object.fromEntries(CHAMPS_REALISATION.map((c) => [c, typeof r[c] === 'string' ? r[c].trim() || null : r[c] ?? null]))
+
+/** Proposition à un utilisateur de mettre en ligne l'un de ses projets */
+export async function proposerRealisation(p) {
+  verifier()
+  return ok(await supabase.from('realisations').insert({
+    ...champsRealisation(p), titre: p.titre?.trim() || '', auteur: p.auteur?.trim() || '', commune: '',
+    utilisateur_id: p.utilisateur_id, projet_id: p.projet_id || null, message_admin: p.message_admin?.trim() || null, statut: 'proposee'
+  }).select().single())
+}
+/** Création (saisie directe par l'admin, puis publiée) ou modification d'une réalisation */
+export async function enregistrerRealisation(r) {
+  verifier()
+  const champs = { ...champsRealisation(r), titre: r.titre.trim(), auteur: r.auteur.trim(), commune: r.commune.trim() }
+  if (r.id) return ok(await supabase.from('realisations').update(champs).eq('id', r.id).select().single())
+  return ok(await supabase.from('realisations').insert({ ...champs, statut: 'soumise', consentement: true }).select().single())
+}
+/** Met en ligne ; au-delà de 10, la plus ancienne est supprimée (avec sa photo). Renvoie le nombre de réalisations retirées. */
+export async function publierRealisation(id) {
+  verifier()
+  const chemins = ok(await supabase.rpc('publier_realisation', { p_id: id })) || []
+  await supprimerPhotos(chemins).catch(() => {})
+  return chemins.length
+}
+export async function refuserRealisation(id, motif) {
+  verifier()
+  return ok(await supabase.from('realisations').update({ statut: 'refusee', message_admin: motif?.trim() || null }).eq('id', id).select().single())
+}
+export async function supprimerRealisation(r) {
+  verifier()
+  ok(await supabase.from('realisations').delete().eq('id', r.id))
+  if (r.photo_chemin) await supprimerPhotos([r.photo_chemin]).catch(() => {})
+}
+export const televerserPhotoRealisation = (fichier) => { verifier(); return televerserPhoto(fichier, 'admin') }
+
 /** Avis Google recopié depuis la fiche Google de BTM (migration 0024) : création ou correction */
 export async function enregistrerAvisGoogle(a) {
   verifier()

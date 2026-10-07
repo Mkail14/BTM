@@ -12,6 +12,7 @@ const chargeurs = {
   profils: api.listerProfils,
   projets: api.listerProjets,
   avis: api.listerAvis,
+  realisations: api.listerRealisations,
   fournisseurs: api.listerFournisseurs,
   categories: api.listerCategories,
   materiaux: api.listerMateriaux,

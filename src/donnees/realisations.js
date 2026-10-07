@@ -1,7 +1,8 @@
 /**
- * Galerie « Réalisations » de l'accueil : projets d'utilisateurs, avec leur lieu et le fournisseur choisi.
- * EXEMPLES à remplacer par de vrais projets (avec l'accord de leurs auteurs).
- * Photo : déposer le fichier dans /public/realisations/ ; sans photo, un visuel aux couleurs du projet s'affiche.
+ * Galerie « Réalisations » de l'accueil — exemples de REPLI seulement.
+ * Les réalisations affichées viennent de la table `realisations` (migration 0025), gérée dans
+ * Admin → Contenus du site → Réalisations ; ces exemples ne servent que sans Supabase ou avant la migration
+ * (la migration les recopie en base comme point de départ).
  * Photos d'exemple : Unsplash (licence libre, usage commercial autorisé) — identifiants photo-1787672358208,
  * 1774931363306, 1788398913509, 1783753445561, 1787672357678, 1764856601179.
  */

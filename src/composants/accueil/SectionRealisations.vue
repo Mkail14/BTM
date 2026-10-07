@@ -8,18 +8,30 @@
  * Téléphone : bandeau défilant, détails toujours visibles, pas de curseur. Mouvements réduits : simple défilement manuel.
  */
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
-import { realisations } from '@/donnees/realisations.js'
+import { listerRealisationsPubliques, MAX_REALISATIONS } from '@/services/supabase/serviceRealisations.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 
 const contenu = useContenuSite()
 const TYPES = Object.fromEntries(typesProjets.map((t) => [t.id, t]))
-const projets = realisations
-const n = projets.length
-// deux exemplaires à la suite : le bandeau recule d'une moitié puis repart, sans couture visible
-const bandeau = [...projets, ...projets].map((p, k) => ({ ...p, k, copie: k >= n }))
-const DUREE = `${n * 12}s` // ≈ 12 s par chantier : défilement lent
+
+// Réalisations publiées par l'admin (10 au plus), relues à chaque retour sur l'accueil
+const projets = ref([])
+const charge = ref(false)
+async function chargerRealisations() {
+  try { projets.value = (await listerRealisationsPubliques()).slice(0, MAX_REALISATIONS) } catch { projets.value = [] }
+  charge.value = true
+}
+// Une moitié du bandeau = la liste, répétée si besoin pour dépasser la largeur de l'écran ;
+// deux moitiés à la suite : le bandeau recule d'une moitié puis repart, sans couture ni trou.
+const bandeau = computed(() => {
+  const liste = projets.value
+  if (!liste.length) return []
+  const moitie = Array.from({ length: Math.max(1, Math.ceil(8 / liste.length)) }, () => liste).flat()
+  return [...moitie, ...moitie].map((p, k) => ({ ...p, k, copie: k >= liste.length }))
+})
+const DUREE = computed(() => `${(bandeau.value.length / 2) * 12}s`) // ≈ 12 s par carte : défilement lent
 
 const galerie = ref(null)
 const fleche = ref(null)
@@ -44,7 +56,7 @@ function viser() {
   const k = carte ? Number(carte.dataset.k) : null
   if (k === visee.value) return
   visee.value = k
-  if (k !== null) curseur.value = { ...curseur.value, nom: bandeau[k].auteur }
+  if (k !== null && bandeau.value[k]) curseur.value = { ...curseur.value, nom: bandeau.value[k].auteur }
 }
 
 // ---------- Pilote automatique ----------
@@ -162,8 +174,10 @@ onMounted(() => {
   requeteGalerie?.addEventListener('change', surMedia)
   requeteCalme?.addEventListener('change', surMedia)
   brancher()
+  chargerRealisations()
 })
-onActivated(brancher)
+// retour sur l'accueil (keep-alive) : une réalisation a pu être publiée ou retirée entre-temps
+onActivated(() => { brancher(); if (charge.value) chargerRealisations() })
 onDeactivated(debrancher)
 onBeforeUnmount(() => {
   debrancher()
@@ -173,10 +187,12 @@ onBeforeUnmount(() => {
 })
 
 const lieu = (p) => (p.quartier ? `${p.quartier}, ${p.commune}` : p.commune)
+const etiquetteType = (p) => [TYPES[p.type]?.libelle, p.annee].filter(Boolean).join(' · ')
 </script>
 
 <template>
-  <section id="realisations" class="section re" aria-labelledby="re-titre">
+  <!-- masquée seulement s'il n'y a aucune réalisation publiée (le bandeau reste monté pour son observateur) -->
+  <section v-show="!charge || bandeau.length" id="realisations" class="section re" aria-labelledby="re-titre">
     <!-- même en-tête que les autres sections de l'accueil (surtitre, titre, bouton du site) -->
     <div class="conteneur re-entete">
       <header class="section-entete reveal">
@@ -197,8 +213,8 @@ const lieu = (p) => (p.quartier ? `${p.quartier}, ${p.commune}` : p.commune)
           :data-k="p.k" :aria-hidden="p.copie || undefined"
         >
           <router-link
-            :to="{ path: '/fournisseurs', query: { q: p.fournisseur } }" class="re-carte-lien" :tabindex="p.copie ? -1 : undefined"
-            :aria-label="`${p.titre} à ${lieu(p)}, par ${p.auteur}, matériaux chez ${p.fournisseur}`"
+            :to="p.fournisseur ? { path: '/fournisseurs', query: { q: p.fournisseur } } : '/fournisseurs'" class="re-carte-lien" :tabindex="p.copie ? -1 : undefined"
+            :aria-label="`${p.titre} à ${lieu(p)}, par ${p.auteur}${p.fournisseur ? `, matériaux chez ${p.fournisseur}` : ''}`"
           >
             <img
               v-if="!photoAbsente[p.id]" :src="p.photo" alt="" loading="lazy" decoding="async" class="re-photo"
@@ -207,14 +223,14 @@ const lieu = (p) => (p.quartier ? `${p.quartier}, ${p.commune}` : p.commune)
             <span v-else class="re-visuel" aria-hidden="true"><i :class="TYPES[p.type]?.icone"></i></span>
             <span class="re-voile" aria-hidden="true"></span>
 
-            <span class="re-type"><i :class="TYPES[p.type]?.icone" aria-hidden="true"></i>{{ TYPES[p.type]?.libelle }} · {{ p.annee }}</span>
+            <span v-if="etiquetteType(p)" class="re-type"><i v-if="TYPES[p.type]" :class="TYPES[p.type].icone" aria-hidden="true"></i>{{ etiquetteType(p) }}</span>
             <div class="re-infos">
               <h3 class="re-nom">{{ p.titre }}</h3>
               <span class="re-lieu"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>{{ lieu(p) }}</span>
               <!-- détails dévoilés sous le curseur (toujours visibles sur téléphone) -->
               <span class="re-details">
-                <span><i class="fa-solid fa-store" aria-hidden="true"></i>Matériaux chez <b>{{ p.fournisseur }}</b></span>
-                <span class="re-auteur">{{ p.detail }} — par {{ p.auteur }}</span>
+                <span v-if="p.fournisseur"><i class="fa-solid fa-store" aria-hidden="true"></i>Matériaux chez <b>{{ p.fournisseur }}</b></span>
+                <span class="re-auteur">{{ p.detail ? `${p.detail} — ` : '' }}par {{ p.auteur }}</span>
               </span>
             </div>
           </router-link>

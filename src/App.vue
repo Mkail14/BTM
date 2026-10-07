@@ -1,6 +1,7 @@
 <script setup>
-import { computed, watch } from 'vue'
+import { computed, defineAsyncComponent, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import EnteteApp from '@/composants/commun/EnteteApp.vue'
 import PiedDePage from '@/composants/commun/PiedDePage.vue'
 import AideFlottante from '@/composants/commun/AideFlottante.vue'
@@ -31,6 +32,20 @@ function retourEspace() {
   quitterModeSite()
   router.push({ name: 'espace-fournisseur' })
 }
+
+// Connexion / inscription : une fenêtre superposée au site (il n'y a pas de page de connexion).
+// Disponible partout, y compris dans les espaces admin et fournisseur (qui n'ont pas l'en-tête du site).
+const FenetreConnexion = defineAsyncComponent(() => import('@/composants/commun/FenetreConnexion.vue'))
+const { etat: fenetreAuth, ouvrirAuth, fermerAuth } = useFenetreAuth()
+watch(() => fenetreAuth.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
+// lien « ?connexion » ou « ?inscription » (assistance, compte suspendu…) : ouvre la fenêtre sur la page en cours
+watch(() => route.query, (q) => {
+  const mode = 'inscription' in q ? 'inscription' : 'connexion' in q ? 'connexion' : null
+  if (!mode) return
+  ouvrirAuth(mode, { redirect: q.redirect, suspendu: typeof q.suspendu === 'string' ? q.suspendu : null, profil: q.profil })
+  const { connexion: _c, inscription: _i, redirect: _r, suspendu: _s, profil: _p, ...reste } = q
+  router.replace({ query: reste, hash: route.hash })
+}, { immediate: true })
 </script>
 
 <template>
@@ -53,6 +68,11 @@ function retourEspace() {
     <BandeauCookies />
   </template>
   <ApercuPdf />
+  <FenetreConnexion
+    v-if="fenetreAuth.ouverte"
+    :mode="fenetreAuth.mode" :redirect="fenetreAuth.redirect" :suspendu="fenetreAuth.suspendu" :profil="fenetreAuth.profil"
+    @fermer="fermerAuth" @changer-mode="fenetreAuth.mode = $event"
+  />
   <div v-if="visiteFournisseur" class="visite-fournisseur" role="region" aria-label="Visite du site">
     <span><i class="fa-solid fa-briefcase" aria-hidden="true"></i> Vous visitez le site en tant que <strong>professionnel</strong></span>
     <button type="button" @click="retourEspace"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Retour à mon espace</button>

@@ -52,6 +52,22 @@ export async function mettreAJourProfil({ pseudo, telephone, email, ancienMotDeP
   return data.user
 }
 
+/**
+ * Connexion refusée pour bannissement : fin et motif de la suspension, rendus par la fonction SQL suspension_compte
+ * (supabase/suspension_compte.sql) contre l'e-mail et le mot de passe du compte. null si la fonction n'est pas
+ * installée ou ne répond pas : la page « Compte suspendu » s'affiche alors sans date ni motif.
+ */
+export async function lireSuspension(email, motDePasse) {
+  if (!supabaseConfigure) return null
+  try {
+    const { data, error } = await supabase.rpc('suspension_compte', { p_email: email, p_mot_de_passe: motDePasse })
+    const ligne = error ? null : data?.[0]
+    return ligne ? { jusqua: ligne.jusqua || 'vie', motif: ligne.motif || null } : null
+  } catch {
+    return null
+  }
+}
+
 // ---------- Mot de passe oublié : code reçu par e-mail ----------------------------------
 /**
  * Envoie l'e-mail « Reset Password » (gabarit emails/mot-de-passe-oublie.html, à coller dans Supabase) : il contient
@@ -106,4 +122,6 @@ export async function passerParticulier() {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
   const { error } = await supabase.rpc('passer_particulier')
   if (error) throw new Error(error.message)
+  // le choix « professionnel » fait à l'inscription ne doit plus redéposer la demande à la prochaine connexion (useAuth)
+  await supabase.auth.updateUser({ data: { type_profil: 'particulier' } }).catch(() => {})
 }

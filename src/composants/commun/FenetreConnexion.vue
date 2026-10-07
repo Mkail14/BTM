@@ -24,6 +24,8 @@ import LogoBtm from '@/composants/commun/LogoBtm.vue'
 import MotDePasseOublie from '@/composants/commun/MotDePasseOublie.vue'
 import { roleSession } from '@/routeur/index.js'
 import { fermerAuth } from '@/composables/useFenetreAuth.js'
+import { lireSuspension } from '@/services/supabase/serviceAuth.js'
+import { memoriserSuspension } from '@/services/suspension.js'
 
 const props = defineProps({
   mode: { type: String, default: 'connexion' },
@@ -237,7 +239,12 @@ async function soumettre() {
     }
   } catch (err) {
     // compte banni (migration 0022) : la page « Compte suspendu » remplace la fenêtre de connexion
-    if (!estInscription.value && /banned/i.test(err?.message || '')) { fermerAuth(); await router.push({ name: 'compte-suspendu' }); return }
+    if (!estInscription.value && /banned/i.test(err?.message || '')) {
+      memoriserSuspension(await lireSuspension(email.value.trim(), motDePasse.value))
+      fermerAuth()
+      await router.push({ name: 'compte-suspendu' })
+      return
+    }
     const message = traduire(err.message)
     // adresse refusée (jetable, domaine inexistant) : retour à l'étape de l'e-mail, raison affichée sous le champ
     if (estInscription.value && (message === MESSAGE_EMAIL_JETABLE || /ne reçoit pas d’e-mails/.test(message))) {

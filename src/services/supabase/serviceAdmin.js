@@ -34,6 +34,7 @@ export async function lireRoleCompte(utilisateurId) {
     role: data.role, fournisseur_id: data.fournisseur_id || null, type_profil: data.type_profil || 'particulier',
     banni: banActif(data), // compte banni (migration 0022) : le site le déconnecte
     bannieJusqua: data.banni_jusqua || null,
+    bannieMotif: data.banni_motif || null, // affiché au compte banni (page « Compte suspendu »)
     // demande de compte professionnel (migration 0011) : statut, entreprise, motif d'un éventuel refus
     pro: data.pro_statut ? { statut: data.pro_statut, raisonSociale: data.pro_raison_sociale, siret: data.pro_siret, motif: data.pro_motif_refus, demandeLe: data.pro_demande_le } : null
   }
@@ -46,6 +47,12 @@ export async function estAdmin(utilisateurId) {
 }
 
 // ---------- Utilisateurs ---------------------------------------------------------
+/**
+ * Compte administrateur principal : ni supprimé, ni banni, ni rétrogradé, et son adresse ne change pas.
+ * L'interface retire ces actions ; la base les refuse aussi (supabase/admin_principal.sql).
+ */
+export const ADMIN_PRINCIPAL = 'contact@btm.yt'
+export const estAdminPrincipal = (p) => (p?.email || '').trim().toLowerCase() === ADMIN_PRINCIPAL
 export async function listerProfils() {
   verifier()
   return ok(await supabase.from('profils').select('*').order('cree_le', { ascending: false }))

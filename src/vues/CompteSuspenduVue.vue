@@ -2,20 +2,24 @@
 /**
  * Compte suspendu (banni par un administrateur, migration 0022).
  * On y arrive déconnecté : après une tentative de connexion refusée, ou quand une session encore ouverte
- * est fermée par useAuth. `?jusqua=` porte la fin de la suspension (date ISO) ou « vie » ; elle est inconnue
- * après une connexion refusée, Supabase ne la communiquant pas.
- * Le motif saisi par l'équipe n'est jamais affiché : il lui est réservé.
+ * est fermée par useAuth. La fin de la suspension (date ISO ou « vie ») et le motif saisi par l'administrateur
+ * viennent de services/suspension.js ; `?jusqua=` reste lu pour les anciens liens.
+ * Un rat déguisé en policier annonce la nouvelle ; le motif s'affiche sous lui.
  */
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
+import { suspensionMemorisee } from '@/services/suspension.js'
+import RatPolicier from '@/composants/commun/RatPolicier.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 
 const route = useRoute()
 const contenu = useContenuSite()
 
-const jusqua = computed(() => (typeof route.query.jusqua === 'string' ? route.query.jusqua : ''))
+const memoire = suspensionMemorisee()
+const jusqua = computed(() => (typeof route.query.jusqua === 'string' ? route.query.jusqua : memoire?.jusqua || ''))
+const motif = (memoire?.motif || '').trim()
 const aVie = computed(() => jusqua.value === 'vie')
 const fin = computed(() => {
   const d = jusqua.value && !aVie.value ? new Date(jusqua.value) : null
@@ -68,9 +72,14 @@ const lienContact = computed(() => `mailto:${contenu.contact.email}?subject=${en
         </template>
       </div>
 
-      <div class="suspendu-visuel fond-plan" aria-hidden="true">
-        <i :class="terminee ? 'fa-solid fa-lock-open' : 'fa-solid fa-ban'"></i>
-      </div>
+      <figure class="suspendu-rat">
+        <p class="suspendu-bulle">{{ terminee ? 'C’est bon, circule : ton compte est débloqué.' : 'Halte ! Ton compte est banni.' }}</p>
+        <RatPolicier :content="terminee" />
+        <figcaption v-if="motif && !terminee" class="suspendu-motif">
+          <span>Motif donné par l’équipe BTM</span>
+          <p>« {{ motif }} »</p>
+        </figcaption>
+      </figure>
     </div>
   </div>
 </template>
@@ -88,8 +97,18 @@ h1 { margin-bottom: 12px; font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1.
 .suspendu-infos span { padding-top: 5px; }
 .suspendu-infos a { color: var(--lagon-700); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 .suspendu-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-.suspendu-visuel { height: 320px; display: grid; place-items: center; border-radius: var(--rayon-lg); }
-.suspendu-visuel i { font-size: 5rem; color: var(--corail); }
-.suspendu-visuel .fa-lock-open { color: var(--vert-mangrove); }
-@media (max-width: 899px) { .suspendu-visuel { height: 180px; order: -1; } .suspendu-visuel i { font-size: 3.4rem; } }
+.suspendu-rat { display: flex; flex-direction: column; align-items: center; width: min(100%, 380px); margin: 0 auto; }
+/* bulle : la pointe descend vers le rat */
+.suspendu-bulle {
+  position: relative; z-index: 1; margin-bottom: -6px; padding: 14px 22px; border: 3px solid var(--ardoise); border-radius: 22px; background: #fff;
+  font-family: var(--font-display); font-size: 1.55rem; font-weight: 700; line-height: 1.15; text-align: center; color: var(--ardoise);
+}
+.suspendu-bulle::after {
+  content: ''; position: absolute; left: 50%; bottom: -13px; width: 20px; height: 20px; margin-left: -10px;
+  border-right: 3px solid var(--ardoise); border-bottom: 3px solid var(--ardoise); background: #fff; transform: rotate(45deg);
+}
+.suspendu-motif { width: 100%; margin-top: 8px; padding: 16px 18px; border-left: 4px solid var(--corail-fonce); border-radius: 0 var(--rayon) var(--rayon) 0; background: var(--erreur-clair); }
+.suspendu-motif span { display: block; margin-bottom: 4px; font-size: .74rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--corail-fonce); }
+.suspendu-motif p { color: var(--ardoise); font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
+@media (max-width: 899px) { .suspendu-rat { order: -1; width: min(100%, 300px); } .suspendu-bulle { font-size: 1.3rem; } }
 </style>

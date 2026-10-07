@@ -4,6 +4,7 @@
  * Une étape `resolu` demande au visiteur si sa question est réglée ; sinon, Awa (IA) cherche avec lui à partir de
  * son explication (étape `libre`, parcours suivi joint), et passe la main à un conseiller seulement si elle n'y arrive pas.
  * Le bouton « Parler à un conseiller » reste toujours disponible : le visiteur peut demander un humain à tout moment.
+ * Un choix `devis` lance le devis fait dans la discussion (useDevisAwa).
  */
 export const ETAPES = {
   depart: {
@@ -18,9 +19,9 @@ export const ETAPES = {
     ]
   },
   devis: {
-    texte: 'Le calculateur vous donne les quantités et le prix en 2 minutes : « Selon mes mesures » pour un mur, une dalle, une fondation ou une terrasse, ou « Je sais ce qu’il me faut » pour choisir directement vos matériaux.',
+    texte: 'Je peux faire votre devis ici même : je vous pose quelques questions, je calcule, et le projet est enregistré dans « Mes projets » avec son PDF. Vous préférez le faire vous-même ? Le calculateur donne le même résultat en 2 minutes.',
     lien: { label: 'Ouvrir le calculateur', to: '/calculateur' },
-    resolu: true
+    choix: [{ label: 'Faire mon devis avec Awa', devis: true, icone: 'fa-solid fa-wand-magic-sparkles' }]
   },
   retrait: {
     texte: 'Quel est le souci avec votre retrait ?',
@@ -62,7 +63,7 @@ export const ETAPES = {
     libre: true
   },
   'mot-de-passe': {
-    texte: 'Sur la page de connexion, cliquez sur « Mot de passe oublié ? » : vous recevez un lien pour en choisir un nouveau. Pensez à regarder vos courriers indésirables.',
+    texte: 'Dans la fenêtre de connexion, cliquez sur « Mot de passe oublié ? » : vous recevez un code par e-mail, à saisir sur le site pour choisir un nouveau mot de passe. Pensez à regarder vos courriers indésirables.',
     lien: { label: 'Page de connexion', to: '/connexion' },
     resolu: true
   },

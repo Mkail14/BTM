@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { supabaseConfigure } from '@/services/supabase/client.js'
 import * as auth from '@/services/supabase/serviceAuth.js'
 import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
+import { memoriserSuspension } from '@/services/suspension.js'
 
 const utilisateur = ref(null)
 const pret = ref(false)
@@ -13,21 +14,45 @@ const demandePro = ref(null)   // { statut: 'en_attente'|'verifie'|'refuse', rai
 
 /** Relit le rôle et le type du compte connecté (après une demande de vérification pro, par exemple) */
 async function chargerRole(id = utilisateur.value?.id) {
-  const r = await lireRoleCompte(id)
+  let r = await lireRoleCompte(id)
   if (id !== utilisateur.value?.id) return // le compte a changé entre-temps
   if (r.banni) {
     // compte banni encore connecté (session ouverte avant le ban) : déconnexion, puis page « Compte suspendu »
+    memoriserSuspension({ jusqua: r.bannieJusqua || 'vie', motif: r.bannieMotif })
     await auth.deconnexion()
     utilisateur.value = null
-    window.location.assign(`/compte-suspendu?jusqua=${encodeURIComponent(r.bannieJusqua || 'vie')}`)
+    window.location.assign('/compte-suspendu')
     return
   }
+  r = await deposerDemandePro(id, r)
+  if (id !== utilisateur.value?.id) return
   admin.value = r.role === 'admin'
   fournisseurLie.value = r.role === 'fournisseur' ? r.fournisseur_id : null
   typeProfil.value = r.type_profil
   demandePro.value = r.pro
 }
 let initialise = false
+
+/**
+ * Inscription « professionnel » : le SIRET et la raison sociale saisis sont gardés avec le compte, et la demande de
+ * vérification doit être déposée à sa création. Si la base ne l'a pas fait (compte resté « particulier »), on la dépose
+ * à la première connexion : l'administrateur la reçoit dans « Pros à vérifier ». Une fois par compte et par visite.
+ */
+const demandesProDeposees = new Set()
+async function deposerDemandePro(id, r) {
+  const infos = utilisateur.value?.user_metadata || {}
+  const attendue = r.role === 'user' && !r.pro && r.type_profil !== 'professionnel'
+    && infos.type_profil === 'professionnel' && infos.pro_siret && infos.pro_raison_sociale
+  if (!attendue || demandesProDeposees.has(id)) return r
+  demandesProDeposees.add(id)
+  try {
+    await auth.demanderVerificationPro(infos.pro_raison_sociale, infos.pro_siret)
+    return await lireRoleCompte(id)
+  } catch (e) {
+    console.warn('Demande de compte professionnel non déposée', e)
+    return r
+  }
+}
 
 /**
  * Changement de compte (connexion, déconnexion, passage d'un compte à un autre) :

@@ -126,7 +126,7 @@ async function designer() {
 }
 
 async function retirer(p) {
-  if (p.id === moi.value || roleEnCours.value) return
+  if (p.id === moi.value || api.estAdminPrincipal(p) || roleEnCours.value) return
   if (!(await confirmer({
     titre: 'Retirer les droits administrateur ?', libelle: 'Retirer les droits', danger: true,
     texte: `${p.email} redeviendra un simple utilisateur et n’aura plus accès à l’administration. Son compte et ses projets sont conservés.`
@@ -233,8 +233,9 @@ async function retirer(p) {
               <span class="adm-avatar rond">{{ initiales(nomDe(p)) }}</span>
               <span><strong>{{ nomDe(p) }}</strong><small>{{ p.email }}</small></span>
             </span>
+            <span v-if="api.estAdminPrincipal(p)" class="adm-badge adm-badge-noir sans-point" title="Ce compte ne peut être ni supprimé, ni banni, ni rétrogradé"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Principal</span>
             <span v-if="p.id === moi" class="adm-badge adm-badge-info sans-point">Vous</span>
-            <button v-else type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="!!roleEnCours" @click="retirer(p)">
+            <button v-else-if="!api.estAdminPrincipal(p)" type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="!!roleEnCours" @click="retirer(p)">
               <span v-if="roleEnCours === p.id" class="spinner" aria-hidden="true"></span> Retirer
             </button>
           </li>

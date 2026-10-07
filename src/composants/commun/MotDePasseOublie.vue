@@ -107,6 +107,16 @@ async function changer() {
   }
 }
 
+/** Code déjà reçu (demandé plus tôt, ou envoyé par un administrateur) : on passe à sa saisie sans en renvoyer un */
+function dejaUnCode() {
+  erreurGlobale.value = ''
+  info.value = ''
+  email.value = email.value.trim()
+  const m = erreurEmail(email.value, { accepterJetable: true })
+  erreurs.value = m ? { email: m } : {}
+  if (!m) etape.value = 'code'
+}
+
 function modifierAdresse() {
   etape.value = 'email'
   code.value = ''
@@ -129,7 +139,8 @@ function modifierAdresse() {
       <h2 id="auth-titre" class="mo-titre">Mot de passe oublié</h2>
       <p class="texte-secondaire mo-intro">
         <template v-if="etape === 'email'">Indiquez l’adresse e-mail de votre compte : nous vous envoyons un code pour choisir un nouveau mot de passe.</template>
-        <template v-else>Si un compte existe pour <strong>{{ email }}</strong>, un code vient d’y être envoyé. Il est valable 1 heure.</template>
+        <template v-else-if="attente > 0">Si un compte existe pour <strong>{{ email }}</strong>, un code vient d’y être envoyé. Il est valable 1 heure.</template>
+        <template v-else>Saisissez le code reçu à l’adresse <strong>{{ email }}</strong>, puis choisissez votre nouveau mot de passe.</template>
       </p>
 
       <!-- 1. Adresse e-mail -->
@@ -143,6 +154,7 @@ function modifierAdresse() {
         <div class="mo-actions">
           <BoutonBase type="submit" bloc :chargement="chargement" icone="fa-solid fa-paper-plane">Recevoir le code</BoutonBase>
         </div>
+        <p class="mo-deja"><button type="button" class="mo-lien" @click="dejaUnCode">J’ai déjà reçu un code</button></p>
       </form>
 
       <!-- 2. Code reçu + nouveau mot de passe -->
@@ -198,6 +210,7 @@ function modifierAdresse() {
 .mo-lien:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .mo-lien:disabled { color: var(--texte-secondaire); font-weight: 500; cursor: default; }
 .mo-lien i { margin-right: 4px; font-size: .85em; }
+.mo-deja { text-align: center; font-size: .92rem; }
 .mo-pied { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; margin-top: 22px; font-size: .95rem; }
 .mo-fini { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 0; text-align: center; }
 .mo-icone { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; font-size: 1.5rem; }

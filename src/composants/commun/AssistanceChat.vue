@@ -3,10 +3,13 @@
  * Discussion « Sur le site » : Awa (questions guidées, puis assistante IA pour les questions libres)
  * ou un conseiller BTM (l'admin) quand la demande la dépasse. La conversation est gardée dans le navigateur :
  * le visiteur retrouve la réponse du conseiller s'il revient plus tard.
+ * Awa fait aussi le devis dans la discussion (useDevisAwa) : questions, calcul, enregistrement dans « Mes projets », PDF.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { ETAPES } from '@/donnees/assistanceQuestions.js'
+import { useDevisAwa, demandeDeDevis } from '@/composables/useDevisAwa.js'
+import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import {
   conversationGardee, oublierConversation, envoyerQuestion, demanderConseiller, lireConversation,
   canalSupport, emetteurEcriture, recepteurEcriture
@@ -14,6 +17,11 @@ import {
 
 const emit = defineEmits(['fermer', 'reponse-vue'])
 const { connecte } = useAuth()
+// Devis fait dans la discussion : ses messages restent dans le navigateur, mêlés à la conversation par ordre d'arrivée
+const {
+  messages: messagesDevis, actif: devisActif, occupe: devisOccupe, choix: choixDevis, dernier: dernierDevis,
+  demarrer: demarrerDevis, choisir: choisirDevis, repondre: repondreDevis, annuler: annulerDevis, pdf: pdfDevis, ouvrir: ouvrirDevis, reinitialiser: oublierDevis
+} = useDevisAwa()
 
 const minimise = ref(false)
 const guide = ref([]) // échanges des questions guidées (dans le navigateur seulement)
@@ -39,6 +47,12 @@ const chezConseiller = computed(() => statut.value === 'attente' || statut.value
 // le parcours guidé envoyé au conseiller n'est pas réaffiché au visiteur
 const messagesServeur = computed(() => serveur.value.messages.filter((m) => !(m.auteur === 'client' && m.texte.startsWith('Parcours suivi :'))))
 const etapeActive = computed(() => guide.value.at(-1)?.etape || null)
+// conversation enregistrée et devis d'Awa dans un seul fil ; un message pas encore horodaté (envoi en cours) reste à la fin
+const fil = computed(() => {
+  if (!messagesDevis.value.length) return messagesServeur.value
+  const instant = (m) => (m.cree_le ? new Date(m.cree_le).getTime() : Infinity)
+  return [...messagesServeur.value, ...messagesDevis.value].map((m, i) => ({ m, i })).sort((a, b) => instant(a.m) - instant(b.m) || a.i - b.i).map((x) => x.m)
+})
 // accusé de lecture : sous le dernier message envoyé par le client, une fois la discussion chez un conseiller
 const dernierClientId = computed(() => [...messagesServeur.value].reverse().find((m) => m.auteur === 'client' && typeof m.id === 'number')?.id)
 const vuParConseiller = computed(() => !!dernierClientId.value && serveur.value.vuConseiller >= dernierClientId.value)
@@ -58,7 +72,7 @@ const noteFermer = computed(() => chezConseiller.value && debutAttente.value ===
 const peutRecommencer = computed(() => !!serveur.value.statut || guide.value.length > 1)
 
 function defiler() { nextTick(() => { if (zone.value) zone.value.scrollTop = zone.value.scrollHeight }) }
-watch(() => [guide.value.length, serveur.value.messages.length, demandeCoordonnees.value, conseillerEcrit.value], defiler)
+watch(() => [guide.value.length, serveur.value.messages.length, messagesDevis.value.length, demandeCoordonnees.value, conseillerEcrit.value], defiler)
 
 function etapeVers(cle) {
   const e = ETAPES[cle]
@@ -69,6 +83,7 @@ function choisir(c) {
   guide.value.push({ auteur: 'client', texte: c.label })
   parcours.value.push(c.label)
   if (c.conseiller) return passerConseiller()
+  if (c.devis) return demarrerDevis()
   etapeVers(c.suite)
 }
 function resolu(oui) {
@@ -98,6 +113,9 @@ function integrer(r) {
 async function envoyer() {
   const texte = saisie.value.trim()
   if (!texte || envoi.value) return
+  // devis dans la discussion : la réponse va à Awa sur place ; une demande de devis écrite le démarre
+  if (devisActif.value) { saisie.value = ''; repondreDevis(texte); return }
+  if (!chezConseiller.value && demandeDeDevis(texte)) { saisie.value = ''; demarrerDevis(texte); return }
   erreur.value = ''
   envoi.value = true
   saisie.value = ''
@@ -146,6 +164,7 @@ async function confirmerConseiller(avecCoordonnees = false) {
 function recommencer() {
   menuOuvert.value = false
   oublierConversation()
+  oublierDevis()
   debutAttente.value = null
   serveur.value = VIDE()
   guide.value = []
@@ -237,6 +256,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         </button>
         <div v-if="menuOuvert" id="ac-options" class="ac-options">
           <p class="ac-options-qui"><strong>{{ titre }}</strong><small>{{ sousTitre }}</small></p>
+          <button v-if="!devisActif" type="button" @click="menuOuvert = false; demarrerDevis()"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire un devis avec Awa</button>
           <button v-if="!chezConseiller" type="button" @click="passerConseiller"><i class="fa-solid fa-headset" aria-hidden="true"></i> Parler à un conseiller</button>
           <button v-if="peutRecommencer" type="button" @click="recommencer"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Nouvelle discussion</button>
           <button type="button" @click="menuOuvert = false; minimise = true"><i class="fa-solid fa-minus" aria-hidden="true"></i> Réduire la fenêtre</button>
@@ -271,8 +291,8 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
           </div>
         </template>
 
-        <!-- Conversation enregistrée (assistante IA et conseiller) -->
-        <template v-for="m in messagesServeur" :key="m.id">
+        <!-- Conversation enregistrée (assistante IA et conseiller) et devis fait avec Awa -->
+        <template v-for="m in fil" :key="m.id">
           <p v-if="m.auteur === 'systeme'" class="ac-systeme">{{ m.texte }}</p>
           <div v-else class="ac-ligne" :class="m.auteur === 'client' ? 'client' : m.auteur">
             <span v-if="AUTEURS[m.auteur]" class="ac-qui">{{ AUTEURS[m.auteur].nom }} <em>{{ AUTEURS[m.auteur].badge }}</em></span>
@@ -284,14 +304,31 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
                 {{ vuParConseiller ? 'Vu' : 'Envoyé' }}
               </span>
             </span>
+            <!-- devis terminé : PDF, détail, projets -->
+            <div v-if="dernierDevis && m.id === dernierDevis.idMessage" class="ac-choix ac-devis-actions">
+              <button type="button" @click="pdfDevis('visualiser')"><i class="fa-regular fa-file-pdf" aria-hidden="true"></i>Voir le PDF</button>
+              <button type="button" @click="pdfDevis('telecharger')"><i class="fa-solid fa-download" aria-hidden="true"></i>Télécharger</button>
+              <button type="button" @click="ouvrirDevis(); minimise = true"><i class="fa-solid fa-list-check" aria-hidden="true"></i>Devis complet</button>
+              <router-link v-if="dernierDevis.dansCompte" to="/dashboard" @click="minimise = true"><i class="fa-solid fa-folder-open" aria-hidden="true"></i>Mes projets</router-link>
+              <button v-else type="button" @click="ouvrirAuth('connexion', { redirect: '/dashboard' }); minimise = true"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>Me connecter</button>
+              <button type="button" @click="demarrerDevis()"><i class="fa-solid fa-plus" aria-hidden="true"></i>Autre devis</button>
+            </div>
           </div>
         </template>
+
+        <!-- réponses proposées à la question du devis en cours -->
+        <div v-if="devisActif && !devisOccupe" class="ac-choix">
+          <button v-for="c in choixDevis" :key="c.label" type="button" @click="choisirDevis(c)">
+            <i v-if="c.icone" :class="c.icone" aria-hidden="true"></i>{{ c.label }}
+          </button>
+          <button type="button" class="ac-choix-discret" @click="annulerDevis">Annuler le devis</button>
+        </div>
 
         <div v-if="conseillerEcrit && chezConseiller && !envoi" class="ac-ligne conseiller">
           <span class="ac-qui">Conseiller BTM écrit…</span>
           <p class="ac-ecrit" aria-label="Le conseiller écrit"><span></span><span></span><span></span></p>
         </div>
-        <p v-if="envoi" class="ac-ecrit"><span></span><span></span><span></span></p>
+        <p v-if="envoi || devisOccupe" class="ac-ecrit"><span></span><span></span><span></span></p>
 
         <!-- Coordonnées facultatives avant le passage à un conseiller -->
         <form v-if="demandeCoordonnees" class="ac-coord" @submit.prevent="confirmerConseiller(true)">
@@ -313,7 +350,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 
       <form class="ac-saisie" @submit.prevent="envoyer">
         <label class="visually-hidden" for="ac-message">Votre message</label>
-        <input id="ac-message" v-model="saisie" type="text" maxlength="1000" :placeholder="statut === 'humain' ? 'Écrire au conseiller…' : 'Posez votre question…'" autocomplete="off" />
+        <input id="ac-message" v-model="saisie" type="text" maxlength="1000" :placeholder="devisActif ? 'Votre réponse…' : statut === 'humain' ? 'Écrire au conseiller…' : 'Posez votre question…'" autocomplete="off" />
         <button type="submit" :disabled="!saisie.trim() || envoi" aria-label="Envoyer"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
       </form>
     </template>
@@ -363,6 +400,10 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-choix { display: flex; flex-wrap: wrap; gap: 6px; }
 .ac-choix button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: #fff; color: var(--lagon-800); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
 .ac-choix button:hover:not(:disabled) { border-color: var(--lagon-500); background: var(--lagon-50); }
+.ac-choix a { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: #fff; color: var(--lagon-800); font-size: .8rem; font-weight: 600; }
+.ac-choix a:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
+.ac-choix .ac-choix-discret { border-color: transparent; background: transparent; color: var(--texte-secondaire); font-weight: 500; }
+.ac-devis-actions { margin-top: 8px; }
 .ac-systeme { align-self: center; max-width: 92%; margin: 2px 0; color: var(--texte-secondaire); font-size: .74rem; text-align: center; }
 .ac-ecrit { display: flex; gap: 4px; align-self: flex-start; margin: 0; padding: 12px 14px; border-radius: 14px; background: #fff; }
 .ac-ecrit span { width: 6px; height: 6px; border-radius: 50%; background: var(--gris-400); animation: ac-points 1s infinite; }

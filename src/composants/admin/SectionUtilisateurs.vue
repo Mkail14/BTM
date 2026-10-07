@@ -10,6 +10,7 @@ import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
 import AdminPanneau from './AdminPanneau.vue'
 import PanneauPropositionRealisation from './PanneauPropositionRealisation.vue'
 import { formaterSiret, lienAnnuaire, rechercherSiret } from '@/services/entreprises.js'
+import { demanderCodeMotDePasse } from '@/services/supabase/serviceAuth.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
 const { utilisateur: moi } = useAuth()
@@ -56,6 +57,7 @@ async function enregistrer() {
   if (!u.email?.trim()) { editionErreur.value = 'L’adresse e-mail est obligatoire.'; return }
   if (u.role === 'fournisseur' && !u.fournisseur_id) { editionErreur.value = 'Choisissez l’entreprise de l’annuaire que ce compte représente.'; return }
   const ancien = donnees.profils.find((p) => p.id === u.id)
+  if (api.estAdminPrincipal(ancien) && (u.role !== 'admin' || !api.estAdminPrincipal(u))) { editionErreur.value = 'Le compte administrateur principal garde son rôle et son adresse e-mail.'; return }
   if (u.role === 'admin' && ancien?.role !== 'admin'
     && !(await confirmer({ titre: 'Donner les droits administrateur ?', texte: `${u.email} pourra modifier tout le site, les prix et les comptes.`, libelle: 'Confirmer' }))) return
   enregistrement.value = true
@@ -109,12 +111,14 @@ async function statuer(decision) {
 }
 
 async function reinitialiser(p) {
-  if (!(await confirmer({ titre: 'Réinitialiser le mot de passe ?', texte: `Un e-mail avec un lien pour choisir un nouveau mot de passe sera envoyé à ${p.email}.`, libelle: 'Envoyer l’e-mail' }))) return
-  await executer(async () => { const r = await api.reinitialiserMotDePasse(p.id); notifier(r?.message || 'E-mail envoyé.') })
+  // même e-mail que « Mot de passe oublié ? » : un code à saisir sur le site (fenêtre de connexion → « J’ai déjà reçu un code »)
+  if (!(await confirmer({ titre: 'Réinitialiser le mot de passe ?', texte: `Un e-mail avec un code sera envoyé à ${p.email}. La personne le saisit dans « Mot de passe oublié ? » pour choisir son nouveau mot de passe.`, libelle: 'Envoyer le code' }))) return
+  await executer(() => demanderCodeMotDePasse(p.email), `Code envoyé à ${p.email}.`)
 }
 
 // ---------- Suppression définitive (n'importe quel compte sauf le sien, revérifié par le serveur) ----------
 async function supprimer(p) {
+  if (api.estAdminPrincipal(p)) { notifier('Le compte administrateur principal ne peut pas être supprimé.', 'erreur'); return }
   const projets = projetsPar.value[p.id] || 0
   const texte = [
     `Le compte ${p.email} sera supprimé définitivement`,
@@ -162,6 +166,7 @@ function restant(p) {
 
 const ban = ref(null) // { profil, duree, date, motif, envoi, erreur }
 function ouvrirBan(p) {
+  if (api.estAdminPrincipal(p)) { notifier('Le compte administrateur principal ne peut pas être banni.', 'erreur'); return }
   const actif = banActif(p)
   ban.value = {
     profil: p, motif: actif ? p.banni_motif || '' : '', envoi: false, erreur: '',
@@ -268,7 +273,7 @@ async function lever(p) {
               <td class="principal">
                 <span class="adm-identite">
                   <span class="adm-avatar rond">{{ initiales(p.nom_affiche || p.email) }}</span>
-                  <span><strong>{{ p.nom_affiche || '—' }} <span v-if="p.id === moi?.id" class="utils-moi">vous</span><span v-if="banActif(p)" class="utils-banni" :title="p.banni_jusqua ? `Banni jusqu’au ${dateLongue(p.banni_jusqua)}` : 'Banni à vie'"><i class="fa-solid fa-ban" aria-hidden="true"></i> {{ p.banni_jusqua ? 'banni' : 'banni à vie' }}</span></strong><small>{{ p.email }}</small></span>
+                  <span><strong>{{ p.nom_affiche || '—' }} <span v-if="p.id === moi?.id" class="utils-moi">vous</span><span v-if="api.estAdminPrincipal(p)" class="utils-moi" title="Ce compte ne peut être ni supprimé, ni banni, ni rétrogradé"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> principal</span><span v-if="banActif(p)" class="utils-banni" :title="p.banni_jusqua ? `Banni jusqu’au ${dateLongue(p.banni_jusqua)}` : 'Banni à vie'"><i class="fa-solid fa-ban" aria-hidden="true"></i> {{ p.banni_jusqua ? 'banni' : 'banni à vie' }}</span></strong><small>{{ p.email }}</small></span>
                 </span>
               </td>
               <td data-label="Profil">
@@ -286,8 +291,8 @@ async function lever(p) {
                 <button type="button" class="adm-icone-btn" title="Modifier" :aria-label="`Modifier ${p.email}`" @click="ouvrir(p)"><i class="fa-solid fa-user-pen"></i></button>
                 <button type="button" class="adm-icone-btn" :disabled="!projetsPar[p.id]" :title="projetsPar[p.id] ? 'Proposer de publier un projet sur l’accueil' : 'Aucun projet enregistré'" :aria-label="`Proposer à ${p.email} de publier un projet`" @click="proposition = p"><i class="fa-solid fa-images"></i></button>
                 <button type="button" class="adm-icone-btn" title="Réinitialiser le mot de passe" :aria-label="`Réinitialiser le mot de passe de ${p.email}`" @click="reinitialiser(p)"><i class="fa-solid fa-key"></i></button>
-                <button v-if="p.id !== moi?.id" type="button" class="adm-icone-btn danger" :title="banActif(p) ? 'Modifier le bannissement' : 'Bannir'" :aria-label="`${banActif(p) ? 'Modifier le bannissement de' : 'Bannir'} ${p.email}`" @click="ouvrirBan(p)"><i class="fa-solid fa-ban"></i></button>
-                <button v-if="p.id !== moi?.id" type="button" class="adm-icone-btn danger" title="Supprimer le compte" :aria-label="`Supprimer le compte ${p.email}`" @click="supprimer(p)"><i class="fa-solid fa-trash-can"></i></button>
+                <button v-if="p.id !== moi?.id && !api.estAdminPrincipal(p)" type="button" class="adm-icone-btn danger" :title="banActif(p) ? 'Modifier le bannissement' : 'Bannir'" :aria-label="`${banActif(p) ? 'Modifier le bannissement de' : 'Bannir'} ${p.email}`" @click="ouvrirBan(p)"><i class="fa-solid fa-ban"></i></button>
+                <button v-if="p.id !== moi?.id && !api.estAdminPrincipal(p)" type="button" class="adm-icone-btn danger" title="Supprimer le compte" :aria-label="`Supprimer le compte ${p.email}`" @click="supprimer(p)"><i class="fa-solid fa-trash-can"></i></button>
               </td>
             </tr>
           </tbody>
@@ -305,13 +310,14 @@ async function lever(p) {
         <div class="adm-champ"><label for="u-prenom">Prénom</label><input id="u-prenom" v-model="edition.prenom" maxlength="60" autocomplete="off" /></div>
         <div class="adm-champ"><label for="u-nom">Nom</label><input id="u-nom" v-model="edition.nom" maxlength="60" autocomplete="off" /></div>
         <div class="adm-champ"><label for="u-pseudo">Pseudo</label><input id="u-pseudo" v-model="edition.pseudo" maxlength="30" autocomplete="off" /></div>
-        <div class="adm-champ"><label for="u-mail">Adresse e-mail</label><input id="u-mail" v-model="edition.email" type="email" autocomplete="off" required /></div>
+        <div class="adm-champ"><label for="u-mail">Adresse e-mail</label><input id="u-mail" v-model="edition.email" type="email" autocomplete="off" required :disabled="api.estAdminPrincipal(profilEdite)" /></div>
         <ChampTelephone id="u-tel" v-model="edition.telephone" v-model:valide="telephoneValide" class="plein" />
         <div class="adm-champ"><label for="u-type">Type de profil</label>
           <select id="u-type" v-model="edition.type_profil"><option v-for="(l, v) in TYPES" :key="v" :value="v">{{ l }}</option></select></div>
         <div class="adm-champ"><label for="u-role">Rôle</label>
-          <select id="u-role" v-model="edition.role" :disabled="edition.id === moi?.id"><option v-for="(r, v) in ROLES" :key="v" :value="v">{{ r.label }}</option></select>
-          <span v-if="edition.id === moi?.id" class="adm-champ-aide"><span>Vous ne pouvez pas modifier votre propre rôle.</span></span></div>
+          <select id="u-role" v-model="edition.role" :disabled="edition.id === moi?.id || api.estAdminPrincipal(profilEdite)"><option v-for="(r, v) in ROLES" :key="v" :value="v">{{ r.label }}</option></select>
+          <span v-if="api.estAdminPrincipal(profilEdite)" class="adm-champ-aide"><span>Compte administrateur principal : son rôle et son adresse ne changent pas.</span></span>
+          <span v-else-if="edition.id === moi?.id" class="adm-champ-aide"><span>Vous ne pouvez pas modifier votre propre rôle.</span></span></div>
         <div v-if="edition.role === 'fournisseur'" class="adm-champ plein">
           <label for="u-fournisseur">Entreprise représentée</label>
           <select id="u-fournisseur" v-model="edition.fournisseur_id">
@@ -393,8 +399,8 @@ async function lever(p) {
           <input id="ban-date" v-model="ban.date" type="datetime-local" :min="versSaisie(new Date())" />
         </div>
         <div class="adm-champ plein">
-          <label for="ban-motif">Motif <small>(visible par l’équipe uniquement)</small></label>
-          <textarea id="ban-motif" v-model="ban.motif" rows="3" maxlength="300" placeholder="Ex. : propos insultants envers un fournisseur, faux devis…"></textarea>
+          <label for="ban-motif">Motif <small>(affiché à l’utilisateur banni)</small></label>
+          <textarea id="ban-motif" v-model="ban.motif" rows="3" maxlength="300" placeholder="Ex. : propos insultants envers un fournisseur, faux devis… Restez factuel : la personne lira ce texte."></textarea>
         </div>
         <p class="plein utils-ban-resume" :class="{ vie: finBan === null }"><i class="fa-solid fa-ban" aria-hidden="true"></i> {{ resumeBan }}</p>
       </form>

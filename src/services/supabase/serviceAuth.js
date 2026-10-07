@@ -1,5 +1,10 @@
 /** Authentification Supabase (email + mot de passe) */
 import { supabase, supabaseConfigure } from './client.js'
+import { controlerEmailReel, MESSAGE_EMAIL_JETABLE } from '../validation.js'
+
+// Le déclencheur `trg_refuser_email_jetable` (migration 0019) fait échouer l'écriture dans auth.users :
+// Supabase ne renvoie alors qu'un « Database error … » générique
+const erreurAuth = (error) => (/database error (saving|updating)/i.test(error?.message || '') ? new Error(MESSAGE_EMAIL_JETABLE) : error)
 
 export async function connexion(email, motDePasse) {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
@@ -8,10 +13,13 @@ export async function connexion(email, motDePasse) {
   return data.user
 }
 
-export async function inscription(email, motDePasse, identite = {}) {
+/** `retour` : page où ramène le lien de confirmation (ex. « /resultats » pour retrouver le devis en cours) */
+export async function inscription(email, motDePasse, identite = {}, retour = '') {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
-  const { data, error } = await supabase.auth.signUp({ email, password: motDePasse, options: { data: identite, emailRedirectTo: window.location.origin } })
-  if (error) throw error
+  await controlerEmailReel(email)
+  const emailRedirectTo = window.location.origin + (retour.startsWith('/') ? retour : '')
+  const { data, error } = await supabase.auth.signUp({ email, password: motDePasse, options: { data: identite, emailRedirectTo } })
+  if (error) throw erreurAuth(error)
   return data.user
 }
 
@@ -31,12 +39,16 @@ export async function mettreAJourProfil({ pseudo, telephone, email, ancienMotDeP
     })
     if (verificationErreur) throw new Error('Ancien mot de passe incorrect.')
   }
+  if (email) {
+    const { data: actuel } = await supabase.auth.getUser()
+    if (email.trim().toLowerCase() !== actuel?.user?.email?.toLowerCase()) await controlerEmailReel(email)
+  }
   const { data, error } = await supabase.auth.updateUser({
     email: email || undefined,
     password: motDePasse || undefined,
     data: { pseudo: pseudo || undefined, telephone: telephone || undefined }
   })
-  if (error) throw error
+  if (error) throw erreurAuth(error)
   return data.user
 }
 

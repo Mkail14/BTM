@@ -1,7 +1,7 @@
 <script setup>
 /**
- * Utilisateurs : filtres par rôle, modification (fonction serveur admin-utilisateurs, qui revérifie le rôle),
- * e-mail de réinitialisation du mot de passe.
+ * Utilisateurs : filtres par rôle, modification, bannissement (à vie ou pour une durée, section « Bannis ») et suppression
+ * (fonction serveur admin-utilisateurs, qui revérifie le rôle), e-mail de réinitialisation du mot de passe.
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAdmin, formatDate, initiales, correspond } from '@/composables/useAdmin.js'
@@ -111,6 +111,100 @@ async function reinitialiser(p) {
   if (!(await confirmer({ titre: 'Réinitialiser le mot de passe ?', texte: `Un e-mail avec un lien pour choisir un nouveau mot de passe sera envoyé à ${p.email}.`, libelle: 'Envoyer l’e-mail' }))) return
   await executer(async () => { const r = await api.reinitialiserMotDePasse(p.id); notifier(r?.message || 'E-mail envoyé.') })
 }
+
+// ---------- Suppression définitive (n'importe quel compte sauf le sien, revérifié par le serveur) ----------
+async function supprimer(p) {
+  const projets = projetsPar.value[p.id] || 0
+  const texte = [
+    `Le compte ${p.email} sera supprimé définitivement`,
+    projets ? `, avec ses ${projets} projet${projets > 1 ? 's' : ''} et son crédit fidélité` : ', avec son crédit fidélité',
+    '. Ses avis et ses paiements sont conservés sans auteur.',
+    p.role === 'admin' ? ' Attention : c’est un compte administrateur.' : '',
+    ' Cette action est irréversible.'
+  ].join('')
+  if (!(await confirmer({ titre: 'Supprimer cet utilisateur ?', texte, libelle: 'Supprimer le compte', danger: true }))) return
+  const ok = await executer(async () => { const r = await api.supprimerUtilisateur(p.id); notifier(r?.message || 'Compte supprimé.') })
+  if (!ok) return
+  if (edition.value?.id === p.id) edition.value = null
+  await charger(['profils', 'projets'], { force: true })
+}
+
+// ---------- Bannissement (migration 0022) ----------
+// Bloqué par Supabase Auth (plus de connexion) ; un ban temporaire se lève tout seul à sa date de fin.
+const banActif = api.banActif
+const DUREES = [
+  { id: '24h', label: '24 heures', heures: 24 },
+  { id: '7j', label: '7 jours', heures: 24 * 7 },
+  { id: '30j', label: '30 jours', heures: 24 * 30 },
+  { id: 'date', label: 'Jusqu’au…' },
+  { id: 'vie', label: 'À vie' }
+]
+const dateLongue = (d) => new Date(d).toLocaleString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+// valeur d'un champ datetime-local (heure locale, sans fuseau)
+const versSaisie = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+const emailDe = computed(() => Object.fromEntries((donnees.profils || []).map((p) => [p.id, p.nom_affiche || p.email])))
+
+// à vie d'abord, puis les bans qui se terminent le plus tôt
+const bannis = computed(() => (donnees.profils || []).filter(banActif)
+  .sort((a, b) => (a.banni_jusqua ? new Date(a.banni_jusqua).getTime() : -Infinity) - (b.banni_jusqua ? new Date(b.banni_jusqua).getTime() : -Infinity)))
+const listeBannis = computed(() => bannis.value.filter((p) => correspond(recherche.value, p.email, p.nom_affiche, p.banni_motif)))
+const nbAVie = computed(() => bannis.value.filter((p) => !p.banni_jusqua).length)
+function restant(p) {
+  if (!p.banni_jusqua) return 'définitif'
+  const ms = new Date(p.banni_jusqua) - Date.now()
+  const jours = Math.floor(ms / 86400000)
+  return jours >= 1 ? `encore ${jours} jour${jours > 1 ? 's' : ''}` : `encore ${Math.max(1, Math.ceil(ms / 3600000))} h`
+}
+
+const ban = ref(null) // { profil, duree, date, motif, envoi, erreur }
+function ouvrirBan(p) {
+  const actif = banActif(p)
+  ban.value = {
+    profil: p, motif: actif ? p.banni_motif || '' : '', envoi: false, erreur: '',
+    duree: actif ? (p.banni_jusqua ? 'date' : 'vie') : '7j',
+    date: versSaisie(actif && p.banni_jusqua ? new Date(p.banni_jusqua) : new Date(Date.now() + 7 * 86400000))
+  }
+}
+// fin du ban choisi : Date, null (à vie), ou undefined (date pas encore saisie)
+const finBan = computed(() => {
+  const b = ban.value
+  if (!b || b.duree === 'vie') return null
+  if (b.duree === 'date') return b.date ? new Date(b.date) : undefined
+  return new Date(Date.now() + DUREES.find((d) => d.id === b.duree).heures * 3600000)
+})
+const resumeBan = computed(() => {
+  if (finBan.value === null) return 'Banni à vie : le compte ne pourra plus se connecter, sauf si vous levez le bannissement.'
+  if (!finBan.value || Number.isNaN(finBan.value.getTime())) return 'Choisissez la date de fin du bannissement.'
+  return `Banni jusqu’au ${dateLongue(finBan.value)} : le compte pourra se reconnecter ensuite, automatiquement.`
+})
+
+async function confirmerBan() {
+  const b = ban.value
+  const fin = finBan.value
+  b.erreur = ''
+  if (fin === undefined || (fin && (Number.isNaN(fin.getTime()) || fin <= new Date()))) { b.erreur = 'Choisissez une date de fin dans le futur.'; return }
+  if (b.profil.role === 'admin' && !(await confirmer({
+    titre: 'Bannir un administrateur ?', danger: true, libelle: 'Bannir',
+    texte: `${b.profil.email} perdra l’accès à l’administration ${fin ? 'jusqu’à la fin du bannissement' : 'définitivement'}.`
+  }))) return
+  b.envoi = true
+  const ok = await executer(async () => {
+    const r = await api.bannirUtilisateur(b.profil.id, fin ? fin.toISOString() : null, b.motif.trim())
+    notifier(r?.message || 'Utilisateur banni.')
+  })
+  b.envoi = false
+  if (!ok) return
+  ban.value = null
+  await charger(['profils'], { force: true })
+}
+
+async function lever(p) {
+  if (!(await confirmer({ titre: 'Lever le bannissement ?', texte: `${p.email} pourra de nouveau se connecter immédiatement.`, libelle: 'Lever le bannissement' }))) return
+  const ok = await executer(async () => { const r = await api.debannirUtilisateur(p.id); notifier(r?.message || 'Bannissement levé.') })
+  if (!ok) return
+  if (ban.value?.profil.id === p.id) ban.value = null
+  await charger(['profils'], { force: true })
+}
 </script>
 
 <template>
@@ -121,9 +215,46 @@ async function reinitialiser(p) {
       <button type="button" class="adm-pilule" :class="{ actif: !filtre }" :aria-pressed="!filtre" @click="filtre = ''">Tous <small>{{ compte() }}</small></button>
       <button v-for="(r, id) in ROLES" :key="id" type="button" class="adm-pilule" :class="{ actif: filtre === id }" :aria-pressed="filtre === id" @click="filtre = id">{{ r.label }}s <small>{{ compte(id) }}</small></button>
       <button type="button" class="adm-pilule" :class="{ actif: filtre === 'pro_attente', 'pilule-alerte': aVerifier && filtre !== 'pro_attente' }" :aria-pressed="filtre === 'pro_attente'" @click="filtre = 'pro_attente'"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i> Pros à vérifier <small>{{ aVerifier }}</small></button>
+      <button type="button" class="adm-pilule" :class="{ actif: filtre === 'bannis' }" :aria-pressed="filtre === 'bannis'" @click="filtre = 'bannis'"><i class="fa-solid fa-ban" aria-hidden="true"></i> Bannis <small>{{ bannis.length }}</small></button>
     </div>
 
-    <section class="adm-carte">
+    <!-- Section « Bannis » : à vie ou jusqu'à une date -->
+    <section v-if="filtre === 'bannis'" class="adm-carte">
+      <header class="utils-bannis-entete">
+        <h3><i class="fa-solid fa-ban" aria-hidden="true"></i> Comptes bannis</h3>
+        <p>{{ nbAVie }} à vie · {{ bannis.length - nbAVie }} temporaire{{ bannis.length - nbAVie > 1 ? 's' : '' }}. Un bannissement temporaire se lève tout seul à sa date de fin.</p>
+      </header>
+      <div v-if="!donnees.profils" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
+      <div v-else class="adm-table-cadre">
+        <table v-if="listeBannis.length" class="adm-table adm-table-empile">
+          <thead><tr><th>Utilisateur</th><th>Sanction</th><th>Fin</th><th>Motif</th><th>Banni le</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+          <tbody>
+            <tr v-for="p in listeBannis" :key="p.id">
+              <td class="principal">
+                <span class="adm-identite">
+                  <span class="adm-avatar rond">{{ initiales(p.nom_affiche || p.email) }}</span>
+                  <span><strong>{{ p.nom_affiche || '—' }}</strong><small>{{ p.email }}</small></span>
+                </span>
+              </td>
+              <td data-label="Sanction"><span class="adm-badge" :class="p.banni_jusqua ? 'adm-badge-attention' : 'adm-badge-noir'">{{ p.banni_jusqua ? 'Temporaire' : 'À vie' }}</span></td>
+              <td data-label="Fin">
+                <template v-if="p.banni_jusqua">{{ dateLongue(p.banni_jusqua) }}<small class="utils-lien">{{ restant(p) }}</small></template>
+                <template v-else>—</template>
+              </td>
+              <td data-label="Motif" class="utils-motif">{{ p.banni_motif || '—' }}</td>
+              <td data-label="Banni le">{{ formatDate(p.banni_le) }}<small v-if="p.banni_par" class="utils-lien">par {{ emailDe[p.banni_par] || 'un administrateur' }}</small></td>
+              <td class="actions">
+                <button type="button" class="adm-icone-btn" title="Modifier le bannissement" :aria-label="`Modifier le bannissement de ${p.email}`" @click="ouvrirBan(p)"><i class="fa-solid fa-pen"></i></button>
+                <button type="button" class="adm-icone-btn" title="Lever le bannissement" :aria-label="`Lever le bannissement de ${p.email}`" @click="lever(p)"><i class="fa-solid fa-unlock"></i></button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-else class="adm-vide"><i class="fa-solid fa-user-check"></i><p>{{ bannis.length ? 'Aucun compte banni ne correspond à la recherche.' : 'Aucun compte banni.' }}</p></div>
+      </div>
+    </section>
+
+    <section v-else class="adm-carte">
       <div v-if="!donnees.profils" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
       <div v-else class="adm-table-cadre">
         <table class="adm-table adm-table-empile">
@@ -133,7 +264,7 @@ async function reinitialiser(p) {
               <td class="principal">
                 <span class="adm-identite">
                   <span class="adm-avatar rond">{{ initiales(p.nom_affiche || p.email) }}</span>
-                  <span><strong>{{ p.nom_affiche || '—' }} <span v-if="p.id === moi?.id" class="utils-moi">vous</span></strong><small>{{ p.email }}</small></span>
+                  <span><strong>{{ p.nom_affiche || '—' }} <span v-if="p.id === moi?.id" class="utils-moi">vous</span><span v-if="banActif(p)" class="utils-banni" :title="p.banni_jusqua ? `Banni jusqu’au ${dateLongue(p.banni_jusqua)}` : 'Banni à vie'"><i class="fa-solid fa-ban" aria-hidden="true"></i> {{ p.banni_jusqua ? 'banni' : 'banni à vie' }}</span></strong><small>{{ p.email }}</small></span>
                 </span>
               </td>
               <td data-label="Profil">
@@ -150,6 +281,8 @@ async function reinitialiser(p) {
               <td class="actions">
                 <button type="button" class="adm-icone-btn" title="Modifier" :aria-label="`Modifier ${p.email}`" @click="ouvrir(p)"><i class="fa-solid fa-user-pen"></i></button>
                 <button type="button" class="adm-icone-btn" title="Réinitialiser le mot de passe" :aria-label="`Réinitialiser le mot de passe de ${p.email}`" @click="reinitialiser(p)"><i class="fa-solid fa-key"></i></button>
+                <button v-if="p.id !== moi?.id" type="button" class="adm-icone-btn danger" :title="banActif(p) ? 'Modifier le bannissement' : 'Bannir'" :aria-label="`${banActif(p) ? 'Modifier le bannissement de' : 'Bannir'} ${p.email}`" @click="ouvrirBan(p)"><i class="fa-solid fa-ban"></i></button>
+                <button v-if="p.id !== moi?.id" type="button" class="adm-icone-btn danger" title="Supprimer le compte" :aria-label="`Supprimer le compte ${p.email}`" @click="supprimer(p)"><i class="fa-solid fa-trash-can"></i></button>
               </td>
             </tr>
           </tbody>
@@ -233,6 +366,39 @@ async function reinitialiser(p) {
         </button>
       </template>
     </AdminPanneau>
+
+    <!-- Bannir / modifier un bannissement -->
+    <AdminPanneau v-if="ban" :titre="banActif(ban.profil) ? 'Modifier le bannissement' : 'Bannir l’utilisateur'" :sous-titre="ban.profil.email" @fermer="ban = null">
+      <form id="form-ban" class="adm-grille-form" novalidate @submit.prevent="confirmerBan">
+        <p v-if="banActif(ban.profil)" class="plein utils-ban-actuel">
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+          Actuellement banni {{ ban.profil.banni_jusqua ? `jusqu’au ${dateLongue(ban.profil.banni_jusqua)}` : 'à vie' }} depuis le {{ formatDate(ban.profil.banni_le) }}.
+        </p>
+        <div class="adm-champ plein">
+          <span class="adm-champ-label">Durée</span>
+          <div class="adm-pilules" role="radiogroup" aria-label="Durée du bannissement">
+            <button v-for="d in DUREES" :key="d.id" type="button" class="adm-pilule" :class="{ actif: ban.duree === d.id }" role="radio" :aria-checked="ban.duree === d.id" @click="ban.duree = d.id">{{ d.label }}</button>
+          </div>
+        </div>
+        <div v-if="ban.duree === 'date'" class="adm-champ plein">
+          <label for="ban-date">Fin du bannissement</label>
+          <input id="ban-date" v-model="ban.date" type="datetime-local" :min="versSaisie(new Date())" />
+        </div>
+        <div class="adm-champ plein">
+          <label for="ban-motif">Motif <small>(visible par l’équipe uniquement)</small></label>
+          <textarea id="ban-motif" v-model="ban.motif" rows="3" maxlength="300" placeholder="Ex. : propos insultants envers un fournisseur, faux devis…"></textarea>
+        </div>
+        <p class="plein utils-ban-resume" :class="{ vie: finBan === null }"><i class="fa-solid fa-ban" aria-hidden="true"></i> {{ resumeBan }}</p>
+      </form>
+      <p v-if="ban.erreur" class="adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ ban.erreur }}</p>
+      <template #pied>
+        <button v-if="banActif(ban.profil)" type="button" class="adm-btn adm-btn-clair" @click="lever(ban.profil)"><i class="fa-solid fa-unlock" aria-hidden="true"></i> Lever le ban</button>
+        <button type="button" class="adm-btn adm-btn-clair" @click="ban = null">Annuler</button>
+        <button type="submit" form="form-ban" class="adm-btn adm-btn-danger" :disabled="ban.envoi">
+          <span v-if="ban.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-ban" aria-hidden="true"></i> {{ banActif(ban.profil) ? 'Mettre à jour' : 'Bannir' }}
+        </button>
+      </template>
+    </AdminPanneau>
   </div>
 </template>
 
@@ -242,6 +408,16 @@ async function reinitialiser(p) {
 .utils-connexion { margin: 0; color: var(--adm-muet); font-size: .84rem; }
 .utils-lien { display: block; margin-top: 4px; color: var(--adm-muet); font-size: .78rem; }
 .pilule-alerte { box-shadow: inset 0 0 0 1.5px #f59e0b; color: #b45309; }
+.utils-banni { margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #fff1f2; color: var(--adm-baisse); font-size: .7rem; font-weight: 600; vertical-align: middle; }
+.utils-bannis-entete { padding: 18px 20px 4px; }
+.utils-bannis-entete h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; }
+.utils-bannis-entete h3 i { color: var(--adm-baisse); }
+.utils-bannis-entete p { margin: 4px 0 0; color: var(--adm-muet); font-size: .86rem; }
+.utils-motif { max-width: 280px; color: var(--adm-encre-2); font-size: .86rem; }
+.utils-ban-actuel { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #fafbfc; color: var(--adm-encre-2); font-size: .88rem; }
+.utils-ban-resume { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #fffbeb; color: #92400e; font-size: .88rem; line-height: 1.45; }
+.utils-ban-resume.vie { background: #fff1f2; color: var(--adm-baisse); }
+.utils-ban-resume i { margin-top: 3px; }
 .pro-bloc { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 16px; border: 1px solid var(--adm-ligne); background: #fafbfc; }
 .pro-bloc.en_attente { border-color: #fde68a; background: #fffdf5; }
 .pro-bloc header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }

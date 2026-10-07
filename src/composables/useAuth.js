@@ -15,6 +15,13 @@ const demandePro = ref(null)   // { statut: 'en_attente'|'verifie'|'refuse', rai
 async function chargerRole(id = utilisateur.value?.id) {
   const r = await lireRoleCompte(id)
   if (id !== utilisateur.value?.id) return // le compte a changé entre-temps
+  if (r.banni) {
+    // compte banni encore connecté (session ouverte avant le ban) : déconnexion et message sur la page de connexion
+    await auth.deconnexion()
+    utilisateur.value = null
+    window.location.assign(`/connexion?suspendu=${encodeURIComponent(r.bannieJusqua || 'vie')}`)
+    return
+  }
   admin.value = r.role === 'admin'
   fournisseurLie.value = r.role === 'fournisseur' ? r.fournisseur_id : null
   typeProfil.value = r.type_profil

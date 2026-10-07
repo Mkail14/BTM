@@ -26,11 +26,13 @@ function traduire(error) {
 
 /** Rôle et type du compte : { role, fournisseur_id, type_profil, pro } (select * : fonctionne avant les migrations 0010/0011) */
 export async function lireRoleCompte(utilisateurId) {
-  if (!supabaseConfigure || !utilisateurId) return { role: null, fournisseur_id: null, type_profil: null, pro: null }
+  if (!supabaseConfigure || !utilisateurId) return { role: null, fournisseur_id: null, type_profil: null, pro: null, banni: false }
   const { data, error } = await supabase.from('profils').select('*').eq('id', utilisateurId).maybeSingle()
-  if (error || !data) return { role: null, fournisseur_id: null, type_profil: null, pro: null }
+  if (error || !data) return { role: null, fournisseur_id: null, type_profil: null, pro: null, banni: false }
   return {
     role: data.role, fournisseur_id: data.fournisseur_id || null, type_profil: data.type_profil || 'particulier',
+    banni: banActif(data), // compte banni (migration 0022) : le site le déconnecte
+    bannieJusqua: data.banni_jusqua || null,
     // demande de compte professionnel (migration 0011) : statut, entreprise, motif d'un éventuel refus
     pro: data.pro_statut ? { statut: data.pro_statut, raisonSociale: data.pro_raison_sociale, siret: data.pro_siret, motif: data.pro_motif_refus, demandeLe: data.pro_demande_le } : null
   }
@@ -63,6 +65,13 @@ async function fonctionAdmin(corps) {
 export const lireUtilisateur = (id) => fonctionAdmin({ action: 'lire', id })
 export const modifierUtilisateur = (id, champs) => fonctionAdmin({ action: 'modifier', id, ...champs })
 export const reinitialiserMotDePasse = (id) => fonctionAdmin({ action: 'reinitialiser', id, origine: window.location.origin })
+/** Suppression définitive du compte (refusée par le serveur pour son propre compte) */
+export const supprimerUtilisateur = (id) => fonctionAdmin({ action: 'supprimer', id })
+/** Bannissement (migration 0022) : `jusqua` = date ISO de fin, ou null pour un ban à vie */
+export const bannirUtilisateur = (id, jusqua, motif) => fonctionAdmin({ action: 'bannir', id, jusqua: jusqua || 'vie', motif })
+export const debannirUtilisateur = (id) => fonctionAdmin({ action: 'debannir', id })
+/** Ban en cours ? (un ban temporaire dont la date est passée est levé automatiquement par Supabase Auth) */
+export const banActif = (p) => !!p?.banni_le && (!p.banni_jusqua || new Date(p.banni_jusqua) > new Date())
 // ---------- Accès fournisseur (fonction admin-utilisateurs) ----------
 // Statut lu dans Auth : { id, email, statut: 'invite'|'actif', invite_le, derniere_connexion, fournisseur_id }
 export const listerAccesFournisseurs = async () => (await fonctionAdmin({ action: 'acces_fournisseurs' })).acces || []
@@ -100,6 +109,16 @@ export async function listerAvis() {
 }
 export const definirAvisVisible = async (id, visible) => { verifier(); ok(await supabase.from('avis').update({ visible }).eq('id', id)) }
 export const supprimerAvis = async (id) => { verifier(); ok(await supabase.from('avis').delete().eq('id', id)) }
+/** Avis Google recopié depuis la fiche Google de BTM (migration 0024) : création ou correction */
+export async function enregistrerAvisGoogle(a) {
+  verifier()
+  const champs = {
+    nom: a.nom.trim(), note: Number(a.note), commentaire: a.commentaire.trim(), ville: 'Google',
+    lien: a.lien?.trim() || null, cree_le: a.date ? new Date(`${a.date}T12:00:00`).toISOString() : new Date().toISOString()
+  }
+  if (a.id) return ok(await supabase.from('avis').update(champs).eq('id', a.id).select().single())
+  return ok(await supabase.from('avis').insert({ ...champs, source: 'google', utilisateur_id: null }).select().single())
+}
 
 // ---------- Fournisseurs et catégories ---------------------------------------------
 export async function listerFournisseurs() {

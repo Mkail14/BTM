@@ -1,4 +1,6 @@
 /** Validation des champs d'identité (nom, prénom, e-mail) */
+import { estDomaineJetable } from '@/donnees/domainesJetables.js'
+import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
 
 // Lettres (accents compris), espaces, apostrophes et tirets uniquement
 const HORS_NOM = /[^\p{L}\s'’-]/gu
@@ -46,13 +48,68 @@ export function erreurPseudo(v) {
 // Partie locale : caractères usuels, pas de points en début/fin ni consécutifs ; domaine : labels valides + extension ≥ 2 lettres
 const FORMAT_EMAIL = /^(?!\.)(?!.*\.\.)[A-Za-z0-9._%+'-]{1,64}(?<!\.)@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,24}$/
 
-export function erreurEmail(v) {
+export const MESSAGE_EMAIL_JETABLE = 'Les adresses e-mail jetables ou temporaires ne sont pas acceptées : utilisez votre adresse habituelle'
+
+/** `accepterJetable` : à la connexion, un ancien compte créé avec une adresse jetable doit pouvoir se connecter */
+export function erreurEmail(v, { accepterJetable = false } = {}) {
   const t = String(v || '').trim()
   if (!t) return 'Ce champ est obligatoire'
   if (/\s/.test(t)) return 'L’adresse e-mail ne doit pas contenir d’espace'
   if (!t.includes('@')) return 'Il manque le « @ » dans l’adresse e-mail'
   if (!FORMAT_EMAIL.test(t)) return 'Adresse e-mail invalide (ex. nom@exemple.com)'
+  if (!accepterJetable && estDomaineJetable(t)) return MESSAGE_EMAIL_JETABLE
   return ''
+}
+
+// Résultats mémorisés par domaine : évite une requête à chaque sortie du champ.
+// En cas d'échec réseau, le domaine est accepté (et oublié, pour réessayer) : on ne bloque jamais
+// une inscription légitime à cause du réseau ; le déclencheur de la migration 0019 reste le garde-fou final.
+const cacheJetable = new Map()
+const cacheMx = new Map()
+
+function memoriser(cache, domaine, verifier) {
+  if (!cache.has(domaine)) cache.set(domaine, verifier().catch(() => { cache.delete(domaine); return null }))
+  return cache.get(domaine)
+}
+
+/** Liste complète en base (~98 000 domaines, mise à jour chaque nuit) : la liste locale n'en contient qu'un extrait */
+async function domaineJetableEnBase(domaine) {
+  if (!supabaseConfigure) return null
+  const { data, error } = await supabase.rpc('est_email_jetable', { p_email: `x@${domaine}` })
+  if (error) throw error
+  return data === true
+}
+
+/** DNS sur HTTPS : le domaine possède-t-il un serveur de messagerie (enregistrement MX) ? */
+async function domaineRecoitEmails(domaine) {
+  const rep = await fetch(`https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domaine)}&type=MX`, {
+    headers: { accept: 'application/dns-json' }, signal: AbortSignal.timeout(4000)
+  })
+  if (!rep.ok) throw new Error(`DNS ${rep.status}`)
+  const { Status, Answer = [] } = await rep.json()
+  if (Status === 3) return false // NXDOMAIN : le domaine n'existe pas
+  // MX « null » (RFC 7505, priorité 0 et cible « . ») : le domaine déclare ne recevoir aucun e-mail
+  const mx = Answer.filter((r) => r.type === 15 && !/^0\s+\.?$/.test(r.data))
+  return Status === 0 && mx.length > 0
+}
+
+/** Vérifications en ligne d'une adresse au bon format : service jetable (liste complète) puis domaine réel */
+export async function erreurDomaineEmail(v) {
+  const domaine = String(v || '').trim().toLowerCase().split('@')[1]
+  if (!domaine || DOMAINES.includes(domaine)) return ''
+  const [jetable, recoit] = await Promise.all([
+    memoriser(cacheJetable, domaine, () => domaineJetableEnBase(domaine)),
+    memoriser(cacheMx, domaine, () => domaineRecoitEmails(domaine))
+  ])
+  if (jetable) return MESSAGE_EMAIL_JETABLE
+  if (recoit === false) return `Le domaine « ${domaine} » ne reçoit pas d’e-mails : vérifiez votre adresse`
+  return ''
+}
+
+/** Contrôle complet d'une nouvelle adresse (format + jetable + domaine réel) ; lève une erreur lisible */
+export async function controlerEmailReel(v) {
+  const msg = erreurEmail(v) || (await erreurDomaineEmail(v))
+  if (msg) throw new Error(msg)
 }
 
 /** Propose « nom@gmail.com » pour « nom@gmial.com » ; renvoie '' si rien à corriger */

@@ -75,10 +75,13 @@ export function normaliserFournisseur(ligne) {
     commune: ligne.commune,
     adresse: ligne.adresse,
     telephone: ligne.telephone,
+    email: ligne.email || null,
     site_web: ligne.site_web,
     description: ligne.description,
     livraison: !!ligne.livraison,
     horaires: ligne.horaires,
+    latitude: ligne.latitude ?? null,
+    longitude: ligne.longitude ?? null,
     logo: ligne.logo_url || `/logos/${ligne.slug}.svg`,
     couleur: '#0891b2'
   }

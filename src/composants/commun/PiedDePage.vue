@@ -44,7 +44,10 @@ const lienTelephone = computed(() => {
     </div>
 
     <div class="conteneur pied-bas">
-      <p>© {{ annee }} BTM — Bâtiment & Travaux Mayotte. · <router-link to="/conditions">Conditions générales d’utilisation</router-link></p>
+      <p>
+        © {{ annee }} BTM — Bâtiment & Travaux Mayotte. · <router-link to="/conditions">Conditions générales d’utilisation</router-link>
+        · <router-link to="/confidentialite">Cookies et confidentialité</router-link>
+      </p>
       <p class="pied-tech">{{ contenu.pied.mention }}</p>
     </div>
   </footer>

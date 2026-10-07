@@ -5,7 +5,7 @@
  * grue à tour qui déplace sa charge et immeuble en chantier aux fenêtres allumées.
  * Les plans bougent légèrement avec la souris (parallaxe via --px / --py).
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 
 const racine = ref(null)
 const zoneSommet = ref(null)
@@ -47,13 +47,13 @@ for (let etage = 0; etage < 5; etage++)
     if ([1, 6, 7, 12, 14, 17].includes(n)) fenetres.push({ x: 1236 + col * 16, y: 262 - etage * 22, clignote: n % 3 === 0, delai: (n * 0.7) % 5 })
   }
 
-onMounted(() => {
-  window.addEventListener('pointermove', surPointeur, { passive: true })
-})
-onBeforeUnmount(() => {
-  window.removeEventListener('pointermove', surPointeur)
-  if (raf) cancelAnimationFrame(raf)
-})
+// accueil gardé en mémoire (keep-alive) : pas de suivi du pointeur pendant qu'on est sur une autre page
+const brancher = () => window.addEventListener('pointermove', surPointeur, { passive: true })
+const debrancher = () => { window.removeEventListener('pointermove', surPointeur); if (raf) cancelAnimationFrame(raf); raf = null }
+onMounted(brancher)
+onActivated(brancher)
+onDeactivated(debrancher)
+onBeforeUnmount(debrancher)
 </script>
 
 <template>

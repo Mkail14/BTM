@@ -5,17 +5,21 @@
  * sans l'en-tête ni le pied du site public (meta.pleinEcran).
  * L'accès est contrôlé par la base (RLS + est_admin()) : un non-admin ne reçoit aucune donnée.
  */
-import { computed, defineAsyncComponent, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
 import { useAdmin, initiales } from '@/composables/useAdmin.js'
 import LogoBtm from '@/composants/commun/LogoBtm.vue'
 import AdminRetours from '@/composants/admin/AdminRetours.vue'
 import AdminCompte from '@/composants/admin/AdminCompte.vue'
+import { useMessagerie } from '@/composables/useMessagerie.js'
+import { useSupport } from '@/composables/useSupport.js'
 import '@/composants/admin/admin.css'
 
 const sections = [
   { id: 'apercu', label: 'Tableau de bord', icone: 'fa-solid fa-chart-simple', titre: 'Tableau de bord', sousTitre: 'L’activité de BTM en un coup d’œil.', composant: () => import('@/composants/admin/SectionApercu.vue') },
+  { id: 'messagerie', label: 'Messagerie', icone: 'fa-solid fa-envelope', titre: 'Messagerie', sousTitre: 'La boîte contact@btm.yt : lisez, répondez et écrivez sans quitter l’admin.', composant: () => import('@/composants/admin/SectionMessagerie.vue') },
+  { id: 'support', label: 'Support', icone: 'fa-solid fa-headset', titre: 'Support', sousTitre: 'Les discussions « Sur le site » : prenez le relais d’Awa quand un client a besoin d’un conseiller.', composant: () => import('@/composants/admin/SectionSupport.vue') },
   { id: 'contenus', label: 'Contenu du site', icone: 'fa-solid fa-pen-nib', titre: 'Contenu du site', sousTitre: 'Modifiez les textes affichés sur le site, sans toucher au code.', composant: () => import('@/composants/admin/SectionContenus.vue') },
   { id: 'calculateur', label: 'Calculateur & prix', icone: 'fa-solid fa-calculator', titre: 'Calculateur & prix', sousTitre: 'Prix des matériaux et constantes utilisées par chaque devis.', composant: () => import('@/composants/admin/SectionCalculateur.vue') },
   { id: 'codes', label: 'Codes promo', icone: 'fa-solid fa-ticket', titre: 'Codes promo', sousTitre: 'Réductions que vos clients saisissent sur leur devis.', recherche: 'Rechercher un code, une note…', composant: () => import('@/composants/admin/SectionCodes.vue') },
@@ -31,6 +35,14 @@ const { utilisateur, deconnexion } = useAuth()
 const { recherche, charger, migrationManquante, compteOuvert } = useAdmin()
 // Vérifie dès l'ouverture que la base contient les tables récentes (contenus 0007, codes promo 0009)
 onMounted(() => charger(['contenus', 'codes'], { force: true }))
+// Messages non lus de contact@btm.yt : pastille du bouton du haut et du menu, relue toutes les 2 minutes
+const { nonLus, suivre: suivreMessagerie, arreter: arreterMessagerie } = useMessagerie()
+onMounted(suivreMessagerie)
+onBeforeUnmount(arreterMessagerie)
+// Demandes d’assistance qui attendent un conseiller : pastille du bouton casque et du menu, relue toutes les 30 s
+const { enAttente, suivre: suivreSupport, arreter: arreterSupport } = useSupport()
+onMounted(suivreSupport)
+onBeforeUnmount(arreterSupport)
 const refProjet = (import.meta.env.VITE_SUPABASE_URL || '').match(/https:\/\/([^.]+)\.supabase\.co/)?.[1]
 const lienSql = refProjet ? `https://supabase.com/dashboard/project/${refProjet}/sql/new` : 'https://supabase.com/dashboard'
 
@@ -50,7 +62,7 @@ async function seDeconnecter() {
 </script>
 
 <template>
-  <div class="adm adm-cadre" :class="{ 'ecran-fixe': section.id === 'apercu' }">
+  <div class="adm adm-cadre" :class="{ 'ecran-fixe': ['apercu', 'messagerie', 'support'].includes(section.id) }">
     <!-- Barre latérale -->
     <aside class="adm-lat" :class="{ ouvert: menuOuvert }" aria-label="Navigation de l’administration">
       <router-link to="/admin" class="adm-lat-logo" aria-label="Tableau de bord">
@@ -64,6 +76,8 @@ async function seDeconnecter() {
           class="adm-lat-lien" :class="{ actif: section.id === s.id }" :aria-current="section.id === s.id ? 'page' : undefined"
         >
           <i :class="s.icone" aria-hidden="true"></i><span>{{ s.label }}</span>
+          <strong v-if="s.id === 'messagerie' && nonLus" class="adm-lat-pastille" :aria-label="`${nonLus} non lus`">{{ nonLus }}</strong>
+          <strong v-if="s.id === 'support' && enAttente" class="adm-lat-pastille adm-lat-pastille-alerte" :aria-label="`${enAttente} en attente`">{{ enAttente }}</strong>
         </router-link>
       </nav>
 
@@ -88,6 +102,14 @@ async function seDeconnecter() {
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
           <input v-model="recherche" type="search" :placeholder="section.recherche" :aria-label="section.recherche" />
         </label>
+        <router-link to="/admin/support" class="adm-haut-mail" :class="{ actif: section.id === 'support' }" :title="enAttente ? `${enAttente} client${enAttente > 1 ? 's' : ''} attend${enAttente > 1 ? 'ent' : ''} un conseiller` : 'Support : discussions avec les clients'" :aria-label="enAttente ? `Support : ${enAttente} en attente` : 'Support'">
+          <i class="fa-solid fa-headset" aria-hidden="true"></i>
+          <strong v-if="enAttente" class="adm-haut-mail-pastille">{{ enAttente > 99 ? '99+' : enAttente }}</strong>
+        </router-link>
+        <router-link to="/admin/messagerie" class="adm-haut-mail" :class="{ actif: section.id === 'messagerie' }" :title="nonLus ? `${nonLus} message${nonLus > 1 ? 's' : ''} non lu${nonLus > 1 ? 's' : ''} — contact@btm.yt` : 'Messagerie contact@btm.yt'" :aria-label="nonLus ? `Messagerie : ${nonLus} non lus` : 'Messagerie'">
+          <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+          <strong v-if="nonLus" class="adm-haut-mail-pastille">{{ nonLus > 99 ? '99+' : nonLus }}</strong>
+        </router-link>
         <button type="button" class="adm-haut-profil" aria-haspopup="dialog" title="Compte & reversements" @click="compteOuvert = true">
           <span class="adm-avatar rond">{{ initiales(nomAdmin) }}</span>
           <span><strong>{{ nomAdmin }}</strong><small>Compte & reversements</small></span>
@@ -122,13 +144,25 @@ async function seDeconnecter() {
   .adm-cadre.ecran-fixe .adm-principal { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; }
   .adm-cadre.ecran-fixe .adm-haut { flex: none; margin-bottom: 16px; }
   .adm-cadre.ecran-fixe .adm-migration { flex: none; margin-bottom: 14px; }
-  .adm-cadre.ecran-fixe .adm-principal > .apercu { flex: 1; min-height: 0; }
+  .adm-cadre.ecran-fixe .adm-principal > .apercu, .adm-cadre.ecran-fixe .adm-principal > .messagerie, .adm-cadre.ecran-fixe .adm-principal > .support { flex: 1; min-height: 0; padding-bottom: 20px; }
 }
 @media (min-width: 1024px) and (max-height: 820px) {
   .adm-cadre.ecran-fixe .adm-haut { margin-bottom: 10px; }
   .adm-cadre.ecran-fixe .adm-haut-titre h1 { font-size: 1.5rem; }
   .adm-cadre.ecran-fixe .adm-haut-titre p { display: none; }
 }
+/* Messagerie : bouton enveloppe à côté du compte, pastille des non lus (ici et dans le menu) */
+.adm-haut-mail {
+  position: relative; width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 50%;
+  background: #fff; color: var(--adm-encre-2); box-shadow: inset 0 0 0 1px var(--adm-ligne); transition: color var(--transition), box-shadow var(--transition);
+}
+.adm-haut-mail:hover, .adm-haut-mail.actif { color: var(--adm-accent); box-shadow: inset 0 0 0 1px var(--adm-accent); }
+.adm-haut-mail-pastille {
+  position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; display: grid; place-items: center;
+  border: 2px solid var(--adm-toile); border-radius: 999px; background: var(--adm-baisse); color: #fff; font-size: .68rem; font-weight: 700;
+}
+.adm-lat-pastille-alerte { background: #f59e0b !important; }
+.adm-lat-pastille { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--adm-accent); color: #fff; font-size: .74rem; text-align: center; }
 .adm-migration { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; margin-bottom: 20px; padding: 20px 22px; box-shadow: inset 0 0 0 1px #fde68a, var(--adm-ombre); background: #fffbeb; }
 .adm-migration > div { flex: 1 1 320px; }
 .adm-migration strong { font-size: .98rem; }

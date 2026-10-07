@@ -1,14 +1,15 @@
 <script setup>
 /**
  * AvisClients — synthèse des notes (moyenne + répartition) à gauche,
- * mur d'avis défilant verticalement à droite (deux colonnes en sens opposés).
+ * mur d'avis défilant verticalement à droite : avis du site à gauche et à droite, avis Google au centre (sens opposé).
+ * Un utilisateur qui a déjà publié peut modifier son avis (migration 0024).
  * Les avis sont stockés dans Supabase (table avis) ; à défaut de connexion au back-end, des avis de démonstration s'affichent.
  * Publier un avis exige d'être connecté : sinon une fenêtre propose de se connecter ou de créer un compte.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import { useAuth } from '@/composables/useAuth.js'
-import { listerAvis, publierAvis, aDejaPublie } from '@/services/supabase/serviceAvis.js'
+import { listerAvis, publierAvis, monAvis, modifierAvis } from '@/services/supabase/serviceAvis.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 
 const { utilisateur, connecte, backendDisponible } = useAuth()
@@ -35,7 +36,7 @@ const modalOuverte = ref(false)
 const envoiEffectue = ref(false)
 const envoiEnCours = ref(false)
 const erreurEnvoi = ref('')
-const dejaPublie = ref(false)
+const mien = ref(null) // avis déjà publié par l'utilisateur connecté : il peut le modifier
 const formulaire = ref({ nom: '', ville: '', note: 0, commentaire: '' })
 
 const moyenne = computed(() => (avis.value.length ? avis.value.reduce((s, a) => s + a.note, 0) / avis.value.length : 0))
@@ -45,18 +46,31 @@ const repartition = computed(() => [5, 4, 3, 2, 1].map((note) => {
   return { note, nombre, part: avis.value.length ? (nombre / avis.value.length) * 100 : 0 }
 }))
 
-// Le défilement boucle sur une séquence assez longue pour remplir la hauteur visible.
-// Deux colonnes sur grand écran, une seule colonne (tous les avis) sur mobile.
+// Trois colonnes qui défilent en boucle : avis du site à gauche et à droite, avis Google au centre (sens inverse).
+// Chaque colonne boucle sur une séquence assez longue pour remplir la hauteur visible ; une seule rangée sur mobile.
+const avisSite = computed(() => avis.value.filter((a) => a.source !== 'google'))
+const avisGoogle = computed(() => avis.value.filter((a) => a.source === 'google'))
+const allonger = (liste, minimum) => {
+  if (!liste.length) return []
+  let sequence = [...liste]
+  while (sequence.length < minimum) sequence = [...sequence, ...liste]
+  return sequence
+}
 const colonnes = computed(() => {
-  if (!avis.value.length) return []
-  let sequence = [...avis.value]
-  while (sequence.length < 8) sequence = [...sequence, ...avis.value]
+  const site = allonger(avisSite.value, 8)
   return [
-    { cle: 'gauche', avis: sequence.filter((_, i) => i % 2 === 0), classe: 'avis-colonne-large' },
-    { cle: 'droite', avis: sequence.filter((_, i) => i % 2 === 1), classe: 'avis-colonne-large avis-colonne-inverse' },
-    { cle: 'mobile', avis: avis.value.length < 4 ? sequence.slice(0, 4) : avis.value, classe: 'avis-colonne-mobile' }
+    { cle: 'gauche', avis: site.filter((_, i) => i % 2 === 0), classe: 'avis-colonne-site' },
+    { cle: 'centre', avis: allonger(avisGoogle.value, 4), classe: 'avis-colonne-google avis-colonne-inverse', google: true },
+    { cle: 'droite', avis: site.filter((_, i) => i % 2 === 1), classe: 'avis-colonne-site avis-colonne-lente' }
   ]
 })
+// mobile : une rangée qui alterne avis du site et avis Google
+const rangeeMobile = computed(() => {
+  const s = avisSite.value, g = avisGoogle.value, r = []
+  for (let i = 0; i < Math.max(s.length, g.length); i++) { if (s[i]) r.push(s[i]); if (g[i]) r.push(g[i]) }
+  return r
+})
+const lienGoogle = computed(() => (/^https:\/\//.test(contenu.avis.lienGoogle || '') ? contenu.avis.lienGoogle : ''))
 
 async function chargerAvis() {
   try {
@@ -67,14 +81,22 @@ async function chargerAvis() {
   }
 }
 
+// l'avis de l'utilisateur connecté est recherché dès la connexion : le bouton devient « Modifier mon avis »
+async function chargerMonAvis() {
+  mien.value = connecte.value && utilisateur.value ? await monAvis(utilisateur.value.id) : null
+}
+watch(() => utilisateur.value?.id, chargerMonAvis)
+
 async function ouvrirModal() {
   if (backendDisponible && !connecte.value) { compteRequis.value = true; return }
-  formulaire.value = { nom: nomDuCompte.value, ville: '', note: 0, commentaire: '' }
+  if (connecte.value && !mien.value) await chargerMonAvis()
+  // avis déjà publié : formulaire prérempli pour le modifier
+  formulaire.value = mien.value
+    ? { nom: mien.value.nom, ville: mien.value.ville === 'Mayotte' ? '' : mien.value.ville, note: mien.value.note, commentaire: mien.value.commentaire }
+    : { nom: nomDuCompte.value, ville: '', note: 0, commentaire: '' }
   envoiEffectue.value = false
   erreurEnvoi.value = ''
   modalOuverte.value = true
-  dejaPublie.value = false
-  if (connecte.value && await aDejaPublie(utilisateur.value.id)) { dejaPublie.value = true; erreurEnvoi.value = 'Vous avez déjà publié un avis. Merci !' }
 }
 
 function fermerModal() {
@@ -86,16 +108,18 @@ async function envoyerAvis() {
   if (!formulaire.value.nom.trim() || !formulaire.value.note || envoiEnCours.value) return
   erreurEnvoi.value = ''
   envoiEnCours.value = true
+  const champs = { ville: formulaire.value.ville.trim(), note: formulaire.value.note, commentaire: formulaire.value.commentaire.trim() }
   try {
-    const nouvelAvis = await publierAvis(utilisateur.value.id, {
-      nom: formulaire.value.nom.trim(),
-      ville: formulaire.value.ville.trim(),
-      note: formulaire.value.note,
-      commentaire: formulaire.value.commentaire.trim()
-    })
-    avis.value = [nouvelAvis, ...avis.value.filter((a) => !a.id.startsWith('initial-'))]
+    if (mien.value) {
+      const modifie = await modifierAvis(mien.value.id, champs)
+      avis.value = avis.value.map((a) => (a.id === modifie.id ? modifie : a))
+      mien.value = modifie
+    } else {
+      const nouvelAvis = await publierAvis(utilisateur.value.id, { nom: formulaire.value.nom.trim(), ...champs })
+      avis.value = [nouvelAvis, ...avis.value.filter((a) => !String(a.id).startsWith('initial-'))]
+      mien.value = nouvelAvis
+    }
     envoiEffectue.value = true
-    formulaire.value = { nom: '', ville: '', note: 0, commentaire: '' }
   } catch (e) {
     console.warn(e)
     erreurEnvoi.value = e?.message || 'Impossible de publier votre avis pour le moment.'
@@ -108,7 +132,7 @@ function formaterDate(date) {
   return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(date))
 }
 
-onMounted(chargerAvis)
+onMounted(() => { chargerAvis(); chargerMonAvis() })
 </script>
 
 <template>
@@ -137,17 +161,24 @@ onMounted(chargerAvis)
           </li>
         </ul>
 
-        <BoutonBase variante="primaire" icone-droite="fa-solid fa-arrow-right" @click="ouvrirModal">{{ contenu.avis.bouton }}</BoutonBase>
+        <BoutonBase variante="primaire" :icone-droite="mien ? 'fa-solid fa-pen' : 'fa-solid fa-arrow-right'" @click="ouvrirModal">{{ mien ? 'Modifier mon avis' : contenu.avis.bouton }}</BoutonBase>
       </header>
 
-      <!-- Mur d'avis -->
+      <!-- Mur d'avis : site | Google | site -->
       <div v-if="avis.length" class="avis-mur" aria-label="Avis clients">
         <div v-for="colonne in colonnes" :key="colonne.cle" class="avis-colonne" :class="colonne.classe">
-          <div class="avis-piste" :style="{ '--duree': `${colonne.avis.length * 7}s` }">
+          <!-- colonne Google encore vide : invitation à laisser un avis (jamais de faux avis) -->
+          <div v-if="colonne.google && !colonne.avis.length" class="avis-carte avis-google avis-google-invitation">
+            <span class="avis-google-marque"><i class="fa-brands fa-google" aria-hidden="true"></i> Avis Google</span>
+            <p class="avis-commentaire">Vous avez travaillé avec BTM ? Votre avis sur Google aide les autres Mahorais à choisir.</p>
+            <a v-if="lienGoogle" :href="lienGoogle" target="_blank" rel="noopener noreferrer" class="avis-google-lien">Laisser un avis sur Google <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+          </div>
+          <div v-else class="avis-piste" :style="{ '--duree': `${colonne.avis.length * 7}s` }">
             <article
               v-for="(element, index) in [...colonne.avis, ...colonne.avis]" :key="`${element.id}-${index}`"
-              class="avis-carte" :aria-hidden="index >= colonne.avis.length || undefined"
+              class="avis-carte" :class="{ 'avis-google': element.source === 'google' }" :aria-hidden="index >= colonne.avis.length || undefined"
             >
+              <span v-if="element.source === 'google'" class="avis-google-marque"><i class="fa-brands fa-google" aria-hidden="true"></i> Avis Google</span>
               <span class="avis-note" :aria-label="`${element.note} étoiles sur 5`">
                 <i v-for="n in 5" :key="n" class="fa-solid fa-star" :class="{ eteinte: n > element.note }" aria-hidden="true"></i>
               </span>
@@ -156,7 +187,33 @@ onMounted(chargerAvis)
                 <span class="avis-avatar" aria-hidden="true">{{ element.nom.charAt(0).toUpperCase() }}</span>
                 <span>
                   <strong>{{ element.nom }}</strong>
-                  <small>{{ element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time></small>
+                  <small>
+                    {{ element.source === 'google' ? 'Google' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time>
+                    <template v-if="element.modifie"> · modifié</template>
+                  </small>
+                </span>
+                <a v-if="element.lien" :href="element.lien" target="_blank" rel="noopener noreferrer" class="avis-source" :tabindex="index >= colonne.avis.length ? -1 : undefined" :aria-label="`Voir l’avis de ${element.nom} sur Google`">
+                  <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+                </a>
+              </footer>
+            </article>
+          </div>
+        </div>
+
+        <!-- Téléphone : une rangée qui alterne avis du site et avis Google -->
+        <div class="avis-colonne avis-colonne-mobile">
+          <div class="avis-piste">
+            <article v-for="element in rangeeMobile" :key="`m-${element.id}`" class="avis-carte" :class="{ 'avis-google': element.source === 'google' }">
+              <span v-if="element.source === 'google'" class="avis-google-marque"><i class="fa-brands fa-google" aria-hidden="true"></i> Avis Google</span>
+              <span class="avis-note" :aria-label="`${element.note} étoiles sur 5`">
+                <i v-for="n in 5" :key="n" class="fa-solid fa-star" :class="{ eteinte: n > element.note }" aria-hidden="true"></i>
+              </span>
+              <p v-if="element.commentaire" class="avis-commentaire">{{ element.commentaire }}</p>
+              <footer class="avis-auteur">
+                <span class="avis-avatar" aria-hidden="true">{{ element.nom.charAt(0).toUpperCase() }}</span>
+                <span>
+                  <strong>{{ element.nom }}</strong>
+                  <small>{{ element.source === 'google' ? 'Google' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time></small>
                 </span>
               </footer>
             </article>
@@ -188,7 +245,8 @@ onMounted(chargerAvis)
       </button>
       <section class="avis-modal" role="dialog" aria-modal="true" aria-labelledby="avis-modal-titre">
         <template v-if="!envoiEffectue">
-          <h2 id="avis-modal-titre">Votre avis</h2>
+          <h2 id="avis-modal-titre">{{ mien ? 'Modifier votre avis' : 'Votre avis' }}</h2>
+          <p v-if="mien" class="avis-modal-note">Vous avez changé d’avis ? Ajustez votre note ou votre commentaire : la date de modification sera indiquée.</p>
           <form @submit.prevent="envoyerAvis">
             <fieldset class="avis-rating">
               <legend>Note</legend>
@@ -215,13 +273,13 @@ onMounted(chargerAvis)
             <label class="avis-label" for="avis-commentaire">Commentaire <span>(facultatif)</span></label>
             <textarea id="avis-commentaire" v-model="formulaire.commentaire" maxlength="300" rows="4" placeholder="Qu’avez-vous pensé de BTM ?"></textarea>
             <p v-if="erreurEnvoi" class="avis-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ erreurEnvoi }}</p>
-            <button class="btn btn-primaire avis-submit" type="submit" :disabled="!formulaire.nom.trim() || !formulaire.note || envoiEnCours || dejaPublie">{{ envoiEnCours ? 'Publication…' : 'Publier' }}</button>
+            <button class="btn btn-primaire avis-submit" type="submit" :disabled="!formulaire.nom.trim() || !formulaire.note || envoiEnCours">{{ envoiEnCours ? 'Enregistrement…' : mien ? 'Enregistrer les modifications' : 'Publier' }}</button>
           </form>
         </template>
         <div v-else class="avis-succes">
           <div class="avis-succes-icone"><i class="fa-solid fa-check" aria-hidden="true"></i></div>
           <h2>Merci !</h2>
-          <p>Votre avis est publié.</p>
+          <p>{{ mien?.modifie ? 'Votre avis est mis à jour.' : 'Votre avis est publié.' }}</p>
           <button class="btn btn-secondaire" type="button" @click="fermerModal">Fermer</button>
         </div>
       </section>
@@ -234,7 +292,6 @@ onMounted(chargerAvis)
 .avis-grille { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: clamp(40px, 6vw, 88px); align-items: center; }
 
 /* ---------- Synthèse ---------- */
-.avis-synthese .section-titre { font-size: clamp(1.9rem, 3.4vw, 2.6rem); }
 .avis-vide { margin: 28px 0 32px; color: var(--texte-secondaire); line-height: 1.6; }
 .avis-score { display: flex; align-items: center; gap: 16px; margin: 32px 0 20px; }
 .avis-score > strong { font-family: var(--font-display); font-size: 4rem; line-height: .9; color: var(--ardoise); }
@@ -256,12 +313,34 @@ onMounted(chargerAvis)
 
 /* ---------- Mur défilant ---------- */
 .avis-mur {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 16px; height: 600px; overflow: hidden;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; height: 640px; overflow: hidden;
   mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent);
   -webkit-mask-image: linear-gradient(transparent, #000 14%, #000 86%, transparent);
 }
 .avis-piste { display: flex; flex-direction: column; gap: 16px; animation: defiler var(--duree, 30s) linear infinite; }
 .avis-colonne-inverse .avis-piste { animation-direction: reverse; }
+.avis-colonne-lente .avis-piste { animation-duration: calc(var(--duree, 30s) * 1.3); } /* les deux colonnes du site ne vont pas au même pas */
+
+/* ---------- Avis Google (colonne centrale) : couleurs et marque Google ---------- */
+.avis-carte.avis-google { position: relative; overflow: hidden; border-color: #dadce0; background: #fff; box-shadow: 0 1px 3px rgba(60, 64, 67, .12); }
+.avis-carte.avis-google::before { content: ''; position: absolute; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, #4285f4 0 25%, #ea4335 25% 50%, #fbbc04 50% 75%, #34a853 75%); }
+.avis-google-marque { display: inline-flex; align-items: center; gap: 8px; color: #5f6368; font-size: .78rem; font-weight: 600; letter-spacing: .02em; }
+.avis-google-marque i {
+  font-size: 1rem; background: conic-gradient(from -45deg, #ea4335 0 25%, #4285f4 25% 50%, #34a853 50% 75%, #fbbc04 75%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.avis-google .avis-note { color: #fbbc04; }
+.avis-google .avis-note .eteinte { color: #dadce0; }
+.avis-google .avis-commentaire { color: #3c4043; }
+.avis-google .avis-auteur strong { color: #1a73e8; }
+.avis-google .avis-avatar { background: #e8f0fe; color: #1967d2; }
+.avis-source { margin-left: auto; width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; color: #5f6368; font-size: .78rem; }
+.avis-source:hover { background: #f1f3f4; color: #1a73e8; }
+.avis-google-invitation { align-self: center; margin-top: 160px; }
+.avis-google-lien { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; background: #1a73e8; color: #fff; font-size: .86rem; font-weight: 600; }
+.avis-google-lien:hover { background: #1765cc; }
+.avis-google-lien i { font-size: .72rem; }
+.avis-modal-note { margin: 6px 0 0; color: var(--texte-secondaire); font-size: .9rem; line-height: 1.5; }
 .avis-colonne-mobile { display: none; }
 .avis-mur:hover .avis-piste { animation-play-state: paused; }
 @keyframes defiler { from { transform: translateY(0); } to { transform: translateY(calc(-50% - 8px)); } }
@@ -314,6 +393,11 @@ onMounted(chargerAvis)
   .avis-mur { overflow-y: auto; }
   .avis-carte[aria-hidden] { display: none; }
 }
+/* écran moyen : avis du site + avis Google (la deuxième colonne du site est masquée) */
+@media (max-width: 1280px) {
+  .avis-mur { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .avis-colonne-site.avis-colonne-lente { display: none; }
+}
 @media (max-width: 900px) {
   .avis-grille { grid-template-columns: minmax(0, 1fr); }
   .avis-grille > * { min-width: 0; }
@@ -323,10 +407,10 @@ onMounted(chargerAvis)
 @media (max-width: 600px) {
   .avis-mur {
     display: block; height: auto; overflow: visible; mask-image: none; -webkit-mask-image: none;
-    margin-inline: -20px;
+    margin-inline: calc(-1 * var(--gouttiere));
   }
-  .avis-colonne-large { display: none; }
-  .avis-colonne-mobile { display: block; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 4px 20px 16px; -webkit-overflow-scrolling: touch; }
+  .avis-colonne-site, .avis-colonne-google { display: none; }
+  .avis-colonne-mobile { display: block; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 4px var(--gouttiere) 16px; -webkit-overflow-scrolling: touch; }
   .avis-colonne-mobile::-webkit-scrollbar { display: none; }
   .avis-colonne-mobile .avis-piste { flex-direction: row; animation: none; width: max-content; gap: 12px; }
   .avis-colonne-mobile .avis-carte { width: min(82vw, 320px); scroll-snap-align: center; flex: none; }

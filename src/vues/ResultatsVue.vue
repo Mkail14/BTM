@@ -81,17 +81,17 @@ const icones = { parpaing: 'fa-solid fa-cube', ciment: 'fa-solid fa-sack-xmark',
 
 // ---------- PDF ----------
 const nomProjet = ref('')
-const exportEnCours = ref(false)
+const exportEnCours = ref('') // 'visualiser' | 'telecharger' pendant la génération
 
-async function telecharger() {
-  exportEnCours.value = true
+async function pdf(mode) {
+  exportEnCours.value = mode
   try {
-    await exporterEstimationPdf({ nom: nomProjet.value.trim(), resultat: resultat.value, fournisseur: fournisseur.value, code: codeRetrait.value })
+    await exporterEstimationPdf({ nom: nomProjet.value.trim(), resultat: resultat.value, fournisseur: fournisseur.value, code: codeRetrait.value }, mode)
   } catch (e) {
     console.error(e)
     alert('Impossible de générer le PDF. Réessayez.')
   } finally {
-    exportEnCours.value = false
+    exportEnCours.value = ''
   }
 }
 
@@ -126,6 +126,7 @@ async function confirmerSauvegarde() {
     const cree = await sauvegarder({ nom: nomProjet.value, resultat: resultat.value, fournisseur: fournisseur.value })
     // projet en ligne : code à présenter au fournisseur, valable tant que le devis affiché ne change pas
     enregistre.value = cree?.code_retrait ? { code: cree.code_retrait, signature: signature(resultat.value) } : null
+    calc.oublierMiseDeCote()
     dialogueOuvert.value = false
     messageSucces.value = `« ${nomProjet.value.trim()} » est enregistré.`
   } finally {
@@ -145,6 +146,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
   <div id="page-resultats" class="page">
     <div class="conteneur resultats">
       <template v-if="resultat">
+        <!-- Ordinateur : les 3 blocs côte à côte, tenant dans la hauteur de l'écran (prix → quoi acheter → où acheter) -->
+        <div class="resultats-grille">
         <!-- 1. Le prix -->
         <section class="carte resultats-prix" aria-labelledby="resultats-titre">
           <p class="resultats-resume">
@@ -154,7 +157,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           <h1 id="resultats-titre" class="resultats-titre">{{ titre }}</h1>
           <p class="resultats-total prix">{{ formaterEuros(resultat.total) }}</p>
 
-          <ul class="resultats-repartition">
+          <!-- sans code promo, le détail répéterait le total -->
+          <ul v-if="remise" class="resultats-repartition">
             <li v-for="p in repartition" :key="p.label">
               <span>{{ p.label }}<small v-if="p.detail">{{ p.detail }}</small></span>
               <strong class="prix">{{ formaterEuros(p.valeur) }}</strong>
@@ -193,7 +197,11 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           </template>
 
           <div class="resultats-actions">
-            <BoutonBase icone="fa-solid fa-file-arrow-down" :chargement="exportEnCours" @click="telecharger">Télécharger le PDF</BoutonBase>
+            <!-- Devis en PDF : le voir dans la page, ou le télécharger directement -->
+            <div class="resultats-pdf" role="group" aria-label="Devis en PDF">
+              <BoutonBase icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" @click="pdf('visualiser')">Visualiser le PDF</BoutonBase>
+              <BoutonBase variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" @click="pdf('telecharger')">Télécharger</BoutonBase>
+            </div>
             <BoutonBase variante="secondaire" icone="fa-regular fa-bookmark" @click="ouvrirDialogue">Enregistrer</BoutonBase>
           </div>
 
@@ -202,9 +210,26 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
             <i class="fa-solid fa-ticket" aria-hidden="true"></i>
             <span>Code de retrait <strong class="mono">{{ codeRetrait }}</strong><small>Présentez-le au fournisseur (il figure aussi sur le PDF) : il retrouve votre devis et vous remet un reçu.</small></span>
           </p>
-          <p v-else-if="connecte" class="resultats-retrait-aide"><i class="fa-solid fa-ticket" aria-hidden="true"></i> Enregistrez ce devis pour obtenir votre <strong>code de retrait</strong> : c’est lui qui vous donne le prix BTM chez le fournisseur.</p>
+          <p v-else-if="connecte" class="resultats-retrait-aide"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <span>Enregistrez ce devis pour obtenir votre <strong>code de retrait</strong> : c’est lui qui vous donne le prix BTM chez le fournisseur.</span></p>
+
+          <transition name="glisser">
+            <BandeauAvertissement v-if="messageSucces" type="succes" compact>
+              {{ messageSucces }} <router-link to="/dashboard" class="resultats-lien">Voir mes projets →</router-link>
+            </BandeauAvertissement>
+          </transition>
+
+          <div class="resultats-pied">
+            <details class="resultats-calcul">
+              <summary>Comment est fait le calcul ?</summary>
+              <p>{{ type.hypotheses }}</p>
+              <p>Prix TTC, hors terrassement et études. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
+            </details>
+            <button type="button" class="resultats-lien" @click="nouvelleEstimation"><i class="fa-solid fa-plus" aria-hidden="true"></i> Faire un nouveau devis</button>
+          </div>
         </section>
 
+        <!-- 2. Ce qu'il faut acheter (et, compte pro, les ouvrages réunis dans le devis) -->
+        <div class="resultats-colonne">
         <!-- Devis pro : plusieurs ouvrages réunis -->
         <section v-if="estPro" class="carte resultats-bloc resultats-pro" aria-labelledby="pro-titre">
           <div class="resultats-pro-tete">
@@ -222,13 +247,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           <p class="resultats-pro-aide">Réunissez tout votre chantier — murs, dalles, fondations, terrasses et achats directs — dans un seul devis et un seul code de retrait.</p>
         </section>
 
-        <transition name="glisser">
-          <BandeauAvertissement v-if="messageSucces" type="succes" compact>
-            {{ messageSucces }} <router-link to="/dashboard" class="resultats-lien">Voir mes projets →</router-link>
-          </BandeauAvertissement>
-        </transition>
-
-        <!-- 2. Ce qu'il faut acheter -->
         <section class="carte resultats-bloc" aria-labelledby="achats-titre">
           <h2 id="achats-titre">Ce qu’il faut acheter</h2>
           <ul class="resultats-achats">
@@ -244,19 +262,11 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           </ul>
           <p class="resultats-sous-total">Total matériaux <strong class="prix">{{ formaterEuros(resultat.totalMateriaux) }}</strong></p>
         </section>
+        </div>
 
-        <!-- 3. Facultatif -->
-        <ComparateurFournisseurs :lignes="calc.devis.value.lignes" :model-value="calc.fournisseurId.value" @update:model-value="calc.choisirFournisseur" @fournisseur="choixFournisseur = $event" />
-
-        <details class="resultats-calcul">
-          <summary>Comment est fait le calcul ?</summary>
-          <p>{{ type.hypotheses }}</p>
-          <p>Prix TTC, hors terrassement et études. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
-        </details>
-
-        <p class="resultats-fin">
-          <button type="button" class="resultats-lien" @click="nouvelleEstimation"><i class="fa-solid fa-plus" aria-hidden="true"></i> Faire un nouveau devis</button>
-        </p>
+        <!-- 3. Où acheter : prix exacts chez chaque fournisseur -->
+        <ComparateurFournisseurs class="resultats-ou" :lignes="calc.devis.value.lignes" :model-value="calc.fournisseurId.value" @update:model-value="calc.choisirFournisseur" @fournisseur="choixFournisseur = $event" />
+        </div>
 
         <!-- Compte requis pour enregistrer -->
         <transition name="fondu">
@@ -320,6 +330,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 
 <style scoped>
 .resultats { display: flex; flex-direction: column; gap: 20px; max-width: 760px; }
+.resultats-grille, .resultats-colonne { display: flex; flex-direction: column; gap: 20px; }
+.resultats-pied { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--gris-200); }
 
 .resultats-prix { padding: 30px; border-radius: var(--rayon-lg); text-align: center; }
 .resultats-resume { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; color: var(--texte-secondaire); font-size: .92rem; }
@@ -364,6 +376,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-code-erreur { flex-basis: 100%; margin: 0; color: var(--erreur); font-size: .85rem; text-align: left; }
 
 .resultats-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
+.resultats-pdf { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.resultats-pdf :deep(.btn) { flex: 1 1 auto; justify-content: center; }
 
 .resultats-lien { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
 .resultats-lien:hover { text-decoration: underline; }
@@ -380,10 +394,9 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-sous-total { display: flex; justify-content: space-between; padding-top: 14px; color: var(--texte-secondaire); font-weight: 600; }
 .resultats-sous-total strong { color: var(--lagon-700); font-size: 1.15rem; }
 
-.resultats-calcul { color: var(--texte-secondaire); font-size: .88rem; }
+.resultats-calcul { align-self: stretch; color: var(--texte-secondaire); font-size: .88rem; text-align: left; }
 .resultats-calcul summary { color: var(--lagon-800); font-weight: 600; cursor: pointer; }
 .resultats-calcul p { margin: 8px 0 0; line-height: 1.55; }
-.resultats-fin { text-align: center; }
 
 .modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(6,32,44,.55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
 .modale { background: #fff; border-radius: var(--rayon-lg); padding: 30px; width: 100%; max-width: 460px; box-shadow: var(--ombre-lg); animation: apparaitre .3s ease; }
@@ -451,5 +464,36 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
   .resultats-repartition { grid-template-columns: 1fr; }
   .resultats-repartition li { flex-direction: row; justify-content: space-between; align-items: center; text-align: left; }
   .resultats-actions .btn { flex: 1; }
+}
+
+/* Ordinateur : prix | quoi acheter | où acheter, côte à côte et tenant dans l'écran.
+   Une colonne trop remplie (beaucoup de matériaux ou de fournisseurs) défile seule, la page ne bouge pas. */
+@media (min-width: 1100px) {
+  .resultats { max-width: var(--largeur-conteneur); }
+  .resultats-grille {
+    display: grid; grid-template-columns: minmax(330px, .95fr) minmax(0, 1.05fr) minmax(0, 1.05fr); align-items: stretch; gap: 18px;
+    height: calc(100svh - var(--hauteur-entete) - 56px); min-height: 460px;
+  }
+  .resultats-grille > * { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .resultats-colonne { gap: 18px; }
+  .resultats-prix { display: flex; flex-direction: column; padding: 24px; }
+  .resultats-titre { margin-top: 12px; font-size: 1.6rem; }
+  .resultats-total { margin-bottom: 16px; font-size: clamp(2.6rem, 3.6vw, 3.4rem); }
+  .resultats-actions { flex-direction: column; margin-top: 18px; }
+  .resultats-actions :deep(.btn) { width: 100%; justify-content: center; }
+  .resultats-pied { margin-top: auto; }
+  .resultats-colonne > .resultats-bloc:last-child { flex: 1; } /* même hauteur que les deux autres colonnes */
+  .resultats-bloc { padding: 22px 24px; }
+  .resultats-bloc h2 { font-size: 1.25rem; }
+  .resultats-achats li { padding: 10px 0; }
+  .resultats-achat-icone { width: 38px; height: 38px; }
+}
+/* Petits portables (écran peu haut) : on resserre pour que le récapitulatif tienne sans défiler */
+@media (min-width: 1100px) and (max-height: 760px) {
+  .resultats-prix { padding: 18px 22px; }
+  .resultats-titre { margin-top: 6px; font-size: 1.35rem; }
+  .resultats-total { margin-bottom: 10px; font-size: 2.5rem; }
+  .resultats-actions { margin-top: 12px; gap: 8px; }
+  .resultats-pied { gap: 8px; padding-top: 10px; }
 }
 </style>

@@ -5,6 +5,8 @@ import EnteteApp from '@/composants/commun/EnteteApp.vue'
 import PiedDePage from '@/composants/commun/PiedDePage.vue'
 import AideFlottante from '@/composants/commun/AideFlottante.vue'
 import BandeauAnnonce from '@/composants/commun/BandeauAnnonce.vue'
+import BandeauCookies from '@/composants/commun/BandeauCookies.vue'
+import ApercuPdf from '@/composants/commun/ApercuPdf.vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { PAGES_ESPACE } from '@/routeur/index.js'
 import { modeSite, quitterModeSite } from '@/composables/useModeSite.js'
@@ -37,7 +39,10 @@ function retourEspace() {
   <main id="contenu-principal">
     <router-view v-slot="{ Component }">
       <transition name="fondu" mode="out-in">
-        <component :is="Component" />
+        <!-- L'accueil reste en mémoire : y revenir ne reconstruit pas ses 5 scènes 3D (≈ 0,6 s de page figée) -->
+        <keep-alive include="AccueilVue">
+          <component :is="Component" />
+        </keep-alive>
       </transition>
     </router-view>
   </main>
@@ -45,7 +50,9 @@ function retourEspace() {
     <PiedDePage />
     <AideFlottante />
     <BandeauAnnonce />
+    <BandeauCookies />
   </template>
+  <ApercuPdf />
   <div v-if="visiteFournisseur" class="visite-fournisseur" role="region" aria-label="Visite du site">
     <span><i class="fa-solid fa-briefcase" aria-hidden="true"></i> Vous visitez le site en tant que <strong>professionnel</strong></span>
     <button type="button" @click="retourEspace"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Retour à mon espace</button>

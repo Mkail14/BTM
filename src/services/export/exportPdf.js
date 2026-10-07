@@ -3,6 +3,7 @@
  * Un seul document, dans l'ordre où un particulier le lit : le prix, ce qu'il faut acheter, ses mesures.
  * Utilise jsPDF + autoTable, chargés à la demande (code splitting).
  */
+import { livrerPdf } from './livrerPdf.js'
 import { formaterEuros, formaterNombre, formaterQuantite, lignesMurs, detailPrix } from '@/services/calculs/moteurCalculs.js'
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
 
@@ -17,7 +18,7 @@ const euros = (n) => propre(formaterEuros(n))
 const nombre = (n, d) => propre(formaterNombre(n, d))
 
 /** @param {string} [code] code de retrait du projet enregistré (présenté au fournisseur pour retirer et payer) */
-export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }) {
+export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }, mode = 'telecharger') {
   const { jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
 
@@ -194,6 +195,5 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   }
 
   const fichier = `BTM_Devis_${(nom || libelle || 'projet').replace(/[^a-z0-9àâçéèêëîïôûùüÿñæœ]+/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
-  doc.save(fichier)
-  return fichier
+  return livrerPdf(doc, fichier, mode) // téléchargement direct ou aperçu (ApercuPdf)
 }

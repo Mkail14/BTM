@@ -88,15 +88,15 @@ async function declarer() {
 }
 
 // ---------- Reçu PDF ----------
-const telechargement = ref(null)
-async function telechargerRecu(p) {
-  telechargement.value = p.id
+const telechargement = ref(null) // `${id}:${mode}` pendant la génération
+async function recuPdf(p, mode) {
+  telechargement.value = `${p.id}:${mode}`
   try {
     const { exporterRecuPdf } = await import('@/services/export/exportRecu.js')
-    await exporterRecuPdf({ paiement: p, fiche: fiche.value, encaissePar: nomCompte.value })
+    await exporterRecuPdf({ paiement: p, fiche: fiche.value, encaissePar: nomCompte.value }, mode)
   } catch (e) {
     console.warn(e)
-    notifier('Téléchargement du reçu impossible.', 'erreur')
+    notifier('Génération du reçu impossible.', 'erreur')
   } finally {
     telechargement.value = null
   }
@@ -215,8 +215,11 @@ async function confirmerAnnulation() {
                   <small v-if="p.lignes_manquantes?.length" class="pai-partiel" :title="p.lignes_manquantes.map((l) => l.libelle).join(', ')">partiel · {{ p.lignes_manquantes.length }} manquant{{ p.lignes_manquantes.length > 1 ? 's' : '' }}</small>
                 </td>
                 <td class="actions">
-                  <button type="button" class="adm-icone-btn" :disabled="!p.numero_recu || telechargement === p.id" :title="p.numero_recu ? 'Télécharger le reçu (PDF)' : 'Ancien paiement : pas de reçu'" :aria-label="`Télécharger le reçu ${p.numero_recu || ''}`" @click="telechargerRecu(p)">
-                    <span v-if="telechargement === p.id" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-file-pdf" aria-hidden="true"></i>
+                  <button type="button" class="adm-icone-btn" :disabled="!p.numero_recu || !!telechargement" :title="p.numero_recu ? 'Visualiser le reçu (PDF)' : 'Ancien paiement : pas de reçu'" :aria-label="`Visualiser le reçu ${p.numero_recu || ''}`" @click="recuPdf(p, 'visualiser')">
+                    <span v-if="telechargement === `${p.id}:visualiser`" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-eye" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="adm-icone-btn" :disabled="!p.numero_recu || !!telechargement" :title="p.numero_recu ? 'Télécharger le reçu (PDF)' : 'Ancien paiement : pas de reçu'" :aria-label="`Télécharger le reçu ${p.numero_recu || ''}`" @click="recuPdf(p, 'telecharger')">
+                    <span v-if="telechargement === `${p.id}:telecharger`" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-download" aria-hidden="true"></i>
                   </button>
                   <button type="button" class="adm-icone-btn danger" title="Annuler l’encaissement" :aria-label="`Annuler l’encaissement ${p.numero_recu || ''}`" @click="ouvrirAnnulation(p)"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
                 </td>

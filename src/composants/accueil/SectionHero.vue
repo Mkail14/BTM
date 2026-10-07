@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, onActivated, onDeactivated, defineAsyncComponent } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import { typesProjets } from '@/donnees/typesProjets.js'
@@ -38,23 +38,40 @@ const surTaille = (e) => { telephone.value = e.matches }
 onMounted(() => requete?.addEventListener('change', surTaille))
 onBeforeUnmount(() => requete?.removeEventListener('change', surTaille))
 
-const decalage = ref(0)
+// Cadre au défilement : en descendant, des bords blancs apparaissent sur les côtés du héros et son bas s'arrondit
+// (le héros se détache comme une carte posée sur la page). Léger : une seule variable CSS mise à jour hors de Vue,
+// et le cadre n'est animé que par transform (aucun recalcul de la scène 3D ni de la mise en page).
+const heros = ref(null)
+const calme = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+let dernier = -1
 let raf = null
-const surScroll = () => {
-  if (raf) return
-  raf = requestAnimationFrame(() => { decalage.value = window.scrollY; raf = null })
+function cadrer() {
+  raf = null
+  const h = window.innerHeight
+  if (!heros.value || window.scrollY > h * 1.5 && dernier === 1) return // héros sorti de l'écran : plus rien à faire
+  const p = calme ? 0 : Math.min(Math.max(window.scrollY / (h * 0.55), 0), 1)
+  const arrondi = Math.round(p * 100) / 100
+  if (arrondi === dernier) return
+  dernier = arrondi
+  heros.value.style.setProperty('--cadre', arrondi)
 }
-onMounted(() => window.addEventListener('scroll', surScroll, { passive: true }))
-onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf) cancelAnimationFrame(raf) })
+const surScroll = () => { if (!raf) raf = requestAnimationFrame(cadrer) }
+// accueil gardé en mémoire (keep-alive) : le défilement des autres pages ne doit pas recalculer le héros
+const brancherScroll = () => { window.addEventListener('scroll', surScroll, { passive: true }); surScroll() }
+const debrancherScroll = () => { window.removeEventListener('scroll', surScroll); if (raf) cancelAnimationFrame(raf); raf = null }
+onMounted(brancherScroll)
+onActivated(brancherScroll)
+onDeactivated(debrancherScroll)
+onBeforeUnmount(debrancherScroll)
 
 </script>
 
 <template>
-  <section id="hero-section" class="hero" aria-labelledby="hero-titre">
-    <HeroPaysage :style="{ transform: `translate3d(0, ${decalage * 0.2}px, 0)` }" />
+  <section id="hero-section" ref="heros" class="hero" aria-labelledby="hero-titre">
+    <HeroPaysage />
 
     <div class="conteneur hero-grille">
-      <div class="hero-texte" :style="{ transform: `translate3d(0, ${decalage * 0.08}px, 0)` }">
+      <div class="hero-texte">
         <p v-if="typeCompte" class="hero-surtitre">
           {{ debutSurtitre }}
           <span class="hero-compte" :class="`hero-compte-${typeCompte.cle}`">
@@ -74,7 +91,7 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
         </div>
       </div>
 
-      <div v-if="!telephone" class="hero-visuel" :style="{ transform: `translate3d(0, ${decalage * -0.06}px, 0)` }">
+      <div v-if="!telephone" class="hero-visuel">
         <Scene3DChantier />
       </div>
 
@@ -93,6 +110,9 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
     </div>
 
     <a href="#types-projets" class="hero-defiler" aria-label="Voir la suite"><span></span></a>
+
+    <!-- cadre blanc qui se dessine au défilement : bords latéraux + coins arrondis en bas -->
+    <span class="hero-cadre" aria-hidden="true"><i class="cadre-g"></i><i class="cadre-d"></i><i class="coin-g"></i><i class="coin-d"></i></span>
   </section>
 </template>
 
@@ -100,10 +120,33 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
 .hero {
   position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; overflow: hidden;
   color: #fff; padding: calc(var(--hauteur-entete) + 48px) 0 0; isolation: isolate; background: #0a0f14;
+  --cadre-bord: 28px; --cadre-coin: 64px;
 }
+
+/* ---------- Cadre blanc au défilement ----------
+   Bords latéraux qui s'élargissent et coins arrondis qui grandissent en bas : le héros devient une carte posée sur la page.
+   Uniquement des transform pilotés par --cadre (0 → 1) : rien n'est redessiné, la scène 3D n'est pas touchée. */
+.hero-cadre { position: absolute; inset: 0; z-index: 12; pointer-events: none; }
+.hero-cadre i { position: absolute; will-change: transform; } /* positions données pièce par pièce (sinon elles seraient écrasées) */
+/* Pièces volontairement un peu plus grandes que nécessaire et qui se chevauchent (et débordent sous le bord du héros) :
+   aucune jointure entre deux pièces, donc aucun liseré sombre aux positions intermédiaires. */
+.cadre-g, .cadre-d { top: -2px; bottom: -2px; width: calc(var(--cadre-bord) + 3px); background: #fff; transform: scaleX(var(--cadre, 0)); }
+.cadre-g { left: -3px; transform-origin: left; }
+.cadre-d { right: -3px; transform-origin: right; }
+/* chaque coin englobe aussi la bande latérale : l'arrondi part directement du bord blanc */
+/* le coin descend 3 px sous le héros (masqués) : son arrondi se termine exactement sur le bord bas, sans marche */
+.coin-g, .coin-d { bottom: -3px; width: calc(var(--cadre-bord) + var(--cadre-coin) + 3px); height: calc(var(--cadre-coin) + 3px); transform: scale(var(--cadre, 0)); }.coin-g {
+  left: -3px; transform-origin: bottom left;
+  background: radial-gradient(circle var(--cadre-coin) at 100% 0, transparent calc(var(--cadre-coin) - 1px), #fff calc(var(--cadre-coin) + .5px));
+}
+.coin-d {
+  right: -3px; transform-origin: bottom right;
+  background: radial-gradient(circle var(--cadre-coin) at 0 0, transparent calc(var(--cadre-coin) - 1px), #fff calc(var(--cadre-coin) + .5px));
+}
+@media (max-width: 639px) { .hero { --cadre-bord: 12px; --cadre-coin: 32px; } }
 .hero-grille {
   display: grid; gap: 32px 56px; grid-template-columns: 1fr; align-items: center; justify-items: center;
-  flex: 1; width: 100%; margin: 0 auto; padding: 0 7vw 40px;
+  flex: 1; width: 100%; margin: 0 auto; padding: 0 var(--gouttiere) 40px;
 }
 @media (min-width: 900px) {
   .hero-grille {
@@ -112,7 +155,6 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
   }
 }
 @media (min-width: 1200px) {
-  .hero-grille { max-width: 1800px; padding-inline: 5vw; }
   .hero-titre { white-space: nowrap; }
   .hero-actions { flex-wrap: nowrap; }
 }
@@ -150,7 +192,7 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
 /* Téléphone : hero centré, boutons larges, raccourcis à la place de la maquette 3D */
 @media (max-width: 639px) {
   .hero { padding-top: calc(var(--hauteur-entete) + 20px); justify-content: flex-start; }
-  .hero-grille { grid-template-columns: minmax(0, 1fr); gap: 26px; padding: 8px 20px 96px; align-content: center; }
+  .hero-grille { grid-template-columns: minmax(0, 1fr); gap: 26px; padding: 8px var(--gouttiere) 96px; align-content: center; }
   .hero-grille > * { min-width: 0; }
   .hero-texte { max-width: none; }
   .hero-surtitre { font-size: .7rem; letter-spacing: .12em; margin-bottom: 14px; }
@@ -162,7 +204,7 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
 }
 /* Petits téléphones (≤ 360 px) */
 @media (max-width: 360px) {
-  .hero-grille { padding-inline: 16px; gap: 22px; }
+  .hero-grille { gap: 22px; }
   .hero-surtitre { font-size: .62rem; letter-spacing: .08em; gap: 8px; }
   .hero-surtitre::before { width: 18px; }
   .hero-desc { font-size: .95rem; }
@@ -184,7 +226,7 @@ onBeforeUnmount(() => { window.removeEventListener('scroll', surScroll); if (raf
 .hero-raccourcis i { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: rgba(6, 182, 212, .2); color: #67e8f9; font-size: .95rem; }
 @media (min-width: 900px) { .hero-texte { justify-self: start; } .hero-visuel { justify-self: end; transform: translateY(26px); } }
 @media (min-width: 1800px) {
-  .hero-grille { max-width: 2100px; grid-template-columns: minmax(0, 1fr) minmax(720px, 1fr); }
+  .hero-grille { grid-template-columns: minmax(0, 1fr) minmax(720px, 1fr); }
   .hero-visuel, .scene { max-width: 720px; }
 }
 

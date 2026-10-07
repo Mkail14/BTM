@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
-import { lireCreditFidelite } from '@/services/supabase/serviceProjets.js'
 import { useRouter } from 'vue-router'
 import { useProjets } from '@/composables/useProjets.js'
 import { useCalculateur } from '@/composables/useCalculateur.js'
@@ -21,13 +20,9 @@ const suppressionEnCours = ref(false)
 const projetsTries = computed(() => [...projets.value].sort((a, b) => new Date(b.cree_le) - new Date(a.cree_le)))
 const totalCumule = computed(() => projets.value.reduce((s, p) => s + (p.cout_total ?? p.resultat?.total ?? 0), 0))
 
-// Crédit fidélité : gagné à chaque achat fait avec un code de retrait, utilisable au comptoir
-const credit = ref({ solde: 0, mouvements: [] })
-async function chargerCredit() { credit.value = connecte.value ? await lireCreditFidelite() : { solde: 0, mouvements: [] } }
-
-onMounted(() => { rafraichir(); chargerCredit() })
+onMounted(rafraichir)
 // recharge à chaque changement de compte (y compris d'un compte à un autre, sans passer par « déconnecté »)
-watch(() => utilisateur.value?.id, () => { rafraichir(); chargerCredit() })
+watch(() => utilisateur.value?.id, () => rafraichir())
 
 function voir(p) { calc.afficherResultat(p); router.push('/resultats') }
 // Achat direct et devis pro n'ont pas de formulaire : la copie s'ouvre dans les résultats, sans code de retrait
@@ -46,25 +41,13 @@ async function confirmerSuppression() {
     <div class="conteneur tdb">
       <header class="tdb-entete">
         <div>
-          <h1 class="tdb-titre">Mes projets</h1>
+          <h1 class="page-titre">Mes projets</h1>
           <p v-if="!vide" class="tdb-resume">
             {{ projets.length }} projet{{ projets.length > 1 ? 's' : '' }} · <span class="prix">{{ formaterEuros(totalCumule) }}</span>
           </p>
         </div>
         <BoutonBase to="/calculateur" icone="fa-solid fa-plus">Nouveau</BoutonBase>
       </header>
-
-      <section v-if="connecte" class="tdb-credit" aria-label="Crédit fidélité">
-        <span class="tdb-credit-icone"><i class="fa-solid fa-gift" aria-hidden="true"></i></span>
-        <span class="tdb-credit-texte">
-          <small>Crédit fidélité BTM</small>
-          <strong class="prix">{{ formaterEuros(credit.solde) }}</strong>
-          <small>{{ credit.solde > 0 ? 'À utiliser au comptoir : le fournisseur le déduit de votre prochain achat.' : 'Chaque achat fait avec votre code de retrait vous rapporte du crédit.' }}</small>
-        </span>
-        <ul v-if="credit.mouvements.length" class="tdb-credit-mouvements">
-          <li v-for="(m, i) in credit.mouvements" :key="i"><span>{{ m.libelle }}</span><strong :class="{ plus: m.montant > 0 }">{{ m.montant > 0 ? '+' : '' }}{{ formaterEuros(m.montant) }}</strong></li>
-        </ul>
-      </section>
 
       <p v-if="erreur" class="tdb-note" :title="erreur">Synchronisation indisponible — projets de cet appareil uniquement.</p>
       <p v-else-if="!connecte && backendDisponible" class="tdb-note">
@@ -98,17 +81,7 @@ async function confirmerSuppression() {
 </template>
 
 <style scoped>
-.tdb-credit { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-bottom: 20px; padding: 18px 20px; border-radius: var(--rayon-lg); background: linear-gradient(135deg, #065f46, #047857); color: #fff; }
-.tdb-credit-icone { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 14px; background: rgba(255, 255, 255, .15); font-size: 1.2rem; }
-.tdb-credit-texte { flex: 1 1 240px; display: flex; flex-direction: column; }
-.tdb-credit-texte small { opacity: .8; font-size: .82rem; }
-.tdb-credit-texte strong { font-size: 1.6rem; }
-.tdb-credit-mouvements { flex: 1 1 280px; display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: .82rem; }
-.tdb-credit-mouvements li { display: flex; justify-content: space-between; gap: 10px; opacity: .9; }
-.tdb-credit-mouvements strong.plus { color: #bbf7d0; }
-.tdb { max-width: 760px; }
 .tdb-entete { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 28px; }
-.tdb-titre { font-size: clamp(2.2rem, 5vw, 3rem); font-weight: 700; color: var(--ardoise); }
 .tdb-resume { margin: 6px 0 0; color: var(--gris-500); }
 
 .tdb-note { margin: 0 0 16px; font-size: .88rem; color: var(--gris-500); }

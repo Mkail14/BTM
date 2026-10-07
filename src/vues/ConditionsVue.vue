@@ -28,7 +28,8 @@ const sections = computed(() => [
   { id: 'donnees', titre: 'Données personnelles', texte: [
     'Les données collectées (nom, prénom, e-mail, téléphone, projets enregistrés) servent uniquement à faire fonctionner votre compte et à synchroniser vos projets entre vos appareils. Elles ne sont ni vendues ni cédées à des tiers à des fins commerciales.',
     'Elles sont hébergées de manière sécurisée chez notre prestataire Supabase ; chaque utilisateur n’a accès qu’à ses propres projets. Conformément au RGPD, vous disposez d’un droit d’accès, de rectification, d’effacement et d’opposition, que vous pouvez exercer depuis votre profil (modification ou suppression du compte) ou en nous écrivant à l’adresse indiquée ci-dessous.',
-    'La suppression du compte efface définitivement votre profil et tous vos projets enregistrés.' ] },
+    'La suppression du compte efface définitivement votre profil et tous vos projets enregistrés.',
+    'Le détail des données traitées, des prestataires et de ce qui est enregistré dans votre navigateur figure sur la page « Cookies et confidentialité » (lien en bas de chaque page).' ] },
   { id: 'usage', titre: 'Utilisation acceptable', texte: [
     'Vous vous engagez à utiliser le service de bonne foi : pas d’usurpation d’identité, pas de tentative d’accès aux données d’autres utilisateurs, pas d’action visant à perturber le fonctionnement du site.',
     'Nous pouvons suspendre ou supprimer un compte en cas d’usage contraire à ces règles.' ] },
@@ -76,7 +77,7 @@ const sections = computed(() => [
 </template>
 
 <style scoped>
-.cgu { max-width: 1040px; }
+.cgu-section { max-width: 860px; } /* largeur de lecture ; la page suit le gabarit commun */
 .cgu-corps { display: grid; grid-template-columns: 1fr; gap: 28px; align-items: start; }
 @media (min-width: 900px) { .cgu-corps { grid-template-columns: 250px minmax(0, 1fr); gap: 44px; } .cgu-sommaire { position: sticky; top: calc(var(--hauteur-entete) + 20px); } }
 .cgu-sommaire { padding: 20px 22px; }

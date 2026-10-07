@@ -8,6 +8,8 @@ import SaisieMotDePasse from './SaisieMotDePasse.vue'
 import ProfilTypeCompte from './ProfilTypeCompte.vue'
 import { formaterTelephone } from '@/services/telephone.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
+import { useCreditFidelite } from '@/composables/useCreditFidelite.js'
+import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
 const AuthentificationVue = defineAsyncComponent(() => import('@/vues/AuthentificationVue.vue'))
 
@@ -48,6 +50,16 @@ const liensVisibles = computed(() => [
 ])
 const pseudo = computed(() => utilisateur.value?.user_metadata?.pseudo || utilisateur.value?.email?.split('@')[0] || '')
 const initiale = computed(() => pseudo.value.charAt(0).toUpperCase() || '?')
+
+// Crédit fidélité à côté du nom (clients particuliers et pros ; un compte fournisseur n'en gagne pas).
+// Relu à chaque page : un achat validé au comptoir le fait évoluer.
+const { credit, charger: chargerCredit } = useCreditFidelite()
+const afficherCredit = computed(() => connecte.value && !fournisseurLie.value)
+const creditOuvert = ref(false)
+// Gain pour 100 € d'achat : la part de la commission BTM (réglée dans l'admin) rendue au client
+const creditPour100 = computed(() => (100 * contenu.frais.taux / 100) * (contenu.frais.fidelite / 100))
+onMounted(() => { if (afficherCredit.value) chargerCredit() })
+watch(() => route.path, () => { creditOuvert.value = false; if (afficherCredit.value) chargerCredit() })
 
 const surScroll = () => { defile.value = window.scrollY > 24 }
 onMounted(() => { surScroll(); window.addEventListener('scroll', surScroll, { passive: true }) })
@@ -198,6 +210,32 @@ async function supprimerCompte() {
                 <span class="entete-avatar" aria-hidden="true">{{ initiale }}</span>
                 <span class="entete-pseudo">{{ pseudo }}</span>
               </button>
+              <!-- Crédit fidélité : survol (ou appui sur téléphone/tablette) = à quoi il sert, comment en gagner et l'utiliser -->
+              <div v-if="afficherCredit" class="credit" :class="{ ouvert: creditOuvert }" @mouseleave="creditOuvert = false" @keydown.esc="creditOuvert = false">
+                <button type="button" class="entete-credit" :aria-expanded="creditOuvert" aria-controls="credit-detail" @click="creditOuvert = !creditOuvert">
+                  <i class="fa-solid fa-coins" aria-hidden="true"></i><span class="visually-hidden">Crédit fidélité :</span> {{ formaterEuros(credit.solde) }}
+                </button>
+                <div id="credit-detail" class="credit-detail" role="dialog" aria-label="Crédit fidélité BTM">
+                  <p class="credit-tete"><span><i class="fa-solid fa-coins" aria-hidden="true"></i> Crédit fidélité BTM</span><strong>{{ formaterEuros(credit.solde) }}</strong></p>
+                  <dl class="credit-infos">
+                    <dt>À quoi ça sert ?</dt>
+                    <dd>C’est un bon d’achat offert par BTM : le fournisseur le <strong>déduit de votre prochain retrait</strong> au comptoir.</dd>
+                    <dt>Comment en gagner ?</dt>
+                    <dd>Chaque achat payé avec le code de retrait d’un devis enregistré vous rapporte environ <strong>{{ formaterEuros(creditPour100) }} pour 100 €</strong> d’achat.</dd>
+                    <dt>Comment l’utiliser ?</dt>
+                    <dd>Au comptoir, donnez votre code de retrait et demandez à utiliser votre crédit.</dd>
+                  </dl>
+                  <template v-if="credit.mouvements.length">
+                    <p class="credit-sous-titre">Derniers mouvements</p>
+                    <ul class="credit-mouvements">
+                      <li v-for="(m, i) in credit.mouvements" :key="i"><span>{{ m.libelle }}</span><strong :class="{ plus: m.montant > 0 }">{{ m.montant > 0 ? '+' : '' }}{{ formaterEuros(m.montant) }}</strong></li>
+                    </ul>
+                  </template>
+                  <p v-else class="credit-vide">Aucun mouvement pour l’instant : votre premier achat avec un code de retrait lancera votre cagnotte.</p>
+                  <router-link to="/calculateur" class="credit-action">Faire un devis <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></router-link>
+                  <p class="credit-note">Ni échangeable ni remboursable en espèces.</p>
+                </div>
+              </div>
               <button class="entete-deconnexion" type="button" title="Déconnexion" aria-label="Déconnexion" @click="deconnexion">
                 <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
               </button>
@@ -219,7 +257,11 @@ async function supprimerCompte() {
       <nav v-if="menuOuvert" id="menu-mobile" class="menu-mobile" aria-label="Menu mobile">
         <button v-if="connecte" class="menu-mobile-compte" type="button" @click="menuOuvert = false; ouvrirProfil()">
           <span class="entete-avatar" aria-hidden="true">{{ initiale }}</span>
-          <span class="menu-mobile-compte-texte"><strong>{{ pseudo }}</strong><small>{{ utilisateur?.email }}</small></span>
+          <span class="menu-mobile-compte-texte">
+            <strong>{{ pseudo }}</strong><small>{{ utilisateur?.email }}</small>
+            <small v-if="afficherCredit" class="menu-mobile-credit"><i class="fa-solid fa-coins" aria-hidden="true"></i> Crédit fidélité : {{ formaterEuros(credit.solde) }}</small>
+            <small v-if="afficherCredit" class="menu-mobile-credit-aide">Déduit de votre prochain achat au comptoir · environ {{ formaterEuros(creditPour100) }} gagnés pour 100 € d’achat</small>
+          </span>
           <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
         </button>
         <router-link v-for="l in liensVisibles" :key="l.to" :to="l.to" class="menu-mobile-lien" active-class="actif">
@@ -364,6 +406,43 @@ async function supprimerCompte() {
 }
 .entete-utilisateur:hover { background: rgba(255, 255, 255, .08); }
 .entete-pseudo { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entete-credit {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px;
+  background: rgba(253, 230, 138, .14); color: #fde68a; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;
+  transition: background var(--transition);
+}
+.entete-credit { border: 0; cursor: pointer; }
+.entete-credit:hover, .credit.ouvert .entete-credit { background: rgba(253, 230, 138, .24); }
+
+/* Détail du crédit : au survol ou au focus clavier (ordinateur), à l'appui (écran tactile) */
+.credit { position: relative; }
+.credit-detail {
+  position: absolute; top: calc(100% + 10px); right: -40px; z-index: 120; width: 330px; padding: 16px 18px;
+  border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; box-shadow: var(--ombre-lg); color: var(--texte);
+  opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .18s ease, transform .18s ease, visibility .18s;
+}
+.credit-detail::before { content: ''; position: absolute; top: -12px; left: 0; right: 0; height: 12px; } /* pont : le survol ne se perd pas entre le bouton et le panneau */
+.credit.ouvert .credit-detail, .credit:focus-within .credit-detail { opacity: 1; visibility: visible; transform: none; }
+@media (hover: hover) { .credit:hover .credit-detail { opacity: 1; visibility: visible; transform: none; } }
+.credit-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px solid var(--gris-200); color: var(--ardoise); font-weight: 700; }
+.credit-tete i { color: #d97706; margin-right: 4px; }
+.credit-tete strong { color: #b45309; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.credit-infos { margin: 0; font-size: .84rem; line-height: 1.5; }
+.credit-infos dt { margin-top: 8px; color: var(--ardoise); font-weight: 700; }
+.credit-infos dt:first-child { margin-top: 0; }
+.credit-infos dd { margin: 2px 0 0; color: var(--texte-secondaire); }
+.credit-infos strong { color: var(--ardoise); }
+.credit-sous-titre { margin: 14px 0 6px; color: var(--texte-secondaire); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.credit-mouvements { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: .82rem; }
+.credit-mouvements li { display: flex; justify-content: space-between; gap: 10px; color: var(--gris-700); }
+.credit-mouvements strong { color: var(--ardoise); white-space: nowrap; }
+.credit-mouvements strong.plus { color: #047857; }
+.credit-vide { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--rayon); background: #fffbeb; color: #92400e; font-size: .82rem; line-height: 1.45; }
+.credit-action { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--lagon-700); font-size: .86rem; font-weight: 700; }
+.credit-action:hover { text-decoration: underline; text-underline-offset: 3px; }
+.credit-note { margin: 10px 0 0; color: var(--gris-500); font-size: .74rem; }
+.menu-mobile-credit { display: flex; align-items: center; gap: 6px; margin-top: 2px; color: #fde68a !important; font-weight: 600; }
+.menu-mobile-compte-texte .menu-mobile-credit-aide { white-space: normal; line-height: 1.4; }
 .entete-avatar {
   display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%;
   background: linear-gradient(135deg, var(--lagon-400), var(--lagon-700)); color: #fff;

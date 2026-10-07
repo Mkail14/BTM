@@ -1,11 +1,28 @@
+<script>
+// File d'attente commune à toutes les maquettes : construire une scène (contexte WebGL, ombres, éclairage)
+// prend du temps ; une seule est construite par créneau libre du navigateur, pour ne jamais figer la page.
+const file = []
+let fileEnCours = false
+const creneau = (tache) => (window.requestIdleCallback ? window.requestIdleCallback(tache, { timeout: 400 }) : setTimeout(tache, 16))
+function tacheSuivante() {
+  const tache = file.shift()
+  fileEnCours = !!tache
+  if (tache) creneau(async () => { await tache(); tacheSuivante() })
+}
+function planifier(tache) {
+  file.push(tache)
+  if (!fileEnCours) tacheSuivante()
+}
+</script>
+
 <script setup>
 /**
  * Maquette3D — maquette three.js procédurale d'un ouvrage (mur, dalle, fondation, terrasse),
  * façon maquette d'architecte : matériaux réalistes, ombres douces, légère oscillation.
  * Pivote vers l'utilisateur quand `actif` est vrai (survol de la carte).
- * Le rendu ne tourne que lorsque la maquette est visible à l'écran.
+ * La scène n'est construite qu'à l'approche de l'écran, et le rendu ne tourne que lorsqu'elle est visible.
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
@@ -21,6 +38,8 @@ let rafId = null
 let visible = false
 let pivotSurvol = 0
 let observateurVisibilite, observateurTaille
+let planifiee = false
+let detruite = false
 const mouvementReduit = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /* ---------- Outils de modélisation ---------- */
@@ -264,7 +283,8 @@ function cadrer() {
   camera.updateProjectionMatrix()
   const demiV = THREE.MathUtils.degToRad(camera.fov / 2)
   const demi = Math.min(demiV, Math.atan(Math.tan(demiV) * camera.aspect))
-  const distance = (rayon / Math.sin(demi)) * 0.92
+  // 1,15 : la maquette entière tient dans la carte avec un peu d'air autour (0,92 la faisait déborder)
+  const distance = (rayon / Math.sin(demi)) * 1.15
   const az = THREE.MathUtils.degToRad(38), el = THREE.MathUtils.degToRad(30)
   camera.position.set(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(distance).add(cible)
   camera.lookAt(cible)
@@ -319,7 +339,6 @@ function initialiser() {
   const sphere = new THREE.Box3().setFromObject(pivot).getBoundingSphere(new THREE.Sphere())
   cible = sphere.center
   rayon = sphere.radius
-  cadrer()
 }
 
 function rendre() {
@@ -334,7 +353,7 @@ function boucle(temps) {
 }
 
 function demarrer() {
-  if (rafId || mouvementReduit || !visible) return
+  if (rafId || mouvementReduit || !visible || !renderer) return
   rafId = requestAnimationFrame(boucle)
 }
 function arreter() {
@@ -342,23 +361,38 @@ function arreter() {
   rafId = null
 }
 
-onMounted(() => {
+async function construire() {
+  if (detruite || renderer || !hote.value) return
   try {
     initialiser()
   } catch (e) {
     console.warn('Maquette 3D indisponible :', e)
     return
   }
-  observateurVisibilite = new IntersectionObserver(([entree]) => {
-    visible = entree.isIntersecting
-    visible ? demarrer() : arreter()
-  })
-  observateurVisibilite.observe(hote.value)
+  // shaders compilés en parallèle (KHR_parallel_shader_compile) : le premier rendu ne fige plus la page
+  try { await renderer.compileAsync(scene, camera) } catch { /* navigateur sans compilation asynchrone : compilés au premier rendu */ }
+  if (detruite) return
+  cadrer()
   observateurTaille = new ResizeObserver(cadrer)
   observateurTaille.observe(hote.value)
+  demarrer()
+}
+
+onMounted(() => {
+  // construite à l'approche de l'écran (marge de 300 px), pas au chargement de la page
+  observateurVisibilite = new IntersectionObserver(([entree]) => {
+    visible = entree.isIntersecting
+    if (visible && !planifiee) { planifiee = true; planifier(construire) }
+    visible ? demarrer() : arreter()
+  }, { rootMargin: '300px 0px' })
+  observateurVisibilite.observe(hote.value)
 })
+// accueil gardé en mémoire (keep-alive) : pas de rendu pendant qu'on est sur une autre page
+onDeactivated(arreter)
+onActivated(demarrer)
 
 onBeforeUnmount(() => {
+  detruite = true
   arreter()
   observateurVisibilite?.disconnect()
   observateurTaille?.disconnect()
@@ -373,7 +407,9 @@ onBeforeUnmount(() => {
   pmrem?.dispose()
   if (renderer) {
     renderer.dispose()
+    renderer.forceContextLoss() // dispose() seul garde le contexte WebGL ouvert jusqu'au ramasse-miettes
     renderer.domElement.remove()
+    renderer = null
   }
 })
 </script>

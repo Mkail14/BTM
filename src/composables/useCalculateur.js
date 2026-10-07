@@ -6,7 +6,7 @@ import { ref, reactive, computed, shallowRef, toRaw } from 'vue'
 import { calculerEstimation, validerDimensions, normaliserResultat, appliquerCodePromo, MESSAGES } from '@/services/calculs/moteurCalculs.js'
 import { fusionnerResultats, TYPE_ACHAT } from '@/services/calculs/fusion.js'
 import { arrondi } from '@/services/calculs/utilitaires.js'
-import { lireCalcul, ecrireCalcul, effacerCalcul } from '@/services/stockage/stockageCalcul.js'
+import { lireCalcul, ecrireCalcul, effacerCalcul, mettreDeCoteCalcul, reprendreCalculMisDeCote, oublierCalculMisDeCote } from '@/services/stockage/stockageCalcul.js'
 import { chargerCatalogue } from '@/services/supabase/serviceMateriaux.js'
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
 import { useContenuSite, chargerContenus } from '@/composables/useContenuSite.js'
@@ -14,8 +14,11 @@ import { surChangementCompte } from '@/composables/useAuth.js'
 import { verifierCode, codeDejaUtilise } from '@/services/supabase/serviceCodesPromo.js'
 import { utilisateurCourant } from '@/services/supabase/serviceAuth.js'
 
-// État partagé (singleton module) — reste vivant entre les vues
-const sauvegarde = lireCalcul()
+// État partagé (singleton module) — reste vivant entre les vues.
+// Onglet neuf (lien de confirmation d'inscription) : on reprend le devis que le visiteur avait mis de côté.
+const misDeCote = lireCalcul() ? null : reprendreCalculMisDeCote()
+const sauvegarde = lireCalcul() || misDeCote
+if (misDeCote) ecrireCalcul(misDeCote)
 const typeId = ref(sauvegarde?.typeId || '')
 const dimensions = reactive({ ...(sauvegarde?.dimensions || {}) })
 const resultat = ref(normaliserResultat(sauvegarde?.resultat) || null)
@@ -48,6 +51,7 @@ function viderCalcul() {
   erreurGlobale.value = ''
   cumul.value = []
   effacerCalcul()
+  oublierCalculMisDeCote()
 }
 
 /** Le devis affiché : l'estimation en cours, ou (pro) toutes les estimations cumulées réunies, code promo appliqué */
@@ -73,8 +77,9 @@ const avecDelai = (promesse, ms, repli) => Promise.race([promesse, new Promise((
 /** L'admin vient de modifier des prix : le prochain calcul relira le catalogue */
 export function oublierCatalogue() { catalogue = null }
 
+const etatCalcul = () => ({ typeId: typeId.value, dimensions: { ...dimensions }, resultat: resultat.value, fournisseurId: fournisseurId.value, codePromo: codePromo.value, cumul: cumul.value })
 function persister() {
-  ecrireCalcul({ typeId: typeId.value, dimensions: { ...dimensions }, resultat: resultat.value, fournisseurId: fournisseurId.value, codePromo: codePromo.value, cumul: cumul.value })
+  ecrireCalcul(etatCalcul())
 }
 
 export function useCalculateur() {
@@ -253,10 +258,17 @@ export function useCalculateur() {
 
   const reinitialiser = viderCalcul
 
+  /** Inscription d'un visiteur : son devis le suivra dans l'onglet ouvert par le lien de confirmation */
+  function mettreDeCote() {
+    if (resultat.value || cumul.value.length) mettreDeCoteCalcul(etatCalcul())
+  }
+  /** Devis enregistré dans le compte : la copie mise de côté a servi (pas à la connexion : l'autre onglet ne l'a peut-être pas encore lue) */
+  const oublierMiseDeCote = oublierCalculMisDeCote
+
   return {
     typeId, type, dimensions, resultat, devis, cumul, erreurs, erreurGlobale, chargement, fournisseurId, sourcePrix, codePromo, messageCode, codeRetrait, associerCodeRetrait,
     achatDirect, ajouterAuDevis, retirerDuDevis,
     choisirType, definirDimensions, ajouterMur, retirerMur, validerChamp, calculer, choisirFournisseur,
-    chargerDepuisProjet, afficherResultat, reinitialiser, appliquerCode, retirerCode
+    chargerDepuisProjet, afficherResultat, reinitialiser, appliquerCode, retirerCode, mettreDeCote, oublierMiseDeCote
   }
 }

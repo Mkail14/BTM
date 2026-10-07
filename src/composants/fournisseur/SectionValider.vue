@@ -194,17 +194,17 @@ async function encaisser() {
 }
 
 // ---------- 4. Reçu ----------
-const telechargement = ref(false)
-async function telechargerRecu() {
-  telechargement.value = true
+const telechargement = ref('') // 'visualiser' | 'telecharger' pendant la génération
+async function recuPdf(mode) {
+  telechargement.value = mode
   try {
     const { exporterRecuPdf } = await import('@/services/export/exportRecu.js')
-    await exporterRecuPdf({ paiement: paiement.value, fiche: fiche.value, encaissePar: nomCompte.value })
+    await exporterRecuPdf({ paiement: paiement.value, fiche: fiche.value, encaissePar: nomCompte.value }, mode)
   } catch (e) {
     console.warn(e)
-    notifier('Téléchargement du reçu impossible.', 'erreur')
+    notifier('Génération du reçu impossible.', 'erreur')
   } finally {
-    telechargement.value = false
+    telechargement.value = ''
   }
 }
 </script>
@@ -428,9 +428,14 @@ async function telechargerRecu() {
           <div><dt>Le</dt><dd>{{ formatHeure(paiement.paye_le) }}</dd></div>
         </dl>
         <div class="val-recu-actions">
-          <button v-if="paiement.numero_recu" type="button" class="adm-btn adm-btn-noir" :disabled="telechargement" @click="telechargerRecu">
-            <span v-if="telechargement" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-file-pdf" aria-hidden="true"></i> Télécharger le reçu
-          </button>
+          <template v-if="paiement.numero_recu">
+            <button type="button" class="adm-btn adm-btn-noir" :disabled="!!telechargement" @click="recuPdf('visualiser')">
+              <span v-if="telechargement === 'visualiser'" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-eye" aria-hidden="true"></i> Visualiser le reçu
+            </button>
+            <button type="button" class="adm-btn adm-btn-clair" :disabled="!!telechargement" @click="recuPdf('telecharger')">
+              <span v-if="telechargement === 'telecharger'" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-download" aria-hidden="true"></i> Télécharger
+            </button>
+          </template>
           <button type="button" class="adm-btn adm-btn-clair" @click="recommencer"><i class="fa-solid fa-ticket" aria-hidden="true"></i> Nouveau retrait</button>
         </div>
       </section>

@@ -10,15 +10,16 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
+import { useCalculateur } from '@/composables/useCalculateur.js'
 import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
 import SaisieMotDePasse from '@/composants/commun/SaisieMotDePasse.vue'
 import { formaterTelephone } from '@/services/telephone.js'
-import { nettoyerPseudo, nettoyerNom, capitaliserNom, erreurNom, erreurEmail, suggestionEmail } from '@/services/validation.js'
+import { nettoyerPseudo, nettoyerNom, capitaliserNom, erreurNom, erreurEmail, erreurDomaineEmail, suggestionEmail, MESSAGE_EMAIL_JETABLE } from '@/services/validation.js'
 import { nettoyerSiret, formaterSiret, siretValide, rechercherSiret } from '@/services/entreprises.js'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import LogoBtm from '@/composants/commun/LogoBtm.vue'
-import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
+import { roleSession } from '@/routeur/index.js'
 
 const props = defineProps({
   mode: { type: String, default: 'connexion' },
@@ -27,22 +28,30 @@ const props = defineProps({
 const emit = defineEmits(['fermer', 'changer-mode'])
 const router = useRouter()
 const route = useRoute()
+const calc = useCalculateur()
 // Retour à la page d'origine (ex. Résultats après « Enregistrer ») ; sinon tableau de bord pour un admin, accueil pour les autres
 const redirectionDemandee = () => (typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/') ? route.query.redirect : null)
-// Connecté : on ferme la fenêtre (mode modal) puis on rejoint la destination (une seule fois : clic et écouteur d'auth)
-let connexionTerminee = false
-async function terminerConnexion(compte) {
-  if (connexionTerminee) return
-  connexionTerminee = true
-  emit('fermer')
-  const demandee = redirectionDemandee()
-  if (demandee) return router.push(demandee)
-  // tableau de bord pour l'admin, espace dédié pour un fournisseur, accueil pour les autres
-  const { role, fournisseur_id: fid } = compte ? await lireRoleCompte(compte.id) : {}
-  router.push(role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : '/')
+// Connecté : on rejoint la destination, puis on ferme la fenêtre (mode modal) une fois la page prête :
+// l'admin arrive directement sur son tableau de bord, sans voir l'accueil passer.
+// Une seule fois : le clic et l'écouteur d'auth partagent la même navigation.
+let connexionEnCours = null
+function terminerConnexion() {
+  connexionEnCours ||= (async () => {
+    const demandee = redirectionDemandee()
+    // rôle lu par le routeur et gardé en cache : sa garde ne refait pas la requête
+    const { role, fournisseur_id: fid } = demandee ? {} : (await roleSession()) || {}
+    // tableau de bord pour l'admin, espace dédié pour un fournisseur, accueil pour les autres (la garde du routeur
+    // ramène de toute façon un admin ou un fournisseur vers son espace)
+    try {
+      await router.push(demandee || (role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : '/'))
+    } finally {
+      emit('fermer')
+    }
+  })()
+  return connexionEnCours
 }
 const versAutreMode = (chemin) => ({ path: chemin, query: route.query.redirect ? { redirect: route.query.redirect } : {} })
-const { connexion, inscription, backendDisponible, connecte, utilisateur } = useAuth()
+const { connexion, inscription, backendDisponible, connecte } = useAuth()
 
 const email = ref('')
 const civilite = ref('')
@@ -78,6 +87,15 @@ const pseudoAuto = computed(() => {
 const cgu = ref(false)
 const erreurs = ref({})
 const erreurGlobale = ref('')
+// Compte banni (migration 0022) : connexion refusée, ou déconnexion forcée par useAuth (?suspendu=<date de fin | vie>)
+function MESSAGE_SUSPENDU(jusqua) {
+  const date = jusqua && jusqua !== 'vie' ? new Date(jusqua) : null
+  const duree = date && !Number.isNaN(date.getTime())
+    ? ` jusqu’au ${date.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}`
+    : jusqua === 'vie' ? ' définitivement' : ''
+  return `Ce compte a été suspendu${duree} par l’équipe BTM. Pour toute question : contact@btm.yt.`
+}
+if (typeof route.query.suspendu === 'string') erreurGlobale.value = MESSAGE_SUSPENDU(route.query.suspendu)
 const succes = ref('')
 const chargement = ref(false)
 const estInscription = computed(() => props.mode === 'inscription')
@@ -93,7 +111,7 @@ function choisirProfil(type) {
 }
 
 watch(() => props.mode, () => { erreurs.value = {}; erreurGlobale.value = ''; succes.value = ''; etape.value = 0 })
-watch(connecte, (v) => { if (v) terminerConnexion(utilisateur.value) })
+watch(connecte, (v) => { if (v) terminerConnexion() })
 
 const retirerErreur = (cle) => { const { [cle]: _, ...reste } = erreurs.value; erreurs.value = reste }
 const poserErreur = (cle, m) => { erreurs.value = { ...erreurs.value, [cle]: m } }
@@ -117,21 +135,32 @@ function sortieNom(cle, libelle) {
 // E-mail : contrôle du format à la sortie du champ + suggestion en cas de faute de frappe (gmial.com…)
 const suggestion = computed(() => suggestionEmail(email.value))
 function appliquerSuggestion() { email.value = suggestion.value; retirerErreur('email') }
-function sortieEmail() {
+// Adresses jetables (yopmail…) et domaines sans messagerie refusés à l'inscription seulement :
+// un ancien compte doit toujours pouvoir se connecter
+async function sortieEmail() {
   email.value = email.value.trim()
-  const m = email.value ? erreurEmail(email.value) : ''
-  if (m) poserErreur('email', m); else retirerErreur('email')
+  const valeur = email.value
+  const m = valeur ? erreurEmail(valeur, { accepterJetable: !estInscription.value }) : ''
+  if (m) { poserErreur('email', m); return }
+  retirerErreur('email')
+  if (!valeur || !estInscription.value) return
+  verificationEmail.value = true
+  const d = await erreurDomaineEmail(valeur)
+  verificationEmail.value = false
+  if (d && email.value === valeur) poserErreur('email', d)
 }
+const verificationEmail = ref(false)
 
 
 function validerEmail(e) {
-  const msg = erreurEmail(email.value)
+  const msg = erreurEmail(email.value, { accepterJetable: !estInscription.value })
   if (msg) e.email = msg
 }
 
 function validerMotDePasse(e) {
   if (!motDePasse.value) e.motDePasse = 'Ce champ est obligatoire'
-  else if (motDePasse.value.length < 8) e.motDePasse = 'Au moins 8 caractères'
+  // 8 caractères pour un nouveau mot de passe ; à la connexion, un ancien compte peut en avoir moins
+  else if (estInscription.value && motDePasse.value.length < 8) e.motDePasse = 'Au moins 8 caractères'
 }
 
 function valider() {
@@ -166,31 +195,54 @@ function etapePrecedente() {
 async function soumettre() {
   erreurGlobale.value = ''; succes.value = ''
   if (!valider()) return
+  if (estInscription.value && (nomEtape.value === 'Identité' || nomEtape.value === 'Contact')) {
+    chargement.value = true
+    const d = await erreurDomaineEmail(email.value)
+    chargement.value = false
+    if (d) { erreurs.value = { email: d }; return }
+  }
   if (!derniereEtape.value) { etape.value++; return }
   if (!backendDisponible) { erreurGlobale.value = 'Le backend Supabase n’est pas encore configuré : ce formulaire est une maquette fonctionnelle.'; return }
   chargement.value = true
   try {
     if (estInscription.value) {
       const pro = typeCompte.value === 'professionnel'
+      // le lien de confirmation s'ouvre dans un nouvel onglet : le devis en cours y est repris, sur la page demandée
+      const avecDevis = !!(calc.resultat.value || calc.cumul.value.length)
+      calc.mettreDeCote()
       await inscription(email.value.trim(), motDePasse.value, {
         civilite: civilite.value, nom: nom.value.trim(), prenom: prenom.value.trim(), pseudo: pseudoAuto.value, telephone: telephone.value,
         type_profil: typeCompte.value, ...(pro ? { pro_siret: nettoyerSiret(siret.value), pro_raison_sociale: raisonSociale.value.trim() } : {})
-      })
-      succes.value = pro
+      }, redirectionDemandee() || (avecDevis ? '/resultats' : ''))
+      const suite = avecDevis ? ' Votre devis vous attendra : le lien de confirmation vous y ramène.' : ''
+      succes.value = (pro
         ? 'Compte créé ! Confirmez votre e-mail si demandé, puis connectez-vous. Votre profil professionnel sera actif dès que notre équipe aura vérifié votre SIRET.'
-        : 'Compte créé ! Vérifiez votre boîte mail si une confirmation est requise, puis connectez-vous.'
+        : 'Compte créé ! Vérifiez votre boîte mail si une confirmation est requise, puis connectez-vous.') + suite
     } else {
-      terminerConnexion(await connexion(email.value.trim(), motDePasse.value))
+      // le bouton reste en chargement jusqu'à l'arrivée sur la page de destination
+      await connexion(email.value.trim(), motDePasse.value)
+      await terminerConnexion()
     }
   } catch (err) {
-    erreurGlobale.value = traduire(err.message)
+    const message = traduire(err.message)
+    // adresse refusée (jetable, domaine inexistant) : retour à l'étape de l'e-mail, raison affichée sous le champ
+    if (estInscription.value && (message === MESSAGE_EMAIL_JETABLE || /ne reçoit pas d’e-mails/.test(message))) {
+      etape.value = ETAPES.value.findIndex((n) => n === 'Identité' || n === 'Contact') + 1
+      erreurs.value = { email: message }
+    } else {
+      erreurGlobale.value = message
+    }
   } finally {
     chargement.value = false
   }
 }
 
 function traduire(m = '') {
+  if (/database error (saving|updating)/i.test(m)) return MESSAGE_EMAIL_JETABLE // déclencheur trg_refuser_email_jetable (migration 0019)
+  // le serveur d'envoi (SMTP) ne répond pas : Supabase abandonne l'inscription au bout de 10 s
+  if (/http 50[234]|timeout|deadline|sending .*email/i.test(m)) return 'Notre service d’envoi d’e-mails ne répond pas pour le moment : votre compte n’a pas été créé. Réessayez dans quelques minutes.'
   if (/invalid login/i.test(m)) return 'E-mail ou mot de passe incorrect.'
+  if (/banned/i.test(m)) return MESSAGE_SUSPENDU() // bannissement posé par un administrateur (migration 0022)
   if (/already registered/i.test(m)) return 'Un compte existe déjà avec cet e-mail.'
   if (/rate limit/i.test(m)) return 'Trop de tentatives, réessayez dans quelques instants.'
   if (/confirm/i.test(m)) return 'Veuillez confirmer votre e-mail avant de vous connecter.'
@@ -303,6 +355,7 @@ function traduire(m = '') {
             <label for="auth-email">{{ nomEtape === 'Contact' ? 'E-mail professionnel' : 'Adresse e-mail' }}</label>
             <input id="auth-email" v-model="email" @blur="sortieEmail" type="email" maxlength="254" autocomplete="email" :placeholder="nomEtape === 'Contact' ? 'contact@entreprise.yt' : 'vous@exemple.yt'" :aria-invalid="!!erreurs.email" style="font-family: var(--font-corps)" />
             <p v-if="erreurs.email" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.email }}</p>
+            <p v-else-if="verificationEmail" class="champ-aide"><i class="fa-solid fa-spinner fa-spin"></i> Vérification de l’adresse…</p>
             <p v-else-if="suggestion" class="champ-aide auth-suggestion">Vouliez-vous écrire <button type="button" @click="appliquerSuggestion">{{ suggestion }}</button> ?</p>
           </div>
 
@@ -372,7 +425,7 @@ function traduire(m = '') {
 </template>
 
 <style scoped>
-.auth-grille { display: grid; gap: 32px; grid-template-columns: 1fr; align-items: stretch; max-width: 1000px; }
+.auth-grille { display: grid; gap: 32px; grid-template-columns: 1fr; align-items: stretch; }
 @media (min-width: 900px) { .auth-grille { grid-template-columns: 1fr 1fr; } }
 .auth-visuel { display: none; padding: 40px; border-radius: var(--rayon-lg); color: #fff; background: var(--ardoise); }
 @media (min-width: 900px) { .auth-visuel { display: block; } }

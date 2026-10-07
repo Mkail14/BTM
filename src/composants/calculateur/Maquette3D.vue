@@ -21,7 +21,7 @@ const conteneur = ref(null)
 const indisponible = ref(false)
 const dessus = ref(false)
 const legende = ref('')
-let renderer, scene, camera, modele, frame, observer
+let renderer, scene, camera, modele, frame, observer, observateurTaille
 let visible = true
 let glisse = null
 let rotationCible = -0.55
@@ -423,12 +423,14 @@ function initialiser() {
 
   observer = new IntersectionObserver(([e]) => { visible = e.isIntersecting })
   observer.observe(el)
-  window.addEventListener('resize', redimensionner)
+  // suit la taille du cadre, pas seulement de la fenêtre : sur téléphone il rétrécit quand le clavier s'ouvre
+  observateurTaille = new ResizeObserver(redimensionner)
+  observateurTaille.observe(el)
 }
 
 function redimensionner() {
   const el = conteneur.value
-  if (!el || !renderer) return
+  if (!el || !renderer || !el.clientWidth || !el.clientHeight) return
   renderer.setSize(el.clientWidth, el.clientHeight)
   camera.aspect = el.clientWidth / el.clientHeight
   camera.updateProjectionMatrix()
@@ -451,7 +453,7 @@ onMounted(initialiser)
 onBeforeUnmount(() => {
   cancelAnimationFrame(frame)
   observer?.disconnect()
-  window.removeEventListener('resize', redimensionner)
+  observateurTaille?.disconnect()
   liberer(scene)
   textures.forEach((t) => t.dispose())
   Object.values(M).forEach((m) => m.dispose())

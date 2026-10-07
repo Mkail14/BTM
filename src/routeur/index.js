@@ -15,6 +15,7 @@ const routes = [
   { path: '/espace-fournisseur/:section?', name: 'espace-fournisseur', component: () => import('@/vues/EspaceFournisseurVue.vue'), meta: { titre: 'Espace fournisseur', necessiteConnexion: true, necessiteFournisseur: true, pleinEcran: true } },
   { path: '/nouveau-mot-de-passe', name: 'nouveau-mot-de-passe', component: () => import('@/vues/NouveauMotDePasseVue.vue'), meta: { titre: 'Nouveau mot de passe' } },
   { path: '/conditions', name: 'conditions', component: () => import('@/vues/ConditionsVue.vue'), meta: { titre: 'Conditions générales d’utilisation' } },
+  { path: '/confidentialite', name: 'confidentialite', component: () => import('@/vues/ConfidentialiteVue.vue'), meta: { titre: 'Cookies et confidentialité' } },
   { path: '/:pathMatch(.*)*', name: 'introuvable', component: () => import('@/vues/IntrouvableVue.vue'), meta: { titre: 'Page introuvable' } }
 ]
 
@@ -33,9 +34,14 @@ const routeur = createRouter({
  * getSession() lit la session locale : pas d'appel réseau pour un visiteur non connecté.
  */
 let cacheRole = { id: null, role: null, fournisseur_id: null }
-async function roleSession() {
+export async function roleSession() {
   if (!supabaseConfigure) return null
-  const { data } = await supabase.auth.getSession()
+  // Une session périmée fait renouveler le jeton par le réseau : sans réponse en 4 s, on navigue comme un visiteur
+  // plutôt que de laisser le clic sans effet (la RLS protège les données quoi qu'il arrive)
+  const { data } = await Promise.race([
+    supabase.auth.getSession(),
+    new Promise((r) => setTimeout(() => r({ data: { session: null } }), 4000))
+  ])
   const id = data.session?.user?.id
   if (!id) return null
   if (cacheRole.id === id) return cacheRole

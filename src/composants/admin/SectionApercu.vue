@@ -15,11 +15,12 @@ onMounted(async () => { await charger(['profils', 'projets', 'avis', 'fournisseu
 
 // ---------- Période ----------
 const periodes = [
+  { id: 'jour', label: 'Aujourd’hui' },
   { id: '7j', label: '7 jours' },
   { id: '30j', label: '30 jours' },
   { id: '12m', label: '12 mois' }
 ]
-const periode = ref('30j') // '7j' | '30j' | '12m' | 'perso'
+const periode = ref('jour') // 'jour' | '7j' | '30j' | '12m' | 'perso'
 const JOUR = 86400000
 
 // Dates « calendaires » locales (minuit), pour ne pas décaler d'un jour avec le fuseau horaire
@@ -34,6 +35,7 @@ const fmt = (options) => new Intl.DateTimeFormat('fr-FR', options)
 const plagePerso = ref({ debut: versIso(ajouterJours(aujourdhui(), -29)), fin: versIso(aujourdhui()) })
 const plage = computed(() => {
   const demain = ajouterJours(aujourdhui(), 1)
+  if (periode.value === 'jour') return { debut: aujourdhui(), fin: demain }
   if (periode.value === '7j') return { debut: ajouterJours(demain, -7), fin: demain }
   if (periode.value === '12m') { const a = aujourdhui(); return { debut: jour(a.getFullYear(), a.getMonth() - 11, 1), fin: jour(a.getFullYear(), a.getMonth() + 1, 1) } }
   if (periode.value === 'perso') return { debut: depuisIso(plagePerso.value.debut), fin: ajouterJours(depuisIso(plagePerso.value.fin), 1) }

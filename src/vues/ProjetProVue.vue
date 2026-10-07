@@ -90,18 +90,18 @@ async function enregistrer() {
     enregistrement.value = false
   }
 }
-const exportEnCours = ref(false)
-async function telechargerPdf() {
+const exportEnCours = ref('') // 'visualiser' | 'telecharger' pendant la génération
+async function pdf(mode) {
   if (!devis.value.resultat) return
-  exportEnCours.value = true
+  exportEnCours.value = mode
   try {
     const { exporterEstimationPdf } = await import('@/services/export/exportPdf.js')
-    await exporterEstimationPdf({ nom: projet.value.nom.trim() || 'Projet professionnel', resultat: devis.value.resultat, fournisseur: fournisseur.value, code: codeRetrait.value })
+    await exporterEstimationPdf({ nom: projet.value.nom.trim() || 'Projet professionnel', resultat: devis.value.resultat, fournisseur: fournisseur.value, code: codeRetrait.value }, mode)
   } catch (e) {
     console.error(e)
     erreurAction.value = 'Impossible de générer le PDF.'
   } finally {
-    exportEnCours.value = false
+    exportEnCours.value = ''
   }
 }
 function recommencer() {
@@ -139,7 +139,8 @@ const nb = (v, d = 2) => formaterNombre(v, d)
         </label>
         <div class="pp-barre-actions">
           <button type="button" class="btn btn-ghost btn-sm" @click="recommencer"><i class="fa-solid fa-file-circle-plus" aria-hidden="true"></i> Nouveau</button>
-          <BoutonBase variante="secondaire" taille="sm" icone="fa-solid fa-file-arrow-down" :chargement="exportEnCours" :disabled="!devis.resultat" @click="telechargerPdf">PDF</BoutonBase>
+          <BoutonBase variante="secondaire" taille="sm" icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!devis.resultat || !!exportEnCours" @click="pdf('visualiser')">Voir le PDF</BoutonBase>
+          <BoutonBase variante="secondaire" taille="sm" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!devis.resultat || !!exportEnCours" @click="pdf('telecharger')">Télécharger</BoutonBase>
           <BoutonBase taille="sm" icone="fa-regular fa-bookmark" :chargement="enregistrement" :disabled="!devis.resultat" @click="enregistrer">Enregistrer</BoutonBase>
         </div>
       </header>
@@ -298,7 +299,7 @@ const nb = (v, d = 2) => formaterNombre(v, d)
 .pp-reserve-etat { padding: 12px 16px; border-radius: var(--rayon); background: var(--gris-50); color: var(--ardoise) !important; }
 
 /* Application */
-.pp-app { display: flex; flex-direction: column; gap: 12px; padding: 0 16px; }
+.pp-app { display: flex; flex-direction: column; gap: 12px; padding: 0 var(--gouttiere); }
 .pp-barre { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .pp-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--ardoise); color: #fcd34d; font-size: .8rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .pp-nom { flex: 1 1 260px; }

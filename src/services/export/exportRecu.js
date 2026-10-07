@@ -3,6 +3,7 @@
  * Reprend l'identité du fournisseur, le code de retrait, le moyen de paiement et sa référence,
  * les matériaux remis et ceux non fournis. jsPDF chargé à la demande, comme le devis.
  */
+import { livrerPdf } from './livrerPdf.js'
 import { formaterEuros, formaterQuantite } from '@/services/calculs/moteurCalculs.js'
 import { MOYENS } from '@/services/supabase/serviceEspaceFournisseur.js'
 
@@ -19,7 +20,7 @@ const horodatage = (d) => new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', 
  * @param {object} fiche    fiche du fournisseur (table fournisseurs)
  * @param {string} [encaissePar] nom de la personne connectée
  */
-export async function exporterRecuPdf({ paiement: p, fiche, encaissePar }) {
+export async function exporterRecuPdf({ paiement: p, fiche, encaissePar }, mode = 'telecharger') {
   const { jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -135,6 +136,5 @@ export async function exporterRecuPdf({ paiement: p, fiche, encaissePar }) {
   doc.text(`BTM — reçu ${p.numero_recu || ''}`, largeur / 2, 290, { align: 'center' })
 
   const fichier = `Recu_${p.numero_recu || 'BTM'}.pdf`
-  doc.save(fichier)
-  return fichier
+  return livrerPdf(doc, fichier, mode) // téléchargement direct ou aperçu (ApercuPdf)
 }

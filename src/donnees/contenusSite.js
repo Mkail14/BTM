@@ -27,12 +27,19 @@ export const contenusParDefaut = {
     surtitre: 'Avis',
     titre: 'Ils ont préparé leur chantier avec BTM.',
     vide: 'Aucun avis pour le moment. Soyez le premier à donner le vôtre !',
-    bouton: 'Donner mon avis'
+    bouton: 'Donner mon avis',
+    // lien « laisser un avis » de la fiche Google de BTM (colonne centrale de la page d'accueil)
+    lienGoogle: ''
+  },
+  realisations: {
+    surtitre: 'Réalisations',
+    titre: 'Leurs chantiers, partout à Mayotte.',
+    lien: 'Voir les fournisseurs'
   },
   contact: {
-    email: 'contact@btm-mayotte.yt',
-    telephone: '0269 00 00 00',
-    whatsapp: '262269000000',
+    email: 'contact@btm.yt',
+    telephone: '0639 94 11 01',
+    whatsapp: '0639 94 11 01',
     localisation: 'Mamoudzou, Mayotte (976)'
   },
   // Commission BTM payée par le fournisseur (% des ventes avec code) et part rendue au client en crédit fidélité
@@ -87,7 +94,17 @@ export const sectionsContenus = [
       { nom: 'surtitre', label: 'Surtitre', max: 40 },
       { nom: 'titre', label: 'Titre', max: 90 },
       { nom: 'vide', label: 'Message quand il n’y a aucun avis', type: 'long', max: 160, plein: true },
-      { nom: 'bouton', label: 'Bouton', max: 30 }
+      { nom: 'bouton', label: 'Bouton', max: 30 },
+      { nom: 'lienGoogle', label: 'Lien « Laisser un avis Google »', aide: 'https://g.page/r/… (fiche Google de BTM → Demander des avis)', max: 300, plein: true }
+    ]
+  },
+  {
+    cle: 'realisations', titre: 'Accueil — réalisations', icone: 'fa-solid fa-images', page: '/#realisations',
+    description: 'Textes de la galerie des projets d’utilisateurs, après les avis.',
+    champs: [
+      { nom: 'surtitre', label: 'Surtitre', max: 40 },
+      { nom: 'titre', label: 'Titre', max: 90 },
+      { nom: 'lien', label: 'Bouton vers l’annuaire', max: 30 }
     ]
   },
   {
@@ -96,7 +113,7 @@ export const sectionsContenus = [
     champs: [
       { nom: 'email', label: 'E-mail de contact', type: 'email', max: 120 },
       { nom: 'telephone', label: 'Téléphone', max: 30 },
-      { nom: 'whatsapp', label: 'Numéro WhatsApp', aide: 'Format international, chiffres seuls : 262269…', max: 20 },
+      { nom: 'whatsapp', label: 'Numéro WhatsApp', aide: 'Ex. : 0639 94 11 01 (converti automatiquement au format international pour WhatsApp)', max: 20 },
       { nom: 'localisation', label: 'Localisation', max: 80 }
     ]
   },

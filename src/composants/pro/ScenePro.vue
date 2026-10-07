@@ -1,12 +1,4 @@
 <script setup>
-/**
- * ScenePro — maquette 3D d'un projet professionnel (Three.js), à l'échelle réelle (1 unité = 1 mètre).
- *  - Maisons : fondations, dalle, murs avec portes et fenêtres, terrasse ; dalles, murs et terrasses seuls.
- *  - Cotes exactes (longueur, largeur, hauteur) en étiquettes ; l'ouvrage sélectionné est surligné.
- *  - Mode « Orbite » : tourner, zoomer, cliquer un ouvrage pour le sélectionner.
- *  - Mode « Visite » : à hauteur d'homme (1,65 m), flèches / ZQSD pour marcher, glisser pour regarder ;
- *    les murs arrêtent le visiteur, on entre par les portes. Boutons tactiles sur téléphone.
- */
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'

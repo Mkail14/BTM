@@ -29,7 +29,7 @@ const periodes = [
   { id: '12m', label: '12 mois' },
   { id: 'perso', label: 'Personnalisée' }
 ]
-const periode = ref('30j')
+const periode = ref('jour')
 const plagePerso = ref({ debut: versIso(ajouterJours(aujourdhui(), -29)), fin: versIso(aujourdhui()) })
 const plage = computed(() => {
   const demain = ajouterJours(aujourdhui(), 1)

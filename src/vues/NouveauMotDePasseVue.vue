@@ -1,6 +1,7 @@
 <script setup>
 /**
- * Page ouverte depuis le lien de l'e-mail « réinitialisation du mot de passe » (envoyé par un admin).
+ * Page ouverte depuis le lien de l'e-mail « réinitialisation du mot de passe » : envoyé par un admin, ou lien de secours
+ * de « Mot de passe oublié » (le parcours normal utilise le code du même e-mail, dans la fenêtre de connexion).
  * Supabase ouvre une session temporaire à partir du lien ; on y définit le nouveau mot de passe.
  */
 import { ref, onMounted } from 'vue'
@@ -68,7 +69,7 @@ async function enregistrer() {
         <template v-else-if="!lienValide">
           <div class="nmdp-icone nmdp-ko"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></div>
           <h1>Lien invalide ou expiré</h1>
-          <p class="texte-secondaire">Ce lien de réinitialisation n’est plus valable. Demandez à l’administrateur de vous en envoyer un nouveau.</p>
+          <p class="texte-secondaire">Ce lien de réinitialisation n’est plus valable. Ouvrez « Connexion », puis « Mot de passe oublié ? » pour en recevoir un nouveau.</p>
           <BoutonBase to="/" variante="secondaire">Retour à l’accueil</BoutonBase>
         </template>
 

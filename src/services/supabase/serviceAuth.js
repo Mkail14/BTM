@@ -52,6 +52,29 @@ export async function mettreAJourProfil({ pseudo, telephone, email, ancienMotDeP
   return data.user
 }
 
+// ---------- Mot de passe oublié : code reçu par e-mail ----------------------------------
+/**
+ * Envoie l'e-mail « Reset Password » (gabarit emails/mot-de-passe-oublie.html, à coller dans Supabase) : il contient
+ * le code, et un lien de secours vers /nouveau-mot-de-passe. Supabase répond pareil que l'adresse ait un compte ou non.
+ */
+export async function demanderCodeMotDePasse(email) {
+  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/nouveau-mot-de-passe` })
+  if (error) throw error
+}
+/** Vérifie le code : ouvre la session du compte, sans laquelle le mot de passe ne peut pas être changé */
+export async function verifierCodeMotDePasse(email, code) {
+  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
+  const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'recovery' })
+  if (error) throw error
+}
+/** Nouveau mot de passe du compte dont la session vient d'être ouverte par le code */
+export async function definirMotDePasse(motDePasse) {
+  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
+  const { error } = await supabase.auth.updateUser({ password: motDePasse })
+  if (error) throw error
+}
+
 export async function supprimerCompte() {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
   const { data, error } = await supabase.functions.invoke('supprimer-compte')

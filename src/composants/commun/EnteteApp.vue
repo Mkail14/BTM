@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, watch, defineAsyncComponent } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
+import { ouvrirAuth as ouvrirFenetreAuth } from '@/composables/useFenetreAuth.js'
 import LogoBtm from './LogoBtm.vue'
 import ChampTelephone from './ChampTelephone.vue'
 import SaisieMotDePasse from './SaisieMotDePasse.vue'
@@ -141,6 +142,12 @@ function ouvrirAction(action) {
   profilMessage.value = ''
   profilErreur.value = ''
   suppressionConfirmee.value = false
+}
+
+// ancien mot de passe oublié : un code reçu par e-mail permet d'en choisir un nouveau (fenêtre de connexion)
+function motDePasseOublie() {
+  fermerProfil()
+  ouvrirFenetreAuth('connexion', { oubli: true })
 }
 
 async function changerMotDePasse() {
@@ -330,7 +337,7 @@ async function supprimerCompte() {
           <ProfilTypeCompte v-else-if="profilVue === 'type'" />
           <form v-else-if="profilVue === 'mot-de-passe'" class="profil-formulaire" @submit.prevent="changerMotDePasse">
             <h3>Modifier le mot de passe</h3>
-            <p class="profil-contenu-intro">Renseignez d’abord votre ancien mot de passe, puis choisissez le nouveau.</p>
+            <p class="profil-contenu-intro">Renseignez d’abord votre ancien mot de passe, puis choisissez le nouveau. <button type="button" class="profil-oubli" @click="motDePasseOublie">Mot de passe oublié ?</button></p>
             <div class="champ"><label for="ancien-mot-de-passe">Ancien mot de passe</label><SaisieMotDePasse id="ancien-mot-de-passe" v-model="ancienMotDePasse"  required /></div>
             <div class="champ"><label for="nouveau-mot-de-passe">Nouveau mot de passe</label><SaisieMotDePasse id="nouveau-mot-de-passe" v-model="nouveauMotDePasse"  minlength="8" required /></div>
             <div class="champ"><label for="confirmation-mot-de-passe">Confirmer le mot de passe</label><SaisieMotDePasse id="confirmation-mot-de-passe" v-model="confirmationMotDePasse"  minlength="8" required /></div>
@@ -573,6 +580,8 @@ async function supprimerCompte() {
 .profil-action-danger > i:first-child, .profil-action-danger span { color: var(--erreur); }
 .profil-contenu { min-height: 360px; padding: 26px; border: 1px solid var(--gris-200); border-radius: var(--rayon); background: #fff; }
 .profil-contenu h3, .profil-suppression h3 { margin-bottom: 8px; color: var(--ardoise); font-size: 1.45rem; }
+.profil-oubli { padding: 0; border: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 600; cursor: pointer; }
+.profil-oubli:hover { text-decoration: underline; text-underline-offset: 3px; }
 .profil-contenu-intro, .profil-suppression > p { margin-bottom: 22px; color: var(--texte-secondaire); line-height: 1.5; }
 .profil-infos-liste { display: flex; flex-direction: column; gap: 0; margin-bottom: 24px; border-top: 1px solid var(--gris-200); }
 .profil-infos-liste div { display: flex; justify-content: space-between; gap: 20px; padding: 13px 0; border-bottom: 1px solid var(--gris-200); }

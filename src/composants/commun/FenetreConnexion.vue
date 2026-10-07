@@ -7,6 +7,7 @@
  *  - particulier : Identité → Sécurité → Validation ;
  *  - professionnel : Entreprise (SIRET) → Contact → Sécurité → Validation.
  * Le pseudo (nom affiché) est déduit du prénom et du nom.
+ * « Mot de passe oublié ? » remplace le formulaire par MotDePasseOublie (code reçu par e-mail).
  */
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -20,13 +21,15 @@ import { nettoyerSiret, formaterSiret, siretValide, rechercherSiret } from '@/se
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import LogoBtm from '@/composants/commun/LogoBtm.vue'
+import MotDePasseOublie from '@/composants/commun/MotDePasseOublie.vue'
 import { roleSession } from '@/routeur/index.js'
 
 const props = defineProps({
   mode: { type: String, default: 'connexion' },
   redirect: { type: String, default: null },  // page à rejoindre une fois connecté (ex. Résultats après « Enregistrer »)
   suspendu: { type: String, default: null },  // compte banni déconnecté : date de fin ou « vie »
-  profil: { type: String, default: null }     // inscription : profil présélectionné (« professionnel »…)
+  profil: { type: String, default: null },    // inscription : profil présélectionné (« professionnel »…)
+  oubli: Boolean                              // ouverte directement sur « Mot de passe oublié » (depuis le profil)
 })
 const emit = defineEmits(['fermer', 'changer-mode'])
 const router = useRouter()
@@ -50,7 +53,14 @@ function terminerConnexion() {
   })()
   return connexionEnCours
 }
-const { connexion, inscription, backendDisponible, connecte } = useAuth()
+const { connexion, inscription, backendDisponible, connecte, utilisateur } = useAuth()
+
+// Mot de passe oublié : le code vérifié connecte le compte avant qu'il ait choisi son mot de passe,
+// la fenêtre ne doit donc pas se fermer à la connexion tant que ce parcours est ouvert
+const modeOubli = ref(props.oubli)
+const dejaConnecte = connecte.value // parcours ouvert depuis le profil d'un compte connecté
+const quitterOubli = () => { if (dejaConnecte) emit('fermer'); else modeOubli.value = false }
+const finOubli = () => (dejaConnecte ? emit('fermer') : terminerConnexion())
 
 const email = ref('')
 const civilite = ref('')
@@ -109,10 +119,10 @@ function choisirProfil(type) {
   etape.value = 1
 }
 
-watch(() => props.mode, () => { erreurs.value = {}; erreurGlobale.value = ''; succes.value = ''; etape.value = 0 })
+watch(() => props.mode, () => { erreurs.value = {}; erreurGlobale.value = ''; succes.value = ''; etape.value = 0; modeOubli.value = false })
 // ouverte depuis « Créer un compte professionnel » : le profil est déjà choisi
 if (props.mode === 'inscription' && ['particulier', 'professionnel'].includes(props.profil)) choisirProfil(props.profil)
-watch(connecte, (v) => { if (v) terminerConnexion() })
+watch(connecte, (v) => { if (v && !modeOubli.value) terminerConnexion() })
 
 const retirerErreur = (cle) => { const { [cle]: _, ...reste } = erreurs.value; erreurs.value = reste }
 const poserErreur = (cle, m) => { erreurs.value = { ...erreurs.value, [cle]: m } }
@@ -281,143 +291,149 @@ function traduire(m = '') {
       </aside>
 
       <section class="carte auth-carte">
-        <h2 id="auth-titre" class="auth-titre">{{ !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
-        <p class="texte-secondaire auth-intro">{{ !estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit, en moins d’une minute.' }}</p>
+        <MotDePasseOublie v-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" @retour="quitterOubli" @termine="finOubli" />
+        <template v-else>
+          <h2 id="auth-titre" class="auth-titre">{{ !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
+          <p class="texte-secondaire auth-intro">{{ !estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit, en moins d’une minute.' }}</p>
 
-        <BandeauAvertissement v-if="!backendDisponible" type="info" compact class="auth-note">
-          Authentification prévue avec Supabase — renseignez <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> pour l’activer.
-        </BandeauAvertissement>
+          <BandeauAvertissement v-if="!backendDisponible" type="info" compact class="auth-note">
+            Authentification prévue avec Supabase — renseignez <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> pour l’activer.
+          </BandeauAvertissement>
 
-        <ol v-if="estInscription && etape > 0" class="auth-etapes" :aria-label="`Étape ${etape} sur ${ETAPES.length}`">
-          <li v-for="(libelle, index) in ETAPES" :key="libelle" :class="{ 'auth-etape-active': index + 1 === etape, 'auth-etape-faite': index + 1 < etape }">
-            <span class="auth-etape-numero">
-              <i v-if="index + 1 < etape" class="fa-solid fa-check" aria-hidden="true"></i>
-              <template v-else>{{ index + 1 }}</template>
-            </span>
-            <span class="auth-etape-libelle">{{ libelle }}</span>
-          </li>
-        </ol>
+          <ol v-if="estInscription && etape > 0" class="auth-etapes" :aria-label="`Étape ${etape} sur ${ETAPES.length}`">
+            <li v-for="(libelle, index) in ETAPES" :key="libelle" :class="{ 'auth-etape-active': index + 1 === etape, 'auth-etape-faite': index + 1 < etape }">
+              <span class="auth-etape-numero">
+                <i v-if="index + 1 < etape" class="fa-solid fa-check" aria-hidden="true"></i>
+                <template v-else>{{ index + 1 }}</template>
+              </span>
+              <span class="auth-etape-libelle">{{ libelle }}</span>
+            </li>
+          </ol>
 
-        <form novalidate @submit.prevent="soumettre" class="auth-form">
-          <!-- Étape 0 : choix du profil -->
-          <div v-if="estInscription && etape === 0" class="auth-profils" role="group" aria-label="Vous êtes">
-            <button type="button" class="auth-profil" @click="choisirProfil('particulier')">
-              <span class="auth-profil-icone"><i class="fa-solid fa-house-user" aria-hidden="true"></i></span>
-              <strong>Particulier</strong>
-              <small>Je prépare mon propre chantier : un mur, une dalle, une terrasse…</small>
-              <span class="auth-profil-suite">Continuer <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
-            </button>
-            <button type="button" class="auth-profil pro" @click="choisirProfil('professionnel')">
-              <span class="auth-profil-badge">Pro</span>
-              <span class="auth-profil-icone"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i></span>
-              <strong>Professionnel</strong>
-              <small>Entreprise du BTP, artisan : projets multi-ouvrages et maquette 3D.</small>
-              <span class="auth-profil-suite">Continuer <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
-            </button>
-          </div>
-
-          <!-- Pro : entreprise -->
-          <template v-if="estInscription && nomEtape === 'Entreprise'">
-            <div class="champ">
-              <label for="auth-siret">Numéro SIRET</label>
-              <input id="auth-siret" v-model="siret" type="text" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="123 456 789 00012" class="mono auth-siret" :aria-invalid="!!erreurs.siret" @blur="siret = formaterSiret(siret)" />
-              <p v-if="erreurs.siret" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.siret }}</p>
-              <p v-else-if="entreprise.etat === 'recherche'" class="champ-aide"><span class="spinner" aria-hidden="true"></span> Recherche de l’entreprise…</p>
-              <p v-else-if="entreprise.etat === 'inconnue'" class="champ-aide">SIRET introuvable dans le registre public : vérifiez-le (notre équipe le contrôlera).</p>
-              <p v-else-if="entreprise.etat !== 'trouvee'" class="champ-aide">14 chiffres, sur votre extrait Kbis ou vos factures.</p>
+          <form novalidate @submit.prevent="soumettre" class="auth-form">
+            <!-- Étape 0 : choix du profil -->
+            <div v-if="estInscription && etape === 0" class="auth-profils" role="group" aria-label="Vous êtes">
+              <button type="button" class="auth-profil" @click="choisirProfil('particulier')">
+                <span class="auth-profil-icone"><i class="fa-solid fa-house-user" aria-hidden="true"></i></span>
+                <strong>Particulier</strong>
+                <small>Je prépare mon propre chantier : un mur, une dalle, une terrasse…</small>
+                <span class="auth-profil-suite">Continuer <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+              </button>
+              <button type="button" class="auth-profil pro" @click="choisirProfil('professionnel')">
+                <span class="auth-profil-badge">Pro</span>
+                <span class="auth-profil-icone"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i></span>
+                <strong>Professionnel</strong>
+                <small>Entreprise du BTP, artisan : projets multi-ouvrages et maquette 3D.</small>
+                <span class="auth-profil-suite">Continuer <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+              </button>
             </div>
-            <div v-if="entreprise.etat === 'trouvee'" class="auth-entreprise-carte" :class="{ inactive: !entreprise.donnees.active }">
-              <i :class="entreprise.donnees.active ? 'fa-solid fa-building-circle-check' : 'fa-solid fa-triangle-exclamation'" aria-hidden="true"></i>
-              <span><strong>{{ entreprise.donnees.nom }}</strong><small>{{ entreprise.donnees.commune || 'Registre des entreprises' }}{{ entreprise.donnees.active ? ' · établissement actif' : ' · établissement fermé' }}</small></span>
+
+            <!-- Pro : entreprise -->
+            <template v-if="estInscription && nomEtape === 'Entreprise'">
+              <div class="champ">
+                <label for="auth-siret">Numéro SIRET</label>
+                <input id="auth-siret" v-model="siret" type="text" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="123 456 789 00012" class="mono auth-siret" :aria-invalid="!!erreurs.siret" @blur="siret = formaterSiret(siret)" />
+                <p v-if="erreurs.siret" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.siret }}</p>
+                <p v-else-if="entreprise.etat === 'recherche'" class="champ-aide"><span class="spinner" aria-hidden="true"></span> Recherche de l’entreprise…</p>
+                <p v-else-if="entreprise.etat === 'inconnue'" class="champ-aide">SIRET introuvable dans le registre public : vérifiez-le (notre équipe le contrôlera).</p>
+                <p v-else-if="entreprise.etat !== 'trouvee'" class="champ-aide">14 chiffres, sur votre extrait Kbis ou vos factures.</p>
+              </div>
+              <div v-if="entreprise.etat === 'trouvee'" class="auth-entreprise-carte" :class="{ inactive: !entreprise.donnees.active }">
+                <i :class="entreprise.donnees.active ? 'fa-solid fa-building-circle-check' : 'fa-solid fa-triangle-exclamation'" aria-hidden="true"></i>
+                <span><strong>{{ entreprise.donnees.nom }}</strong><small>{{ entreprise.donnees.commune || 'Registre des entreprises' }}{{ entreprise.donnees.active ? ' · établissement actif' : ' · établissement fermé' }}</small></span>
+              </div>
+              <div class="champ">
+                <label for="auth-raison">Raison sociale</label>
+                <input id="auth-raison" v-model="raisonSociale" type="text" maxlength="120" autocomplete="organization" placeholder="Nom de l’entreprise" :aria-invalid="!!erreurs.raisonSociale" />
+                <p v-if="erreurs.raisonSociale" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.raisonSociale }}</p>
+                <p v-else class="champ-aide">Remplie automatiquement quand le SIRET est reconnu.</p>
+              </div>
+            </template>
+
+            <!-- Identité (particulier) ou contact (pro) -->
+            <template v-if="estInscription && (nomEtape === 'Identité' || nomEtape === 'Contact')">
+              <fieldset class="auth-civilite">
+                <legend>Civilité</legend>
+                <button type="button" :aria-pressed="civilite === 'M.'" @click="civilite = 'M.'; retirerErreur('civilite')">Monsieur</button>
+                <button type="button" :aria-pressed="civilite === 'Mme'" @click="civilite = 'Mme'; retirerErreur('civilite')">Madame</button>
+                <p v-if="erreurs.civilite" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.civilite }}</p>
+              </fieldset>
+              <div class="auth-identite-grille">
+                <div class="champ"><label for="auth-prenom">Prénom</label><input id="auth-prenom" :value="prenom" @input="saisieNom('prenom', $event.target)" @blur="sortieNom('prenom', 'prénom')" type="text" maxlength="60" autocomplete="given-name" placeholder="Votre prénom" :aria-invalid="!!erreurs.prenom" required /><p v-if="erreurs.prenom" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.prenom }}</p></div>
+                <div class="champ"><label for="auth-nom">Nom</label><input id="auth-nom" :value="nom" @input="saisieNom('nom', $event.target)" @blur="sortieNom('nom', 'nom')" type="text" maxlength="60" autocomplete="family-name" placeholder="Votre nom" :aria-invalid="!!erreurs.nom" required /><p v-if="erreurs.nom" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.nom }}</p></div>
+              </div>
+            </template>
+
+            <div v-if="!estInscription || nomEtape === 'Identité' || nomEtape === 'Contact'" class="champ">
+              <label for="auth-email">{{ nomEtape === 'Contact' ? 'E-mail professionnel' : 'Adresse e-mail' }}</label>
+              <input id="auth-email" v-model="email" @blur="sortieEmail" type="email" maxlength="254" autocomplete="email" :placeholder="nomEtape === 'Contact' ? 'contact@entreprise.yt' : 'vous@exemple.yt'" :aria-invalid="!!erreurs.email" style="font-family: var(--font-corps)" />
+              <p v-if="erreurs.email" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.email }}</p>
+              <p v-else-if="verificationEmail" class="champ-aide"><i class="fa-solid fa-spinner fa-spin"></i> Vérification de l’adresse…</p>
+              <p v-else-if="suggestion" class="champ-aide auth-suggestion">Vouliez-vous écrire <button type="button" @click="appliquerSuggestion">{{ suggestion }}</button> ?</p>
             </div>
-            <div class="champ">
-              <label for="auth-raison">Raison sociale</label>
-              <input id="auth-raison" v-model="raisonSociale" type="text" maxlength="120" autocomplete="organization" placeholder="Nom de l’entreprise" :aria-invalid="!!erreurs.raisonSociale" />
-              <p v-if="erreurs.raisonSociale" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.raisonSociale }}</p>
-              <p v-else class="champ-aide">Remplie automatiquement quand le SIRET est reconnu.</p>
+
+            <ChampTelephone v-if="estInscription && nomEtape === 'Sécurité'" id="auth-telephone" v-model="telephone" requis :erreur="erreurs.telephone" />
+            <div v-if="!estInscription || nomEtape === 'Sécurité'" class="champ">
+              <label for="auth-mdp">Mot de passe</label>
+              <SaisieMotDePasse id="auth-mdp" v-model="motDePasse"  :autocomplete="estInscription ? 'new-password' : 'current-password'" placeholder="8 caractères minimum" :aria-invalid="!!erreurs.motDePasse" style="font-family: var(--font-corps)" />
+              <p v-if="erreurs.motDePasse" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.motDePasse }}</p>
             </div>
-          </template>
-
-          <!-- Identité (particulier) ou contact (pro) -->
-          <template v-if="estInscription && (nomEtape === 'Identité' || nomEtape === 'Contact')">
-            <fieldset class="auth-civilite">
-              <legend>Civilité</legend>
-              <button type="button" :aria-pressed="civilite === 'M.'" @click="civilite = 'M.'; retirerErreur('civilite')">Monsieur</button>
-              <button type="button" :aria-pressed="civilite === 'Mme'" @click="civilite = 'Mme'; retirerErreur('civilite')">Madame</button>
-              <p v-if="erreurs.civilite" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.civilite }}</p>
-            </fieldset>
-            <div class="auth-identite-grille">
-              <div class="champ"><label for="auth-prenom">Prénom</label><input id="auth-prenom" :value="prenom" @input="saisieNom('prenom', $event.target)" @blur="sortieNom('prenom', 'prénom')" type="text" maxlength="60" autocomplete="given-name" placeholder="Votre prénom" :aria-invalid="!!erreurs.prenom" required /><p v-if="erreurs.prenom" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.prenom }}</p></div>
-              <div class="champ"><label for="auth-nom">Nom</label><input id="auth-nom" :value="nom" @input="saisieNom('nom', $event.target)" @blur="sortieNom('nom', 'nom')" type="text" maxlength="60" autocomplete="family-name" placeholder="Votre nom" :aria-invalid="!!erreurs.nom" required /><p v-if="erreurs.nom" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.nom }}</p></div>
+            <div v-if="estInscription && nomEtape === 'Sécurité'" class="champ">
+              <label for="auth-conf">Confirmer le mot de passe</label>
+              <SaisieMotDePasse id="auth-conf" v-model="confirmation"  autocomplete="new-password" :aria-invalid="!!erreurs.confirmation" style="font-family: var(--font-corps)" />
+              <p v-if="erreurs.confirmation" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.confirmation }}</p>
             </div>
-          </template>
 
-          <div v-if="!estInscription || nomEtape === 'Identité' || nomEtape === 'Contact'" class="champ">
-            <label for="auth-email">{{ nomEtape === 'Contact' ? 'E-mail professionnel' : 'Adresse e-mail' }}</label>
-            <input id="auth-email" v-model="email" @blur="sortieEmail" type="email" maxlength="254" autocomplete="email" :placeholder="nomEtape === 'Contact' ? 'contact@entreprise.yt' : 'vous@exemple.yt'" :aria-invalid="!!erreurs.email" style="font-family: var(--font-corps)" />
-            <p v-if="erreurs.email" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.email }}</p>
-            <p v-else-if="verificationEmail" class="champ-aide"><i class="fa-solid fa-spinner fa-spin"></i> Vérification de l’adresse…</p>
-            <p v-else-if="suggestion" class="champ-aide auth-suggestion">Vouliez-vous écrire <button type="button" @click="appliquerSuggestion">{{ suggestion }}</button> ?</p>
-          </div>
+            <template v-if="estInscription && nomEtape === 'Validation'">
+              <dl class="auth-recap">
+                <div><dt>Profil</dt><dd>{{ typeCompte === 'professionnel' ? 'Professionnel' : 'Particulier' }}</dd></div>
+                <div v-if="typeCompte === 'professionnel'"><dt>Entreprise</dt><dd>{{ raisonSociale }} · SIRET {{ formaterSiret(siret) }}</dd></div>
+                <div><dt>Nom complet</dt><dd>{{ civilite === 'Mme' ? 'Madame' : 'Monsieur' }} {{ prenom }} {{ nom }}</dd></div>
+                <div><dt>Nom affiché</dt><dd>{{ pseudoAuto }}</dd></div>
+                <div><dt>E-mail</dt><dd>{{ email }}</dd></div>
+                <div><dt>Téléphone</dt><dd>{{ formaterTelephone(telephone) }}</dd></div>
+              </dl>
+              <div>
+                <label class="auth-case"><input v-model="cgu" type="checkbox" :aria-invalid="!!erreurs.cgu" /> J’accepte les <router-link to="/conditions" target="_blank" rel="noopener">conditions générales d’utilisation</router-link></label>
+                <p v-if="erreurs.cgu" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.cgu }}</p>
+              </div>
+            </template>
 
-          <ChampTelephone v-if="estInscription && nomEtape === 'Sécurité'" id="auth-telephone" v-model="telephone" requis :erreur="erreurs.telephone" />
-          <div v-if="!estInscription || nomEtape === 'Sécurité'" class="champ">
-            <label for="auth-mdp">Mot de passe</label>
-            <SaisieMotDePasse id="auth-mdp" v-model="motDePasse"  :autocomplete="estInscription ? 'new-password' : 'current-password'" placeholder="8 caractères minimum" :aria-invalid="!!erreurs.motDePasse" style="font-family: var(--font-corps)" />
-            <p v-if="erreurs.motDePasse" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.motDePasse }}</p>
-          </div>
-          <div v-if="estInscription && nomEtape === 'Sécurité'" class="champ">
-            <label for="auth-conf">Confirmer le mot de passe</label>
-            <SaisieMotDePasse id="auth-conf" v-model="confirmation"  autocomplete="new-password" :aria-invalid="!!erreurs.confirmation" style="font-family: var(--font-corps)" />
-            <p v-if="erreurs.confirmation" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.confirmation }}</p>
-          </div>
-
-          <template v-if="estInscription && nomEtape === 'Validation'">
-            <dl class="auth-recap">
-              <div><dt>Profil</dt><dd>{{ typeCompte === 'professionnel' ? 'Professionnel' : 'Particulier' }}</dd></div>
-              <div v-if="typeCompte === 'professionnel'"><dt>Entreprise</dt><dd>{{ raisonSociale }} · SIRET {{ formaterSiret(siret) }}</dd></div>
-              <div><dt>Nom complet</dt><dd>{{ civilite === 'Mme' ? 'Madame' : 'Monsieur' }} {{ prenom }} {{ nom }}</dd></div>
-              <div><dt>Nom affiché</dt><dd>{{ pseudoAuto }}</dd></div>
-              <div><dt>E-mail</dt><dd>{{ email }}</dd></div>
-              <div><dt>Téléphone</dt><dd>{{ formaterTelephone(telephone) }}</dd></div>
-            </dl>
-            <div>
-              <label class="auth-case"><input v-model="cgu" type="checkbox" :aria-invalid="!!erreurs.cgu" /> J’accepte les <router-link to="/conditions" target="_blank" rel="noopener">conditions générales d’utilisation</router-link></label>
-              <p v-if="erreurs.cgu" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.cgu }}</p>
+            <div v-if="!estInscription" class="auth-options">
+              <label class="auth-case"><input v-model="resterConnecte" type="checkbox" /> Rester connecté</label>
+              <button v-if="backendDisponible" type="button" class="auth-oubli" @click="erreurs = {}; erreurGlobale = ''; modeOubli = true">Mot de passe oublié ?</button>
             </div>
-          </template>
 
-          <label v-if="!estInscription" class="auth-case"><input v-model="resterConnecte" type="checkbox" /> Rester connecté</label>
+            <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
+            <BandeauAvertissement v-if="succes" type="succes" compact>{{ succes }}</BandeauAvertissement>
 
-          <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
-          <BandeauAvertissement v-if="succes" type="succes" compact>{{ succes }}</BandeauAvertissement>
+            <div v-if="!estInscription || etape > 0" class="auth-actions">
+              <BoutonBase v-if="estInscription && etape > 0" type="button" variante="secondaire" icone="fa-solid fa-arrow-left" @click="etapePrecedente">
+                Retour
+              </BoutonBase>
+              <BoutonBase
+                type="submit"
+                bloc
+                :chargement="chargement"
+                :icone="!estInscription ? 'fa-solid fa-right-to-bracket' : derniereEtape ? 'fa-solid fa-user-plus' : ''"
+                :icone-droite="derniereEtape ? '' : 'fa-solid fa-arrow-right'"
+              >
+                {{ !estInscription ? 'Se connecter' : derniereEtape ? 'Créer mon compte' : 'Continuer' }}
+              </BoutonBase>
+            </div>
+          </form>
 
-          <div v-if="!estInscription || etape > 0" class="auth-actions">
-            <BoutonBase v-if="estInscription && etape > 0" type="button" variante="secondaire" icone="fa-solid fa-arrow-left" @click="etapePrecedente">
-              Retour
-            </BoutonBase>
-            <BoutonBase
-              type="submit"
-              bloc
-              :chargement="chargement"
-              :icone="!estInscription ? 'fa-solid fa-right-to-bracket' : derniereEtape ? 'fa-solid fa-user-plus' : ''"
-              :icone-droite="derniereEtape ? '' : 'fa-solid fa-arrow-right'"
-            >
-              {{ !estInscription ? 'Se connecter' : derniereEtape ? 'Créer mon compte' : 'Continuer' }}
-            </BoutonBase>
-          </div>
-        </form>
-
-        <p class="auth-bascule">
-          <template v-if="estInscription">
-            Déjà un compte ?
-            <button type="button" @click="emit('changer-mode', 'connexion')">Se connecter</button>
-          </template>
-          <template v-else>
-            Pas encore de compte ?
-            <button type="button" @click="emit('changer-mode', 'inscription')">S’inscrire</button>
-          </template>
-        </p>
+          <p class="auth-bascule">
+            <template v-if="estInscription">
+              Déjà un compte ?
+              <button type="button" @click="emit('changer-mode', 'connexion')">Se connecter</button>
+            </template>
+            <template v-else>
+              Pas encore de compte ?
+              <button type="button" @click="emit('changer-mode', 'inscription')">S’inscrire</button>
+            </template>
+          </p>
+        </template>
       </section>
     </div>
   </div>
@@ -457,6 +473,9 @@ function traduire(m = '') {
 .auth-case { display: flex; gap: 10px; align-items: center; font-size: .92rem; color: var(--gris-700); cursor: pointer; }
 .auth-case input { width: 18px; height: 18px; accent-color: var(--lagon-600); }
 .auth-case a { color: var(--lagon-700); font-weight: 600; text-decoration: underline; }
+.auth-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.auth-oubli { padding: 0; border: 0; background: transparent; color: var(--lagon-700); font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; }
+.auth-oubli:hover { text-decoration: underline; text-underline-offset: 3px; }
 .auth-bascule { margin-top: 22px; text-align: center; font-size: .95rem; color: var(--texte-secondaire); }
 .auth-bascule a { color: var(--lagon-700); font-weight: 700; }
 .auth-bascule button { border: 0; padding: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }

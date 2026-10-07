@@ -140,9 +140,9 @@ ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 .annuaire-pied p { margin: 4px 0 0; color: var(--gris-500); font-size: .88rem; line-height: 1.5; }
 .annuaire-pied .btn { flex-shrink: 0; }
 
-/* grand écran : la page occupe toute la largeur du gabarit, les fournisseurs passent sur deux colonnes de cartes */
+/* grand écran : cartes côte à côte, autant de colonnes que la largeur le permet (3 sur un écran de 1920 px) */
 @media (min-width: 1200px) {
-  .annuaire-liste { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; overflow: visible; border: 0; border-radius: 0; background: none; }
+  .annuaire-liste { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); align-items: start; gap: 12px; overflow: visible; border: 0; border-radius: 0; background: none; }
   .annuaire-liste > :deep(li), .annuaire-liste > :deep(li:last-child) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; }
   .annuaire-squelette:last-child { border-bottom: 1px solid var(--gris-200); }
 }

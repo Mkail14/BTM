@@ -26,11 +26,14 @@ const itineraire = computed(() => {
         <img v-if="fournisseur.logo && !logoCasse" :src="fournisseur.logo" alt="" width="52" height="52" loading="lazy" decoding="async" class="fr-logo" @error="logoCasse = true" />
         <span v-else class="fr-logo fr-initiales" aria-hidden="true">{{ initiales }}</span>
         <span class="fr-texte">
-          <strong>{{ fournisseur.nom }}</strong>
+          <!-- badge « Livraison » à côté du nom : la ligne d'infos reste sur une seule ligne, même en carte étroite -->
+          <span class="fr-nom">
+            <strong>{{ fournisseur.nom }}</strong>
+            <span v-if="fournisseur.livraison" class="fr-badge"><i class="fa-solid fa-truck" aria-hidden="true"></i>Livraison</span>
+          </span>
           <span class="fr-infos">
             <span>{{ fournisseur.categorie }}</span>
             <span><i class="fa-solid fa-location-dot" aria-hidden="true"></i>{{ fournisseur.commune }}</span>
-            <span v-if="fournisseur.livraison" class="fr-badge"><i class="fa-solid fa-truck" aria-hidden="true"></i>Livraison</span>
           </span>
         </span>
         <i class="fa-solid fa-chevron-down fr-chevron" aria-hidden="true"></i>
@@ -71,8 +74,12 @@ const itineraire = computed(() => {
 .fr-logo { width: 52px; height: 52px; flex-shrink: 0; border-radius: 14px; border: 1px solid var(--gris-100); background: #fff; object-fit: contain; }
 .fr-initiales { display: grid; place-items: center; border: 0; background: var(--lagon-100); color: var(--lagon-800); font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
 .fr-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.fr-texte strong { font-size: 1.05rem; font-weight: 650; color: var(--ardoise); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fr-infos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: .84rem; color: var(--gris-500); }
+.fr-nom { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fr-nom strong { min-width: 0; font-size: 1.05rem; font-weight: 650; color: var(--ardoise); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fr-nom .fr-badge { flex: none; }
+.fr-badge i { margin-right: 5px; font-size: .72rem; }
+.fr-infos { display: flex; align-items: center; gap: 4px 12px; min-width: 0; overflow: hidden; font-size: .84rem; color: var(--gris-500); white-space: nowrap; }
+.fr-infos > span { overflow: hidden; text-overflow: ellipsis; }
 .fr-infos i { margin-right: 4px; font-size: .74rem; color: var(--gris-400); }
 .fr-badge { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; background: var(--lagon-50); color: var(--lagon-800); font-size: .74rem; font-weight: 600; }
 .fr-badge i { color: var(--lagon-600); }

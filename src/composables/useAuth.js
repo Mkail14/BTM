@@ -16,10 +16,10 @@ async function chargerRole(id = utilisateur.value?.id) {
   const r = await lireRoleCompte(id)
   if (id !== utilisateur.value?.id) return // le compte a changé entre-temps
   if (r.banni) {
-    // compte banni encore connecté (session ouverte avant le ban) : déconnexion et message sur la page de connexion
+    // compte banni encore connecté (session ouverte avant le ban) : déconnexion, puis page « Compte suspendu »
     await auth.deconnexion()
     utilisateur.value = null
-    window.location.assign(`/connexion?suspendu=${encodeURIComponent(r.bannieJusqua || 'vie')}`)
+    window.location.assign(`/compte-suspendu?jusqua=${encodeURIComponent(r.bannieJusqua || 'vie')}`)
     return
   }
   admin.value = r.role === 'admin'

@@ -35,8 +35,11 @@ function updateModelPosition(timeMs) {
   model.scale.setScalar(currentScale)
 }
 
+let generation = 0 // chaque (re)construction invalide les chargements de la précédente
+
 function setup3DScene() {
   if (!sceneElement.value) return
+  const maGeneration = ++generation
 
   const container = sceneElement.value
   const width = container.clientWidth
@@ -51,6 +54,7 @@ function setup3DScene() {
   renderer.setSize(width, height)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.setClearColor(0x000000, 0)
+  renderer.domElement.addEventListener('webglcontextlost', surPerteContexte)
   container.appendChild(renderer.domElement)
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 1.45)
@@ -73,7 +77,7 @@ function setup3DScene() {
   loader.load(
     '/model1.glb',
     (gltf) => {
-      if (!scene) return // composant démonté pendant le chargement
+      if (!scene || maGeneration !== generation) return // démonté ou reconstruit pendant le chargement
       const loadedModel = gltf.scene
 
       loadedModel.traverse((child) => {
@@ -102,7 +106,7 @@ function setup3DScene() {
 
       // shaders compilés en parallèle avant l'affichage : l'apparition du modèle ne fige pas la page
       renderer.compileAsync(loadedModel, camera, scene).catch(() => {}).then(() => {
-        if (!scene) return
+        if (!scene || maGeneration !== generation) return
         model = loadedModel
         scene.add(model)
       })
@@ -179,10 +183,36 @@ function handleScroll() {
   scrollOffset = offset - 0.5
 }
 
+/** Libère la scène et son contexte WebGL */
+function liberer() {
+  arreter()
+  scene?.traverse((o) => {
+    o.geometry?.dispose()
+    for (const m of [].concat(o.material || [])) { m.map?.dispose(); m.dispose() }
+  })
+  scene = null
+  model = null
+  if (renderer) {
+    renderer.domElement.removeEventListener('webglcontextlost', surPerteContexte)
+    renderer.dispose()
+    renderer.forceContextLoss() // dispose() seul garde le contexte WebGL ouvert jusqu'au ramasse-miettes
+    renderer.domElement.remove()
+    renderer = null
+  }
+}
+
+/** Contexte coupé par le navigateur (trop de scènes 3D, veille, pilote graphique) : la scène est reconstruite au lieu de rester vide */
+function surPerteContexte(e) {
+  e.preventDefault()
+  liberer()
+  if (actif) { setup3DScene(); handleResize() }
+}
+
 // Accueil affiché : écouteurs branchés et animation lancée ; quitté (keep-alive) : tout est en pause
 function brancher() {
   if (actif) return
   actif = true
+  if (!renderer) setup3DScene() // scène perdue pendant qu'on était sur une autre page
   window.addEventListener('resize', handleResize)
   window.addEventListener('scroll', handleScroll, { passive: true })
   window.addEventListener('pointermove', handlePointerMove)
@@ -203,7 +233,6 @@ function debrancher() {
 }
 
 onMounted(() => {
-  setup3DScene()
   observateurVisibilite = new IntersectionObserver(([entree]) => {
     visible = entree.isIntersecting
     visible ? demarrer() : arreter()
@@ -217,17 +246,8 @@ onDeactivated(debrancher)
 onBeforeUnmount(() => {
   debrancher()
   observateurVisibilite?.disconnect()
-  scene?.traverse((o) => {
-    o.geometry?.dispose()
-    for (const m of [].concat(o.material || [])) { m.map?.dispose(); m.dispose() }
-  })
-  scene = null
-  if (renderer) {
-    renderer.dispose()
-    renderer.forceContextLoss() // dispose() seul garde le contexte WebGL ouvert jusqu'au ramasse-miettes
-    renderer.domElement.remove()
-    renderer = null
-  }
+  generation++
+  liberer()
 })
 </script>
 

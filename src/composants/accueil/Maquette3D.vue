@@ -40,6 +40,7 @@ let pivotSurvol = 0
 let observateurVisibilite, observateurTaille
 let planifiee = false
 let detruite = false
+let inactive = false // accueil quitté (keep-alive)
 const mouvementReduit = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 /* ---------- Outils de modélisation ---------- */
@@ -299,6 +300,7 @@ function initialiser() {
   renderer.toneMappingExposure = 1.05
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  renderer.domElement.addEventListener('webglcontextlost', surPerteContexte)
   hote.value.appendChild(renderer.domElement)
 
   scene = new THREE.Scene()
@@ -363,6 +365,8 @@ function arreter() {
 
 async function construire() {
   if (detruite || renderer || !hote.value) return
+  // accueil quitté entre-temps (keep-alive) : la scène sera construite au retour
+  if (inactive || !hote.value.isConnected) { planifiee = false; return }
   try {
     initialiser()
   } catch (e) {
@@ -371,31 +375,18 @@ async function construire() {
   }
   // shaders compilés en parallèle (KHR_parallel_shader_compile) : le premier rendu ne fige plus la page
   try { await renderer.compileAsync(scene, camera) } catch { /* navigateur sans compilation asynchrone : compilés au premier rendu */ }
-  if (detruite) return
+  if (detruite || !renderer) return // libérée pendant la compilation (page quittée, contexte perdu)
   cadrer()
   observateurTaille = new ResizeObserver(cadrer)
   observateurTaille.observe(hote.value)
   demarrer()
 }
 
-onMounted(() => {
-  // construite à l'approche de l'écran (marge de 300 px), pas au chargement de la page
-  observateurVisibilite = new IntersectionObserver(([entree]) => {
-    visible = entree.isIntersecting
-    if (visible && !planifiee) { planifiee = true; planifier(construire) }
-    visible ? demarrer() : arreter()
-  }, { rootMargin: '300px 0px' })
-  observateurVisibilite.observe(hote.value)
-})
-// accueil gardé en mémoire (keep-alive) : pas de rendu pendant qu'on est sur une autre page
-onDeactivated(arreter)
-onActivated(demarrer)
-
-onBeforeUnmount(() => {
-  detruite = true
+/** Libère la scène et son contexte WebGL (le navigateur n'en accepte qu'un nombre limité en même temps) */
+function liberer() {
   arreter()
-  observateurVisibilite?.disconnect()
   observateurTaille?.disconnect()
+  observateurTaille = null
   scene?.traverse((o) => {
     o.geometry?.dispose()
     if (o.material) {
@@ -405,12 +396,48 @@ onBeforeUnmount(() => {
   })
   envTexture?.dispose()
   pmrem?.dispose()
+  scene = envTexture = pmrem = pivot = null
   if (renderer) {
+    renderer.domElement.removeEventListener('webglcontextlost', surPerteContexte)
     renderer.dispose()
     renderer.forceContextLoss() // dispose() seul garde le contexte WebGL ouvert jusqu'au ramasse-miettes
     renderer.domElement.remove()
     renderer = null
   }
+  planifiee = false
+}
+function reconstruireSiVisible() {
+  if (visible && !planifiee && !detruite && !inactive) { planifiee = true; planifier(construire) }
+}
+
+/**
+ * Contexte coupé par le navigateur (trop de scènes 3D ouvertes, mise en veille, carte graphique réinitialisée…) :
+ * sans ceci la maquette restait vide jusqu'au rechargement de la page. On repart d'une scène neuve.
+ */
+function surPerteContexte(e) {
+  e.preventDefault()
+  liberer()
+  reconstruireSiVisible()
+}
+
+onMounted(() => {
+  // construite à l'approche de l'écran (marge de 300 px), pas au chargement de la page
+  observateurVisibilite = new IntersectionObserver(([entree]) => {
+    visible = entree.isIntersecting
+    if (visible) reconstruireSiVisible()
+    visible ? demarrer() : arreter()
+  }, { rootMargin: '300px 0px' })
+  observateurVisibilite.observe(hote.value)
+})
+// Accueil gardé en mémoire (keep-alive) : en le quittant, les scènes sont libérées pour laisser leurs contextes
+// WebGL aux autres pages (calculateur, projet pro) ; elles sont reconstruites au retour.
+onDeactivated(() => { inactive = true; liberer() })
+onActivated(() => { inactive = false; reconstruireSiVisible(); demarrer() })
+
+onBeforeUnmount(() => {
+  detruite = true
+  observateurVisibilite?.disconnect()
+  liberer()
 })
 </script>
 

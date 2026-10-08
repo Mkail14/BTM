@@ -328,21 +328,29 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-colonne-lente .avis-piste { animation-duration: calc(var(--duree, 30s) * 1.3); } /* les deux colonnes du site ne vont pas au même pas */
 
 /* ---------- Avis Google (colonne centrale) : couleurs et marque Google ---------- */
-.avis-carte.avis-google { position: relative; overflow: hidden; border-color: #dadce0; background: #fff; box-shadow: 0 1px 3px rgba(60, 64, 67, .12); }
-.avis-carte.avis-google::before { content: ''; position: absolute; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, #4285f4 0 25%, #ea4335 25% 50%, #fbbc04 50% 75%, #34a853 75%); }
-.avis-google-marque { display: inline-flex; align-items: center; gap: 8px; color: #5f6368; font-size: .78rem; font-weight: 600; letter-spacing: .02em; }
+/* Avis Google : même taille que ceux du site (la marque se place en haut à droite, sans ligne en plus),
+   en gris anthracite façon mode sombre de Google */
+.avis-carte.avis-google { position: relative; overflow: hidden; border-color: #3c4043; background: linear-gradient(160deg, #2d2f33 0%, #202124 100%); box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .6); }
+.avis-carte.avis-google::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, #4285f4 0 25%, #ea4335 25% 50%, #fbbc04 50% 75%, #34a853 75%); }
+.avis-google-marque { display: inline-flex; align-items: center; gap: 6px; color: #9aa0a6; font-size: .74rem; font-weight: 600; letter-spacing: .02em; }
+.avis-carte.avis-google > .avis-google-marque { position: absolute; top: 22px; right: 22px; }
 .avis-google-marque i {
-  font-size: 1rem; background: conic-gradient(from -45deg, #ea4335 0 25%, #4285f4 25% 50%, #34a853 50% 75%, #fbbc04 75%);
+  font-size: .95rem; background: conic-gradient(from -45deg, #ea4335 0 25%, #4285f4 25% 50%, #34a853 50% 75%, #fbbc04 75%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .avis-google .avis-note { color: #fbbc04; }
-.avis-google .avis-note .eteinte { color: #dadce0; }
-.avis-google .avis-commentaire { color: #3c4043; }
-.avis-google .avis-auteur strong { color: #1a73e8; }
-.avis-google .avis-avatar { background: #e8f0fe; color: #1967d2; }
+.avis-google .avis-note .eteinte { color: #5f6368; }
+.avis-google .avis-commentaire { color: #e8eaed; }
+.avis-google .avis-auteur strong { color: #8ab4f8; }
+.avis-google .avis-auteur small { color: #9aa0a6; }
+.avis-google .avis-avatar { background: #3c4043; color: #8ab4f8; }
 .avis-source { margin-left: auto; width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; color: #5f6368; font-size: .78rem; }
+.avis-google .avis-source { color: #9aa0a6; }
+.avis-google .avis-source:hover { background: #3c4043; color: #8ab4f8; }
 .avis-source:hover { background: #f1f3f4; color: #1a73e8; }
 .avis-google-invitation { align-self: center; margin-top: 160px; }
+.avis-carte.avis-google-invitation > .avis-google-marque { position: static; }
+.avis-google-invitation .avis-commentaire { color: #e8eaed; }
 .avis-google-lien { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; background: #1a73e8; color: #fff; font-size: .86rem; font-weight: 600; }
 .avis-google-lien:hover { background: #1765cc; }
 .avis-google-lien i { font-size: .72rem; }

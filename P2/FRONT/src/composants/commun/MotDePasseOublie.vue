@@ -16,21 +16,23 @@ import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 
 const props = defineProps({
   emailInitial: { type: String, default: '' },
-  connecte: Boolean // ouvert depuis le profil d'un compte déjà connecté : « Annuler » au lieu de « Retour à la connexion »
+  connecte: Boolean, // ouvert depuis le profil d'un compte déjà connecté : « Annuler » au lieu de « Retour à la connexion »
+  parLien: Boolean, // arrivé par le lien de l'e-mail : la session est déjà ouverte, il ne reste qu'à choisir le mot de passe
+  lienExpire: Boolean // lien de l'e-mail expiré ou déjà utilisé : on propose d'en redemander un
 })
 const emit = defineEmits(['retour', 'termine'])
 
 const DELAI_RENVOI = 60 // secondes : Supabase n'envoie qu'un e-mail par minute à une même adresse
-const etape = ref('email') // 'email' | 'code' | 'fini'
+const etape = ref(props.parLien ? 'code' : 'email') // 'email' | 'code' | 'fini'
 const email = ref(props.emailInitial.trim())
 const code = ref('')
 const motDePasse = ref('')
 const confirmation = ref('')
 const erreurs = ref({})
-const erreurGlobale = ref('')
+const erreurGlobale = ref(props.lienExpire ? 'Ce lien a expiré ou a déjà servi : demandez un nouveau code ci-dessous.' : '')
 const info = ref('')
 const chargement = ref(false)
-const codeVerifie = ref(false) // le code ne sert qu'une fois : après lui, seul le mot de passe reste à enregistrer
+const codeVerifie = ref(props.parLien) // le code ne sert qu'une fois : après lui, seul le mot de passe reste à enregistrer
 
 // ---------- Renvoi du code ----------
 const attente = ref(0)
@@ -136,9 +138,10 @@ function modifierAdresse() {
     </div>
 
     <template v-else>
-      <h2 id="auth-titre" class="mo-titre">Mot de passe oublié</h2>
+      <h2 id="auth-titre" class="mo-titre">{{ parLien ? 'Nouveau mot de passe' : 'Mot de passe oublié' }}</h2>
       <p class="texte-secondaire mo-intro">
-        <template v-if="etape === 'email'">Indiquez l’adresse e-mail de votre compte : nous vous envoyons un code pour choisir un nouveau mot de passe.</template>
+        <template v-if="parLien">Votre lien est valide : choisissez votre nouveau mot de passe (8 caractères minimum).</template>
+        <template v-else-if="etape === 'email'">Indiquez l’adresse e-mail de votre compte : nous vous envoyons un code pour choisir un nouveau mot de passe.</template>
         <template v-else-if="attente > 0">Si un compte existe pour <strong>{{ email }}</strong>, un e-mail vient d’y être envoyé. Il est valable 1 heure.</template>
         <template v-else>Saisissez le code reçu à l’adresse <strong>{{ email }}</strong>, puis choisissez votre nouveau mot de passe.</template>
       </p>
@@ -169,7 +172,7 @@ function modifierAdresse() {
             <button type="button" class="mo-lien" :disabled="attente > 0 || chargement" @click="envoyerCode">{{ attente > 0 ? `renvoyer le code dans ${attente} s` : 'renvoyer le code' }}</button>.
           </p>
         </div>
-        <p v-else class="mo-verifie"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Code vérifié : il ne reste qu’à choisir votre mot de passe.</p>
+        <p v-else-if="!parLien" class="mo-verifie"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Code vérifié : il ne reste qu’à choisir votre mot de passe.</p>
 
         <div class="champ">
           <label for="mo-mdp">Nouveau mot de passe</label>
@@ -191,7 +194,7 @@ function modifierAdresse() {
 
       <p class="mo-pied">
         <button v-if="etape === 'code' && !codeVerifie" type="button" class="mo-lien" @click="modifierAdresse">Modifier l’adresse</button>
-        <button type="button" class="mo-lien" @click="emit('retour')"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> {{ connecte ? 'Annuler' : 'Retour à la connexion' }}</button>
+        <button type="button" class="mo-lien" @click="emit('retour')"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> {{ parLien ? 'Plus tard' : connecte ? 'Annuler' : 'Retour à la connexion' }}</button>
       </p>
     </template>
   </div>

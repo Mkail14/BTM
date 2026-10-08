@@ -79,7 +79,9 @@ export function useAuth() {
   }
   const connecte = computed(() => !!utilisateur.value)
   // Professionnel : compte pro vérifié, ou compte fournisseur (qui visite le site comme un pro)
-  const estPro = computed(() => demandePro.value?.statut === 'verifie' || !!fournisseurLie.value)
+  // Outils professionnels : ouverts seulement une fois le SIRET validé par l'équipe BTM.
+// Pendant la vérification (« en_attente »), le compte est bien professionnel mais ses outils pro restent fermés.
+const estPro = computed(() => demandePro.value?.statut === 'verifie' || !!fournisseurLie.value)
   return {
     utilisateur, connecte, pret, admin, fournisseurLie, typeProfil, demandePro, estPro, rechargerRole: () => chargerRole(), backendDisponible: supabaseConfigure,
     connexion: auth.connexion, inscription: auth.inscription,

@@ -98,16 +98,19 @@ async function confirmerSuppression() {
 <template>
   <div id="page-dashboard" class="page">
     <div class="conteneur tdb">
-      <header class="tdb-entete">
-        <div>
-          <span class="section-surtitre">Espace personnel</span>
-          <h1 class="page-titre">Mes projets</h1>
-          <p class="page-sous-titre">
-            <template v-if="!vide">{{ projets.length }} devis · <span class="prix">{{ formaterEuros(totalCumule) }}</span> au total · dernier {{ depuisDernier }}</template>
-            <template v-else>Vos devis enregistrés apparaîtront ici.</template>
-          </p>
+      <!-- Bandeau : titre, résumé en pastilles, nouveau devis -->
+      <header class="tdb-bandeau">
+        <div class="tdb-bandeau-texte">
+          <span class="tdb-surtitre">Espace personnel</span>
+          <h1>Mes projets</h1>
+          <ul v-if="!vide" class="tdb-pastilles" aria-label="Résumé">
+            <li><i class="fa-solid fa-folder-open" aria-hidden="true"></i><strong>{{ projets.length }}</strong> devis</li>
+            <li><i class="fa-solid fa-coins" aria-hidden="true"></i><strong class="prix">{{ formaterEuros(totalCumule) }}</strong> au total</li>
+            <li><i class="fa-regular fa-clock" aria-hidden="true"></i>dernier <strong>{{ depuisDernier }}</strong></li>
+          </ul>
+          <p v-else>Vos devis enregistrés apparaîtront ici.</p>
         </div>
-        <BoutonBase to="/calculateur" icone="fa-solid fa-plus">Nouveau devis</BoutonBase>
+        <router-link to="/calculateur" class="tdb-nouveau"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouveau devis</router-link>
       </header>
 
       <!-- invitation de BTM à mettre un projet en avant sur la page d'accueil -->
@@ -120,24 +123,24 @@ async function confirmerSuppression() {
       </p>
 
       <template v-if="!vide">
-        <!-- Recherche, filtre, tri -->
+        <!-- une seule barre : recherche, types, tri -->
         <div class="tdb-outils">
           <div class="tdb-recherche">
             <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
             <label for="tdb-recherche" class="visually-hidden">Rechercher un projet</label>
             <input id="tdb-recherche" v-model="recherche" type="search" placeholder="Nom, code de retrait, fournisseur…" autocomplete="off" />
           </div>
+          <div v-if="types.length > 1" class="tdb-puces" role="group" aria-label="Type d’ouvrage">
+            <button type="button" :class="{ actif: !filtreType }" :aria-pressed="!filtreType" @click="filtreType = ''">Tous <small>{{ projets.length }}</small></button>
+            <button v-for="t in types" :key="t.id" type="button" :class="{ actif: filtreType === t.id }" :aria-pressed="filtreType === t.id" @click="filtreType = filtreType === t.id ? '' : t.id">
+              <i :class="t.icone" aria-hidden="true"></i>{{ t.libelle }} <small>{{ t.nombre }}</small>
+            </button>
+          </div>
           <label class="tdb-tri">
             <span class="visually-hidden">Trier</span>
             <i class="fa-solid fa-arrow-down-wide-short" aria-hidden="true"></i>
             <select v-model="tri"><option v-for="(libelle, cle) in TRIS" :key="cle" :value="cle">{{ libelle }}</option></select>
           </label>
-        </div>
-        <div v-if="types.length > 1" class="tdb-puces" role="group" aria-label="Type d’ouvrage">
-          <button type="button" :class="{ actif: !filtreType }" :aria-pressed="!filtreType" @click="filtreType = ''">Tous <small>{{ projets.length }}</small></button>
-          <button v-for="t in types" :key="t.id" type="button" :class="{ actif: filtreType === t.id }" :aria-pressed="filtreType === t.id" @click="filtreType = filtreType === t.id ? '' : t.id">
-            <i :class="t.icone" aria-hidden="true"></i>{{ t.libelle }} <small>{{ t.nombre }}</small>
-          </button>
         </div>
 
         <transition-group v-if="liste.length" name="liste" tag="ul" class="tdb-grille">
@@ -185,7 +188,27 @@ async function confirmerSuppression() {
 </template>
 
 <style scoped>
-.tdb-entete { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 28px; }
+/* Bandeau : même ambiance que le haut de l'accueil (ardoise → lagon), coins arrondis */
+.tdb-bandeau {
+  position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px;
+  padding: 34px 36px; overflow: hidden; border-radius: 28px; color: #fff;
+  background: radial-gradient(90% 140% at 100% 0%, rgba(34, 211, 238, .28), transparent 55%), linear-gradient(135deg, #0b1f2a 0%, #0f3b4d 60%, #0e5566 100%);
+}
+.tdb-bandeau::after { content: ''; position: absolute; right: -60px; bottom: -80px; width: 260px; height: 260px; border-radius: 50%; border: 40px solid rgba(255, 255, 255, .05); pointer-events: none; }
+.tdb-surtitre { display: inline-flex; align-items: center; gap: 10px; color: #f7c77a; font-size: .74rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
+.tdb-surtitre::before { content: ''; width: 22px; height: 2px; background: #f59e0b; }
+.tdb-bandeau h1 { margin: 10px 0 0; font-size: clamp(2.2rem, 4.5vw, 3.2rem); font-weight: 700; color: #fff; }
+.tdb-bandeau-texte > p { margin: 10px 0 0; color: rgba(255, 255, 255, .7); }
+.tdb-pastilles { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
+.tdb-pastilles li { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .78); font-size: .88rem; backdrop-filter: blur(6px); }
+.tdb-pastilles i { color: #67e8f9; font-size: .8rem; }
+.tdb-pastilles strong { color: #fff; }
+.tdb-nouveau {
+  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 22px; border-radius: 14px;
+  background: #fff; color: var(--ardoise); font-weight: 700; box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .5); transition: transform var(--transition);
+}
+.tdb-nouveau:hover { transform: translateY(-2px); }
+.tdb-nouveau i { color: var(--lagon-600); }
 
 .tdb-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 20px; padding: 12px 16px; border-radius: var(--rayon); background: var(--gris-50); font-size: .9rem; color: var(--texte-secondaire); }
 .tdb-note i { margin-right: 4px; color: var(--lagon-600); }
@@ -194,18 +217,19 @@ async function confirmerSuppression() {
 
 
 /* Outils */
-.tdb-outils { display: flex; gap: 12px; margin-bottom: 14px; }
-.tdb-recherche { position: relative; flex: 1; display: flex; align-items: center; }
+/* une seule barre blanche : recherche, types, tri */
+.tdb-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 24px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: #fff; box-shadow: 0 6px 20px -14px rgba(11, 58, 77, .3); }
+.tdb-recherche { position: relative; flex: 1 1 260px; display: flex; align-items: center; }
 .tdb-recherche > i { position: absolute; left: 16px; color: var(--gris-400); pointer-events: none; }
 .tdb-recherche input {
-  width: 100%; min-height: 48px; padding: 0 16px 0 44px; border: 1px solid var(--gris-200); border-radius: 14px; background: var(--gris-50);
+  width: 100%; min-height: 44px; padding: 0 16px 0 44px; border: 0; border-radius: 12px; background: var(--gris-50);
   font: inherit; color: var(--ardoise); transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
 .tdb-recherche input:focus { outline: none; background: #fff; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .14); }
 .tdb-tri { position: relative; display: flex; align-items: center; }
 .tdb-tri i { position: absolute; left: 14px; color: var(--gris-400); font-size: .85rem; pointer-events: none; }
-.tdb-tri select { min-height: 48px; padding: 0 16px 0 38px; border: 1px solid var(--gris-200); border-radius: 14px; background: #fff; font: inherit; font-size: .92rem; color: var(--ardoise); cursor: pointer; }
-.tdb-puces { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.tdb-tri select { min-height: 44px; padding: 0 16px 0 38px; border: 1px solid var(--gris-200); border-radius: 14px; background: #fff; font: inherit; font-size: .92rem; color: var(--ardoise); cursor: pointer; }
+.tdb-puces { display: flex; flex-wrap: wrap; gap: 6px; }
 .tdb-puces button {
   display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 14px; border: 1px solid var(--gris-200); border-radius: 999px;
   background: #fff; font: inherit; font-size: .88rem; font-weight: 600; color: var(--gris-600); cursor: pointer;
@@ -249,7 +273,9 @@ async function confirmerSuppression() {
 .liste-move { transition: transform .3s ease; }
 
 @media (max-width: 760px) {
-  .tdb-outils { flex-direction: column; }
-  .tdb-entete :deep(.btn) { width: 100%; justify-content: center; }
+  .tdb-bandeau { padding: 26px 22px; border-radius: 22px; }
+  .tdb-nouveau { width: 100%; justify-content: center; }
+  .tdb-outils { flex-direction: column; align-items: stretch; }
+  .tdb-recherche { flex-basis: auto; }
 }
 </style>

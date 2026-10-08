@@ -44,6 +44,8 @@ let minuterie = null
 const dernierId = computed(() => serveur.value.messages.at(-1)?.id || 0)
 const statut = computed(() => serveur.value.statut || 'ia')
 const chezConseiller = computed(() => statut.value === 'attente' || statut.value === 'humain')
+// clôturée par le conseiller : plus de champ de saisie, la suite se fait dans une nouvelle discussion vierge
+const cloturee = computed(() => statut.value === 'fermee')
 // le parcours guidé envoyé au conseiller n'est pas réaffiché au visiteur
 const messagesServeur = computed(() => serveur.value.messages.filter((m) => !(m.auteur === 'client' && m.texte.startsWith('Parcours suivi :'))))
 const etapeActive = computed(() => guide.value.at(-1)?.etape || null)
@@ -64,7 +66,7 @@ const titre = computed(() => ({ conseiller: 'Conseiller BTM', fermee: 'Conversat
 // en attente d'un conseiller, Awa continue de répondre (fonction « assistant ») : le client n'est jamais sans réponse
 const sousTitre = computed(() => {
   if (interlocuteur.value === 'conseiller') return 'Vous discutez avec un conseiller'
-  if (interlocuteur.value === 'fermee') return 'Écrivez pour reprendre la discussion'
+  if (interlocuteur.value === 'fermee') return 'Discussion terminée'
   return statut.value === 'attente' ? 'Awa vous répond · un conseiller va vous rejoindre' : 'Assistante virtuelle · répond tout de suite'
 })
 // affichée juste après la demande de conseiller, effacée dès que quelqu'un (client, Awa ou conseiller) écrit
@@ -256,8 +258,8 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         </button>
         <div v-if="menuOuvert" id="ac-options" class="ac-options">
           <p class="ac-options-qui"><strong>{{ titre }}</strong><small>{{ sousTitre }}</small></p>
-          <button v-if="!devisActif" type="button" @click="menuOuvert = false; demarrerDevis()"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire un devis avec Awa</button>
-          <button v-if="!chezConseiller" type="button" @click="passerConseiller"><i class="fa-solid fa-headset" aria-hidden="true"></i> Parler à un conseiller</button>
+          <button v-if="!devisActif && !cloturee" type="button" @click="menuOuvert = false; demarrerDevis()"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire un devis avec Awa</button>
+          <button v-if="!chezConseiller && !cloturee" type="button" @click="passerConseiller"><i class="fa-solid fa-headset" aria-hidden="true"></i> Parler à un conseiller</button>
           <button v-if="peutRecommencer" type="button" @click="recommencer"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Nouvelle discussion</button>
           <button type="button" @click="menuOuvert = false; minimise = true"><i class="fa-solid fa-minus" aria-hidden="true"></i> Réduire la fenêtre</button>
           <button type="button" @click="emit('fermer')"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Fermer la discussion</button>
@@ -348,7 +350,12 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 
       <p v-if="erreur" class="ac-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ erreur }}</p>
 
-      <form class="ac-saisie" @submit.prevent="envoyer">
+      <!-- conversation clôturée par le conseiller : on ne peut plus y écrire -->
+      <div v-if="cloturee" class="ac-cloture" role="status">
+        <p><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Cette conversation a été clôturée par un conseiller BTM.</p>
+        <button type="button" class="btn btn-primaire btn-sm" @click="recommencer"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle discussion</button>
+      </div>
+      <form v-else class="ac-saisie" @submit.prevent="envoyer">
         <label class="visually-hidden" for="ac-message">Votre message</label>
         <input id="ac-message" v-model="saisie" type="text" maxlength="1000" :placeholder="devisActif ? 'Votre réponse…' : statut === 'humain' ? 'Écrire au conseiller…' : 'Posez votre question…'" autocomplete="off" />
         <button type="submit" :disabled="!saisie.trim() || envoi" aria-label="Envoyer"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
@@ -414,6 +421,9 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-coord input { min-height: 38px; padding: 0 12px; border: 1px solid var(--gris-300); border-radius: 10px; font: inherit; font-size: .84rem; }
 .ac-coord > div { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .ac-erreur { display: flex; gap: 6px; margin: 0; padding: 8px 14px; background: #fff1f2; color: var(--erreur); font-size: .78rem; }
+.ac-cloture { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px; border-top: 1px solid var(--gris-200); background: #fff; text-align: center; }
+.ac-cloture p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ardoise-2); font-size: .84rem; font-weight: 600; }
+.ac-cloture p i { color: #047857; }
 .ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: #fff; }
 .ac-saisie input { min-width: 0; flex: 1; min-height: 40px; padding: 0 12px; border: 1px solid var(--gris-200); border-radius: 999px; outline: 0; font: inherit; font-size: .86rem; }
 .ac-saisie input:focus { border-color: var(--lagon-500); }

@@ -83,7 +83,7 @@ async function abandonner() {
       <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
       <div>
         <strong>Professionnel · SIRET en vérification</strong>
-        <small>{{ demandePro.raisonSociale }} · SIRET {{ formaterSiret(demandePro.siret) }}. Les outils pro sont déjà ouverts ; notre équipe confirme votre entreprise.</small>
+        <small>{{ demandePro.raisonSociale }} · SIRET {{ formaterSiret(demandePro.siret) }}. Vos outils pro s’ouvriront dès que notre équipe aura validé votre entreprise.</small>
       </div>
     </div>
     <div v-else-if="statut === 'refuse'" class="tc-etat refus">

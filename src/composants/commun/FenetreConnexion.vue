@@ -245,7 +245,7 @@ async function soumettre() {
       }, redirectionDemandee() || (avecDevis ? '/resultats' : ''))
       const suite = avecDevis ? ' Votre devis vous attendra : le lien de confirmation vous y ramène.' : ''
       succes.value = (pro
-        ? 'Compte créé ! Confirmez votre e-mail si demandé, puis connectez-vous. Vos outils professionnels sont ouverts dès votre connexion ; notre équipe vérifie votre SIRET en parallèle.'
+        ? 'Compte créé ! Confirmez votre e-mail si demandé, puis connectez-vous. Vos outils professionnels s’ouvriront dès que notre équipe aura validé votre SIRET.'
         : 'Compte créé ! Vérifiez votre boîte mail si une confirmation est requise, puis connectez-vous.') + suite
     } else {
       // le bouton reste en chargement jusqu'à l'arrivée sur la page de destination

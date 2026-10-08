@@ -7,13 +7,15 @@ import { useContenuSite } from '@/composables/useContenuSite.js'
 const Scene3DChantier = defineAsyncComponent(() => import('./Scene3DChantier.vue'))
 import HeroPaysage from './HeroPaysage.vue'
 
-const { utilisateur, estPro } = useAuth()
+const { utilisateur, estPro, demandePro } = useAuth()
 const contenu = useContenuSite()
 
 // Surtitre : pour un compte connecté, la fin « · Mayotte » est remplacée par le profil : particulier ou professionnel
 const typeCompte = computed(() => {
   if (!utilisateur.value) return null
   if (estPro.value) return { cle: 'pro', libelle: 'Professionnel', icone: 'fa-solid fa-briefcase' }
+  // compte pro dont le SIRET n'est pas encore validé : outils pro fermés en attendant
+  if (demandePro.value?.statut === 'en_attente') return { cle: 'pro', libelle: 'Pro · en vérification', icone: 'fa-solid fa-hourglass-half' }
   return { cle: 'particulier', libelle: 'Particulier', icone: 'fa-solid fa-user' }
 })
 const debutSurtitre = computed(() => {

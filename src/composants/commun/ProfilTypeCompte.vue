@@ -82,8 +82,8 @@ async function abandonner() {
     <div v-else-if="statut === 'en_attente'" class="tc-etat attente">
       <i class="fa-solid fa-hourglass-half" aria-hidden="true"></i>
       <div>
-        <strong>Vérification en cours</strong>
-        <small>{{ demandePro.raisonSociale }} · SIRET {{ formaterSiret(demandePro.siret) }}. En attendant, votre compte fonctionne comme un compte particulier.</small>
+        <strong>Professionnel · SIRET en vérification</strong>
+        <small>{{ demandePro.raisonSociale }} · SIRET {{ formaterSiret(demandePro.siret) }}. Les outils pro sont déjà ouverts ; notre équipe confirme votre entreprise.</small>
       </div>
     </div>
     <div v-else-if="statut === 'refuse'" class="tc-etat refus">

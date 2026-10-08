@@ -7,14 +7,14 @@ import { useContenuSite } from '@/composables/useContenuSite.js'
 const Scene3DChantier = defineAsyncComponent(() => import('./Scene3DChantier.vue'))
 import HeroPaysage from './HeroPaysage.vue'
 
-const { utilisateur, fournisseurLie, demandePro } = useAuth()
+const { utilisateur, estPro } = useAuth()
 const contenu = useContenuSite()
 
-// Surtitre : pour un compte connecté, la fin « · Mayotte » est remplacée par le type de compte
+// Surtitre : pour un compte connecté, la fin « · Mayotte » est remplacée par le profil : particulier ou professionnel
 const typeCompte = computed(() => {
   if (!utilisateur.value) return null
-  if (fournisseurLie.value || demandePro.value?.statut === 'verifie') return { cle: 'pro', libelle: 'Professionnel', icone: 'fa-solid fa-briefcase' }
-  return { cle: 'utilisateur', libelle: 'Utilisateur', icone: 'fa-solid fa-user' }
+  if (estPro.value) return { cle: 'pro', libelle: 'Professionnel', icone: 'fa-solid fa-briefcase' }
+  return { cle: 'particulier', libelle: 'Particulier', icone: 'fa-solid fa-user' }
 })
 const debutSurtitre = computed(() => {
   const texte = contenu.hero.surtitre
@@ -175,7 +175,7 @@ onBeforeUnmount(debrancherScroll)
   font-size: .72rem; letter-spacing: .1em; border: 1px solid currentColor;
 }
 .hero-compte i { font-size: .7rem; }
-.hero-compte-utilisateur { color: #67e8f9; background: rgba(6, 182, 212, .14); }
+.hero-compte-particulier { color: #67e8f9; background: rgba(6, 182, 212, .14); }
 .hero-compte-pro { color: #fcd34d; background: rgba(245, 158, 11, .14); }
 .hero-compte-fournisseur { color: #6ee7b7; background: rgba(16, 185, 129, .14); }
 .hero-titre {

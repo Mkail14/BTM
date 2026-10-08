@@ -341,7 +341,7 @@ export async function statuerVerificationPro(profilId, decision, motif) {
  * règle le rôle, le type de profil, la fiche fournisseur liée et le statut professionnel de la base.
  */
 export const ROLES_COMPTE = {
-  particulier: { label: 'Utilisateur', icone: 'fa-solid fa-user', classe: '', aide: 'Site public : calculateur, devis et « Mes projets ».' },
+  particulier: { label: 'Particulier', icone: 'fa-solid fa-user', classe: '', aide: 'Site public : calculateur, devis et « Mes projets ».' },
   professionnel: { label: 'Professionnel', icone: 'fa-solid fa-helmet-safety', classe: 'adm-badge-violet', aide: 'Comme un utilisateur, avec en plus la page « Projet pro » : chantiers multi-ouvrages et maquette 3D.' },
   fournisseur: { label: 'Fournisseur', icone: 'fa-solid fa-truck', classe: 'adm-badge-info', aide: 'Espace fournisseur de son entreprise : devis reçus, paiements et catalogue.' },
   admin: { label: 'Administrateur', icone: 'fa-solid fa-user-shield', classe: 'adm-badge-noir', aide: 'Administration du site : textes, prix, comptes et reversements.' }

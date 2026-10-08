@@ -79,7 +79,9 @@ export function useAuth() {
   }
   const connecte = computed(() => !!utilisateur.value)
   // Professionnel : compte pro vérifié, ou compte fournisseur (qui visite le site comme un pro)
-  const estPro = computed(() => demandePro.value?.statut === 'verifie' || !!fournisseurLie.value)
+  // Compte professionnel : actif dès l'inscription (SIRET contrôlé à la saisie), pendant que l'équipe le vérifie ;
+// seul un refus le ramène en particulier
+const estPro = computed(() => ['verifie', 'en_attente'].includes(demandePro.value?.statut) || !!fournisseurLie.value)
   return {
     utilisateur, connecte, pret, admin, fournisseurLie, typeProfil, demandePro, estPro, rechargerRole: () => chargerRole(), backendDisponible: supabaseConfigure,
     connexion: auth.connexion, inscription: auth.inscription,

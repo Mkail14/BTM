@@ -353,7 +353,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
       <!-- conversation clôturée par le conseiller : on ne peut plus y écrire -->
       <div v-if="cloturee" class="ac-cloture" role="status">
         <p><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Cette conversation a été clôturée par un conseiller BTM.</p>
-        <button type="button" class="btn btn-primaire btn-sm" @click="recommencer"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle discussion</button>
+        <small>Pour continuer, ouvrez une « Nouvelle discussion » depuis le menu de l’avatar.</small>
       </div>
       <form v-else class="ac-saisie" @submit.prevent="envoyer">
         <label class="visually-hidden" for="ac-message">Votre message</label>
@@ -421,9 +421,10 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-coord input { min-height: 38px; padding: 0 12px; border: 1px solid var(--gris-300); border-radius: 10px; font: inherit; font-size: .84rem; }
 .ac-coord > div { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .ac-erreur { display: flex; gap: 6px; margin: 0; padding: 8px 14px; background: #fff1f2; color: var(--erreur); font-size: .78rem; }
-.ac-cloture { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px; border-top: 1px solid var(--gris-200); background: #fff; text-align: center; }
+.ac-cloture { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px; border-top: 1px solid var(--gris-200); background: #fff; text-align: center; }
 .ac-cloture p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ardoise-2); font-size: .84rem; font-weight: 600; }
 .ac-cloture p i { color: #047857; }
+.ac-cloture small { color: var(--texte-secondaire); font-size: .76rem; }
 .ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: #fff; }
 .ac-saisie input { min-width: 0; flex: 1; min-height: 40px; padding: 0 12px; border: 1px solid var(--gris-200); border-radius: 999px; outline: 0; font: inherit; font-size: .86rem; }
 .ac-saisie input:focus { border-color: var(--lagon-500); }

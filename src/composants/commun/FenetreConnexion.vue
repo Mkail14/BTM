@@ -23,6 +23,8 @@ import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import LogoBtm from '@/composants/commun/LogoBtm.vue'
 import MotDePasseOublie from '@/composants/commun/MotDePasseOublie.vue'
 import { roleSession } from '@/routeur/index.js'
+import { supabase } from '@/services/supabase/client.js'
+import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
 import { fermerAuth } from '@/composables/useFenetreAuth.js'
 import { lireSuspension } from '@/services/supabase/serviceAuth.js'
 import { memoriserSuspension } from '@/services/suspension.js'
@@ -65,7 +67,18 @@ const { connexion, inscription, backendDisponible, connecte, utilisateur } = use
 const modeOubli = ref(props.oubli || props.parLien || props.lienExpire)
 const dejaConnecte = connecte.value || props.parLien // profil d'un compte connecté, ou session ouverte par le lien de l'e-mail
 const quitterOubli = () => { if (dejaConnecte) emit('fermer'); else modeOubli.value = false }
-const finOubli = () => (dejaConnecte ? emit('fermer') : terminerConnexion())
+// Mot de passe enregistré : chacun rejoint son espace (tableau de bord pour un admin, espace fournisseur),
+// quel que soit le parcours (code reçu, lien de l'e-mail, profil). Rôle relu à neuf : la session vient d'être ouverte.
+async function finOubli() {
+  try {
+    const { data } = await supabase.auth.getUser()
+    const { role, fournisseur_id: fid } = data.user ? await lireRoleCompte(data.user.id) : {}
+    const cible = props.redirect || (role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : null)
+    if (cible && router.currentRoute.value.path !== cible) await router.push(cible)
+  } catch { /* rôle illisible (réseau) : on reste sur la page en cours */ } finally {
+    emit('fermer')
+  }
+}
 
 const email = ref('')
 const civilite = ref('')

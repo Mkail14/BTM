@@ -16,11 +16,21 @@ import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import CatalogueDirect from '@/composants/calculateur/CatalogueDirect.vue'
 import { useAuth } from '@/composables/useAuth.js'
+import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 
 const route = useRoute()
 const router = useRouter()
 const calc = useCalculateur()
-const { estPro } = useAuth()
+const { estPro, connecte } = useAuth()
+
+// Le devis est réservé aux comptes : sans compte, l'estimation est gardée et la fenêtre « Créer un compte » s'ouvre ;
+// une fois connecté, la personne arrive sur son devis.
+async function allerAuDevis() {
+  if (!connecte.value) return ouvrirAuth('inscription', { redirect: '/resultats', message: 'Créez votre compte gratuit pour obtenir votre devis.' })
+  // push() ne lève pas d'erreur quand la navigation est interrompue : il renvoie l'échec
+  const echec = await router.push('/resultats')
+  if (echec) throw new Error(echec.message || 'navigation vers les résultats interrompue')
+}
 
 // Mode : selon mes mesures, ou achat direct (« Je sais ce qu'il me faut »)
 const mode = ref(route.query.mode === 'direct' ? 'direct' : 'mesures')
@@ -34,9 +44,7 @@ async function validerAchat(choix) {
   calc.erreurGlobale.value = ''
   try {
     calc.achatDirect(choix)
-    // push() ne lève pas d'erreur quand la navigation est interrompue : il renvoie l'échec
-    const echec = await router.push('/resultats')
-    if (echec) throw new Error(echec.message || 'navigation vers les résultats interrompue')
+    await allerAuDevis()
   } catch (e) {
     // jamais de clic « sans effet » : le problème s'affiche sous la liste des matériaux et dans la console
     console.error('Comparer les fournisseurs :', e)
@@ -152,9 +160,7 @@ async function soumettre() {
   try {
     const ok = await calc.calculer()
     if (ok) {
-      // push() ne lève pas d'erreur quand la navigation est interrompue : il renvoie l'échec
-      const echec = await router.push('/resultats')
-      if (echec) throw new Error(echec.message || 'navigation vers les résultats interrompue')
+      await allerAuDevis()
       return
     }
     const premiere = Object.keys(calc.erreurs)[0]

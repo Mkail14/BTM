@@ -36,7 +36,8 @@ const props = defineProps({
   profil: { type: String, default: null },    // inscription : profil présélectionné (« professionnel »…)
   oubli: Boolean,                             // ouverte directement sur « Mot de passe oublié » (depuis le profil)
   parLien: Boolean,                           // arrivée par le lien de l'e-mail : choix du nouveau mot de passe seulement
-  lienExpire: Boolean                         // lien de l'e-mail expiré : « Mot de passe oublié » avec un message
+  lienExpire: Boolean,                        // lien de l'e-mail expiré : « Mot de passe oublié » avec un message
+  message: { type: String, default: null }    // raison de l'ouverture, affichée sous le titre (ex. « obtenir votre devis »)
 })
 const emit = defineEmits(['fermer', 'changer-mode'])
 const router = useRouter()
@@ -319,7 +320,8 @@ function traduire(m = '') {
         <MotDePasseOublie v-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" :par-lien="parLien" :lien-expire="lienExpire" @retour="quitterOubli" @termine="finOubli" />
         <template v-else>
           <h2 id="auth-titre" class="auth-titre">{{ !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
-          <p class="texte-secondaire auth-intro">{{ !estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit, en moins d’une minute.' }}</p>
+          <p v-if="message && (!estInscription || etape === 0)" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ message }}</p>
+          <p class="texte-secondaire auth-intro">{{!estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit, en moins d’une minute.' }}</p>
 
           <BandeauAvertissement v-if="!backendDisponible" type="info" compact class="auth-note">
             Authentification prévue avec Supabase — renseignez <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> pour l’activer.
@@ -477,6 +479,8 @@ function traduire(m = '') {
 .auth-visuel li i { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.15); color: var(--sable); }
 .auth-carte { display: flex; flex-direction: column; padding: 36px; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); }
 .auth-titre { font-size: 2.2rem; color: var(--ardoise); }
+.auth-raison { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: var(--lagon-50, #ecfeff); border: 1px solid var(--gris-200); color: var(--ardoise); font-weight: 600; font-size: .92rem; }
+.auth-raison i { color: var(--primaire); }
 .auth-intro { margin: 4px 0 20px; }
 .auth-note { margin-bottom: 20px; }
 .auth-note code { font-family: var(--font-mono); font-size: .8rem; background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 4px; }

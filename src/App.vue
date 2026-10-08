@@ -76,7 +76,7 @@ watch(() => route.query, (q) => {
   <ApercuPdf />
   <FenetreConnexion
     v-if="fenetreAuth.ouverte"
-    :mode="fenetreAuth.mode" :redirect="fenetreAuth.redirect" :suspendu="fenetreAuth.suspendu" :profil="fenetreAuth.profil" :oubli="fenetreAuth.oubli" :par-lien="fenetreAuth.parLien" :lien-expire="fenetreAuth.lienExpire"
+    :mode="fenetreAuth.mode" :redirect="fenetreAuth.redirect" :suspendu="fenetreAuth.suspendu" :profil="fenetreAuth.profil" :oubli="fenetreAuth.oubli" :par-lien="fenetreAuth.parLien" :lien-expire="fenetreAuth.lienExpire" :message="fenetreAuth.message"
     @fermer="fermerAuth" @changer-mode="fenetreAuth.mode = $event"
   />
   <div v-if="visiteFournisseur" class="visite-fournisseur" role="region" aria-label="Visite du site">

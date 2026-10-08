@@ -7,7 +7,7 @@ import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 const routes = [
   { path: '/', name: 'accueil', component: () => import('@/vues/AccueilVue.vue'), meta: { titre: 'Accueil' } },
   { path: '/calculateur', name: 'calculateur', component: () => import('@/vues/CalculateurVue.vue'), meta: { titre: 'Calculateur' } },
-  { path: '/resultats', name: 'resultats', component: () => import('@/vues/ResultatsVue.vue'), meta: { titre: 'Résultats' } },
+  { path: '/resultats', name: 'resultats', component: () => import('@/vues/ResultatsVue.vue'), meta: { titre: 'Résultats', necessiteConnexion: true, fenetre: 'inscription', message: 'Créez votre compte gratuit pour obtenir votre devis.' } },
   { path: '/fournisseurs', name: 'fournisseurs', component: () => import('@/vues/FournisseursVue.vue'), meta: { titre: 'Fournisseurs' } },
   { path: '/projet-pro', name: 'projet-pro', component: () => import('@/vues/ProjetProVue.vue'), meta: { titre: 'Projet pro' } },
   { path: '/dashboard', name: 'dashboard', component: () => import('@/vues/TableauDeBordVue.vue'), meta: { titre: 'Mes projets', necessiteConnexion: true } },
@@ -81,7 +81,7 @@ routeur.beforeEach(async (to, from) => {
   if (!compte) {
     // page réservée aux comptes : la fenêtre de connexion s'ouvre et ramène ici une fois connecté.
     // Déjà sur le site : on reste sur la page en cours ; arrivée directe (lien, favori, rafraîchissement) : l'accueil en fond.
-    ouvrirAuth('connexion', { redirect: to.fullPath })
+    ouvrirAuth(to.meta.fenetre || 'connexion', { redirect: to.fullPath, message: to.meta.message })
     return from.matched.length ? false : { name: 'accueil' }
   }
   if (from.name === to.name) return true // autre section du même espace : déjà vérifié

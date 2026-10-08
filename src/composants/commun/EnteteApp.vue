@@ -1,8 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
-import { ouvrirAuth as ouvrirFenetreAuth } from '@/composables/useFenetreAuth.js'
+import { ouvrirAuth as ouvrirFenetreAuth, useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import LogoBtm from './LogoBtm.vue'
 import ChampTelephone from './ChampTelephone.vue'
 import SaisieMotDePasse from './SaisieMotDePasse.vue'
@@ -13,8 +13,6 @@ import { useCreditFidelite } from '@/composables/useCreditFidelite.js'
 import { useMesRealisations } from '@/composables/useMesRealisations.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
-const AuthentificationVue = defineAsyncComponent(() => import('@/vues/AuthentificationVue.vue'))
-
 const contenu = useContenuSite()
 const route = useRoute()
 const router = useRouter()
@@ -23,8 +21,6 @@ const libelleTypeCompte = computed(() => ({ verifie: 'Professionnel vérifié', 
 const { mettreAJourProfil, supprimerCompte: supprimerCompteAuth } = useAuth()
 const defile = ref(false)
 const menuOuvert = ref(false)
-const authModalOuverte = ref(false)
-const authModalMode = ref('connexion')
 const profilOuvert = ref(false)
 const telephoneProfilValide = ref(true)
 const telephoneProfilErreur = ref('')
@@ -69,17 +65,14 @@ watch(() => route.path, () => { creditOuvert.value = false; if (afficherCredit.v
 const surScroll = () => { defile.value = window.scrollY > 24 }
 onMounted(() => { surScroll(); window.addEventListener('scroll', surScroll, { passive: true }) })
 onBeforeUnmount(() => window.removeEventListener('scroll', surScroll))
-watch(() => route.path, () => { menuOuvert.value = false; authModalOuverte.value = false; profilOuvert.value = false })
-watch([menuOuvert, authModalOuverte, profilOuvert], ([menu, modal, profil]) => { document.body.style.overflow = menu || modal || profil ? 'hidden' : '' })
+watch(() => route.path, () => { menuOuvert.value = false; profilOuvert.value = false })
+const { etat: fenetreAuth } = useFenetreAuth()
+watch([menuOuvert, profilOuvert, () => fenetreAuth.ouverte], ([menu, profil, auth]) => { document.body.style.overflow = menu || profil || auth ? 'hidden' : '' })
 
+// Connexion : la fenêtre unique du site (affichée par App.vue), il n'y a pas de page de connexion
 function ouvrirAuth(mode = 'connexion') {
-  authModalMode.value = mode
-  authModalOuverte.value = true
   menuOuvert.value = false
-}
-
-function fermerAuth() {
-  authModalOuverte.value = false
+  ouvrirFenetreAuth(mode)
 }
 
 function ouvrirProfil() {
@@ -288,14 +281,6 @@ async function supprimerCompte() {
       </nav>
     </transition>
   </header>
-
-  <AuthentificationVue
-    v-if="authModalOuverte"
-    :mode="authModalMode"
-    modal
-    @fermer="fermerAuth"
-    @changer-mode="authModalMode = $event"
-  />
 
   <div v-if="profilOuvert" class="profil-overlay" @click.self="fermerProfil">
     <button class="profil-fermer" type="button" aria-label="Fermer le profil" @click="fermerProfil"><i class="fa-solid fa-xmark"></i></button>

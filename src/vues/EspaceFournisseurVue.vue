@@ -57,7 +57,7 @@ function voirLeSite() {
 
 async function seDeconnecter() {
   await deconnexion()
-  router.push('/connexion')
+  router.push('/') // déconnecté : retour à l'accueil (il n'y a pas de page de connexion)
 }
 </script>
 

@@ -16,6 +16,7 @@ import { formaterEuros, formaterQuantite, formaterNombre, libelleFrais } from '@
 import { TYPES_OUVRAGES, creerOuvrage, calculerProjetPro, mesuresOuvrage } from '@/services/calculs/projetPro.js'
 import ScenePro from '@/composants/pro/ScenePro.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
+import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 
 const { connecte, estPro, demandePro } = useAuth()
 const { sauvegarder } = useProjets()
@@ -123,7 +124,7 @@ const nb = (v, d = 2) => formaterNombre(v, d)
         <p>Chiffrez un chantier complet : plusieurs maisons, dalles, murs et terrasses dans un même projet, en 3D, avec la visite intérieure et les mesures exactes.</p>
         <p v-if="demandePro?.statut === 'en_attente'" class="pp-reserve-etat"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Votre SIRET est en cours de vérification : cet outil s’ouvrira dès qu’elle sera terminée.</p>
         <template v-else>
-          <BoutonBase v-if="!connecte" to="/inscription" icone-droite="fa-solid fa-arrow-right">Créer un compte professionnel</BoutonBase>
+          <BoutonBase v-if="!connecte" icone-droite="fa-solid fa-arrow-right" @click="ouvrirAuth('inscription', { profil: 'professionnel' })">Créer un compte professionnel</BoutonBase>
           <p v-else class="pp-reserve-etat">Réservé aux comptes professionnels vérifiés. Demandez la vérification de votre SIRET depuis votre profil.</p>
         </template>
       </section>

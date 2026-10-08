@@ -64,7 +64,8 @@ export const ETAPES = {
   },
   'mot-de-passe': {
     texte: 'Dans la fenêtre de connexion, cliquez sur « Mot de passe oublié ? » : vous recevez un code par e-mail, à saisir sur le site pour choisir un nouveau mot de passe. Pensez à regarder vos courriers indésirables.',
-    lien: { label: 'Page de connexion', to: '/connexion' },
+    // ouvre la fenêtre de connexion directement sur « Mot de passe oublié » (sur la page en cours)
+    lien: { label: 'Mot de passe oublié', to: { query: { connexion: '1', oubli: '1' } } },
     resolu: true
   },
   confirmation: {

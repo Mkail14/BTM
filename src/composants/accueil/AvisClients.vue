@@ -9,12 +9,18 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import { useAuth } from '@/composables/useAuth.js'
+import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import { listerAvis, publierAvis, monAvis, modifierAvis } from '@/services/supabase/serviceAvis.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 
 const { utilisateur, connecte, backendDisponible } = useAuth()
 const contenu = useContenuSite()
 const compteRequis = ref(false)
+// connexion / inscription dans la fenêtre du site, puis retour sur les avis
+function ouvrirCompte(mode) {
+  compteRequis.value = false
+  ouvrirAuth(mode, { redirect: '/#avis' })
+}
 
 // Nom affiché sous l'avis, tiré du compte : « Mario R. » (ou le pseudo, ou le début de l'e-mail)
 const nomDuCompte = computed(() => {
@@ -232,8 +238,8 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
         <h2 id="avis-compte-titre">Un compte est nécessaire</h2>
         <p>Pour garder des avis authentiques, seuls les utilisateurs connectés peuvent en publier. Créez un compte gratuit en moins d’une minute.</p>
         <div class="avis-compte-actions">
-          <BoutonBase :to="{ path: '/inscription', query: { redirect: '/#avis' } }" icone="fa-solid fa-user-plus">Créer un compte</BoutonBase>
-          <BoutonBase variante="secondaire" :to="{ path: '/connexion', query: { redirect: '/#avis' } }">J’ai déjà un compte</BoutonBase>
+          <BoutonBase icone="fa-solid fa-user-plus" @click="ouvrirCompte('inscription')">Créer un compte</BoutonBase>
+          <BoutonBase variante="secondaire" @click="ouvrirCompte('connexion')">J’ai déjà un compte</BoutonBase>
         </div>
       </section>
     </div>

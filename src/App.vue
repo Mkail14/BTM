@@ -42,8 +42,8 @@ watch(() => fenetreAuth.ouverte, (ouverte) => { document.body.style.overflow = o
 watch(() => route.query, (q) => {
   const mode = 'inscription' in q ? 'inscription' : 'connexion' in q ? 'connexion' : null
   if (!mode) return
-  ouvrirAuth(mode, { redirect: q.redirect, suspendu: typeof q.suspendu === 'string' ? q.suspendu : null, profil: q.profil })
-  const { connexion: _c, inscription: _i, redirect: _r, suspendu: _s, profil: _p, ...reste } = q
+  ouvrirAuth(mode, { redirect: q.redirect, suspendu: typeof q.suspendu === 'string' ? q.suspendu : null, profil: q.profil, oubli: 'oubli' in q })
+  const { connexion: _c, inscription: _i, redirect: _r, suspendu: _s, profil: _p, oubli: _o, ...reste } = q
   router.replace({ query: reste, hash: route.hash })
 }, { immediate: true })
 </script>

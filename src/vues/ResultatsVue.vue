@@ -9,6 +9,7 @@ import { useRouter } from 'vue-router'
 import { useCalculateur } from '@/composables/useCalculateur.js'
 import { useProjets } from '@/composables/useProjets.js'
 import { useAuth } from '@/composables/useAuth.js'
+import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import { formaterEuros, formaterNombre, formaterQuantite, sujetEstimation, detailPrix } from '@/services/calculs/moteurCalculs.js'
 import { exporterEstimationPdf } from '@/services/export/exportPdf.js'
 import { infoType, libelleOuvrage } from '@/services/calculs/fusion.js'
@@ -105,6 +106,11 @@ watch(() => calc.fournisseurId.value, (nouveau, ancien) => { if (ancien !== unde
 // ---------- Sauvegarde ----------
 const dialogueOuvert = ref(false)
 const compteRequis = ref(false)
+// création de compte / connexion dans la fenêtre du site, puis retour sur ce devis (conservé pendant l'inscription)
+function ouvrirCompte(mode) {
+  compteRequis.value = false
+  ouvrirAuth(mode, { redirect: '/resultats' })
+}
 // focus sur l'action principale : Échap et Tab fonctionnent tout de suite dans la fenêtre
 watch(compteRequis, async (ouvert) => { if (ouvert) { await nextTick(); document.querySelector('.compte .btn')?.focus() } })
 const nomErreur = ref('')
@@ -291,9 +297,9 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
                 <li><i class="fa-solid fa-check" aria-hidden="true"></i> Gratuit, en moins d’une minute</li>
               </ul>
 
-              <BoutonBase bloc :to="{ path: '/inscription', query: { redirect: '/resultats' } }" icone="fa-solid fa-user-plus">Créer mon compte gratuit</BoutonBase>
+              <BoutonBase bloc icone="fa-solid fa-user-plus" @click="ouvrirCompte('inscription')">Créer mon compte gratuit</BoutonBase>
               <p class="compte-connexion">
-                Déjà inscrit ? <router-link :to="{ path: '/connexion', query: { redirect: '/resultats' } }">Se connecter</router-link>
+                Déjà inscrit ? <button type="button" @click="ouvrirCompte('connexion')">Se connecter</button>
               </p>
             </div>
           </div>
@@ -455,8 +461,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .compte-avantages { display: flex; flex-direction: column; gap: 8px; margin: 0 0 22px; padding: 0; list-style: none; text-align: left; font-size: .9rem; color: var(--gris-700); }
 .compte-avantages i { width: 18px; margin-right: 8px; color: var(--vert-mangrove); }
 .compte-connexion { margin: 14px 0 0; color: var(--texte-secondaire); font-size: .9rem; }
-.compte-connexion a { color: var(--lagon-700); font-weight: 600; }
-.compte-connexion a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.compte-connexion button { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 600; cursor: pointer; }
+.compte-connexion button:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 480px) { .compte { padding: 30px 20px 22px; } .compte h2 { font-size: 1.55rem; } }
 
 @media (max-width: 560px) {

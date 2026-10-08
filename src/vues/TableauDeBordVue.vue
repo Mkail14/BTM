@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { useProjets } from '@/composables/useProjets.js'
 import { useCalculateur } from '@/composables/useCalculateur.js'
 import { useAuth } from '@/composables/useAuth.js'
+import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 import CarteProjet from '@/composants/tableau-de-bord/CarteProjet.vue'
 import PropositionsRealisation from '@/composants/tableau-de-bord/PropositionsRealisation.vue'
@@ -55,7 +56,7 @@ async function confirmerSuppression() {
 
       <p v-if="erreur" class="tdb-note" :title="erreur">Synchronisation indisponible — projets de cet appareil uniquement.</p>
       <p v-else-if="!connecte && backendDisponible" class="tdb-note">
-        Enregistrés sur cet appareil. <router-link to="/connexion">Se connecter</router-link> pour les retrouver partout.
+        Enregistrés sur cet appareil. <button type="button" @click="ouvrirAuth('connexion', { redirect: '/dashboard' })">Se connecter</button> pour les retrouver partout.
       </p>
 
       <transition-group v-if="!vide" name="liste" tag="ul" class="tdb-liste">
@@ -89,7 +90,8 @@ async function confirmerSuppression() {
 .tdb-resume { margin: 6px 0 0; color: var(--gris-500); }
 
 .tdb-note { margin: 0 0 16px; font-size: .88rem; color: var(--gris-500); }
-.tdb-note a { color: var(--lagon-700); font-weight: 600; }
+.tdb-note button { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 600; cursor: pointer; }
+.tdb-note button:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 .tdb-liste { list-style: none; margin: 0 -12px; padding: 0; display: flex; flex-direction: column; }
 .tdb-liste > :deep(li + li) { box-shadow: 0 -1px 0 var(--gris-100); }

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
+import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import { formaterNombre } from '@/services/calculs/moteurCalculs.js'
 
@@ -67,7 +68,7 @@ const sections = computed(() => [
           </section>
 
           <div class="cgu-actions">
-            <BoutonBase to="/inscription" icone="fa-solid fa-user-plus">Créer un compte</BoutonBase>
+            <BoutonBase icone="fa-solid fa-user-plus" @click="ouvrirAuth('inscription')">Créer un compte</BoutonBase>
             <BoutonBase to="/" variante="secondaire">Retour à l’accueil</BoutonBase>
           </div>
         </article>

@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
 import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
 import { modeSite } from '@/composables/useModeSite.js'
+import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 
 const routes = [
   { path: '/', name: 'accueil', component: () => import('@/vues/AccueilVue.vue'), meta: { titre: 'Accueil' } },
@@ -9,8 +10,6 @@ const routes = [
   { path: '/resultats', name: 'resultats', component: () => import('@/vues/ResultatsVue.vue'), meta: { titre: 'Résultats' } },
   { path: '/fournisseurs', name: 'fournisseurs', component: () => import('@/vues/FournisseursVue.vue'), meta: { titre: 'Fournisseurs' } },
   { path: '/dashboard', name: 'dashboard', component: () => import('@/vues/TableauDeBordVue.vue'), meta: { titre: 'Mes projets', necessiteConnexion: true } },
-  { path: '/connexion', name: 'connexion', component: () => import('@/vues/AuthentificationVue.vue'), props: { mode: 'connexion' }, meta: { titre: 'Connexion' } },
-  { path: '/inscription', name: 'inscription', component: () => import('@/vues/AuthentificationVue.vue'), props: { mode: 'inscription' }, meta: { titre: 'Inscription' } },
   { path: '/admin/:section?', name: 'admin', component: () => import('@/vues/AdminVue.vue'), meta: { titre: 'Administration', necessiteConnexion: true, necessiteAdmin: true, pleinEcran: true } },
   { path: '/espace-fournisseur/:section?', name: 'espace-fournisseur', component: () => import('@/vues/EspaceFournisseurVue.vue'), meta: { titre: 'Espace fournisseur', necessiteConnexion: true, necessiteFournisseur: true, pleinEcran: true } },
   { path: '/nouveau-mot-de-passe', name: 'nouveau-mot-de-passe', component: () => import('@/vues/NouveauMotDePasseVue.vue'), meta: { titre: 'Nouveau mot de passe' } },
@@ -51,9 +50,9 @@ export async function roleSession() {
   return lu
 }
 
-// Pages qu'un compte admin ou fournisseur peut ouvrir : son espace, le choix d'un nouveau mot de passe, et la connexion
-// (si la session locale est périmée, son espace renvoie vers la connexion : sans elle, les deux se renverraient sans fin)
-export const PAGES_ESPACE = { admin: ['admin', 'nouveau-mot-de-passe', 'connexion'], fournisseur: ['espace-fournisseur', 'nouveau-mot-de-passe', 'connexion'] }
+// Pages qu'un compte admin ou fournisseur peut ouvrir : son espace et le choix d'un nouveau mot de passe
+// (la connexion n'est pas une page : c'est une fenêtre superposée, ouverte par useFenetreAuth)
+export const PAGES_ESPACE = { admin: ['admin', 'nouveau-mot-de-passe'], fournisseur: ['espace-fournisseur', 'nouveau-mot-de-passe'] }
 
 routeur.beforeEach(async (to, from) => {
   // Session locale + rôle en cache : aucun appel réseau à la navigation (la base revérifie tout par la RLS)
@@ -65,7 +64,12 @@ routeur.beforeEach(async (to, from) => {
   if (compte?.role === 'fournisseur' && compte.fournisseur_id && !PAGES_ESPACE.fournisseur.includes(to.name) && !(modeSite.value && !to.meta.necessiteAdmin)) return { name: 'espace-fournisseur' }
 
   if (!to.meta.necessiteConnexion) return true
-  if (!compte) return { name: 'connexion', query: { redirect: to.fullPath } }
+  if (!compte) {
+    // page réservée aux comptes : la fenêtre de connexion s'ouvre et ramène ici une fois connecté.
+    // Déjà sur le site : on reste sur la page en cours ; arrivée directe (lien, favori, rafraîchissement) : l'accueil en fond.
+    ouvrirAuth('connexion', { redirect: to.fullPath })
+    return from.matched.length ? false : { name: 'accueil' }
+  }
   if (from.name === to.name) return true // autre section du même espace : déjà vérifié
   // on évite seulement d'afficher une page vide à un compte qui n'a pas le rôle
   if (to.meta.necessiteAdmin && compte.role !== 'admin') return { name: 'accueil' }

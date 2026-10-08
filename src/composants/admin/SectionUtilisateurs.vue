@@ -1,6 +1,6 @@
 <script setup>
 /**
- * Utilisateurs : filtres par rôle, modification, bannissement (à vie ou pour une durée, section « Bannis ») et suppression
+ * Utilisateurs : filtres par profil (utilisateur, professionnel, fournisseur, administrateur), modification, bannissement (à vie ou pour une durée, section « Bannis ») et suppression
  * (fonction serveur admin-utilisateurs, qui revérifie le rôle), e-mail de réinitialisation du mot de passe.
  */
 import { computed, onMounted, ref, watch } from 'vue'
@@ -17,8 +17,8 @@ const { utilisateur: moi } = useAuth()
 onMounted(() => charger(['profils', 'projets', 'fournisseurs', 'realisations'], { force: true }))
 const nomFournisseur = computed(() => Object.fromEntries((donnees.fournisseurs || []).map((f) => [f.id, f.nom])))
 
-const ROLES = { admin: { label: 'Administrateur', classe: 'adm-badge-noir' }, fournisseur: { label: 'Fournisseur', classe: 'adm-badge-info' }, user: { label: 'Utilisateur', classe: '' } }
-const TYPES = { particulier: 'Particulier', professionnel: 'Professionnel', fournisseur: 'Fournisseur' }
+// un seul profil par compte (api.ROLES_COMPTE) : utilisateur, professionnel, fournisseur ou administrateur
+const profilDe = (p) => api.ROLES_COMPTE[api.roleCompte(p)]
 const filtre = ref('')
 
 const projetsPar = computed(() => {
@@ -26,12 +26,14 @@ const projetsPar = computed(() => {
   for (const p of donnees.projets || []) n[p.utilisateur_id] = (n[p.utilisateur_id] || 0) + 1
   return n
 })
-const compte = (role) => (donnees.profils || []).filter((p) => !role || p.role === role).length
-// filtre : un rôle, ou « pro_attente » (comptes professionnels à vérifier)
-const correspondFiltre = (p) => !filtre.value || (filtre.value === 'pro_attente' ? p.pro_statut === 'en_attente' : p.role === filtre.value)
+const compte = (profil) => (donnees.profils || []).filter((p) => !profil || api.roleCompte(p) === profil).length
+// filtre : un profil, ou « pro_attente » (demandes de compte professionnel à vérifier)
+const correspondFiltre = (p) => !filtre.value || (filtre.value === 'pro_attente' ? p.pro_statut === 'en_attente' : api.roleCompte(p) === filtre.value)
 const aVerifier = computed(() => (donnees.profils || []).filter((p) => p.pro_statut === 'en_attente').length)
-const liste = computed(() => (donnees.profils || []).filter((p) => correspondFiltre(p) && correspond(recherche.value, p.email, p.nom_affiche, ROLES[p.role]?.label, TYPES[p.type_profil], p.pro_raison_sociale, p.pro_siret)))
+const liste = computed(() => (donnees.profils || []).filter((p) => correspondFiltre(p) && correspond(recherche.value, p.email, p.nom_affiche, profilDe(p).label, nomFournisseur.value[p.fournisseur_id], p.pro_raison_sociale, p.pro_siret)))
 const STATUTS_PRO = { en_attente: { label: 'à vérifier', classe: 'adm-badge-attention' }, verifie: { label: 'vérifié', classe: 'adm-badge-ok' }, refuse: { label: 'refusé', classe: '' } }
+// demande de compte pro encore ouverte (à vérifier) ou refusée : signalée à côté du profil « utilisateur »
+const demandeProDe = (p) => (api.roleCompte(p) === 'particulier' && p.pro_statut && p.pro_statut !== 'verifie' ? STATUTS_PRO[p.pro_statut] : null)
 
 // ---------- Modification ----------
 const edition = ref(null)
@@ -43,10 +45,10 @@ async function ouvrir(p) {
   editionErreur.value = ''
   edition.value = { id: p.id, email: p.email, chargement: true }
   try {
-    edition.value = { ...(await api.lireUtilisateur(p.id)), fournisseur_id: p.fournisseur_id || '', chargement: false }
+    edition.value = { ...(await api.lireUtilisateur(p.id)), fournisseur_id: p.fournisseur_id || '', choix: api.roleCompte(p), chargement: false }
   } catch (e) {
     editionErreur.value = `${e?.message || 'Lecture impossible.'} Seuls les champs du profil sont modifiables.`
-    edition.value = { id: p.id, email: p.email, pseudo: '', prenom: '', nom: '', telephone: '', role: p.role, type_profil: p.type_profil, fournisseur_id: p.fournisseur_id || '', chargement: false }
+    edition.value = { id: p.id, email: p.email, pseudo: '', prenom: '', nom: '', telephone: '', role: p.role, type_profil: p.type_profil, fournisseur_id: p.fournisseur_id || '', choix: api.roleCompte(p), chargement: false }
   }
 }
 
@@ -55,18 +57,16 @@ async function enregistrer() {
   editionErreur.value = ''
   if (!telephoneValide.value) { editionErreur.value = 'Numéro de téléphone incomplet ou invalide.'; return }
   if (!u.email?.trim()) { editionErreur.value = 'L’adresse e-mail est obligatoire.'; return }
-  if (u.role === 'fournisseur' && !u.fournisseur_id) { editionErreur.value = 'Choisissez l’entreprise de l’annuaire que ce compte représente.'; return }
+  if (u.choix === 'fournisseur' && !u.fournisseur_id) { editionErreur.value = 'Choisissez l’entreprise de l’annuaire que ce compte représente.'; return }
   const ancien = donnees.profils.find((p) => p.id === u.id)
-  if (api.estAdminPrincipal(ancien) && (u.role !== 'admin' || !api.estAdminPrincipal(u))) { editionErreur.value = 'Le compte administrateur principal garde son rôle et son adresse e-mail.'; return }
-  if (u.role === 'admin' && ancien?.role !== 'admin'
+  if (api.estAdminPrincipal(ancien) && (u.choix !== 'admin' || !api.estAdminPrincipal(u))) { editionErreur.value = 'Le compte administrateur principal reste administrateur et garde son adresse e-mail.'; return }
+  if (u.choix === 'admin' && ancien?.role !== 'admin'
     && !(await confirmer({ titre: 'Donner les droits administrateur ?', texte: `${u.email} pourra modifier tout le site, les prix et les comptes.`, libelle: 'Confirmer' }))) return
   enregistrement.value = true
   try {
-    const { id, chargement: _c, derniereConnexion: _d, fournisseur_id: fournisseurId, ...champs } = u
-    await api.modifierUtilisateur(id, champs)
-    // compte fournisseur : lien avec la fiche de l'annuaire (fonction SQL réservée à l'admin)
-    const lienVoulu = champs.role === 'fournisseur' ? fournisseurId : null
-    if ((ancien?.fournisseur_id || null) !== (lienVoulu || null)) await api.lierCompteFournisseur(id, lienVoulu)
+    const { id, chargement: _c, derniereConnexion: _d, fournisseur_id: fournisseurId, choix, ...champs } = u
+    // identité et rôle en un seul enregistrement : rôle, type de profil, fiche fournisseur liée, statut professionnel
+    await api.definirRoleCompte(ancien || { id }, choix, { fournisseurId: fournisseurId || null, champs })
     edition.value = null
     notifier('Utilisateur mis à jour.')
     await charger(['profils'], { force: true })
@@ -79,6 +79,8 @@ async function enregistrer() {
 
 // ---------- Vérification des comptes professionnels ----------
 const profilEdite = computed(() => (edition.value ? (donnees.profils || []).find((p) => p.id === edition.value.id) : null))
+// son propre rôle et celui de l'administrateur principal ne se changent pas
+const roleVerrouille = computed(() => (api.estAdminPrincipal(profilEdite.value) ? 'Compte administrateur principal : son profil et son adresse ne changent pas.' : edition.value?.id === moi.value?.id ? 'Vous ne pouvez pas modifier votre propre profil.' : ''))
 const registre = ref({ etat: '', donnees: null }) // '' | 'recherche' | 'trouvee' | 'inconnue' | 'indisponible'
 const refus = ref(null) // motif en cours de saisie
 const decisionEnCours = ref(false)
@@ -220,9 +222,9 @@ async function lever(p) {
   <div class="utils">
     <p v-if="erreurs.profils" class="adm-alerte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.profils }}</p>
 
-    <div class="adm-pilules" role="group" aria-label="Filtrer par rôle">
+    <div class="adm-pilules" role="group" aria-label="Filtrer par profil">
       <button type="button" class="adm-pilule" :class="{ actif: !filtre }" :aria-pressed="!filtre" @click="filtre = ''">Tous <small>{{ compte() }}</small></button>
-      <button v-for="(r, id) in ROLES" :key="id" type="button" class="adm-pilule" :class="{ actif: filtre === id }" :aria-pressed="filtre === id" @click="filtre = id">{{ r.label }}s <small>{{ compte(id) }}</small></button>
+      <button v-for="(r, cle) in api.ROLES_COMPTE" :key="cle" type="button" class="adm-pilule" :class="{ actif: filtre === cle }" :aria-pressed="filtre === cle" @click="filtre = cle">{{ r.label }}s <small>{{ compte(cle) }}</small></button>
       <button type="button" class="adm-pilule" :class="{ actif: filtre === 'pro_attente', 'pilule-alerte': aVerifier && filtre !== 'pro_attente' }" :aria-pressed="filtre === 'pro_attente'" @click="filtre = 'pro_attente'"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i> Pros à vérifier <small>{{ aVerifier }}</small></button>
       <button type="button" class="adm-pilule" :class="{ actif: filtre === 'bannis' }" :aria-pressed="filtre === 'bannis'" @click="filtre = 'bannis'"><i class="fa-solid fa-ban" aria-hidden="true"></i> Bannis <small>{{ bannis.length }}</small></button>
     </div>
@@ -267,7 +269,7 @@ async function lever(p) {
       <div v-if="!donnees.profils" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
       <div v-else class="adm-table-cadre">
         <table class="adm-table adm-table-empile">
-          <thead><tr><th>Utilisateur</th><th>Profil</th><th>Rôle</th><th class="num">Projets</th><th>Inscrit le</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+          <thead><tr><th>Utilisateur</th><th>Profil</th><th class="num">Projets</th><th>Inscrit le</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             <tr v-for="p in liste" :key="p.id">
               <td class="principal">
@@ -277,13 +279,10 @@ async function lever(p) {
                 </span>
               </td>
               <td data-label="Profil">
-                {{ TYPES[p.type_profil] || p.type_profil }}
-                <span v-if="p.pro_statut" class="adm-badge" :class="STATUTS_PRO[p.pro_statut]?.classe">{{ STATUTS_PRO[p.pro_statut]?.label }}</span>
-                <small v-if="p.pro_raison_sociale" class="utils-lien">{{ p.pro_raison_sociale }}</small>
-              </td>
-              <td data-label="Rôle">
-                <span class="adm-badge" :class="ROLES[p.role]?.classe">{{ ROLES[p.role]?.label || p.role }}</span>
+                <span class="adm-badge" :class="profilDe(p).classe">{{ profilDe(p).label }}</span>
+                <span v-if="demandeProDe(p)" class="adm-badge" :class="demandeProDe(p).classe">pro {{ demandeProDe(p).label }}</span>
                 <small v-if="p.role === 'fournisseur'" class="utils-lien">{{ nomFournisseur[p.fournisseur_id] || 'aucune entreprise liée' }}</small>
+                <small v-else-if="p.pro_raison_sociale && p.pro_statut && p.role !== 'admin'" class="utils-lien">{{ p.pro_raison_sociale }}</small>
               </td>
               <td data-label="Projets" class="num">{{ projetsPar[p.id] || 0 }}</td>
               <td data-label="Inscrit le">{{ formatDate(p.cree_le) }}</td>
@@ -312,13 +311,19 @@ async function lever(p) {
         <div class="adm-champ"><label for="u-pseudo">Pseudo</label><input id="u-pseudo" v-model="edition.pseudo" maxlength="30" autocomplete="off" /></div>
         <div class="adm-champ"><label for="u-mail">Adresse e-mail</label><input id="u-mail" v-model="edition.email" type="email" autocomplete="off" required :disabled="api.estAdminPrincipal(profilEdite)" /></div>
         <ChampTelephone id="u-tel" v-model="edition.telephone" v-model:valide="telephoneValide" class="plein" />
-        <div class="adm-champ"><label for="u-type">Type de profil</label>
-          <select id="u-type" v-model="edition.type_profil"><option v-for="(l, v) in TYPES" :key="v" :value="v">{{ l }}</option></select></div>
-        <div class="adm-champ"><label for="u-role">Rôle</label>
-          <select id="u-role" v-model="edition.role" :disabled="edition.id === moi?.id || api.estAdminPrincipal(profilEdite)"><option v-for="(r, v) in ROLES" :key="v" :value="v">{{ r.label }}</option></select>
-          <span v-if="api.estAdminPrincipal(profilEdite)" class="adm-champ-aide"><span>Compte administrateur principal : son rôle et son adresse ne changent pas.</span></span>
-          <span v-else-if="edition.id === moi?.id" class="adm-champ-aide"><span>Vous ne pouvez pas modifier votre propre rôle.</span></span></div>
-        <div v-if="edition.role === 'fournisseur'" class="adm-champ plein">
+        <div class="adm-champ plein">
+          <span class="adm-champ-label">Profil du compte</span>
+          <div class="utils-roles" role="radiogroup" aria-label="Profil du compte">
+            <button
+              v-for="(r, cle) in api.ROLES_COMPTE" :key="cle" type="button" class="utils-role" :class="{ actif: edition.choix === cle }"
+              role="radio" :aria-checked="edition.choix === cle" :disabled="!!roleVerrouille" @click="edition.choix = cle"
+            >
+              <i :class="r.icone" aria-hidden="true"></i><strong>{{ r.label }}</strong>
+            </button>
+          </div>
+          <span class="adm-champ-aide"><span>{{ roleVerrouille || api.ROLES_COMPTE[edition.choix]?.aide }}</span></span>
+        </div>
+        <div v-if="edition.choix === 'fournisseur'" class="adm-champ plein">
           <label for="u-fournisseur">Entreprise représentée</label>
           <select id="u-fournisseur" v-model="edition.fournisseur_id">
             <option value="" disabled>Choisir dans l’annuaire…</option>
@@ -428,6 +433,15 @@ async function lever(p) {
 .utils-bannis-entete h3 i { color: var(--adm-baisse); }
 .utils-bannis-entete p { margin: 4px 0 0; color: var(--adm-muet); font-size: .86rem; }
 .utils-motif { max-width: 280px; color: var(--adm-encre-2); font-size: .86rem; }
+.utils-roles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.utils-role { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border: 1.5px solid var(--adm-ligne); border-radius: 14px; background: var(--adm-carte); color: var(--adm-encre-2); font: inherit; font-size: .82rem; cursor: pointer; transition: border-color var(--transition), background var(--transition), color var(--transition); }
+.utils-role i { font-size: 1.05rem; }
+.utils-role strong { font-weight: 600; }
+.utils-role:hover:not(:disabled) { border-color: var(--adm-ligne-forte); color: var(--adm-encre); }
+.utils-role.actif { border-color: var(--adm-noir); background: var(--adm-noir); color: #fff; }
+.utils-role:disabled { cursor: not-allowed; opacity: .55; }
+.utils-role.actif:disabled { opacity: 1; }
+@media (max-width: 560px) { .utils-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .utils-ban-actuel { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-survol); color: var(--adm-encre-2); font-size: .88rem; }
 .utils-ban-resume { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .88rem; line-height: 1.45; }
 .utils-ban-resume.vie { background: var(--adm-danger-fond); color: var(--adm-baisse); }

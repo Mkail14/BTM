@@ -139,7 +139,7 @@ function modifierAdresse() {
       <h2 id="auth-titre" class="mo-titre">Mot de passe oublié</h2>
       <p class="texte-secondaire mo-intro">
         <template v-if="etape === 'email'">Indiquez l’adresse e-mail de votre compte : nous vous envoyons un code pour choisir un nouveau mot de passe.</template>
-        <template v-else-if="attente > 0">Si un compte existe pour <strong>{{ email }}</strong>, un code vient d’y être envoyé. Il est valable 1 heure.</template>
+        <template v-else-if="attente > 0">Si un compte existe pour <strong>{{ email }}</strong>, un e-mail vient d’y être envoyé. Il est valable 1 heure.</template>
         <template v-else>Saisissez le code reçu à l’adresse <strong>{{ email }}</strong>, puis choisissez votre nouveau mot de passe.</template>
       </p>
 
@@ -164,6 +164,7 @@ function modifierAdresse() {
           <input id="mo-code" v-model="code" class="mo-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="12" placeholder="••••••" :aria-invalid="!!erreurs.code" />
           <p v-if="erreurs.code" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.code }}</p>
           <p v-else class="champ-aide">
+            L’e-mail ne contient qu’un lien ? Cliquez dessus : il ouvre la page pour choisir votre mot de passe.
             Rien reçu ? Regardez dans les indésirables, ou
             <button type="button" class="mo-lien" :disabled="attente > 0 || chargement" @click="envoyerCode">{{ attente > 0 ? `renvoyer le code dans ${attente} s` : 'renvoyer le code' }}</button>.
           </p>

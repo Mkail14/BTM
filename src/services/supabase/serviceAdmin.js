@@ -333,3 +333,52 @@ export async function statuerVerificationPro(profilId, decision, motif) {
   const { error } = await supabase.rpc('statuer_verification_pro', { p_profil: profilId, p_decision: decision, p_motif: motif || null })
   if (error) throw traduire(error)
 }
+
+// ---------- Profil d'un compte, tel que l'admin le choisit -----------------------------------
+/**
+ * Quatre profils, chacun avec ses pages : utilisateur (site public et « Mes projets »), professionnel (en plus la page
+ * « Projet pro »), fournisseur (espace fournisseur), administrateur (administration). Dans l'admin, ce choix unique
+ * règle le rôle, le type de profil, la fiche fournisseur liée et le statut professionnel de la base.
+ */
+export const ROLES_COMPTE = {
+  particulier: { label: 'Utilisateur', icone: 'fa-solid fa-user', classe: '', aide: 'Site public : calculateur, devis et « Mes projets ».' },
+  professionnel: { label: 'Professionnel', icone: 'fa-solid fa-helmet-safety', classe: 'adm-badge-violet', aide: 'Comme un utilisateur, avec en plus la page « Projet pro » : chantiers multi-ouvrages et maquette 3D.' },
+  fournisseur: { label: 'Fournisseur', icone: 'fa-solid fa-truck', classe: 'adm-badge-info', aide: 'Espace fournisseur de son entreprise : devis reçus, paiements et catalogue.' },
+  admin: { label: 'Administrateur', icone: 'fa-solid fa-user-shield', classe: 'adm-badge-noir', aide: 'Administration du site : textes, prix, comptes et reversements.' }
+}
+export const roleCompte = (p) => (p?.role === 'admin' ? 'admin' : p?.role === 'fournisseur' ? 'fournisseur' : p?.pro_statut === 'verifie' ? 'professionnel' : 'particulier')
+
+/**
+ * Donne à un compte l'un des rôles de ROLES_COMPTE.
+ * @param {object} profil ligne de `profils` (état actuel du compte)
+ * @param {string} choix clé de ROLES_COMPTE
+ * @param {{ fournisseurId?: string, champs?: object }} [options] fiche de l'annuaire (rôle fournisseur) ;
+ *        `champs` : identité déjà saisie dans la fiche de l'utilisateur, enregistrée du même coup (sinon relue)
+ */
+export async function definirRoleCompte(profil, choix, { fournisseurId = null, champs = null } = {}) {
+  verifier()
+  if (!ROLES_COMPTE[choix]) throw new Error('Profil inconnu.')
+  if (estAdminPrincipal(profil) && choix !== 'admin') throw new Error('Le compte administrateur principal reste administrateur.')
+  if (choix === 'fournisseur' && !fournisseurId) throw new Error('Choisissez l’entreprise de l’annuaire que ce compte représente.')
+  if (!champs) {
+    const { id: _id, derniereConnexion: _d, fournisseur_id: _f, ...lus } = await lireUtilisateur(profil.id)
+    champs = lus
+  }
+  const role = choix === 'admin' ? 'admin' : choix === 'fournisseur' ? 'fournisseur' : 'user'
+  const type_profil = choix === 'admin' ? champs.type_profil : choix
+  await modifierUtilisateur(profil.id, { ...champs, role, type_profil })
+  // fiche de l'annuaire : liée pour un fournisseur, déliée pour tout autre rôle
+  const lien = choix === 'fournisseur' ? fournisseurId : null
+  if ((profil.fournisseur_id || null) !== lien) await lierCompteFournisseur(profil.id, lien)
+  if (choix === 'professionnel' && profil.pro_statut !== 'verifie') await definirPro(profil.id, true)
+  if (choix === 'particulier' && profil.pro_statut) await definirPro(profil.id, false)
+}
+
+/** Statut professionnel posé par l'admin, sans demande de l'utilisateur (fonction SQL de supabase/roles_comptes.sql) */
+async function definirPro(profilId, pro) {
+  const { error } = await supabase.rpc('admin_definir_pro', { p_profil: profilId, p_pro: pro })
+  if (!error) return
+  if (!['PGRST202', '42883'].includes(error.code)) throw traduire(error)
+  // fonction pas encore installée : on passe par la vérification des demandes pro (migration 0011)
+  await statuerVerificationPro(profilId, pro ? 'verifie' : 'refuse', pro ? null : 'Compte repassé en particulier par l’équipe BTM.')
+}

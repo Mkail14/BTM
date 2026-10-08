@@ -9,6 +9,7 @@ const routes = [
   { path: '/calculateur', name: 'calculateur', component: () => import('@/vues/CalculateurVue.vue'), meta: { titre: 'Calculateur' } },
   { path: '/resultats', name: 'resultats', component: () => import('@/vues/ResultatsVue.vue'), meta: { titre: 'Résultats' } },
   { path: '/fournisseurs', name: 'fournisseurs', component: () => import('@/vues/FournisseursVue.vue'), meta: { titre: 'Fournisseurs' } },
+  { path: '/projet-pro', name: 'projet-pro', component: () => import('@/vues/ProjetProVue.vue'), meta: { titre: 'Projet pro' } },
   { path: '/dashboard', name: 'dashboard', component: () => import('@/vues/TableauDeBordVue.vue'), meta: { titre: 'Mes projets', necessiteConnexion: true } },
   { path: '/admin/:section?', name: 'admin', component: () => import('@/vues/AdminVue.vue'), meta: { titre: 'Administration', necessiteConnexion: true, necessiteAdmin: true, pleinEcran: true } },
   { path: '/espace-fournisseur/:section?', name: 'espace-fournisseur', component: () => import('@/vues/EspaceFournisseurVue.vue'), meta: { titre: 'Espace fournisseur', necessiteConnexion: true, necessiteFournisseur: true, pleinEcran: true } },
@@ -54,9 +55,22 @@ export async function roleSession() {
 // (la connexion n'est pas une page : c'est une fenêtre superposée, ouverte par useFenetreAuth)
 export const PAGES_ESPACE = { admin: ['admin', 'nouveau-mot-de-passe'], fournisseur: ['espace-fournisseur', 'nouveau-mot-de-passe'] }
 
+/**
+ * Lien de l'e-mail « mot de passe oublié » : Supabase ramène sur le site avec « type=recovery » dans l'adresse (ou une
+ * erreur si le lien a expiré), parfois sur l'accueil quand l'adresse de retour n'est pas autorisée. Où qu'il arrive,
+ * le compte est conduit une fois à la page du nouveau mot de passe. Lu au chargement, avant que Supabase nettoie l'adresse.
+ */
+const ARRIVEE = typeof window === 'undefined' ? '' : window.location.hash + window.location.search
+let lienMotDePasse = /[#&?]type=recovery\b/.test(ARRIVEE) || /[#&?]error_code=otp_expired\b/.test(ARRIVEE)
+
 routeur.beforeEach(async (to, from) => {
   // Session locale + rôle en cache : aucun appel réseau à la navigation (la base revérifie tout par la RLS)
   const compte = await roleSession()
+  // après la lecture de la session : Supabase a déjà lu le jeton dans l'adresse, la redirection ne le lui retire pas
+  if (lienMotDePasse) {
+    lienMotDePasse = false
+    if (to.name !== 'nouveau-mot-de-passe') return { name: 'nouveau-mot-de-passe', query: to.query }
+  }
   // Les comptes admin et fournisseur n'utilisent pas le site public (ni accueil, ni devis, ni projets) :
   // toujours ramenés à leur espace.
   if (compte?.role === 'admin' && !PAGES_ESPACE.admin.includes(to.name)) return { name: 'admin' }

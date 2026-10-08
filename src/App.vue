@@ -19,12 +19,18 @@ const pleinEcran = computed(() => !!route.meta.pleinEcran)
 
 // Les comptes admin et fournisseur n'utilisent pas le site public : si le compte le devient sur une page
 // publique (connexion dans un autre onglet…), il rejoint son espace.
+// Au premier chargement, le rôle peut être connu avant la page demandée : on attend le routeur, sinon un administrateur
+// arrivant par le lien « mot de passe oublié » de l'e-mail était envoyé dans son espace sans choisir son mot de passe.
 const { admin, fournisseurLie } = useAuth()
-watch(admin, (estAdmin) => {
-  if (estAdmin && !PAGES_ESPACE.admin.includes(route.name)) router.replace({ name: 'admin' })
+watch(admin, async (estAdmin) => {
+  if (!estAdmin) return
+  await router.isReady()
+  if (admin.value && !PAGES_ESPACE.admin.includes(route.name)) router.replace({ name: 'admin' })
 })
-watch(fournisseurLie, (fid) => {
-  if (fid && !modeSite.value && !PAGES_ESPACE.fournisseur.includes(route.name)) router.replace({ name: 'espace-fournisseur' })
+watch(fournisseurLie, async (fid) => {
+  if (!fid) return
+  await router.isReady()
+  if (fournisseurLie.value && !modeSite.value && !PAGES_ESPACE.fournisseur.includes(route.name)) router.replace({ name: 'espace-fournisseur' })
 })
 // Fournisseur en visite sur le site : retour à son espace
 const visiteFournisseur = computed(() => !!fournisseurLie.value && modeSite.value && !pleinEcran.value)

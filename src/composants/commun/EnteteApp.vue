@@ -16,7 +16,7 @@ import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 const contenu = useContenuSite()
 const route = useRoute()
 const router = useRouter()
-const { connecte, utilisateur, deconnexion, backendDisponible, fournisseurLie, typeProfil, demandePro } = useAuth()
+const { connecte, utilisateur, deconnexion, backendDisponible, fournisseurLie, typeProfil, demandePro, estPro } = useAuth()
 const libelleTypeCompte = computed(() => ({ verifie: 'Professionnel vérifié', en_attente: 'Pro : vérification en cours', refuse: 'Pro : demande refusée' })[demandePro.value?.statut] || (fournisseurLie.value || typeProfil.value === 'fournisseur' ? 'Professionnel (fournisseur)' : 'Particulier'))
 const { mettreAJourProfil, supprimerCompte: supprimerCompteAuth } = useAuth()
 const defile = ref(false)
@@ -42,8 +42,10 @@ const liens = [
   { to: '/fournisseurs', label: 'Fournisseurs', icone: 'fa-solid fa-truck' },
   { to: '/dashboard', label: 'Mes projets', icone: 'fa-solid fa-folder-open' }
 ]
+// « Projet pro » : la page des comptes professionnels (aussi visible pendant la vérification du SIRET, qui y est expliquée)
+const lienPro = { to: '/projet-pro', label: 'Projet pro', icone: 'fa-solid fa-city' }
 const liensVisibles = computed(() => [
-  ...liens.filter((l) => l.to !== '/dashboard' || connecte.value),
+  ...liens.filter((l) => l.to !== '/dashboard' || connecte.value).flatMap((l) => (l.to === '/dashboard' && (estPro.value || demandePro.value?.statut === 'en_attente') ? [lienPro, l] : [l])),
   ...(fournisseurLie.value ? [{ to: '/espace-fournisseur', label: 'Espace fournisseur', icone: 'fa-solid fa-store' }] : [])
 ])
 // pastille sur « Mes projets » : une proposition de BTM (mettre un projet en avant sur l'accueil) attend une réponse

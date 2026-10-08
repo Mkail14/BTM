@@ -2,7 +2,8 @@
 /**
  * Projet professionnel — plusieurs ouvrages dans un même projet (maisons, dalles, murs, terrasses),
  * placés sur un terrain, visibles en 3D (orbite ou visite à hauteur d'homme) avec leurs mesures exactes.
- * Un seul devis : matériaux additionnés, frais BTM, code de retrait et PDF comme le calculateur.
+ * Un seul devis : matériaux additionnés, code de retrait et PDF comme le calculateur. Aucun frais pour le client :
+ * la commission BTM est payée par le fournisseur (contenu.frais.taux n'est pas un montant à lui ajouter).
  * Réservé aux comptes professionnels vérifiés et aux fournisseurs.
  */
 import { computed, onMounted, ref, watch } from 'vue'
@@ -12,7 +13,7 @@ import { useContenuSite } from '@/composables/useContenuSite.js'
 import { useProjetPro, signatureProjet, nouveauProjetPro } from '@/composables/useProjetPro.js'
 import { chargerCatalogue } from '@/services/supabase/serviceMateriaux.js'
 import { chargerFournisseurs } from '@/services/supabase/serviceFournisseurs.js'
-import { formaterEuros, formaterQuantite, formaterNombre, libelleFrais } from '@/services/calculs/moteurCalculs.js'
+import { formaterEuros, formaterQuantite, formaterNombre } from '@/services/calculs/moteurCalculs.js'
 import { TYPES_OUVRAGES, creerOuvrage, calculerProjetPro, mesuresOuvrage } from '@/services/calculs/projetPro.js'
 import ScenePro from '@/composants/pro/ScenePro.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
@@ -64,7 +65,7 @@ const scene = ref(null)
 const devis = computed(() => {
   if (!catalogue.value) return { resultat: null, erreur: '' }
   try {
-    return { resultat: calculerProjetPro(projet.value, { catalogue: catalogue.value, tauxFrais: contenu.frais.taux }), erreur: '' }
+    return { resultat: calculerProjetPro(projet.value, { catalogue: catalogue.value }), erreur: '' }
   } catch (e) {
     return { resultat: null, erreur: e.message }
   }
@@ -253,7 +254,7 @@ const nb = (v, d = 2) => formaterNombre(v, d)
             <div class="pp-total">
               <span>Coût total du projet</span>
               <strong>{{ formaterEuros(devis.resultat.total) }}</strong>
-              <small>{{ formaterEuros(devis.resultat.totalMateriaux) }} de matériaux · {{ libelleFrais(devis.resultat.fraisService.taux) }} {{ formaterEuros(devis.resultat.fraisService.montant) }}</small>
+              <small>Matériaux uniquement · aucun frais BTM pour vous</small>
             </div>
             <p v-if="codeRetrait" class="pp-code"><i class="fa-solid fa-ticket" aria-hidden="true"></i> Code de retrait <strong class="mono">{{ codeRetrait }}</strong></p>
             <p v-if="message && !codeRetrait" class="pp-message">{{ message }}</p>

@@ -25,9 +25,8 @@ export function ligneMateriau(catalogue, id, quantite, decimales = 2) {
   }
 }
 
-export function synthese(lignes, heures, tauxHoraire, livraison) {
+/** Le devis ne porte que sur les matériaux : total = somme des lignes (les frais BTM s'ajoutent ensuite) */
+export function synthese(lignes) {
   const totalMateriaux = arrondi(lignes.reduce((s, l) => s + l.sousTotal, 0))
-  const mainOeuvre = { heures: arrondi(heures, 1), tauxHoraire, total: arrondi(heures * tauxHoraire) }
-  const liv = arrondi(livraison)
-  return { totalMateriaux, mainOeuvre, livraison: liv, total: arrondi(totalMateriaux + mainOeuvre.total + liv) }
+  return { totalMateriaux, total: totalMateriaux }
 }

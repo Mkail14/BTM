@@ -5,14 +5,29 @@
  * grue à tour qui déplace sa charge et immeuble en chantier aux fenêtres allumées.
  * Les plans bougent légèrement avec la souris (parallaxe via --px / --py).
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 
 const racine = ref(null)
+const zoneSommet = ref(null)
+const surSommet = ref(false)
 let raf = null
 let cible = { x: 0, y: 0 }
 let courant = { x: 0, y: 0 }
+const mouvementReduit = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+// Le décor est sous le contenu (pointer-events: none) : on teste donc la distance
+// entre le pointeur et la zone invisible posée sur le sommet du Choungui.
+function detecterSommet(e) {
+  const zone = zoneSommet.value?.getBoundingClientRect()
+  if (!zone || !zone.width) return
+  const dx = e.clientX - (zone.left + zone.width / 2)
+  const dy = e.clientY - (zone.top + zone.height / 2)
+  surSommet.value = Math.hypot(dx, dy) < zone.width / 2
+}
 
 function surPointeur(e) {
+  detecterSommet(e)
+  if (mouvementReduit) return
   cible = { x: e.clientX / window.innerWidth - 0.5, y: e.clientY / window.innerHeight - 0.5 }
   if (!raf) raf = requestAnimationFrame(animer)
 }
@@ -32,14 +47,13 @@ for (let etage = 0; etage < 5; etage++)
     if ([1, 6, 7, 12, 14, 17].includes(n)) fenetres.push({ x: 1236 + col * 16, y: 262 - etage * 22, clignote: n % 3 === 0, delai: (n * 0.7) % 5 })
   }
 
-onMounted(() => {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  window.addEventListener('pointermove', surPointeur, { passive: true })
-})
-onBeforeUnmount(() => {
-  window.removeEventListener('pointermove', surPointeur)
-  if (raf) cancelAnimationFrame(raf)
-})
+// accueil gardé en mémoire (keep-alive) : pas de suivi du pointeur pendant qu'on est sur une autre page
+const brancher = () => window.addEventListener('pointermove', surPointeur, { passive: true })
+const debrancher = () => { window.removeEventListener('pointermove', surPointeur); if (raf) cancelAnimationFrame(raf); raf = null }
+onMounted(brancher)
+onActivated(brancher)
+onDeactivated(debrancher)
+onBeforeUnmount(debrancher)
 </script>
 
 <template>
@@ -67,6 +81,15 @@ onBeforeUnmount(() => {
       <!-- Crête lointaine avec le mont Choungui -->
       <g class="plan plan-loin">
         <path fill="#17232a" d="M-500 262 H0 C120 244 210 252 310 236 C390 222 450 230 540 214 L600 178 L632 110 L646 104 L662 118 L700 186 C760 212 830 220 930 222 C1030 224 1120 204 1220 214 C1320 224 1390 216 1440 220 H2000 V400 H-500 Z" />
+
+        <!-- Sommet du Choungui : zone de détection + étiquette discrète au survol -->
+        <circle ref="zoneSommet" cx="646" cy="122" r="34" fill="none" />
+        <g class="sommet" :class="{ visible: surSommet }">
+          <circle class="sommet-point" cx="646" cy="104" r="2.2" />
+          <path class="sommet-trait" d="M646 100 V66 H660" />
+          <text class="sommet-nom" x="666" y="64">MONT CHOUNGUI · 594 m</text>
+          <text class="sommet-info" x="666" y="78">Le pic emblématique de Mayotte</text>
+        </g>
       </g>
 
       <!-- Collines proches -->
@@ -151,6 +174,17 @@ onBeforeUnmount(() => {
 .chariot { animation: chariot 16s ease-in-out infinite; }
 .charge { transform-box: view-box; transform-origin: 1261px 153px; animation: balancer 4s ease-in-out infinite; }
 
+/* Étiquette du mont Choungui : apparaît en fondu quand la souris frôle le sommet */
+.sommet { opacity: 0; transform: translateY(4px); transition: opacity .5s ease, transform .5s ease; }
+.sommet.visible { opacity: 1; transform: translateY(0); }
+.sommet-point { fill: #ffd58a; filter: drop-shadow(0 0 4px rgba(245, 158, 11, .9)); }
+.sommet.visible .sommet-point { animation: pulser 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.sommet-trait { fill: none; stroke: rgba(255, 213, 138, .45); stroke-width: .8;
+  stroke-dasharray: 60; stroke-dashoffset: 60; transition: stroke-dashoffset .6s ease .1s; }
+.sommet.visible .sommet-trait { stroke-dashoffset: 0; }
+.sommet-nom { font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .18em; fill: rgba(255, 255, 255, .78); }
+.sommet-info { font-family: var(--font-corps); font-size: 8px; font-style: italic; fill: rgba(255, 213, 138, .6); }
+
 .fenetre { fill: #f7b955; opacity: .85; }
 .fenetre.clignote { animation: clignoter 6s steps(1) infinite; }
 
@@ -170,6 +204,7 @@ onBeforeUnmount(() => {
 @keyframes balancer { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
 @keyframes clignoter { 0%, 70% { opacity: .85; } 71%, 100% { opacity: .15; } }
 @keyframes scintiller { to { stroke-dashoffset: -180; } }
+@keyframes pulser { 50% { transform: scale(1.8); opacity: .5; } }
 
 @media (prefers-reduced-motion: reduce) {
   .paysage *, .paysage { animation: none !important; }

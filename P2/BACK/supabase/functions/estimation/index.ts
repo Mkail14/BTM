@@ -25,6 +25,7 @@ interface Ligne {
 }
 
 const arrondi = (n: number, d = 2) => Math.round(n * 10 ** d) / 10 ** d;
+const TAUX_FRAIS_DEFAUT = 1.25;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -39,10 +40,14 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
     );
 
-    const [{ data: typeProjet, error: e1 }, { data: materiaux, error: e2 }] = await Promise.all([
+    const [{ data: typeProjet, error: e1 }, { data: materiaux, error: e2 }, { data: frais }] = await Promise.all([
       supabase.from("types_projets").select("*").eq("id", type).single(),
       supabase.from("materiaux").select("*"),
+      supabase.from("contenus_site").select("valeur").eq("cle", "frais").maybeSingle(),
     ]);
+    // Frais de service BTM (% du coût des travaux), réglés dans /admin — 1,25 % par défaut
+    const tauxLu = Number((frais?.valeur as { taux?: unknown } | null)?.taux);
+    const tauxFrais = Number.isFinite(tauxLu) && tauxLu >= 0 ? tauxLu : TAUX_FRAIS_DEFAUT;
     if (e1 || !typeProjet) throw new Error("Type de projet inconnu");
     if (e2 || !materiaux) throw new Error("Impossible de charger les matériaux");
 
@@ -59,7 +64,6 @@ Deno.serve(async (req) => {
     });
 
     let lignes: Ligne[] = [];
-    let heures = 0, tauxHoraire = 0, livraison = 0;
     const mesures: Record<string, number> = {};
 
     if (type === "mur") {
@@ -71,9 +75,6 @@ Deno.serve(async (req) => {
         ligne("ciment", Math.ceil(surface / (p.m2ParSacCiment as number))),
         ligne("sable", surface / (p.m2ParM3Sable as number)),
       ];
-      heures = (surface / 10) * (p.heuresPour10m2 as number);
-      tauxHoraire = p.tauxHoraire as number;
-      livraison = p.livraisonFixe as number;
     } else if (type === "dalle" || type === "terrasse") {
       const surface = num("longueur") * num("largeur");
       const volume = surface * (num("epaisseur") / 100);
@@ -89,28 +90,23 @@ Deno.serve(async (req) => {
         const finition = String(dimensions.finition ?? "carrelage");
         lignes.push(ligne(finition === "beton_lisse" ? "beton_lisse" : "carrelage", surface));
       }
-      heures = (surface / 10) * (p.heuresPour10m2 as number);
-      tauxHoraire = p.tauxHoraire as number;
-      livraison = (p.livraisonFixe as number) + tonnesBeton * (p.livraisonParTonne as number);
     } else if (type === "fondation") {
       const volume = num("longueur") * num("largeur") * num("profondeur");
       const tonnesBeton = volume * (p.densiteBeton as number);
       mesures.volume = arrondi(volume, 3);
       lignes = [ligne("beton_arme", tonnesBeton), ligne("acier", volume * (p.kgAcierParM3 as number))];
-      heures = volume * (p.heuresParM3 as number);
-      tauxHoraire = p.tauxHoraire as number;
-      livraison = (p.livraisonFixe as number) + tonnesBeton * (p.livraisonParTonne as number);
     } else {
       throw new Error("Type de projet non pris en charge");
     }
 
     const totalMateriaux = arrondi(lignes.reduce((s, l) => s + l.sousTotal, 0));
-    const mainOeuvre = { heures: arrondi(heures, 1), tauxHoraire, total: arrondi(heures * tauxHoraire) };
-    livraison = arrondi(livraison);
-    const total = arrondi(totalMateriaux + mainOeuvre.total + livraison);
+    // devis « matériaux uniquement » : les frais BTM s'appliquent aux matériaux
+    const sousTotal = totalMateriaux;
+    const fraisService = { taux: tauxFrais, montant: arrondi((sousTotal * tauxFrais) / 100) };
+    const total = arrondi(sousTotal + fraisService.montant);
 
     return new Response(
-      JSON.stringify({ type, dimensions, mesures, lignes, totalMateriaux, mainOeuvre, livraison, total,
+      JSON.stringify({ type, dimensions, mesures, lignes, totalMateriaux, sousTotal, fraisService, total,
         avertissement: "Estimation indicative — ne constitue pas un devis officiel." }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

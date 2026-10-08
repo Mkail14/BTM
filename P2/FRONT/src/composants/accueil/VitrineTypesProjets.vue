@@ -1,14 +1,10 @@
 <script setup>
 import { ref } from 'vue'
 import { typesProjets } from '@/donnees/typesProjets.js'
+import { useContenuSite } from '@/composables/useContenuSite.js'
 import Maquette3D from './Maquette3D.vue'
 
-const accroches = {
-  mur: 'Parpaings, ciment, sable',
-  dalle: 'Béton, treillis, hérisson',
-  fondation: 'Semelles en béton armé',
-  terrasse: 'Carrelage ou béton lissé'
-}
+const contenu = useContenuSite()
 const survol = ref(null)
 </script>
 
@@ -16,8 +12,8 @@ const survol = ref(null)
   <section id="types-projets" class="section vitrine" aria-labelledby="vitrine-titre">
     <div class="conteneur">
       <header class="section-entete reveal">
-        <span class="section-surtitre">Ouvrages</span>
-        <h2 id="vitrine-titre" class="section-titre">Que construisez-vous ?</h2>
+        <span class="section-surtitre">{{ contenu.ouvrages.surtitre }}</span>
+        <h2 id="vitrine-titre" class="section-titre">{{ contenu.ouvrages.titre }}</h2>
       </header>
 
       <div class="ouvrages">
@@ -34,7 +30,7 @@ const survol = ref(null)
           <div class="ouvrage-pied">
             <div>
               <h3>{{ t.libelle }}</h3>
-              <p>{{ accroches[t.id] }}</p>
+              <p>{{ t.accroche }}</p>
             </div>
             <span class="ouvrage-fleche"><i class="fa-solid fa-arrow-right"></i></span>
           </div>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Confirmez votre nouvelle adresse</title>
+</head>
+<body style="margin:0;padding:0;background:#eef3f6;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#374151;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Validez le changement d’adresse e-mail de votre compte BTM.</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef3f6;padding:32px 12px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(11,18,32,.10);">
+        <tr><td style="background:#0b1220;padding:26px 32px;border-bottom:4px solid #06b6d4;">
+<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+  <td style="padding-right:14px;vertical-align:middle;">
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="12" height="7" style="background:#06b6d4;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td><td width="3" style="font-size:0;line-height:0;">&nbsp;</td><td width="12" height="7" style="background:#ffffff;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td><td width="3" style="font-size:0;line-height:0;">&nbsp;</td><td width="12" height="7" style="background:#ffffff;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+    <div style="height:3px;font-size:0;line-height:0;">&nbsp;</div>
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="5" height="7" style="background:#ffffff;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td><td width="3" style="font-size:0;line-height:0;">&nbsp;</td><td width="12" height="7" style="background:#ffffff;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td><td width="3" style="font-size:0;line-height:0;">&nbsp;</td><td width="12" height="7" style="background:#06b6d4;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td><td width="3" style="font-size:0;line-height:0;">&nbsp;</td><td width="5" height="7" style="background:#ffffff;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+    <div style="height:3px;font-size:0;line-height:0;">&nbsp;</div>
+    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td width="12" height="7" style="background:#ffffff;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td><td width="3" style="font-size:0;line-height:0;">&nbsp;</td><td width="12" height="7" style="background:#ffffff;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td><td width="3" style="font-size:0;line-height:0;">&nbsp;</td><td width="12" height="7" style="background:#ffffff;border-radius:2px;font-size:0;line-height:0;">&nbsp;</td></tr></table>
+  </td>
+  <td style="vertical-align:middle;">
+    <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:26px;font-weight:800;letter-spacing:.06em;color:#ffffff;line-height:1;">BTM</div>
+    <div style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;margin-top:4px;font-size:10px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#67e8f9;">Bâtiment &amp; Travaux Mayotte</div>
+  </td>
+</tr></table></td></tr>
+        <tr><td style="padding:36px 32px 8px;">
+          <div style="width:56px;height:56px;line-height:56px;text-align:center;font-size:28px;background:#ecfeff;border-radius:50%;margin-bottom:18px;">✉️</div>
+          <h1 style="margin:0 0 14px;font-size:25px;line-height:1.25;color:#0b1220;">Confirmez votre nouvelle adresse</h1>
+          <p style="margin:0 0 12px;font-size:16px;line-height:1.65;color:#374151;">Bonjour{{ if .Data.prenom }} {{ .Data.prenom }}{{ end }},</p><p style="margin:0 0 12px;font-size:16px;line-height:1.65;color:#374151;">Vous avez demandé à remplacer <strong>{{ .Email }}</strong> par <strong>{{ .NewEmail }}</strong> pour vous connecter à BTM.</p>
+        </td></tr>
+        <tr><td style="padding:20px 32px 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr>
+  <td style="background:#0e7490;border-radius:10px;">
+    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:15px 34px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">Confirmer ma nouvelle adresse</a>
+  </td>
+</tr></table></td></tr>
+        
+        <tr><td style="padding:0 32px 24px;">
+<p style="margin:0 0 6px;font-size:13px;line-height:1.6;color:#6b7280;">Le bouton ne fonctionne pas&nbsp;? Copiez ce lien dans votre navigateur&nbsp;:</p>
+<p style="margin:0;font-size:12px;line-height:1.5;word-break:break-all;"><a href="{{ .ConfirmationURL }}" style="color:#0e7490;">{{ .ConfirmationURL }}</a></p></td></tr>
+        <tr><td style="padding:0 32px 32px;">
+<div style="background:#f7fafb;border-left:4px solid #f59e0b;border-radius:6px;padding:14px 16px;font-size:13px;line-height:1.6;color:#4b5563;">Vous n’avez pas demandé ce changement&nbsp;? Ne cliquez pas, changez votre mot de passe et prévenez-nous à <a href="mailto:contact@btm.yt" style="color:#0e7490;">contact@btm.yt</a>.</div></td></tr>
+        <tr><td style="background:#f7fafb;padding:22px 32px;border-top:1px solid #e5edf1;text-align:center;">
+          <p style="margin:0 0 6px;font-size:13px;color:#374151;"><a href="{{ .SiteURL }}" style="color:#0e7490;font-weight:700;text-decoration:none;">www.btm.yt</a> &nbsp;·&nbsp; <a href="mailto:contact@btm.yt" style="color:#0e7490;text-decoration:none;">contact@btm.yt</a></p>
+          <p style="margin:0;font-size:12px;line-height:1.5;color:#9ca3af;">BTM — Bâtiment &amp; Travaux Mayotte<br>Estimez vos travaux et retirez vos matériaux chez nos fournisseurs partenaires.</p>
+        </td></tr>
+      </table>
+      <p style="margin:18px 0 0;font-size:11px;color:#9ca3af;">Message automatique envoyé à {{ .Email }} — merci de ne pas y répondre directement.</p>
+    </td></tr>
+  </table>
+</body>
+</html>

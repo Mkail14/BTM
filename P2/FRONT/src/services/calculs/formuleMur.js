@@ -4,8 +4,6 @@
  *  - Parpaings 20×20×40 : Surface nette / 0,08 × 1,05 (marge 5 %)
  *  - Ciment gris 35 kg  : Surface nette / 2,5
  *  - Sable              : Surface nette / 10
- *  - Main-d'œuvre       : 8 h pour 10 m² à 15 €/h
- *  - Livraison          : 50 € fixe (une seule livraison pour l'ensemble des murs)
  */
 import { arrondi, nombre, ligneMateriau, synthese } from './utilitaires.js'
 
@@ -31,8 +29,6 @@ export function calculerMur(dimensions, parametres, catalogue) {
     ligneMateriau(catalogue, 'sable', surfaceNette / parametres.m2ParM3Sable, 2)
   ]
 
-  const heures = (surfaceNette / 10) * parametres.heuresPour10m2
-
   return {
     mesures: [
       ...(murs.length > 1 ? [{ label: 'Nombre de murs', valeur: murs.length, unite: '' }] : []),
@@ -41,6 +37,6 @@ export function calculerMur(dimensions, parametres, catalogue) {
       { label: 'Surface nette', valeur: arrondi(surfaceNette), unite: 'm²', principale: true }
     ],
     lignes,
-    ...synthese(lignes, heures, parametres.tauxHoraire, parametres.livraisonFixe)
+    ...synthese(lignes)
   }
 }

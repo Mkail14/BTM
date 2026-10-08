@@ -3,6 +3,8 @@
  * Utilisé comme stockage principal hors connexion et comme cache local
  * lorsque l'utilisateur est connecté à Supabase.
  */
+import { normaliserResultat } from '@/services/calculs/moteurCalculs.js'
+
 const CLE = 'btm:projets'
 
 const dispo = () => typeof window !== 'undefined' && !!window.localStorage
@@ -12,7 +14,8 @@ export function lireProjets() {
   try {
     const brut = localStorage.getItem(CLE)
     const liste = brut ? JSON.parse(brut) : []
-    return Array.isArray(liste) ? liste : []
+    // anciennes estimations : main-d'œuvre et livraison retirées, total recalculé sur les matériaux
+    return Array.isArray(liste) ? liste.map((p) => (p.resultat ? { ...p, resultat: normaliserResultat(p.resultat), cout_total: normaliserResultat(p.resultat).total } : p)) : []
   } catch {
     return []
   }

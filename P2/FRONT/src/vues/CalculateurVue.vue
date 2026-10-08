@@ -1,8 +1,11 @@
 <script setup>
 /**
- * Calculateur en assistant pas à pas : type de projet → une question par écran → récapitulatif → calcul.
+ * Calculateur, deux façons de faire son devis :
+ *  - « Selon mes mesures » : assistant pas à pas (type de projet → une question par écran → récapitulatif) ;
+ *  - « Je sais ce qu'il me faut » : choix direct des matériaux et des quantités, sans mesures.
+ * Comptes pro : chaque estimation peut rejoindre un même devis (plusieurs ouvrages et achats).
  */
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCalculateur } from '@/composables/useCalculateur.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
@@ -11,10 +14,35 @@ import SelecteurTypeProjet from '@/composants/calculateur/SelecteurTypeProjet.vu
 import Maquette3D from '@/composants/calculateur/Maquette3D.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
+import CatalogueDirect from '@/composants/calculateur/CatalogueDirect.vue'
+import { useAuth } from '@/composables/useAuth.js'
 
 const route = useRoute()
 const router = useRouter()
 const calc = useCalculateur()
+const { estPro } = useAuth()
+
+// Mode : selon mes mesures, ou achat direct (« Je sais ce qu'il me faut »)
+const mode = ref(route.query.mode === 'direct' ? 'direct' : 'mesures')
+watch(() => route.query.mode, (m) => { mode.value = m === 'direct' ? 'direct' : 'mesures' })
+function changerMode(m) {
+  mode.value = m
+  router.replace({ query: m === 'direct' ? { mode: 'direct' } : {} })
+}
+const achatInitial = computed(() => (calc.resultat.value?.type === 'achat' ? calc.resultat.value.lignes : []))
+async function validerAchat(choix) {
+  calc.erreurGlobale.value = ''
+  try {
+    calc.achatDirect(choix)
+    // push() ne lève pas d'erreur quand la navigation est interrompue : il renvoie l'échec
+    const echec = await router.push('/resultats')
+    if (echec) throw new Error(echec.message || 'navigation vers les résultats interrompue')
+  } catch (e) {
+    // jamais de clic « sans effet » : le problème s'affiche sous la liste des matériaux et dans la console
+    console.error('Comparer les fournisseurs :', e)
+    calc.erreurGlobale.value = `La comparaison n’a pas pu s’afficher (${e?.message || 'erreur inconnue'})`
+  }
+}
 
 /** 'type' | index de la question | 'recap' */
 const etape = ref('type')
@@ -121,16 +149,82 @@ function valider() {
 }
 
 async function soumettre() {
-  const ok = await calc.calculer()
-  if (ok) return router.push('/resultats')
-  const premiere = Object.keys(calc.erreurs)[0]
-  if (premiere) modifier(premiere)
+  try {
+    const ok = await calc.calculer()
+    if (ok) {
+      // push() ne lève pas d'erreur quand la navigation est interrompue : il renvoie l'échec
+      const echec = await router.push('/resultats')
+      if (echec) throw new Error(echec.message || 'navigation vers les résultats interrompue')
+      return
+    }
+    const premiere = Object.keys(calc.erreurs)[0]
+    if (premiere) modifier(premiere)
+  } catch (e) {
+    // jamais de clic « sans effet » : le problème s'affiche sous le récapitulatif et dans la console
+    console.error('Obtenir mon devis :', e)
+    calc.erreurGlobale.value = `Le devis n’a pas pu s’afficher (${e?.message || 'erreur inconnue'})`
+  }
 }
 
+// Ligne d'aide sous la question quand le champ n'en a pas : elle dit dans quelle unité répondre
+const UNITES = { m: 'mètres', cm: 'centimètres', mm: 'millimètres', 'm²': 'mètres carrés', 'm³': 'mètres cubes', u: 'unités' }
+const aideUnite = (unite) => (UNITES[unite] ? `Indiquez la valeur en ${UNITES[unite]}` : 'Indiquez la valeur')
+
 function focaliser() {
-  nextTick(() => document.querySelector('.assistant-focus')?.focus())
+  nextTick(() => {
+    const el = document.querySelector('.assistant-focus')
+    if (!window.matchMedia(TELEPHONE).matches) return el?.focus()
+    el?.focus({ preventScroll: true }) // le défilement natif ignorerait la maquette collée en haut
+    ramenerSousMaquette(el)
+  })
 }
 watch(etape, focaliser)
+
+// ---------- Téléphone : la maquette 3D reste visible pendant la saisie ----------
+// Sous 900 px, la maquette est collée sous l'entête (CSS). Quand le clavier s'ouvre, la zone visible rétrécit :
+// la maquette se fait plus petite et le champ en cours de saisie est ramené juste en dessous d'elle.
+const TELEPHONE = '(max-width: 899px)'
+const hauteurMaquette = ref('')
+let hauteurVisibleMax = 0
+const styleMaquette = computed(() => (hauteurMaquette.value ? { '--hauteur-maquette': hauteurMaquette.value } : null))
+
+function ramenerSousMaquette(el = document.activeElement) {
+  if (!el?.closest?.('.assistant-contenu') || !window.matchMedia(TELEPHONE).matches) return
+  requestAnimationFrame(() => {
+    // la question et son champ ensemble quand ils tiennent sous la maquette, sinon au moins le champ
+    // (scroll-margin-top, en CSS, tient compte de l'entête et de la maquette collées en haut)
+    const question = el.closest('.assistant-panneau')?.querySelector('.assistant-question')
+    const maquette = document.querySelector('.assistant-maquette')?.getBoundingClientRect()
+    const place = (window.visualViewport?.height || window.innerHeight) - (maquette?.bottom || 0)
+    const ensemble = question && question !== el ? el.getBoundingClientRect().bottom - question.getBoundingClientRect().top + 24 : Infinity
+    if (ensemble <= place) question.scrollIntoView({ block: 'start' })
+    else el.scrollIntoView({ block: 'nearest' })
+  })
+}
+
+function surZoneVisible() {
+  const vv = window.visualViewport
+  if (!vv || !window.matchMedia(TELEPHONE).matches) { hauteurMaquette.value = ''; return }
+  hauteurVisibleMax = Math.max(hauteurVisibleMax, vv.height)
+  const clavierOuvert = vv.height < hauteurVisibleMax * 0.78
+  const etaitOuvert = !!hauteurMaquette.value
+  hauteurMaquette.value = clavierOuvert ? `${Math.round(Math.min(200, Math.max(120, vv.height * 0.3)))}px` : ''
+  if (clavierOuvert) ramenerSousMaquette()
+  // clavier refermé : la maquette reprend sa taille, la question en cours ne doit pas passer dessous
+  else if (etaitOuvert) nextTick(() => ramenerSousMaquette(document.querySelector('.assistant-contenu input, .assistant-contenu .assistant-focus')))
+}
+const surRotation = () => { hauteurVisibleMax = 0; surZoneVisible() }
+
+onMounted(() => {
+  // hauteur de référence, clavier fermé : sans elle, le premier rétrécissement (ouverture du clavier) passerait inaperçu
+  hauteurVisibleMax = Math.max(window.visualViewport?.height || 0, window.innerHeight)
+  window.visualViewport?.addEventListener('resize', surZoneVisible)
+  window.addEventListener('orientationchange', surRotation)
+})
+onBeforeUnmount(() => {
+  window.visualViewport?.removeEventListener('resize', surZoneVisible)
+  window.removeEventListener('orientationchange', surRotation)
+})
 
 // ---------- Récapitulatif ----------
 function formater(champ, valeur) {
@@ -162,11 +256,33 @@ const recapitulatif = computed(() => {
     <div class="conteneur">
       <h1 class="visually-hidden">Le devis de votre projet</h1>
 
-      <div class="assistant-progression" role="progressbar" :aria-valuenow="position" aria-valuemin="1" :aria-valuemax="total" :aria-label="`Étape ${position} sur ${total}`">
+      <div v-if="mode === 'mesures'" class="assistant-progression" role="progressbar" :aria-valuenow="position" aria-valuemin="1" :aria-valuemax="total" :aria-label="`Étape ${position} sur ${total}`">
         <span :style="{ width: `${(position / total) * 100}%` }"></span>
       </div>
 
-      <form novalidate @submit.prevent="valider">
+      <!-- Devis pro en cours : l'estimation suivante le rejoindra -->
+      <p v-if="estPro && calc.cumul.value.length" class="calc-pro">
+        <span class="calc-pro-badge">Pro</span>
+        <span>Devis en cours : <strong>{{ calc.cumul.value.length }} élément{{ calc.cumul.value.length > 1 ? 's' : '' }}</strong>. Ce que vous calculez maintenant s’y ajoutera.</span>
+        <router-link to="/resultats">Voir le devis</router-link>
+      </p>
+
+      <!-- Deux façons de faire son devis -->
+      <div v-if="mode === 'direct' || etape === 'type'" class="calc-modes" role="tablist" aria-label="Façon de faire mon devis">
+        <button type="button" role="tab" :aria-selected="mode === 'mesures'" @click="changerMode('mesures')">
+          <i class="fa-solid fa-ruler-combined" aria-hidden="true"></i><span><strong>Selon mes mesures</strong><small>Je donne les dimensions, BTM calcule les quantités</small></span>
+        </button>
+        <button type="button" role="tab" :aria-selected="mode === 'direct'" @click="changerMode('direct')">
+          <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span><strong>Je sais ce qu’il me faut</strong><small>Je choisis mes matériaux et mes quantités</small></span>
+        </button>
+      </div>
+
+      <template v-if="mode === 'direct'">
+        <BandeauAvertissement v-if="calc.erreurGlobale.value" type="erreur" compact>{{ calc.erreurGlobale.value }}</BandeauAvertissement>
+        <CatalogueDirect :initial="achatInitial" @valider="validerAchat" />
+      </template>
+
+      <form v-else novalidate @submit.prevent="valider">
         <transition name="fondu" mode="out-in">
           <!-- 1. Choix du projet -->
           <section v-if="etape === 'type'" key="type" class="assistant-etape">
@@ -176,7 +292,7 @@ const recapitulatif = computed(() => {
           </section>
 
           <!-- 2. Questions et récapitulatif : la maquette 3D reste en place, seul le texte change -->
-          <section v-else key="assistant" class="carte assistant-carte">
+          <section v-else key="assistant" class="carte assistant-carte" :style="styleMaquette" @focusin="ramenerSousMaquette($event.target)">
             <div class="assistant-contenu">
               <p class="assistant-contexte">
                 <span class="assistant-puce">
@@ -187,6 +303,9 @@ const recapitulatif = computed(() => {
 
               <transition name="fondu" mode="out-in">
                 <div v-if="question" :key="question.cle" class="assistant-panneau">
+                  <!-- question et réponse centrées dans la carte, les boutons restent en bas -->
+                  <div class="assistant-corps">
+                  <p class="assistant-numero">Question {{ etape + 1 }} sur {{ questions.length }}</p>
                   <template v-if="question.special">
                     <h2 class="assistant-question assistant-focus" tabindex="-1">Avez-vous un autre mur à ajouter ?</h2>
                     <p class="assistant-aide">Ajoutez autant de murs que vous voulez : tout sera calculé ensemble.</p>
@@ -211,7 +330,7 @@ const recapitulatif = computed(() => {
 
                   <template v-else>
                     <label :for="`champ-${question.cle}`" class="assistant-question">{{ question.champ.question }}</label>
-                    <p v-if="question.champ.aide" class="assistant-aide">{{ question.champ.aide }}</p>
+                    <p class="assistant-aide">{{ question.champ.aide || aideUnite(question.champ.unite) }}</p>
                     <div class="assistant-saisie" :class="{ erreur: calc.erreurs[question.cle] }">
                       <input
                         :id="`champ-${question.cle}`" class="assistant-focus" type="number" inputmode="decimal"
@@ -227,6 +346,7 @@ const recapitulatif = computed(() => {
                       Il n’y a ni porte ni fenêtre
                     </button>
                   </template>
+                  </div>
 
                   <div class="assistant-actions">
                     <BoutonBase variante="ghost" type="button" icone="fa-solid fa-arrow-left" @click="precedent">Retour</BoutonBase>
@@ -276,6 +396,20 @@ const recapitulatif = computed(() => {
 </template>
 
 <style scoped>
+.calc-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 22px; }
+.calc-modes button { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid var(--gris-200); border-radius: var(--rayon); background: #fff; font: inherit; text-align: left; color: inherit; cursor: pointer; transition: border-color var(--transition), background var(--transition); }
+.calc-modes button:hover { border-color: var(--lagon-500); }
+.calc-modes button[aria-selected="true"] { border-color: var(--lagon-600); background: var(--lagon-50); }
+.calc-modes i { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--gris-100); color: var(--ardoise); }
+.calc-modes button[aria-selected="true"] i { background: var(--lagon-600); color: #fff; }
+.calc-modes span { display: flex; flex-direction: column; }
+.calc-modes strong { color: var(--ardoise); }
+.calc-modes small { color: var(--texte-secondaire); font-size: .8rem; }
+.calc-pro { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-radius: var(--rayon); background: var(--ardoise); color: #fff; font-size: .9rem; }
+.calc-pro a { margin-left: auto; color: #fcd34d; font-weight: 700; }
+.calc-pro-badge { padding: 2px 10px; border-radius: 999px; background: #fcd34d; color: var(--ardoise); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+@media (max-width: 560px) { .calc-modes { grid-template-columns: 1fr; } }
+
 .assistant-progression { height: 6px; margin: 8px auto 32px; max-width: 520px; border-radius: 999px; background: var(--gris-200); overflow: hidden; }
 .assistant-progression span { display: block; height: 100%; border-radius: inherit; background: var(--lagon-600); transition: width .4s ease; }
 
@@ -287,16 +421,31 @@ const recapitulatif = computed(() => {
 @media (min-width: 900px) { .assistant-carte { grid-template-columns: 1.1fr 1fr; min-height: 440px; } }
 .assistant-contenu { display: flex; flex-direction: column; padding: 32px; }
 .assistant-panneau { display: flex; flex: 1; flex-direction: column; }
+.assistant-corps { display: flex; flex: 1; flex-direction: column; justify-content: center; padding: 8px 0; }
+.assistant-numero { margin: 0 0 8px; color: var(--lagon-700); font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .assistant-ajouter { align-self: flex-start; margin-bottom: 8px; }
 .assistant-maquette { order: -1; height: 300px; background: radial-gradient(circle at 50% 55%, #fff, var(--lagon-50) 75%); }
 @media (min-width: 900px) { .assistant-maquette { order: 0; height: auto; border-left: 1px solid var(--gris-200); } }
+/* Téléphone et tablette : la maquette reste collée sous l'entête pendant qu'on remplit le formulaire,
+   et rétrécit quand le clavier est ouvert (--hauteur-maquette, réglée dans le script) */
+@media (max-width: 899px) {
+  .assistant-carte { overflow: clip; } /* « hidden » empêcherait la maquette de rester collée */
+  .assistant-maquette {
+    position: sticky; top: var(--hauteur-entete); z-index: 3;
+    height: var(--hauteur-maquette, 260px);
+    border-bottom: 1px solid var(--gris-200);
+    box-shadow: 0 8px 18px -14px rgba(11, 18, 32, .35);
+    transition: height .2s ease;
+  }
+  .assistant-contenu :is(input, .assistant-focus, .assistant-question) { scroll-margin-top: calc(var(--hauteur-entete) + var(--hauteur-maquette, 260px) + 12px); }
+}
 
 .assistant-contexte { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .assistant-puce { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: var(--lagon-50); color: var(--lagon-800); font-size: .85rem; font-weight: 700; }
 .assistant-lien { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; }
 .assistant-lien:hover { text-decoration: underline; }
 
-.assistant-saisie { display: flex; align-items: center; max-width: 340px; border: 2px solid var(--gris-300); border-radius: var(--rayon); background: #fff; transition: border-color .2s, box-shadow .2s; }
+.assistant-saisie { display: flex; align-items: center; width: 100%; max-width: 420px; border: 2px solid var(--gris-300); border-radius: var(--rayon); background: #fff; transition: border-color .2s, box-shadow .2s; }
 .assistant-saisie:focus-within { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .16); }
 .assistant-saisie.erreur { border-color: var(--erreur); }
 .assistant-saisie input { flex: 1; min-width: 0; padding: 16px 18px; border: 0; outline: 0; background: transparent; color: var(--ardoise); font: 600 1.6rem var(--font-corps); }

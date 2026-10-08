@@ -3,7 +3,9 @@
  * BoutonBase — bouton ou lien (router-link / a) avec variantes du design system.
  * variantes : primaire | secondaire | ghost | sable | danger | blanc
  */
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   variante: { type: String, default: 'primaire' },
   taille: { type: String, default: '' },          // '' | 'sm'
   to: { type: [String, Object], default: null },   // router-link
@@ -15,17 +17,20 @@ defineProps({
   icone: { type: String, default: '' },
   iconeDroite: { type: String, default: '' }
 })
+
+// Seuls les attributs propres à chaque élément sont transmis : un `href: undefined` passé à
+// router-link écraserait l'adresse qu'il calcule (lien sans href = ni clavier, ni nouvel onglet).
+const attributs = computed(() => {
+  if (props.to) return { to: props.to }
+  if (props.href) return { href: props.href, target: '_blank', rel: 'noopener noreferrer' }
+  return { type: props.type, disabled: props.disabled || props.chargement }
+})
 </script>
 
 <template>
   <component
     :is="to ? 'router-link' : href ? 'a' : 'button'"
-    :to="to || undefined"
-    :href="href || undefined"
-    :target="href ? '_blank' : undefined"
-    :rel="href ? 'noopener noreferrer' : undefined"
-    :type="!to && !href ? type : undefined"
-    :disabled="!to && !href ? disabled || chargement : undefined"
+    v-bind="attributs"
     :aria-busy="chargement || undefined"
     class="btn"
     :class="[`btn-${variante}`, taille && `btn-${taille}`, { 'btn-bloc': bloc }]"

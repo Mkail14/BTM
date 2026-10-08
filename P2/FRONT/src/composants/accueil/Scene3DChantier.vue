@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
@@ -13,6 +13,10 @@ let pointer = { x: 0, y: 0 }
 let lastFrameTime = 0
 let scrollOffset = 0
 let currentScale = 1
+// Le rendu ne tourne que si la page d'accueil est affichée (keep-alive) et la scène visible à l'écran
+let actif = false
+let visible = true
+let observateurVisibilite = null
 
 function updateModelPosition(timeMs) {
   if (!model) return
@@ -31,8 +35,11 @@ function updateModelPosition(timeMs) {
   model.scale.setScalar(currentScale)
 }
 
+let generation = 0 // chaque (re)construction invalide les chargements de la précédente
+
 function setup3DScene() {
   if (!sceneElement.value) return
+  const maGeneration = ++generation
 
   const container = sceneElement.value
   const width = container.clientWidth
@@ -47,6 +54,7 @@ function setup3DScene() {
   renderer.setSize(width, height)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.setClearColor(0x000000, 0)
+  renderer.domElement.addEventListener('webglcontextlost', surPerteContexte)
   container.appendChild(renderer.domElement)
 
   const ambientLight = new THREE.AmbientLight(0xffffff, 1.45)
@@ -69,6 +77,7 @@ function setup3DScene() {
   loader.load(
     '/model1.glb',
     (gltf) => {
+      if (!scene || maGeneration !== generation) return // démonté ou reconstruit pendant le chargement
       const loadedModel = gltf.scene
 
       loadedModel.traverse((child) => {
@@ -95,8 +104,12 @@ function setup3DScene() {
       camera.position.set(0.4, 1.1, fitDistance)
       camera.lookAt(0, 0.1, 0)
 
-      model = loadedModel
-      scene.add(model)
+      // shaders compilés en parallèle avant l'affichage : l'apparition du modèle ne fige pas la page
+      renderer.compileAsync(loadedModel, camera, scene).catch(() => {}).then(() => {
+        if (!scene || maGeneration !== generation) return
+        model = loadedModel
+        scene.add(model)
+      })
     },
     undefined,
     (error) => {
@@ -104,32 +117,42 @@ function setup3DScene() {
     }
   )
 
-  const animate = (timeMs) => {
-    animationFrameId = requestAnimationFrame(animate)
+  demarrer()
+}
 
-    if (!renderer || !scene || !camera) return
+function animate(timeMs) {
+  animationFrameId = requestAnimationFrame(animate)
 
-    if (!lastFrameTime) lastFrameTime = timeMs
-    const delta = (timeMs - lastFrameTime) / 1000
-    lastFrameTime = timeMs
+  if (!renderer || !scene || !camera) return
 
-    if (model) {
-      updateModelPosition(timeMs)
-      model.rotation.y += 0.0035 + delta * 0.2
-      model.rotation.x += (-(0.35 + pointer.y * 0.35) - model.rotation.x) * 0.04
-      model.rotation.z += (pointer.x * 0.18 - model.rotation.z) * 0.04
-    }
+  if (!lastFrameTime) lastFrameTime = timeMs
+  const delta = (timeMs - lastFrameTime) / 1000
+  lastFrameTime = timeMs
 
-    const baseDistance = camera.position.z || 5.6
-    camera.position.x += ((0.4 + pointer.x * 0.5) - camera.position.x) * 0.05
-    camera.position.y += ((1.1 + pointer.y * 0.35) - camera.position.y) * 0.05
-    camera.position.z += ((baseDistance) - camera.position.z) * 0.05
-    camera.lookAt(0, 0.15, 0)
-
-    renderer.render(scene, camera)
+  if (model) {
+    updateModelPosition(timeMs)
+    model.rotation.y += 0.0035 + delta * 0.2
+    model.rotation.x += (-(0.35 + pointer.y * 0.35) - model.rotation.x) * 0.04
+    model.rotation.z += (pointer.x * 0.18 - model.rotation.z) * 0.04
   }
 
-  animationFrameId = requestAnimationFrame(animate)
+  const baseDistance = camera.position.z || 5.6
+  camera.position.x += ((0.4 + pointer.x * 0.5) - camera.position.x) * 0.05
+  camera.position.y += ((1.1 + pointer.y * 0.35) - camera.position.y) * 0.05
+  camera.position.z += ((baseDistance) - camera.position.z) * 0.05
+  camera.lookAt(0, 0.15, 0)
+
+  renderer.render(scene, camera)
+}
+
+function demarrer() {
+  if (!animationFrameId && actif && visible && renderer) animationFrameId = requestAnimationFrame(animate)
+}
+
+function arreter() {
+  if (animationFrameId) cancelAnimationFrame(animationFrameId)
+  animationFrameId = null
+  lastFrameTime = 0 // pas de saut de rotation à la reprise
 }
 
 function handlePointerMove(event) {
@@ -160,25 +183,71 @@ function handleScroll() {
   scrollOffset = offset - 0.5
 }
 
-onMounted(() => {
-  setup3DScene()
-  handleScroll()
+/** Libère la scène et son contexte WebGL */
+function liberer() {
+  arreter()
+  scene?.traverse((o) => {
+    o.geometry?.dispose()
+    for (const m of [].concat(o.material || [])) { m.map?.dispose(); m.dispose() }
+  })
+  scene = null
+  model = null
+  if (renderer) {
+    renderer.domElement.removeEventListener('webglcontextlost', surPerteContexte)
+    renderer.dispose()
+    renderer.forceContextLoss() // dispose() seul garde le contexte WebGL ouvert jusqu'au ramasse-miettes
+    renderer.domElement.remove()
+    renderer = null
+  }
+}
+
+/** Contexte coupé par le navigateur (trop de scènes 3D, veille, pilote graphique) : la scène est reconstruite au lieu de rester vide */
+function surPerteContexte(e) {
+  e.preventDefault()
+  liberer()
+  if (actif) { setup3DScene(); handleResize() }
+}
+
+// Accueil affiché : écouteurs branchés et animation lancée ; quitté (keep-alive) : tout est en pause
+function brancher() {
+  if (actif) return
+  actif = true
+  if (!renderer) setup3DScene() // scène perdue pendant qu'on était sur une autre page
   window.addEventListener('resize', handleResize)
   window.addEventListener('scroll', handleScroll, { passive: true })
   window.addEventListener('pointermove', handlePointerMove)
   window.addEventListener('pointerleave', resetPointer)
-})
+  handleResize()
+  handleScroll()
+  demarrer()
+}
 
-onBeforeUnmount(() => {
-  if (animationFrameId) cancelAnimationFrame(animationFrameId)
-  if (renderer) {
-    renderer.dispose()
-    renderer.domElement.remove()
-  }
+function debrancher() {
+  if (!actif) return
+  actif = false
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('pointermove', handlePointerMove)
   window.removeEventListener('pointerleave', resetPointer)
+  arreter()
+}
+
+onMounted(() => {
+  observateurVisibilite = new IntersectionObserver(([entree]) => {
+    visible = entree.isIntersecting
+    visible ? demarrer() : arreter()
+  })
+  if (sceneElement.value) observateurVisibilite.observe(sceneElement.value)
+  brancher()
+})
+onActivated(brancher)
+onDeactivated(debrancher)
+
+onBeforeUnmount(() => {
+  debrancher()
+  observateurVisibilite?.disconnect()
+  generation++
+  liberer()
 })
 </script>
 

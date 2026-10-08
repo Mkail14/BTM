@@ -8,7 +8,7 @@ import { calculerMur, listerMurs } from './formuleMur.js'
 import { calculerDalle } from './formuleDalle.js'
 import { calculerFondation } from './formuleFondation.js'
 import { calculerTerrasse } from './formuleTerrasse.js'
-import { nombre } from './utilitaires.js'
+import { nombre, arrondi } from './utilitaires.js'
 
 const FORMULES = { mur: calculerMur, dalle: calculerDalle, fondation: calculerFondation, terrasse: calculerTerrasse }
 
@@ -72,11 +72,53 @@ function verifierOuvertures(mur, erreurs, prefixe = '') {
   if (nombre(mur.ouvertures) >= surface && surface > 0) erreurs[`${prefixe}ouvertures`] = MESSAGES.ouverturesTropGrandes
 }
 
+/** Taux des frais de service BTM (%) — modifiable dans /admin, section « Calculateur & prix » */
+export const TAUX_FRAIS_DEFAUT = 1.25
+
+/**
+ * Frais de service BTM : pourcentage du coût des matériaux, ajouté au devis du client.
+ * `sousTotal` = matériaux, `total` = ce que paie le client.
+ */
+function ajouterFraisService(resultat, tauxFrais) {
+  const taux = Number.isFinite(Number(tauxFrais)) && Number(tauxFrais) >= 0 ? Number(tauxFrais) : TAUX_FRAIS_DEFAUT
+  const sousTotal = resultat.total
+  const montant = arrondi((sousTotal * taux) / 100)
+  return { ...resultat, sousTotal, fraisService: { taux, montant }, total: arrondi(sousTotal + montant) }
+}
+
+/**
+ * Code promo (choisi par l'admin) : réduction en % ou en €, sur tout le devis (`total`)
+ * ou sur les seuls frais de service BTM (`frais`). Jamais plus que la base réduite.
+ * @param {object|null} code { code, type: 'pourcentage'|'montant', valeur, portee: 'total'|'frais' }
+ */
+function appliquerRemise(resultat, code) {
+  if (!code || !(Number(code.valeur) > 0)) return resultat
+  const base = code.portee === 'frais' ? (resultat.fraisService?.montant || 0) : resultat.total
+  const brut = code.type === 'montant' ? Number(code.valeur) : (base * Number(code.valeur)) / 100
+  const montant = arrondi(Math.min(base, Math.max(0, brut)))
+  return {
+    ...resultat,
+    remise: { code: code.code, type: code.type, valeur: Number(code.valeur), portee: code.portee, montant },
+    total: arrondi(resultat.total - montant)
+  }
+}
+
+/** Code promo appliqué à un devis déjà chiffré (achat direct, devis pro) : même règle que le calculateur */
+export function appliquerCodePromo(resultat, code) {
+  if (!resultat) return resultat
+  const { remise: _r, ...sans } = resultat
+  const base = { ...sans, total: arrondi(Number(sans.totalMateriaux) || 0) }
+  return code ? appliquerRemise(base, code) : base
+}
+
+/** « −10 % », « −20 € » */
+export const libelleReduction = (code) => (code.type === 'montant' ? `−${formaterEuros(code.valeur)}` : `−${formaterNombre(code.valeur, 2)} %`)
+
 /**
  * Calcule l'estimation complète.
  * @param {string} typeId
  * @param {object} dimensions
- * @param {object} [options] { catalogue?: prix Supabase, parametres?: override }
+ * @param {object} [options] { catalogue?, parametres?, tauxFrais?: % des frais BTM, remise?: code promo vérifié }
  */
 export function calculerEstimation(typeId, dimensions, options = {}) {
   const type = trouverTypeProjet(typeId)
@@ -90,7 +132,10 @@ export function calculerEstimation(typeId, dimensions, options = {}) {
   const catalogue = { ...catalogueLocal, ...(options.catalogue || {}) }
   const parametres = { ...type.parametres, ...(options.parametres || {}) }
   const formule = FORMULES[typeId]
-  const resultat = formule(dimensions, parametres, catalogue)
+  // Modèle plateforme : aucun frais pour le client (la commission BTM est payée par le fournisseur).
+  // tauxFrais > 0 n'est plus utilisé que pour d'anciens appels.
+  const brut = formule(dimensions, parametres, catalogue)
+  const resultat = appliquerRemise(Number(options.tauxFrais) > 0 ? ajouterFraisService(brut, options.tauxFrais) : brut, options.remise)
 
   const dims = {}
   for (const c of type.champs) dims[c.nom] = c.type === 'select' ? (dimensions[c.nom] ?? c.defaut) : nombre(dimensions[c.nom])
@@ -150,4 +195,41 @@ export function sujetEstimation(resultat) {
   if (!type) return { sujet: 'Votre projet', pluriel: false }
   if (resultat.dimensions?.autresMurs?.length) return { sujet: type.sujetPluriel, pluriel: true }
   return { sujet: type.sujet, pluriel: type.sujet.startsWith('Vos') }
+}
+
+/** Libellé des frais de service, ex. « Frais de service BTM (1,25 %) » */
+export const libelleFrais = (taux) => `Frais de service BTM (${formaterNombre(taux, 2)} %)`
+
+/**
+ * Décomposition du prix pour l'affichage (résultats, PDF, admin).
+ * Les estimations enregistrées avant l'ajout des frais n'ont pas de ligne « frais ».
+ */
+export function detailPrix(resultat) {
+  const lignes = [{ cle: 'materiaux', label: 'Matériaux', valeur: resultat.totalMateriaux }]
+  if (resultat.fraisService?.montant > 0) lignes.push({ cle: 'frais', label: libelleFrais(resultat.fraisService.taux), detail: 'Service de mise en relation et d’accompagnement', valeur: resultat.fraisService.montant })
+  if (resultat.remise?.montant) {
+    const r = resultat.remise
+    lignes.push({ cle: 'remise', label: `Code ${r.code} (${libelleReduction(r)}${r.portee === 'frais' ? ' sur les frais' : ''})`, valeur: -r.montant })
+  }
+  return lignes
+}
+
+/**
+ * Anciennes estimations (avant le passage « matériaux uniquement ») : elles contenaient une main-d'œuvre
+ * et une livraison estimées, puis des frais BTM payés par le client. On les retire : le total ne porte
+ * que sur les matériaux, pour que tout devis affiché, exporté ou compté suive la même règle.
+ */
+export function normaliserResultat(resultat) {
+  if (!resultat) return resultat
+  // Devis d'avant le modèle plateforme : les frais BTM étaient payés par le client ; on les retire du total
+  if (resultat.fraisService?.montant > 0 && resultat.mainOeuvre === undefined && resultat.livraison === undefined) {
+    const { fraisService, sousTotal: _st, remise, ...reste } = resultat
+    const materiaux = Number(reste.totalMateriaux) || 0
+    const rem = remise && remise.portee !== 'frais' ? remise : null
+    const montantRemise = rem ? arrondi(Math.min(materiaux, rem.type === 'montant' ? Number(rem.valeur) : (materiaux * Number(rem.valeur)) / 100)) : 0
+    return { ...reste, ...(rem ? { remise: { ...rem, montant: montantRemise } } : {}), total: arrondi(materiaux - montantRemise) }
+  }
+  if (resultat.mainOeuvre === undefined && resultat.livraison === undefined) return resultat
+  const { mainOeuvre: _mo, livraison: _liv, sousTotal: _st, fraisService: _f, ...reste } = resultat
+  return { ...reste, total: arrondi(Number(reste.totalMateriaux) || 0) }
 }

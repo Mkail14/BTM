@@ -4,8 +4,6 @@
  *  - Béton       : Volume × 2,4 t/m³
  *  - Ferraillage : Surface × 5 kg/m²
  *  - Gravier     : Volume × 0,8 t/m³
- *  - Main-d'œuvre: 4 h pour 10 m² à 20 €/h
- *  - Livraison   : 50 € + 20 €/tonne de béton
  */
 import { arrondi, nombre, ligneMateriau, synthese } from './utilitaires.js'
 
@@ -22,11 +20,9 @@ export function baseDalle(dimensions, parametres, catalogue) {
     ligneMateriau(catalogue, 'ferraillage', surface * parametres.kgFerParM2, 1),
     ligneMateriau(catalogue, 'gravier', volume * parametres.tonnesGravierParM3, 2)
   ]
-  const heures = (surface / 10) * parametres.heuresPour10m2
-  const livraison = parametres.livraisonFixe + tonnesBeton * parametres.livraisonParTonne
 
   return {
-    surface, volume, tonnesBeton, lignes, heures, livraison,
+    surface, volume, tonnesBeton, lignes,
     mesures: [
       { label: 'Surface', valeur: arrondi(surface), unite: 'm²', principale: true },
       { label: 'Volume de béton', valeur: arrondi(volume, 3), unite: 'm³' },
@@ -37,5 +33,5 @@ export function baseDalle(dimensions, parametres, catalogue) {
 
 export function calculerDalle(dimensions, parametres, catalogue) {
   const b = baseDalle(dimensions, parametres, catalogue)
-  return { mesures: b.mesures, lignes: b.lignes, ...synthese(b.lignes, b.heures, parametres.tauxHoraire, b.livraison) }
+  return { mesures: b.mesures, lignes: b.lignes, ...synthese(b.lignes) }
 }

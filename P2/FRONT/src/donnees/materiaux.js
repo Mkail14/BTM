@@ -13,7 +13,7 @@ export const materiaux = {
   ferraillage: { id: 'ferraillage', libelle: 'Treillis soudé / ferraillage', unite: 'kg',  prixUnitaire: 2.2 },
   acier:       { id: 'acier',       libelle: 'Armatures acier HA',           unite: 'kg',  prixUnitaire: 2.6 },
   gravier:     { id: 'gravier',     libelle: 'Gravier concassé',             unite: 't',   prixUnitaire: 85 },
-  carrelage:   { id: 'carrelage',   libelle: 'Carrelage extérieur posé',     unite: 'm²',  prixUnitaire: 50 },
+  carrelage:   { id: 'carrelage',   libelle: 'Carrelage extérieur',          unite: 'm²',  prixUnitaire: 50 },
   beton_lisse: { id: 'beton_lisse', libelle: 'Finition béton lissé',         unite: 'm²',  prixUnitaire: 15 }
 }
 

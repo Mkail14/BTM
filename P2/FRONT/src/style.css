@@ -74,7 +74,11 @@
   --ombre-lg: 0 20px 50px rgba(11, 58, 77, .16);
   --transition: 240ms cubic-bezier(.22, .61, .36, 1);
   --transition-lente: 480ms cubic-bezier(.22, .61, .36, 1);
-  --largeur-max: 1180px;
+  /* Gabarit commun à toutes les pages : marge latérale (≈ 100 px sur un écran de 1920 px, 20 px sur téléphone)
+     et largeur utile maximale. Seuls les bandeaux qui défilent en boucle vont d'un bord à l'autre. */
+  --gouttiere: clamp(20px, 5.2vw, 100px);
+  --largeur-max: 1720px;
+  --largeur-conteneur: calc(var(--largeur-max) + 2 * var(--gouttiere));
   --hauteur-entete: 72px;
 }
 
@@ -109,8 +113,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 
 /* ---------- Conteneurs ---------- */
-.conteneur { width: 100%; max-width: var(--largeur-max); margin: 0 auto; padding: 0 20px; }
-@media (min-width: 640px) { .conteneur { padding: 0 32px; } }
+.conteneur { width: 100%; max-width: var(--largeur-conteneur); margin: 0 auto; padding: 0 var(--gouttiere); }
 
 .section { padding: 72px 0; }
 @media (min-width: 900px) { .section { padding: 104px 0; } }

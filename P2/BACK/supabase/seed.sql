@@ -37,13 +37,13 @@ on conflict (slug) do update set
 -- ---------- Types de projets (section 9) --------------------------------------
 insert into public.types_projets (id, libelle, description, icone, ordre, parametres) values
   ('mur', 'Mur', 'Mur en parpaings 20×20×40 cm, avec ouvertures.', 'fa-solid fa-building', 1,
-   '{"surfaceParpaing":0.08,"margeParpaing":1.05,"m2ParSacCiment":2.5,"m2ParM3Sable":10,"heuresPour10m2":8,"tauxHoraire":15,"livraisonFixe":50}'),
+   '{"surfaceParpaing":0.08,"margeParpaing":1.05,"m2ParSacCiment":2.5,"m2ParM3Sable":10}'),
   ('dalle', 'Dalle', 'Dalle béton armée sur hérisson de gravier.', 'fa-solid fa-layer-group', 2,
-   '{"densiteBeton":2.4,"kgFerParM2":5,"tonnesGravierParM3":0.8,"heuresPour10m2":4,"tauxHoraire":20,"livraisonFixe":50,"livraisonParTonne":20}'),
+   '{"densiteBeton":2.4,"kgFerParM2":5,"tonnesGravierParM3":0.8}'),
   ('fondation', 'Fondation', 'Semelles filantes en béton armé.', 'fa-solid fa-mountain', 3,
-   '{"densiteBeton":2.4,"kgAcierParM3":50,"heuresParM3":6,"tauxHoraire":20,"livraisonFixe":100,"livraisonParTonne":20}'),
+   '{"densiteBeton":2.4,"kgAcierParM3":50}'),
   ('terrasse', 'Terrasse', 'Dalle extérieure avec finition carrelage ou béton lissé.', 'fa-solid fa-umbrella-beach', 4,
-   '{"densiteBeton":2.4,"kgFerParM2":5,"tonnesGravierParM3":0.8,"heuresPour10m2":4,"tauxHoraire":20,"livraisonFixe":50,"livraisonParTonne":20,"finitions":{"carrelage":50,"beton_lisse":15}}')
+   '{"densiteBeton":2.4,"kgFerParM2":5,"tonnesGravierParM3":0.8}')
 on conflict (id) do update set libelle = excluded.libelle, description = excluded.description,
   icone = excluded.icone, ordre = excluded.ordre, parametres = excluded.parametres;
 
@@ -57,7 +57,7 @@ insert into public.materiaux (id, libelle, unite, prix_unitaire, source) values
   ('ferraillage', 'Treillis soudé / ferraillage', 'kg',  2.20,   'Prix provisoire – à vérifier fournisseurs'),
   ('acier',       'Armatures acier HA',           'kg',  2.60,   'Prix provisoire – à vérifier fournisseurs'),
   ('gravier',     'Gravier concassé',             't',   85.00,  'Prix provisoire – à vérifier fournisseurs'),
-  ('carrelage',   'Carrelage extérieur posé',     'm²',  50.00,  'Section 9.4 du CDC'),
+  ('carrelage',   'Carrelage extérieur',          'm²',  50.00,  'Section 9.4 du CDC'),
   ('beton_lisse', 'Finition béton lissé',         'm²',  15.00,  'Section 9.4 du CDC')
 on conflict (id) do update set libelle = excluded.libelle, unite = excluded.unite,
   prix_unitaire = excluded.prix_unitaire, source = excluded.source;

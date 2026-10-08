@@ -3,7 +3,8 @@
  * Un seul document, dans l'ordre où un particulier le lit : le prix, ce qu'il faut acheter, ses mesures.
  * Utilise jsPDF + autoTable, chargés à la demande (code splitting).
  */
-import { formaterEuros, formaterNombre, formaterQuantite, lignesMurs } from '@/services/calculs/moteurCalculs.js'
+import { livrerPdf } from './livrerPdf.js'
+import { formaterEuros, formaterNombre, formaterQuantite, lignesMurs, detailPrix } from '@/services/calculs/moteurCalculs.js'
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
 
 const LAGON = [8, 145, 178]
@@ -12,11 +13,12 @@ const GRIS = [100, 116, 139]
 const LAGON_CLAIR = [236, 254, 255]
 
 // Les polices standard de jsPDF ne connaissent pas les espaces insécables fines du format français
-const propre = (texte) => String(texte).replace(/[  ]/g, ' ')
+const propre = (texte) => String(texte).replace(/[  ]/g, ' ').replace(/−/g, '-') // « − » des réductions : absent de la police non plus
 const euros = (n) => propre(formaterEuros(n))
 const nombre = (n, d) => propre(formaterNombre(n, d))
 
-export async function exporterEstimationPdf({ nom, resultat, fournisseur }) {
+/** @param {string} [code] code de retrait du projet enregistré (présenté au fournisseur pour retirer et payer) */
+export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }, mode = 'telecharger') {
   const { jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
 
@@ -48,8 +50,23 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur }) {
   doc.text('BTM', marge, 14)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9.5)
-  doc.text('Bâtiment & Travaux Mayotte', marge, 21)
-  doc.text(`Devis du ${date}`, largeur - marge, 21, { align: 'right' })
+  if (code) {
+    // Code de retrait : encadré blanc à droite de l'en-tête, lisible d'un coup d'œil au comptoir
+    doc.text(`Bâtiment & Travaux Mayotte · Devis du ${date}`, marge, 21)
+    doc.setFillColor(255, 255, 255)
+    doc.roundedRect(largeur - marge - 56, 6, 56, 19, 2.5, 2.5, 'F')
+    doc.setTextColor(...GRIS)
+    doc.setFontSize(7.5)
+    doc.text('CODE DE RETRAIT', largeur - marge - 28, 11.5, { align: 'center' })
+    doc.setTextColor(...OCEAN)
+    doc.setFont('courier', 'bold')
+    doc.setFontSize(17)
+    doc.text(code, largeur - marge - 28, 20.5, { align: 'center' })
+    doc.setFont('helvetica', 'normal')
+  } else {
+    doc.text('Bâtiment & Travaux Mayotte', marge, 21)
+    doc.text(`Devis du ${date}`, largeur - marge, 21, { align: 'right' })
+  }
 
   // ---- Titre
   let y = 45
@@ -67,7 +84,9 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur }) {
 
   // ---- 1. Le prix
   y += 8
-  const hauteurPrix = 44
+  // Matériaux (+ frais de service BTM pour les devis récents)
+  const detail = detailPrix(resultat).map((l) => [propre(l.label), euros(l.valeur)])
+  const hauteurPrix = 25 + detail.length * 6.5
   doc.setFillColor(...LAGON_CLAIR)
   doc.roundedRect(marge, y, utile, hauteurPrix, 3, 3, 'F')
   doc.setTextColor(...OCEAN)
@@ -77,11 +96,6 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur }) {
   doc.setFontSize(24)
   doc.setTextColor(...LAGON)
   doc.text(euros(resultat.total), largeur - marge - 7, y + 12, { align: 'right' })
-  const detail = [
-    ['Matériaux', euros(resultat.totalMateriaux)],
-    [`Main-d'œuvre (${nombre(resultat.mainOeuvre.heures, 1)} h × ${euros(resultat.mainOeuvre.tauxHoraire)}/h)`, euros(resultat.mainOeuvre.total)],
-    ['Livraison', euros(resultat.livraison)]
-  ]
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   detail.forEach(([label, valeur], i) => {
@@ -92,6 +106,21 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur }) {
     doc.text(valeur, largeur - marge - 7, ly, { align: 'right' })
   })
   y += hauteurPrix + 11
+
+  // ---- 1 bis. Projet professionnel : détail par ouvrage
+  if (resultat.ouvrages?.length) {
+    y = titreSection('Ouvrages du projet', y)
+    autoTable(doc, {
+      ...tableau,
+      startY: y,
+      head: [['Ouvrage', 'Composition', 'Matériaux']],
+      body: resultat.ouvrages.map((o) => [propre(o.nom), propre(o.parties.map((p) => p.libelle).join(' · ')), euros(o.total)]),
+      theme: 'striped',
+      columnStyles: { 2: { halign: 'right', fontStyle: 'bold' } }
+    })
+    y = doc.lastAutoTable.finalY + 11
+    if (y > 240) { doc.addPage(); y = 20 }
+  }
 
   // ---- 2. Ce qu'il faut acheter
   y = titreSection('Ce qu’il faut acheter', y)
@@ -153,7 +182,8 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur }) {
   y += 4.5
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...GRIS)
-  doc.text(doc.splitTextToSize(`Prix TTC, hors terrassement et études. ${type?.hypotheses || ''}`, utile), marge, y)
+  const retrait = code ? ` Pour retirer vos matériaux, présentez le code ${code} au fournisseur : il retrouve ce devis et vous remet un reçu numéroté.` : ' Enregistrez ce projet sur BTM pour obtenir un code de retrait à présenter au fournisseur.'
+  doc.text(doc.splitTextToSize(`Prix TTC, hors terrassement et études. ${type?.hypotheses || ''}${retrait}`, utile), marge, y)
 
   // ---- Pied de page
   const pages = doc.internal.getNumberOfPages()
@@ -165,6 +195,5 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur }) {
   }
 
   const fichier = `BTM_Devis_${(nom || libelle || 'projet').replace(/[^a-z0-9àâçéèêëîïôûùüÿñæœ]+/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
-  doc.save(fichier)
-  return fichier
+  return livrerPdf(doc, fichier, mode) // téléchargement direct ou aperçu (ApercuPdf)
 }

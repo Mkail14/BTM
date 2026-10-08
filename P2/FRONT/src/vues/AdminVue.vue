@@ -1,490 +1,187 @@
 <script setup>
 /**
- * Espace administrateur : chiffres clés, utilisateurs, projets, modération des avis, gestion des fournisseurs.
+ * Espace administrateur — pilote tout le site : textes, prix et formules du calculateur,
+ * fournisseurs, avis, utilisateurs et projets. Mise en page propre (barre latérale),
+ * sans l'en-tête ni le pied du site public (meta.pleinEcran).
  * L'accès est contrôlé par la base (RLS + est_admin()) : un non-admin ne reçoit aucune donnée.
  */
-import { ref, computed, onMounted } from 'vue'
-import * as api from '@/services/supabase/serviceAdmin.js'
-import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
-import BoutonBase from '@/composants/commun/BoutonBase.vue'
-import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
+import { useAdmin, initiales } from '@/composables/useAdmin.js'
+import LogoBtm from '@/composants/commun/LogoBtm.vue'
+import AdminRetours from '@/composants/admin/AdminRetours.vue'
+import AdminCompte from '@/composants/admin/AdminCompte.vue'
+import { useMessagerie } from '@/composables/useMessagerie.js'
+import { useSupport } from '@/composables/useSupport.js'
+import { useThemeAdmin } from '@/composables/useThemeAdmin.js'
+import '@/composants/admin/admin.css'
 
-const { utilisateur: moi } = useAuth()
+const sections = [
+  { id: 'apercu', label: 'Tableau de bord', icone: 'fa-solid fa-chart-simple', titre: 'Tableau de bord', sousTitre: 'L’activité de BTM en un coup d’œil.', composant: () => import('@/composants/admin/SectionApercu.vue') },
+  { id: 'messagerie', label: 'Messagerie', icone: 'fa-solid fa-envelope', titre: 'Messagerie', sousTitre: 'La boîte contact@btm.yt : lisez, répondez et écrivez sans quitter l’admin.', composant: () => import('@/composants/admin/SectionMessagerie.vue') },
+  { id: 'support', label: 'Support', icone: 'fa-solid fa-headset', titre: 'Support', sousTitre: 'Les discussions « Sur le site » : prenez le relais d’Awa quand un client a besoin d’un conseiller.', composant: () => import('@/composants/admin/SectionSupport.vue') },
+  { id: 'contenus', label: 'Contenu du site', icone: 'fa-solid fa-pen-nib', titre: 'Contenu du site', sousTitre: 'Modifiez les textes affichés sur le site, sans toucher au code.', composant: () => import('@/composants/admin/SectionContenus.vue') },
+  { id: 'calculateur', label: 'Calculateur & prix', icone: 'fa-solid fa-calculator', titre: 'Calculateur & prix', sousTitre: 'Prix des matériaux et constantes utilisées par chaque devis.', composant: () => import('@/composants/admin/SectionCalculateur.vue') },
+  { id: 'codes', label: 'Codes promo', icone: 'fa-solid fa-ticket', titre: 'Codes promo', sousTitre: 'Réductions que vos clients saisissent sur leur devis.', recherche: 'Rechercher un code, une note…', composant: () => import('@/composants/admin/SectionCodes.vue') },
+  { id: 'fournisseurs', label: 'Fournisseurs', icone: 'fa-solid fa-truck', titre: 'Fournisseurs', sousTitre: 'Annuaire affiché sur la page Fournisseurs et dans les résultats.', recherche: 'Rechercher un fournisseur, une commune…', composant: () => import('@/composants/admin/SectionFournisseurs.vue') },
+  { id: 'avis', label: 'Avis', icone: 'fa-solid fa-star', titre: 'Avis clients', sousTitre: 'Modérez les avis affichés sur la page d’accueil.', recherche: 'Rechercher un nom, une ville, un mot…', composant: () => import('@/composants/admin/SectionAvis.vue') },
+  { id: 'utilisateurs', label: 'Utilisateurs', icone: 'fa-solid fa-users', titre: 'Utilisateurs', sousTitre: 'Comptes, rôles et accès.', recherche: 'Rechercher un nom, un e-mail…', composant: () => import('@/composants/admin/SectionUtilisateurs.vue') },
+  { id: 'projets', label: 'Projets', icone: 'fa-solid fa-folder-open', titre: 'Projets', sousTitre: 'Estimations enregistrées par les utilisateurs.', recherche: 'Rechercher un projet, un propriétaire…', composant: () => import('@/composants/admin/SectionProjets.vue') }
+].map((s) => ({ ...s, composant: defineAsyncComponent(s.composant) }))
 
-const onglets = [
-  { id: 'apercu', label: 'Aperçu', icone: 'fa-solid fa-gauge-high' },
-  { id: 'utilisateurs', label: 'Utilisateurs', icone: 'fa-solid fa-users' },
-  { id: 'projets', label: 'Projets', icone: 'fa-solid fa-folder-open' },
-  { id: 'avis', label: 'Avis', icone: 'fa-solid fa-star' },
-  { id: 'fournisseurs', label: 'Fournisseurs', icone: 'fa-solid fa-truck' }
-]
-const onglet = ref('apercu')
-const chargement = ref(false)
-const erreur = ref('')
-const message = ref('')
+const route = useRoute()
+const router = useRouter()
+const { utilisateur, deconnexion } = useAuth()
+const { recherche, charger, migrationManquante, compteOuvert } = useAdmin()
+const { sombre, basculer: basculerTheme } = useThemeAdmin()
+// Vérifie dès l'ouverture que la base contient les tables récentes (contenus 0007, codes promo 0009)
+onMounted(() => charger(['contenus', 'codes'], { force: true }))
+// Messages non lus de contact@btm.yt : pastille du bouton du haut et du menu, relue toutes les 2 minutes
+const { nonLus, suivre: suivreMessagerie, arreter: arreterMessagerie } = useMessagerie()
+onMounted(suivreMessagerie)
+onBeforeUnmount(arreterMessagerie)
+// Demandes d’assistance qui attendent un conseiller : pastille du bouton casque et du menu, relue toutes les 30 s
+const { enAttente, suivre: suivreSupport, arreter: arreterSupport } = useSupport()
+onMounted(suivreSupport)
+onBeforeUnmount(arreterSupport)
+const refProjet = (import.meta.env.VITE_SUPABASE_URL || '').match(/https:\/\/([^.]+)\.supabase\.co/)?.[1]
+const lienSql = refProjet ? `https://supabase.com/dashboard/project/${refProjet}/sql/new` : 'https://supabase.com/dashboard'
 
-const stats = ref(null)
-const profils = ref([])
-const projets = ref([])
-const avis = ref([])
-const fournisseurs = ref([])
-const categories = ref([])
-const recherche = ref('')
+const section = computed(() => sections.find((s) => s.id === route.params.section) || sections[0])
+const menuOuvert = ref(false)
 
-const formatDate = (d) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(d))
-const nomProfil = computed(() => Object.fromEntries(profils.value.map((p) => [p.id, p.nom_affiche || p.email])))
-const libelleCategorie = computed(() => Object.fromEntries(categories.value.map((c) => [c.id, c.libelle])))
-const contient = (...valeurs) => !recherche.value.trim() || valeurs.join(' ').toLowerCase().includes(recherche.value.trim().toLowerCase())
+watch(() => section.value.id, () => { recherche.value = ''; menuOuvert.value = false })
+watch(section, (s) => { document.title = `${s.titre} — Administration BTM` }, { immediate: true })
 
-const profilsFiltres = computed(() => profils.value.filter((p) => contient(p.email, p.nom_affiche, p.role)))
-const projetsFiltres = computed(() => projets.value.filter((p) => contient(p.nom, p.type_projet_id, nomProfil.value[p.utilisateur_id])))
-const avisFiltres = computed(() => avis.value.filter((a) => contient(a.nom, a.ville, a.commentaire)))
-const fournisseursFiltres = computed(() => fournisseurs.value.filter((f) => contient(f.nom, f.commune, libelleCategorie.value[f.categorie_id])))
+const infos = computed(() => utilisateur.value?.user_metadata || {})
+const nomAdmin = computed(() => [infos.value.prenom, infos.value.nom].filter(Boolean).join(' ') || infos.value.pseudo || utilisateur.value?.email?.split('@')[0] || 'Admin')
 
-async function charger() {
-  chargement.value = true
-  erreur.value = ''
-  try {
-    const [s, p, pr, a, f, c] = await Promise.all([
-      api.statistiques(), api.listerProfils(), api.listerProjets(), api.listerAvis(), api.listerFournisseurs(), api.listerCategories()
-    ])
-    stats.value = s; profils.value = p; projets.value = pr; avis.value = a; fournisseurs.value = f; categories.value = c
-  } catch (e) {
-    console.warn(e)
-    erreur.value = e?.message || 'Impossible de charger les données.'
-  } finally {
-    chargement.value = false
-  }
-}
-onMounted(charger)
-
-function info(texte) { message.value = texte; setTimeout(() => { if (message.value === texte) message.value = '' }, 3500) }
-
-// ---------- Suppressions (avec confirmation) ----------
-const aSupprimer = ref(null) // { type, id, libelle }
-const suppressionEnCours = ref(false)
-const actions = { avis: api.supprimerAvis, projet: api.supprimerProjet, fournisseur: api.supprimerFournisseur }
-
-async function confirmerSuppression() {
-  const cible = aSupprimer.value
-  suppressionEnCours.value = true
-  try {
-    await actions[cible.type](cible.id)
-    aSupprimer.value = null
-    info('Supprimé.')
-    await charger()
-  } catch (e) {
-    erreur.value = e?.message || 'Suppression impossible.'
-    aSupprimer.value = null
-  } finally {
-    suppressionEnCours.value = false
-  }
-}
-
-async function basculerActif(f) {
-  try { await api.definirFournisseurActif(f.id, !f.actif); f.actif = !f.actif; info(f.actif ? 'Fournisseur activé.' : 'Fournisseur désactivé.'); stats.value = await api.statistiques() }
-  catch (e) { erreur.value = e?.message || 'Modification impossible.' }
-}
-
-// ---------- Utilisateurs : modification et réinitialisation du mot de passe ----------
-const edition = ref(null) // données de l'utilisateur en cours de modification
-const editionChargement = ref(false)
-const editionErreur = ref('')
-const editionEnCours = ref(false)
-const telephoneValide = ref(true)
-const reinit = ref(null) // { id, email }
-const reinitEnCours = ref(false)
-
-async function ouvrirEdition(p) {
-  editionErreur.value = ''
-  edition.value = { id: p.id, email: p.email, chargement: true }
-  editionChargement.value = true
-  try {
-    edition.value = { ...(await api.lireUtilisateur(p.id)), chargement: false }
-  } catch (e) {
-    editionErreur.value = e?.message || 'Impossible de charger l’utilisateur.'
-    edition.value = { id: p.id, email: p.email, pseudo: '', prenom: '', nom: '', telephone: '', civilite: '', role: p.role, type_profil: p.type_profil, chargement: false }
-  } finally {
-    editionChargement.value = false
-  }
-}
-
-async function enregistrerEdition() {
-  const u = edition.value
-  editionErreur.value = ''
-  if (!telephoneValide.value) { editionErreur.value = 'Numéro de téléphone incomplet ou invalide.'; return }
-  if (!u.email?.trim()) { editionErreur.value = 'L’adresse e-mail est obligatoire.'; return }
-  editionEnCours.value = true
-  try {
-    const { id, chargement: _c, derniereConnexion: _d, ...champs } = u
-    await api.modifierUtilisateur(id, champs)
-    edition.value = null
-    info('Utilisateur mis à jour.')
-    await charger()
-  } catch (e) {
-    editionErreur.value = e?.message || 'Enregistrement impossible.'
-  } finally {
-    editionEnCours.value = false
-  }
-}
-
-async function confirmerReinit() {
-  reinitEnCours.value = true
-  try {
-    const r = await api.reinitialiserMotDePasse(reinit.value.id)
-    info(r.message || 'E-mail envoyé.')
-  } catch (e) {
-    erreur.value = e?.message || 'Envoi impossible.'
-  } finally {
-    reinitEnCours.value = false
-    reinit.value = null
-  }
-}
-
-// ---------- Formulaire fournisseur ----------
-const vide = () => ({ id: null, nom: '', categorie_id: categories.value[0]?.id || '', commune: '', adresse: '', telephone: '', email: '', site_web: '', description: '', horaires: '', livraison: false })
-const formulaire = ref(null)
-const formErreur = ref('')
-const enregistrement = ref(false)
-
-const ouvrirFormulaire = (f) => { formErreur.value = ''; formulaire.value = f ? { ...vide(), ...f } : vide() }
-async function enregistrerFournisseur() {
-  const f = formulaire.value
-  if (!f.nom.trim() || !f.commune.trim() || !f.telephone.trim() || !f.categorie_id) { formErreur.value = 'Nom, catégorie, commune et téléphone sont obligatoires.'; return }
-  enregistrement.value = true
-  formErreur.value = ''
-  try {
-    await api.enregistrerFournisseur(f)
-    formulaire.value = null
-    info('Fournisseur enregistré.')
-    await charger()
-  } catch (e) {
-    formErreur.value = e?.message || 'Enregistrement impossible.'
-  } finally {
-    enregistrement.value = false
-  }
+async function seDeconnecter() {
+  await deconnexion()
+  router.push('/') // déconnecté : retour à l'accueil (il n'y a pas de page de connexion)
 }
 </script>
 
 <template>
-  <div id="page-admin" class="page">
-    <div class="conteneur adm">
-      <header class="adm-entete">
-        <div>
-          <span class="section-surtitre">Espace administrateur</span>
-          <h1 class="page-titre">Administration</h1>
-        </div>
-        <BoutonBase variante="secondaire" icone="fa-solid fa-rotate" :chargement="chargement" @click="charger">Actualiser</BoutonBase>
-      </header>
+  <div class="adm adm-cadre" :class="{ 'adm-sombre': sombre, 'ecran-fixe': ['apercu', 'messagerie', 'support', 'contenus', 'utilisateurs', 'calculateur'].includes(section.id) }">
+    <!-- Barre latérale -->
+    <aside class="adm-lat" :class="{ ouvert: menuOuvert }" aria-label="Navigation de l’administration">
+      <router-link to="/admin" class="adm-lat-logo" aria-label="Tableau de bord">
+        <span class="adm-lat-logo-icone"><LogoBtm :taille="30" /></span>
+        <span class="adm-lat-logo-texte"><strong>BTM</strong><small>Administration</small></span>
+      </router-link>
 
-      <nav class="adm-onglets" role="tablist" aria-label="Sections d’administration">
-        <button v-for="o in onglets" :key="o.id" type="button" role="tab" :aria-selected="onglet === o.id" :class="{ actif: onglet === o.id }" @click="onglet = o.id; recherche = ''">
-          <i :class="o.icone" aria-hidden="true"></i> {{ o.label }}
-        </button>
+      <nav class="adm-lat-nav">
+        <router-link
+          v-for="s in sections" :key="s.id" :to="s.id === 'apercu' ? '/admin' : `/admin/${s.id}`"
+          class="adm-lat-lien" :class="{ actif: section.id === s.id }" :aria-current="section.id === s.id ? 'page' : undefined"
+        >
+          <i :class="s.icone" aria-hidden="true"></i><span>{{ s.label }}</span>
+          <strong v-if="s.id === 'messagerie' && nonLus" class="adm-lat-pastille" :aria-label="`${nonLus} non lus`">{{ nonLus }}</strong>
+          <strong v-if="s.id === 'support' && enAttente" class="adm-lat-pastille adm-lat-pastille-alerte" :aria-label="`${enAttente} en attente`">{{ enAttente }}</strong>
+        </router-link>
       </nav>
 
-      <p v-if="erreur" class="adm-alerte adm-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ erreur }}</p>
-      <transition name="glisser"><p v-if="message" class="adm-alerte adm-ok" role="status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> {{ message }}</p></transition>
+      <div class="adm-lat-bas">
+        <button type="button" class="adm-lat-lien" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Déconnexion</span></button>
+      </div>
+    </aside>
+    <div v-if="menuOuvert" class="adm-lat-voile" @click="menuOuvert = false"></div>
 
-      <div v-if="chargement && !stats" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
-
-      <!-- Aperçu -->
-      <section v-else-if="onglet === 'apercu' && stats" class="adm-apercu">
-        <ul class="adm-kpis">
-          <li class="carte"><i class="fa-solid fa-users"></i><strong>{{ stats.utilisateurs }}</strong><span>Comptes</span></li>
-          <li class="carte"><i class="fa-solid fa-folder-open"></i><strong>{{ stats.projets }}</strong><span>Projets enregistrés</span></li>
-          <li class="carte"><i class="fa-solid fa-coins"></i><strong>{{ formaterEuros(stats.budgetCumule) }}</strong><span>Budget cumulé</span></li>
-          <li class="carte"><i class="fa-solid fa-star"></i><strong>{{ stats.noteMoyenne.toFixed(1).replace('.', ',') }}<small>/5</small></strong><span>{{ stats.avis }} avis</span></li>
-          <li class="carte"><i class="fa-solid fa-truck"></i><strong>{{ stats.fournisseurs }}</strong><span>Fournisseurs actifs</span></li>
-        </ul>
-        <div class="adm-deux">
-          <article class="carte adm-bloc">
-            <h2>Derniers inscrits</h2>
-            <ul class="adm-liste">
-              <li v-for="p in profils.slice(0, 5)" :key="p.id"><span><strong>{{ p.nom_affiche || '—' }}</strong><small>{{ p.email }}</small></span><time>{{ formatDate(p.cree_le) }}</time></li>
-              <li v-if="!profils.length" class="adm-vide">Aucun compte.</li>
-            </ul>
-          </article>
-          <article class="carte adm-bloc">
-            <h2>Derniers projets</h2>
-            <ul class="adm-liste">
-              <li v-for="p in projets.slice(0, 5)" :key="p.id"><span><strong>{{ p.nom }}</strong><small>{{ p.type_projet_id }} · {{ nomProfil[p.utilisateur_id] || 'compte supprimé' }}</small></span><b class="prix">{{ formaterEuros(p.cout_total) }}</b></li>
-              <li v-if="!projets.length" class="adm-vide">Aucun projet.</li>
-            </ul>
-          </article>
+    <!-- Contenu -->
+    <div class="adm-principal">
+      <header class="adm-haut">
+        <button type="button" class="adm-icone-btn adm-icone-btn-bord adm-burger" :aria-expanded="menuOuvert" aria-label="Ouvrir le menu" @click="menuOuvert = true">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <div class="adm-haut-titre">
+          <h1>{{ section.titre }}</h1>
+          <p>{{ section.sousTitre }}</p>
         </div>
-      </section>
-
-      <!-- Sections avec liste -->
-      <section v-else-if="stats" class="adm-section">
-        <div class="adm-outils">
-          <label class="adm-recherche"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input v-model="recherche" type="search" placeholder="Rechercher…" aria-label="Rechercher" /></label>
-          <BoutonBase v-if="onglet === 'fournisseurs'" icone="fa-solid fa-plus" @click="ouvrirFormulaire()">Ajouter un fournisseur</BoutonBase>
+        <label v-if="section.recherche" class="adm-haut-recherche">
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+          <input v-model="recherche" type="search" :placeholder="section.recherche" :aria-label="section.recherche" />
+        </label>
+        <div class="adm-haut-outils">
+          <button type="button" class="adm-haut-outil" :aria-pressed="sombre" :title="sombre ? 'Passer au thème clair' : 'Passer au thème sombre'" :aria-label="sombre ? 'Passer au thème clair' : 'Passer au thème sombre'" @click="basculerTheme">
+            <i :class="sombre ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+          </button>
+          <router-link to="/admin/support" class="adm-haut-outil" :class="{ actif: section.id === 'support' }" :title="enAttente ? `${enAttente} client${enAttente > 1 ? 's' : ''} attend${enAttente > 1 ? 'ent' : ''} un conseiller` : 'Support : discussions avec les clients'" :aria-label="enAttente ? `Support : ${enAttente} en attente` : 'Support'">
+            <i class="fa-solid fa-headset" aria-hidden="true"></i>
+            <strong v-if="enAttente" class="adm-haut-outil-pastille alerte">{{ enAttente > 99 ? '99+' : enAttente }}</strong>
+          </router-link>
+          <router-link to="/admin/messagerie" class="adm-haut-outil" :class="{ actif: section.id === 'messagerie' }" :title="nonLus ? `${nonLus} message${nonLus > 1 ? 's' : ''} non lu${nonLus > 1 ? 's' : ''} — contact@btm.yt` : 'Messagerie contact@btm.yt'" :aria-label="nonLus ? `Messagerie : ${nonLus} non lus` : 'Messagerie'">
+            <i class="fa-solid fa-envelope" aria-hidden="true"></i>
+            <strong v-if="nonLus" class="adm-haut-outil-pastille">{{ nonLus > 99 ? '99+' : nonLus }}</strong>
+          </router-link>
         </div>
+        <button type="button" class="adm-haut-profil" aria-haspopup="dialog" title="Compte BTM : reversements, RIB et administrateurs" @click="compteOuvert = true">
+          <span class="adm-avatar rond">{{ initiales(nomAdmin) }}</span>
+          <span><strong>{{ nomAdmin }}</strong><small>Administrateur</small></span>
+          <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+        </button>
+      </header>
 
-        <!-- Utilisateurs -->
-        <div v-if="onglet === 'utilisateurs'" class="adm-tableau carte">
-          <table>
-            <thead><tr><th>Nom</th><th>E-mail</th><th>Rôle</th><th>Inscrit le</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="p in profilsFiltres" :key="p.id">
-                <td data-label="Nom">{{ p.nom_affiche || '—' }}</td>
-                <td data-label="E-mail">{{ p.email }}</td>
-                <td data-label="Rôle"><span class="adm-badge" :class="`adm-badge-${p.role}`">{{ p.role }}</span></td>
-                <td data-label="Inscrit le">{{ formatDate(p.cree_le) }}</td>
-                <td class="adm-actions">
-                  <button type="button" class="adm-icone" :aria-label="`Modifier ${p.email}`" title="Modifier les informations" @click="ouvrirEdition(p)"><i class="fa-solid fa-user-pen"></i></button>
-                  <button type="button" class="adm-icone" :aria-label="`Envoyer un e-mail de réinitialisation à ${p.email}`" title="Envoyer un e-mail de réinitialisation du mot de passe" @click="reinit = { id: p.id, email: p.email }"><i class="fa-solid fa-key"></i></button>
-                </td>
-              </tr>
-              <tr v-if="!profilsFiltres.length"><td colspan="5" class="adm-vide">Aucun résultat.</td></tr>
-            </tbody>
-          </table>
+      <div v-if="migrationManquante" class="adm-carte adm-migration" role="alert">
+        <span class="adm-migration-icone"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
+        <div>
+          <strong>La base Supabase n’est pas à jour</strong>
+          <p>
+            Les textes du site, les frais de service et la modération des avis ont besoin de nouvelles tables.
+            Dans le SQL Editor, exécutez une à une les migrations manquantes du dossier <span class="adm-mono">BACK/supabase/migrations/</span> (0007, 0008, 0009), puis rechargez cette page.
+          </p>
         </div>
+        <a :href="lienSql" target="_blank" rel="noopener noreferrer" class="adm-btn adm-btn-noir">Ouvrir le SQL Editor <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+      </div>
 
-        <!-- Projets -->
-        <div v-else-if="onglet === 'projets'" class="adm-tableau carte">
-          <table>
-            <thead><tr><th>Projet</th><th>Type</th><th>Propriétaire</th><th>Budget</th><th>Créé le</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="p in projetsFiltres" :key="p.id">
-                <td data-label="Projet"><strong>{{ p.nom }}</strong></td>
-                <td data-label="Type">{{ p.type_projet_id }}</td>
-                <td data-label="Propriétaire">{{ nomProfil[p.utilisateur_id] || '—' }}</td>
-                <td data-label="Budget" class="prix">{{ formaterEuros(p.cout_total) }}</td>
-                <td data-label="Créé le">{{ formatDate(p.cree_le) }}</td>
-                <td class="adm-actions"><button type="button" class="adm-icone adm-danger" :aria-label="`Supprimer ${p.nom}`" @click="aSupprimer = { type: 'projet', id: p.id, libelle: p.nom }"><i class="fa-solid fa-trash-can"></i></button></td>
-              </tr>
-              <tr v-if="!projetsFiltres.length"><td colspan="6" class="adm-vide">Aucun projet.</td></tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Avis -->
-        <ul v-else-if="onglet === 'avis'" class="adm-avis">
-          <li v-for="a in avisFiltres" :key="a.id" class="carte">
-            <div class="adm-avis-tete">
-              <span class="adm-note" :aria-label="`${a.note} sur 5`"><i v-for="n in 5" :key="n" class="fa-solid fa-star" :class="{ eteinte: n > a.note }"></i></span>
-              <span class="adm-badge" :class="a.demo ? 'adm-badge-demo' : 'adm-badge-user'">{{ a.demo ? 'démo' : 'client' }}</span>
-              <time>{{ formatDate(a.cree_le) }}</time>
-            </div>
-            <p v-if="a.commentaire" class="adm-avis-texte">{{ a.commentaire }}</p>
-            <div class="adm-avis-pied">
-              <span><strong>{{ a.nom }}</strong> · {{ a.ville }}</span>
-              <button type="button" class="adm-icone adm-danger" :aria-label="`Supprimer l’avis de ${a.nom}`" @click="aSupprimer = { type: 'avis', id: a.id, libelle: `l’avis de ${a.nom}` }"><i class="fa-solid fa-trash-can"></i></button>
-            </div>
-          </li>
-          <li v-if="!avisFiltres.length" class="adm-vide">Aucun avis.</li>
-        </ul>
-
-        <!-- Fournisseurs -->
-        <div v-else-if="onglet === 'fournisseurs'" class="adm-tableau carte">
-          <table>
-            <thead><tr><th>Fournisseur</th><th>Catégorie</th><th>Commune</th><th>Téléphone</th><th>Statut</th><th></th></tr></thead>
-            <tbody>
-              <tr v-for="f in fournisseursFiltres" :key="f.id" :class="{ 'adm-inactif': !f.actif }">
-                <td data-label="Fournisseur"><strong>{{ f.nom }}</strong></td>
-                <td data-label="Catégorie">{{ libelleCategorie[f.categorie_id] || f.categorie_id }}</td>
-                <td data-label="Commune">{{ f.commune }}</td>
-                <td data-label="Téléphone">{{ f.telephone }}</td>
-                <td data-label="Statut"><button type="button" class="adm-interrupteur" :class="{ actif: f.actif }" role="switch" :aria-checked="f.actif" :aria-label="`${f.actif ? 'Désactiver' : 'Activer'} ${f.nom}`" @click="basculerActif(f)"><span></span></button></td>
-                <td class="adm-actions">
-                  <button type="button" class="adm-icone" :aria-label="`Modifier ${f.nom}`" @click="ouvrirFormulaire(f)"><i class="fa-solid fa-pen"></i></button>
-                  <button type="button" class="adm-icone adm-danger" :aria-label="`Supprimer ${f.nom}`" @click="aSupprimer = { type: 'fournisseur', id: f.id, libelle: f.nom }"><i class="fa-solid fa-trash-can"></i></button>
-                </td>
-              </tr>
-              <tr v-if="!fournisseursFiltres.length"><td colspan="6" class="adm-vide">Aucun fournisseur.</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Confirmation de suppression -->
-      <transition name="fondu">
-        <div v-if="aSupprimer" class="modale-fond" @click.self="aSupprimer = null">
-          <div class="modale" role="alertdialog" aria-modal="true" aria-labelledby="adm-suppr">
-            <h2 id="adm-suppr">Supprimer {{ aSupprimer.libelle }} ?</h2>
-            <p class="texte-secondaire">Cette action est définitive.</p>
-            <div class="modale-actions">
-              <BoutonBase variante="ghost" @click="aSupprimer = null">Annuler</BoutonBase>
-              <BoutonBase variante="danger" :chargement="suppressionEnCours" @click="confirmerSuppression">Supprimer</BoutonBase>
-            </div>
-          </div>
-        </div>
-      </transition>
-
-      <!-- Réinitialisation du mot de passe -->
-      <transition name="fondu">
-        <div v-if="reinit" class="modale-fond" @click.self="reinit = null">
-          <div class="modale" role="alertdialog" aria-modal="true" aria-labelledby="adm-reinit">
-            <h2 id="adm-reinit">Réinitialiser le mot de passe ?</h2>
-            <p class="texte-secondaire">Un e-mail contenant un lien pour choisir un nouveau mot de passe sera envoyé à <strong>{{ reinit.email }}</strong>.</p>
-            <div class="modale-actions">
-              <BoutonBase variante="ghost" @click="reinit = null">Annuler</BoutonBase>
-              <BoutonBase :chargement="reinitEnCours" icone="fa-solid fa-paper-plane" @click="confirmerReinit">Envoyer l’e-mail</BoutonBase>
-            </div>
-          </div>
-        </div>
-      </transition>
-
-      <!-- Modification d'un utilisateur -->
-      <transition name="fondu">
-        <div v-if="edition" class="modale-fond" @click.self="edition = null">
-          <form class="modale adm-form" role="dialog" aria-modal="true" aria-labelledby="adm-user-titre" novalidate @submit.prevent="enregistrerEdition">
-            <h2 id="adm-user-titre">Modifier l’utilisateur</h2>
-            <div v-if="edition.chargement" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
-            <template v-else>
-              <div class="adm-form-grille">
-                <div class="champ"><label for="u-prenom">Prénom</label><input id="u-prenom" v-model="edition.prenom" type="text" maxlength="60" autocomplete="off" /></div>
-                <div class="champ"><label for="u-nom">Nom</label><input id="u-nom" v-model="edition.nom" type="text" maxlength="60" autocomplete="off" /></div>
-                <div class="champ"><label for="u-pseudo">Pseudo</label><input id="u-pseudo" v-model="edition.pseudo" type="text" maxlength="30" autocomplete="off" /></div>
-                <div class="champ"><label for="u-mail">Adresse e-mail</label><input id="u-mail" v-model="edition.email" type="email" autocomplete="off" required /></div>
-                <ChampTelephone id="u-tel" v-model="edition.telephone" v-model:valide="telephoneValide" class="adm-plein" />
-                <div class="champ"><label for="u-type">Type de profil</label>
-                  <select id="u-type" v-model="edition.type_profil"><option value="particulier">Particulier</option><option value="professionnel">Professionnel</option><option value="fournisseur">Fournisseur</option></select></div>
-                <div class="champ"><label for="u-role">Rôle</label>
-                  <select id="u-role" v-model="edition.role" :disabled="edition.id === moi?.id"><option value="user">Utilisateur</option><option value="fournisseur">Fournisseur</option><option value="admin">Administrateur</option></select>
-                  <small v-if="edition.id === moi?.id" class="champ-aide">Vous ne pouvez pas modifier votre propre rôle.</small></div>
-              </div>
-              <p v-if="edition.derniereConnexion" class="champ-aide">Dernière connexion : {{ formatDate(edition.derniereConnexion) }}</p>
-              <p v-if="editionErreur" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ editionErreur }}</p>
-              <div class="modale-actions">
-                <BoutonBase variante="ghost" type="button" @click="edition = null">Annuler</BoutonBase>
-                <BoutonBase type="submit" :chargement="editionEnCours" icone="fa-solid fa-check">Enregistrer</BoutonBase>
-              </div>
-            </template>
-          </form>
-        </div>
-      </transition>
-
-      <!-- Formulaire fournisseur -->
-      <transition name="fondu">
-        <div v-if="formulaire" class="modale-fond" @click.self="formulaire = null">
-          <form class="modale adm-form" role="dialog" aria-modal="true" aria-labelledby="adm-form-titre" novalidate @submit.prevent="enregistrerFournisseur">
-            <h2 id="adm-form-titre">{{ formulaire.id ? 'Modifier le fournisseur' : 'Nouveau fournisseur' }}</h2>
-            <div class="adm-form-grille">
-              <div class="champ adm-plein"><label for="f-nom">Nom *</label><input id="f-nom" v-model="formulaire.nom" type="text" maxlength="80" required /></div>
-              <div class="champ"><label for="f-cat">Catégorie *</label>
-                <select id="f-cat" v-model="formulaire.categorie_id"><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.libelle }}</option></select></div>
-              <div class="champ"><label for="f-commune">Commune *</label><input id="f-commune" v-model="formulaire.commune" type="text" maxlength="60" required /></div>
-              <div class="champ"><label for="f-tel">Téléphone *</label><input id="f-tel" v-model="formulaire.telephone" type="tel" placeholder="0269 00 00 00" required /></div>
-              <div class="champ"><label for="f-mail">E-mail</label><input id="f-mail" v-model="formulaire.email" type="email" /></div>
-              <div class="champ adm-plein"><label for="f-adr">Adresse</label><input id="f-adr" v-model="formulaire.adresse" type="text" maxlength="160" /></div>
-              <div class="champ"><label for="f-web">Site web</label><input id="f-web" v-model="formulaire.site_web" type="url" placeholder="https://" /></div>
-              <div class="champ"><label for="f-hor">Horaires</label><input id="f-hor" v-model="formulaire.horaires" type="text" placeholder="Lun–Ven 7h–16h" /></div>
-              <div class="champ adm-plein"><label for="f-desc">Description</label><textarea id="f-desc" v-model="formulaire.description" rows="3" maxlength="400"></textarea></div>
-              <label class="adm-case adm-plein"><input v-model="formulaire.livraison" type="checkbox" /> Livraison possible</label>
-            </div>
-            <p v-if="formErreur" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ formErreur }}</p>
-            <div class="modale-actions">
-              <BoutonBase variante="ghost" type="button" @click="formulaire = null">Annuler</BoutonBase>
-              <BoutonBase type="submit" :chargement="enregistrement" icone="fa-solid fa-check">Enregistrer</BoutonBase>
-            </div>
-          </form>
-        </div>
-      </transition>
+      <component :is="section.composant" :key="section.id" />
     </div>
+
+    <AdminCompte v-if="compteOuvert" @fermer="compteOuvert = false" />
+    <AdminRetours />
   </div>
 </template>
 
 <style scoped>
-.adm { max-width: 1100px; }
-.adm-entete { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
-
-.adm-onglets { display: flex; gap: 6px; margin-bottom: 24px; padding-bottom: 2px; overflow-x: auto; border-bottom: 1px solid var(--gris-200); scrollbar-width: none; }
-.adm-onglets::-webkit-scrollbar { display: none; }
-.adm-onglets button { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--texte-secondaire); font: inherit; font-weight: 600; cursor: pointer; transition: color var(--transition), border-color var(--transition); }
-.adm-onglets button:hover { color: var(--ardoise); }
-.adm-onglets button.actif { color: var(--lagon-700, var(--lagon-600)); border-bottom-color: var(--lagon-600); }
-
-.adm-alerte { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-radius: var(--rayon-sm); font-weight: 500; }
-.adm-erreur { background: var(--erreur-clair); color: var(--erreur); }
-.adm-ok { background: #d1fae5; color: #047857; }
-.adm-chargement { display: grid; place-items: center; min-height: 220px; }
-.adm-vide { padding: 22px; color: var(--texte-secondaire); text-align: center; list-style: none; }
-
-/* Aperçu */
-.adm-kpis { list-style: none; margin: 0 0 24px; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; }
-.adm-kpis .carte { display: grid; gap: 4px; padding: 20px; }
-.adm-kpis i { color: var(--lagon-600); font-size: 1.1rem; margin-bottom: 6px; }
-.adm-kpis strong { font-family: var(--font-display); font-size: 1.9rem; line-height: 1; color: var(--ardoise); }
-.adm-kpis small { font-size: 1rem; color: var(--texte-secondaire); }
-.adm-kpis span { color: var(--texte-secondaire); font-size: .88rem; }
-.adm-deux { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
-.adm-bloc { padding: 22px; }
-.adm-bloc h2 { margin: 0 0 12px; font-size: 1.1rem; color: var(--ardoise); }
-.adm-liste { list-style: none; margin: 0; padding: 0; }
-.adm-liste li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--gris-100, #f1f5f9); }
-.adm-liste li:first-child { border-top: 0; }
-.adm-liste span { display: flex; flex-direction: column; min-width: 0; }
-.adm-liste small { color: var(--texte-secondaire); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.adm-liste time { color: var(--texte-secondaire); font-size: .85rem; white-space: nowrap; }
-
-/* Outils + tableaux */
-.adm-outils { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-.adm-recherche { position: relative; flex: 1 1 260px; max-width: 420px; }
-.adm-recherche i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--gris-400); }
-.adm-recherche input { width: 100%; padding: 11px 14px 11px 40px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); background: #fff; font: inherit; }
-.adm-recherche input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .18); }
-
-.adm-tableau { padding: 0; overflow-x: auto; }
-.adm-tableau table { width: 100%; border-collapse: collapse; font-size: .93rem; }
-.adm-tableau th { padding: 14px 16px; text-align: left; font-size: .74rem; letter-spacing: .1em; text-transform: uppercase; color: var(--texte-secondaire); background: var(--gris-50); border-bottom: 1px solid var(--gris-200); white-space: nowrap; }
-.adm-tableau td { padding: 13px 16px; border-bottom: 1px solid var(--gris-100, #f1f5f9); vertical-align: middle; }
-.adm-tableau tr:last-child td { border-bottom: 0; }
-.adm-inactif td { opacity: .55; }
-.adm-actions { white-space: nowrap; text-align: right; }
-
-.adm-badge { display: inline-block; padding: 3px 10px; border-radius: 999px; background: var(--gris-100, #f1f5f9); color: var(--gris-700); font-size: .76rem; font-weight: 600; }
-.adm-badge-admin { background: #fef3c7; color: #92400e; }
-.adm-badge-fournisseur { background: var(--lagon-50); color: var(--lagon-800, #155e75); }
-.adm-badge-demo { background: #ede9fe; color: #5b21b6; }
-.adm-badge-user { background: #d1fae5; color: #047857; }
-
-.adm-icone { width: 38px; height: 38px; display: inline-grid; place-items: center; border: 0; border-radius: var(--rayon-sm); background: transparent; color: var(--gris-500); cursor: pointer; transition: background var(--transition), color var(--transition); }
-.adm-icone:hover { background: var(--gris-100, #f1f5f9); color: var(--ardoise); }
-.adm-danger:hover { background: var(--erreur-clair); color: var(--erreur); }
-
-.adm-interrupteur { position: relative; width: 44px; height: 26px; border: 0; border-radius: 999px; background: var(--gris-300); cursor: pointer; transition: background var(--transition); }
-.adm-interrupteur span { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform var(--transition); }
-.adm-interrupteur.actif { background: var(--lagon-600); }
-.adm-interrupteur.actif span { transform: translateX(18px); }
-
-/* Avis */
-.adm-avis { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-.adm-avis .carte { display: flex; flex-direction: column; gap: 12px; padding: 20px; }
-.adm-avis-tete { display: flex; align-items: center; gap: 10px; }
-.adm-avis-tete time { margin-left: auto; color: var(--texte-secondaire); font-size: .82rem; }
-.adm-note { display: flex; gap: 2px; color: #f59e0b; font-size: .8rem; }
-.adm-note .eteinte { color: var(--gris-200); }
-.adm-avis-texte { margin: 0; line-height: 1.55; color: var(--ardoise); flex: 1; }
-.adm-avis-pied { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--texte-secondaire); font-size: .88rem; }
-
-/* Fenêtres (confirmation, formulaires) */
-.modale-fond { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 16px; background: rgba(6, 32, 44, .5); backdrop-filter: blur(4px); }
-.modale { width: 100%; max-width: 420px; padding: 28px; background: #fff; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
-.modale h2 { margin: 0 0 6px; font-size: 1.4rem; color: var(--ardoise); word-break: break-word; }
-.modale-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 24px; }
-@media (max-width: 480px) { .modale { padding: 22px 18px; } }
-
-/* Formulaire */
-.adm-form { max-width: 640px; width: min(640px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; }
-.adm-form-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
-.adm-plein { grid-column: 1 / -1; }
-.adm-form textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); font: inherit; resize: vertical; }
-.adm-case { display: flex; align-items: center; gap: 10px; font-weight: 500; cursor: pointer; }
-.adm-case input { width: 18px; height: 18px; accent-color: var(--lagon-600); }
-
-/* Téléphone : les tableaux deviennent des cartes empilées */
-@media (max-width: 720px) {
-  .adm-tableau { overflow: visible; background: none; border: 0; box-shadow: none; }
-  .adm-tableau table, .adm-tableau tbody { display: block; }
-  .adm-tableau thead { display: none; }
-  .adm-tableau tr { display: block; margin-bottom: 12px; padding: 12px 16px; background: #fff; border: 1px solid var(--gris-200); border-radius: var(--rayon); }
-  .adm-tableau td { display: flex; justify-content: space-between; gap: 16px; padding: 7px 0; border: 0; text-align: right; }
-  .adm-tableau td[data-label]::before { content: attr(data-label); color: var(--texte-secondaire); font-size: .8rem; text-align: left; }
-  .adm-tableau td.adm-actions { justify-content: flex-end; }
-  .adm-form-grille { grid-template-columns: 1fr; }
+/* Tableau de bord : exactement la hauteur de l'écran, sans défilement de la page (ordinateur) */
+@media (min-width: 1024px) and (min-height: 640px) {
+  .adm-cadre.ecran-fixe { height: 100dvh; grid-template-rows: minmax(0, 1fr); }
+  .adm-cadre.ecran-fixe .adm-principal { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; }
+  .adm-cadre.ecran-fixe .adm-haut { flex: none; margin-bottom: 16px; }
+  .adm-cadre.ecran-fixe .adm-migration { flex: none; margin-bottom: 14px; }
+  .adm-cadre.ecran-fixe .adm-principal > .apercu, .adm-cadre.ecran-fixe .adm-principal > .messagerie, .adm-cadre.ecran-fixe .adm-principal > .support, .adm-cadre.ecran-fixe .adm-principal > .contenus, .adm-cadre.ecran-fixe .adm-principal > .utils, .adm-cadre.ecran-fixe .adm-principal > .calc { flex: 1; min-height: 0; padding-bottom: 20px; }
 }
+@media (min-width: 1024px) and (max-height: 820px) {
+  .adm-cadre.ecran-fixe .adm-haut { margin-bottom: 10px; }
+  .adm-cadre.ecran-fixe .adm-haut-titre h1 { font-size: 1.5rem; }
+  .adm-cadre.ecran-fixe .adm-haut-titre p { display: none; }
+}
+/* Outils de l'en-tête : thème, support et messagerie dans une capsule de la hauteur du profil ; pastilles des non lus */
+.adm-haut-outils { display: flex; flex: none; gap: 2px; padding: 4px; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre); }
+.adm-haut-outil {
+  position: relative; width: 38px; height: 38px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: transparent; color: var(--adm-encre-2); cursor: pointer; transition: background var(--transition), color var(--transition);
+}
+.adm-haut-outil:hover { background: var(--adm-ligne-2); color: var(--adm-encre); }
+.adm-haut-outil.actif { background: var(--adm-accent-doux); color: var(--adm-info-texte); }
+.adm-haut-outil:focus-visible { outline: 2px solid var(--adm-accent); outline-offset: 2px; }
+.adm-haut-outil-pastille {
+  position: absolute; top: -3px; right: -3px; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center;
+  border: 2px solid var(--adm-carte); border-radius: 999px; background: var(--adm-baisse); color: #fff; font-size: .66rem; font-weight: 700;
+}
+.adm-haut-outil-pastille.alerte, .adm-sombre .adm-haut-outil-pastille { color: #0b1220; }
+.adm-haut-outil-pastille.alerte { background: #f59e0b; }
+/* Tablette et téléphone : le profil reste le seul accès au compte BTM, réduit à son avatar */
+@media (max-width: 1023px) {
+  .adm-haut-profil { display: flex; flex: none; padding: 5px; }
+  .adm-haut-profil > span:nth-child(2), .adm-haut-profil > i { display: none; }
+}
+.adm-lat-pastille-alerte { background: #f59e0b !important; }
+.adm-lat-pastille { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--adm-accent); color: #fff; font-size: .74rem; text-align: center; }
+.adm-migration { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; margin-bottom: 20px; padding: 20px 22px; box-shadow: inset 0 0 0 1px var(--adm-attention-bord), var(--adm-ombre); background: var(--adm-attention-fond); }
+.adm-migration > div { flex: 1 1 320px; }
+.adm-migration strong { font-size: .98rem; }
+.adm-migration p { margin: 4px 0 0; color: var(--adm-attention-texte-2); font-size: .88rem; line-height: 1.55; }
+.adm-migration-icone { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--adm-attention-fond-2); color: var(--adm-attention-texte); }
 </style>

@@ -1,10 +1,8 @@
 /**
  * 9.3 Fondation
  * Volume des fouilles = Longueur × Largeur de la tranchée × Profondeur
- *  - Béton armé     : Volume × 2,4 t/m³
- *  - Armatures acier: Volume × 50 kg/m³
- *  - Main-d'œuvre   : selon le volume (6 h/m³ à 20 €/h — hypothèse provisoire)
- *  - Livraison      : 100 € + frais béton (20 €/t)
+ *  - Béton armé      : Volume × 2,4 t/m³
+ *  - Armatures acier : Volume × 50 kg/m³
  */
 import { arrondi, nombre, ligneMateriau, synthese } from './utilitaires.js'
 
@@ -19,8 +17,6 @@ export function calculerFondation(dimensions, parametres, catalogue) {
     ligneMateriau(catalogue, 'beton_arme', tonnesBeton, 2),
     ligneMateriau(catalogue, 'acier', volume * parametres.kgAcierParM3, 1)
   ]
-  const heures = volume * parametres.heuresParM3
-  const livraison = parametres.livraisonFixe + tonnesBeton * parametres.livraisonParTonne
 
   return {
     mesures: [
@@ -28,6 +24,6 @@ export function calculerFondation(dimensions, parametres, catalogue) {
       { label: 'Poids de béton', valeur: arrondi(tonnesBeton, 2), unite: 't' }
     ],
     lignes,
-    ...synthese(lignes, heures, parametres.tauxHoraire, livraison)
+    ...synthese(lignes)
   }
 }

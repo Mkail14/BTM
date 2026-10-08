@@ -40,3 +40,6 @@ verify_jwt = true
 
 [functions.admin-utilisateurs]
 verify_jwt = true
+
+[functions.boite-mail]
+verify_jwt = true

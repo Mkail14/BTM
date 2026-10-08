@@ -1,14 +1,19 @@
 <script setup>
 /**
- * Page ouverte depuis le lien de l'e-mail « réinitialisation du mot de passe » (envoyé par un admin).
+ * Page ouverte depuis le lien de l'e-mail « réinitialisation du mot de passe » : envoyé par un admin, ou lien de secours
+ * de « Mot de passe oublié » (le parcours normal utilise le code du même e-mail, dans la fenêtre de connexion).
  * Supabase ouvre une session temporaire à partir du lien ; on y définit le nouveau mot de passe.
+ * Deux formes de lien sont acceptées : celle de Supabase (#access_token=…) et un lien direct « ?token_hash=… ».
  */
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
+import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
 import SaisieMotDePasse from '@/composants/commun/SaisieMotDePasse.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
+import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 
+const route = useRoute()
 const router = useRouter()
 const pret = ref(false)
 const lienValide = ref(false)
@@ -20,6 +25,9 @@ const termine = ref(false)
 
 onMounted(async () => {
   if (supabaseConfigure) {
+    // lien direct d'un gabarit d'e-mail personnalisé : le jeton est échangé ici contre la session
+    const jeton = typeof route.query.token_hash === 'string' ? route.query.token_hash : ''
+    if (jeton) await supabase.auth.verifyOtp({ token_hash: jeton, type: 'recovery' }).catch(() => {})
     // laisse à Supabase le temps de lire le lien (#access_token=…) et d'ouvrir la session
     for (let i = 0; i < 10 && !lienValide.value; i++) {
       const { data } = await supabase.auth.getSession()
@@ -39,7 +47,11 @@ async function enregistrer() {
     const { error } = await supabase.auth.updateUser({ password: motDePasse.value })
     if (error) throw error
     termine.value = true
-    setTimeout(() => router.push('/'), 2500)
+    // chacun rejoint son espace : tableau de bord (admin), espace fournisseur (compte créé par l'admin), accueil
+    const { data } = await supabase.auth.getUser()
+    const { role, fournisseur_id: fid } = await lireRoleCompte(data.user?.id)
+    const destination = role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : '/'
+    setTimeout(() => router.push(destination), 2500)
   } catch (e) {
     erreur.value = /same|different/i.test(e?.message || '') ? 'Choisissez un mot de passe différent de l’ancien.' : (e?.message || 'Impossible de modifier le mot de passe.')
   } finally {
@@ -63,8 +75,11 @@ async function enregistrer() {
         <template v-else-if="!lienValide">
           <div class="nmdp-icone nmdp-ko"><i class="fa-solid fa-link-slash" aria-hidden="true"></i></div>
           <h1>Lien invalide ou expiré</h1>
-          <p class="texte-secondaire">Ce lien de réinitialisation n’est plus valable. Demandez à l’administrateur de vous en envoyer un nouveau.</p>
-          <BoutonBase to="/" variante="secondaire">Retour à l’accueil</BoutonBase>
+          <p class="texte-secondaire">Ce lien a déjà servi ou n’est plus valable (il ne fonctionne qu’une fois, pendant 1 heure). Demandez-en un nouveau pour choisir votre mot de passe.</p>
+          <div class="nmdp-actions">
+            <BoutonBase icone="fa-solid fa-key" @click="ouvrirAuth('connexion', { oubli: true })">Mot de passe oublié</BoutonBase>
+            <BoutonBase to="/" variante="secondaire">Retour à l’accueil</BoutonBase>
+          </div>
         </template>
 
         <template v-else>
@@ -96,6 +111,7 @@ async function enregistrer() {
 .nmdp-carte p { margin: 0 0 20px; }
 .nmdp-carte form { display: grid; gap: 16px; text-align: left; }
 .nmdp-carte form :deep(.btn) { width: 100%; justify-content: center; min-height: 48px; }
+.nmdp-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .nmdp-centre { display: grid; place-items: center; min-height: 160px; }
 .nmdp-icone { width: 56px; height: 56px; margin: 0 auto; display: grid; place-items: center; border-radius: 50%; background: var(--lagon-50); color: var(--lagon-700, var(--lagon-600)); font-size: 1.3rem; }
 .nmdp-ok { background: #d1fae5; color: #047857; }

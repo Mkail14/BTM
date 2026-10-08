@@ -14,6 +14,6 @@ export function calculerTerrasse(dimensions, parametres, catalogue) {
   return {
     mesures: [...b.mesures, { label: 'Finition', valeur: finition === 'carrelage' ? 'Carrelage' : 'Béton lissé', unite: '' }],
     lignes,
-    ...synthese(lignes, b.heures, parametres.tauxHoraire, b.livraison)
+    ...synthese(lignes)
   }
 }

@@ -3,13 +3,6 @@ import { typesProjets } from '@/donnees/typesProjets.js'
 import Maquette3D from './Maquette3D.vue'
 defineProps({ modelValue: { type: String, default: '' } })
 const emit = defineEmits(['update:modelValue'])
-
-const accroches = {
-  mur: 'Un mur en parpaings, avec ou sans porte et fenêtre',
-  dalle: 'Le sol en béton d’une maison, d’un garage ou d’un abri',
-  fondation: 'Les tranchées en béton qui portent la maison',
-  terrasse: 'Un sol extérieur carrelé ou en béton lissé'
-}
 </script>
 
 <template>
@@ -23,7 +16,7 @@ const accroches = {
         <input type="radio" name="type-projet" :value="t.id" :checked="modelValue === t.id" class="visually-hidden" @click="emit('update:modelValue', t.id)" />
         <span class="selecteur-scene"><Maquette3D :type="t.id" compacte /></span>
         <span class="selecteur-libelle">{{ t.libelle }}</span>
-        <span class="selecteur-desc">{{ accroches[t.id] }}</span>
+        <span class="selecteur-desc">{{ t.description }}</span>
         <i class="fa-solid fa-circle-check selecteur-coche" aria-hidden="true"></i>
       </label>
     </div>

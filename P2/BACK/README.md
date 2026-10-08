@@ -57,7 +57,7 @@ npx supabase functions deploy estimation
 ```json
 { "type": "mur", "dimensions": { "longueur": 10, "hauteur": 2.5, "ouvertures": 3 } }
 ```
-Renvoie matériaux, main-d'œuvre, livraison et total calculés avec les prix en base.
+Renvoie les matériaux (quantités, prix, sous-totaux), les frais de service BTM et le total, calculés avec les prix en base.
 
 ## Sécurité
 - Seule la clé **anon** est exposée côté front ; la RLS protège les données.

@@ -1,6 +1,16 @@
 <script setup>
+import { computed } from 'vue'
 import LogoBtm from './LogoBtm.vue'
+import { useContenuSite } from '@/composables/useContenuSite.js'
+import { typesProjets } from '@/donnees/typesProjets.js'
+
+const contenu = useContenuSite()
 const annee = new Date().getFullYear()
+// 0269 61 12 11 → +262269611211 (lien tel: international)
+const lienTelephone = computed(() => {
+  const chiffres = String(contenu.contact.telephone || '').replace(/\D/g, '')
+  return chiffres.startsWith('0') ? `+262${chiffres.slice(1)}` : `+${chiffres}`
+})
 </script>
 
 <template>
@@ -8,8 +18,8 @@ const annee = new Date().getFullYear()
     <div class="conteneur pied-grille">
       <section class="pied-marque">
         <router-link to="/" class="pied-logo"><LogoBtm :taille="46" /> <span>BTM</span></router-link>
-        <p>Bâtiment & Travaux Mayotte — plateforme de devis BTP et annuaire des fournisseurs de matériaux à Mayotte.</p>
-        <p class="pied-localisation"><i class="fa-solid fa-location-dot"></i> Mamoudzou, Mayotte (976)</p>
+        <p>{{ contenu.pied.description }}</p>
+        <p class="pied-localisation"><i class="fa-solid fa-location-dot"></i> {{ contenu.contact.localisation }}</p>
       </section>
 
       <nav class="pied-nav" aria-label="Navigation pied de page">
@@ -22,23 +32,23 @@ const annee = new Date().getFullYear()
 
       <nav class="pied-nav" aria-label="Types de projets">
         <h4>Devis</h4>
-        <router-link :to="{ path: '/calculateur', query: { type: 'mur' } }">Un mur</router-link>
-        <router-link :to="{ path: '/calculateur', query: { type: 'dalle' } }">Une dalle</router-link>
-        <router-link :to="{ path: '/calculateur', query: { type: 'fondation' } }">Une fondation</router-link>
-        <router-link :to="{ path: '/calculateur', query: { type: 'terrasse' } }">Une terrasse</router-link>
+        <router-link v-for="t in typesProjets" :key="t.id" :to="{ path: '/calculateur', query: { type: t.id } }">{{ t.libelle }}</router-link>
       </nav>
 
       <section class="pied-nav">
         <h4>Contact</h4>
-        <a href="mailto:contact@btm-mayotte.yt"><i class="fa-regular fa-envelope"></i> contact@btm-mayotte.yt</a>
-        <a href="tel:+262269000000"><i class="fa-solid fa-phone"></i> 0269 00 00 00</a>
-        <p class="pied-note">Plateforme BTM — Devis et accompagnement des travaux à Mayotte</p>
+        <a :href="`mailto:${contenu.contact.email}`"><i class="fa-regular fa-envelope"></i> {{ contenu.contact.email }}</a>
+        <a :href="`tel:${lienTelephone}`"><i class="fa-solid fa-phone"></i> {{ contenu.contact.telephone }}</a>
+        <p class="pied-note">{{ contenu.pied.note }}</p>
       </section>
     </div>
 
     <div class="conteneur pied-bas">
-      <p>© {{ annee }} BTM — Bâtiment & Travaux Mayotte. · <router-link to="/conditions">Conditions générales d’utilisation</router-link></p>
-      <p class="pied-tech">Vue 3 · Vite · Supabase · Vercel</p>
+      <p>
+        © {{ annee }} BTM — Bâtiment & Travaux Mayotte. · <router-link to="/conditions">Conditions générales d’utilisation</router-link>
+        · <router-link to="/confidentialite">Cookies et confidentialité</router-link>
+      </p>
+      <p class="pied-tech">{{ contenu.pied.mention }}</p>
     </div>
   </footer>
 </template>

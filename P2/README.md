@@ -29,10 +29,10 @@ FRONT/
 │   │   ├── commun/         EnteteApp, PiedDePage, BoutonBase, CarteBase, BandeauAvertissement, EtatVide, LogoBtm
 │   │   ├── accueil/        SectionHero (parallax), CommentCaMarche, VitrineTypesProjets, FournisseursPartenaires, BandeauMayotte
 │   │   ├── calculateur/    SelecteurTypeProjet, FormulaireMur/Dalle/Fondation/Terrasse, ChampDimension, ApercuProjet
-│   │   ├── resultats/      ListeMateriaux, EstimationMainOeuvre, ResumeBudget, SelecteurFournisseur
+│   │   ├── resultats/      ListeMateriaux, SelecteurFournisseur
 │   │   ├── fournisseurs/   CarteFournisseur, FiltresFournisseurs
 │   │   └── tableau-de-bord/ CarteProjet
-│   ├── vues/               AccueilVue, CalculateurVue, ResultatsVue, FournisseursVue, TableauDeBordVue, AuthentificationVue, IntrouvableVue
+│   ├── vues/               AccueilVue, CalculateurVue, ResultatsVue, FournisseursVue, TableauDeBordVue, IntrouvableVue (connexion : composants/commun/FenetreConnexion)
 │   ├── composables/        useCalculateur, useProjets, useAuth, useReveal
 │   ├── services/
 │   │   ├── calculs/        moteurCalculs + formuleMur / formuleDalle / formuleFondation / formuleTerrasse
@@ -55,7 +55,7 @@ Voir [`BACK/README.md`](BACK/README.md) : migrations SQL (`0001_schema_initial`,
 | Réf. | Fonctionnalité | État |
 |---|---|---|
 | F01 | Calculateur : 4 types (Mur, Dalle, Fondation, Terrasse), formulaires dédiés, validation (ER01-ER03) | ✅ |
-| F02 | Estimation : matériaux, quantités, prix, sous-totaux, main-d'œuvre, livraison, total indicatif | ✅ |
+| F02 | Estimation : matériaux, quantités, prix, sous-totaux, frais de service BTM, total indicatif | ✅ |
 | F03 | Annuaire fournisseurs (ETPC, IBS, Batimax) avec téléphone cliquable et site web | ✅ |
 | F04 | Recherche (nom, commune, description) + filtre par catégorie + compteur + état vide | ✅ |
 | F05 | Sauvegarde, dashboard, voir / dupliquer (dimensions modifiables) / supprimer avec confirmation | ✅ |
@@ -73,7 +73,7 @@ Voir [`BACK/README.md`](BACK/README.md) : migrations SQL (`0001_schema_initial`,
 | `/resultats` | Résultats de l'estimation |
 | `/fournisseurs?q=…&categorie=…` | Annuaire fournisseurs |
 | `/dashboard` | Mes projets |
-| `/connexion`, `/inscription` | Authentification (Supabase) |
+| *(pas de page)* | Connexion / inscription : fenêtre superposée au site (bouton « Connexion », ou `?connexion` / `?inscription` dans l'adresse) |
 | `/*` | Page 404 |
 
 ## Règles de calcul (section 9 du CDC — prix provisoires)

@@ -1,22 +1,26 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
+import { ouvrirAuth as ouvrirFenetreAuth, useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import LogoBtm from './LogoBtm.vue'
 import ChampTelephone from './ChampTelephone.vue'
 import SaisieMotDePasse from './SaisieMotDePasse.vue'
+import ProfilTypeCompte from './ProfilTypeCompte.vue'
 import { formaterTelephone } from '@/services/telephone.js'
+import { useContenuSite } from '@/composables/useContenuSite.js'
+import { useCreditFidelite } from '@/composables/useCreditFidelite.js'
+import { useMesRealisations } from '@/composables/useMesRealisations.js'
+import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
-const AuthentificationVue = defineAsyncComponent(() => import('@/vues/AuthentificationVue.vue'))
-
+const contenu = useContenuSite()
 const route = useRoute()
 const router = useRouter()
-const { connecte, utilisateur, deconnexion, backendDisponible, admin } = useAuth()
+const { connecte, utilisateur, deconnexion, backendDisponible, fournisseurLie, typeProfil, demandePro, estPro } = useAuth()
+const libelleTypeCompte = computed(() => ({ verifie: 'Professionnel vérifié', en_attente: 'Pro : vérification en cours', refuse: 'Pro : demande refusée' })[demandePro.value?.statut] || (fournisseurLie.value || typeProfil.value === 'fournisseur' ? 'Professionnel (fournisseur)' : 'Particulier'))
 const { mettreAJourProfil, supprimerCompte: supprimerCompteAuth } = useAuth()
 const defile = ref(false)
 const menuOuvert = ref(false)
-const authModalOuverte = ref(false)
-const authModalMode = ref('connexion')
 const profilOuvert = ref(false)
 const telephoneProfilValide = ref(true)
 const telephoneProfilErreur = ref('')
@@ -38,27 +42,39 @@ const liens = [
   { to: '/fournisseurs', label: 'Fournisseurs', icone: 'fa-solid fa-truck' },
   { to: '/dashboard', label: 'Mes projets', icone: 'fa-solid fa-folder-open' }
 ]
+// « Projet pro » : la page des comptes professionnels (aussi visible pendant la vérification du SIRET, qui y est expliquée)
+const lienPro = { to: '/projet-pro', label: 'Projet pro', icone: 'fa-solid fa-city' }
 const liensVisibles = computed(() => [
-  ...liens.filter((l) => l.to !== '/dashboard' || connecte.value),
-  ...(admin.value ? [{ to: '/admin', label: 'Admin', icone: 'fa-solid fa-user-shield' }] : [])
+  ...liens.filter((l) => l.to !== '/dashboard' || connecte.value).flatMap((l) => (l.to === '/dashboard' && (estPro.value || demandePro.value?.statut === 'en_attente') ? [lienPro, l] : [l])),
+  ...(fournisseurLie.value ? [{ to: '/espace-fournisseur', label: 'Espace fournisseur', icone: 'fa-solid fa-store' }] : [])
 ])
+// pastille sur « Mes projets » : une proposition de BTM (mettre un projet en avant sur l'accueil) attend une réponse
+const { enAttente: propositions, charger: chargerPropositions } = useMesRealisations()
+watch(() => utilisateur.value?.id, (id) => { if (id) chargerPropositions() }, { immediate: true })
 const pseudo = computed(() => utilisateur.value?.user_metadata?.pseudo || utilisateur.value?.email?.split('@')[0] || '')
 const initiale = computed(() => pseudo.value.charAt(0).toUpperCase() || '?')
+
+// Crédit fidélité à côté du nom (clients particuliers et pros ; un compte fournisseur n'en gagne pas).
+// Relu à chaque page : un achat validé au comptoir le fait évoluer.
+const { credit, charger: chargerCredit } = useCreditFidelite()
+const afficherCredit = computed(() => connecte.value && !fournisseurLie.value)
+const creditOuvert = ref(false)
+// Gain pour 100 € d'achat : la part de la commission BTM (réglée dans l'admin) rendue au client
+const creditPour100 = computed(() => (100 * contenu.frais.taux / 100) * (contenu.frais.fidelite / 100))
+onMounted(() => { if (afficherCredit.value) chargerCredit() })
+watch(() => route.path, () => { creditOuvert.value = false; if (afficherCredit.value) chargerCredit() })
 
 const surScroll = () => { defile.value = window.scrollY > 24 }
 onMounted(() => { surScroll(); window.addEventListener('scroll', surScroll, { passive: true }) })
 onBeforeUnmount(() => window.removeEventListener('scroll', surScroll))
-watch(() => route.path, () => { menuOuvert.value = false; authModalOuverte.value = false; profilOuvert.value = false })
-watch([menuOuvert, authModalOuverte, profilOuvert], ([menu, modal, profil]) => { document.body.style.overflow = menu || modal || profil ? 'hidden' : '' })
+watch(() => route.path, () => { menuOuvert.value = false; profilOuvert.value = false })
+const { etat: fenetreAuth } = useFenetreAuth()
+watch([menuOuvert, profilOuvert, () => fenetreAuth.ouverte], ([menu, profil, auth]) => { document.body.style.overflow = menu || profil || auth ? 'hidden' : '' })
 
+// Connexion : la fenêtre unique du site (affichée par App.vue), il n'y a pas de page de connexion
 function ouvrirAuth(mode = 'connexion') {
-  authModalMode.value = mode
-  authModalOuverte.value = true
   menuOuvert.value = false
-}
-
-function fermerAuth() {
-  authModalOuverte.value = false
+  ouvrirFenetreAuth(mode)
 }
 
 function ouvrirProfil() {
@@ -110,7 +126,7 @@ function choisirPiece(event) {
 function envoyerDemandeIdentite() {
   const sujet = encodeURIComponent('Demande de correction de mon identité - BTM')
   const corps = encodeURIComponent(`Bonjour,\n\nJe souhaite corriger mon nom ou mon prénom sur mon compte BTM.\n\nE-mail du compte : ${utilisateur.value?.email || ''}\nPièce justificative sélectionnée : ${pieceIdentite.value?.name || 'à joindre au message'}\n\nCordialement`)
-  window.location.href = `mailto:contact@btm-mayotte.yt?subject=${sujet}&body=${corps}`
+  window.location.href = `mailto:${contenu.contact.email}?subject=${sujet}&body=${corps}`
 }
 
 function ouvrirAction(action) {
@@ -121,6 +137,12 @@ function ouvrirAction(action) {
   profilMessage.value = ''
   profilErreur.value = ''
   suppressionConfirmee.value = false
+}
+
+// ancien mot de passe oublié : un code reçu par e-mail permet d'en choisir un nouveau (fenêtre de connexion)
+function motDePasseOublie() {
+  fermerProfil()
+  ouvrirFenetreAuth('connexion', { oubli: true })
 }
 
 async function changerMotDePasse() {
@@ -182,6 +204,7 @@ async function supprimerCompte() {
             <li v-for="l in liensVisibles" :key="l.to">
               <router-link :to="l.to" class="nav-lien" active-class="actif" :data-label="l.label">
                 <i :class="l.icone" aria-hidden="true"></i><span>{{ l.label }}</span>
+                <b v-if="l.to === '/dashboard' && propositions" class="nav-pastille" :title="`${propositions} proposition de BTM à voir`">{{ propositions }}</b>
               </router-link>
             </li>
           </ul>
@@ -194,6 +217,32 @@ async function supprimerCompte() {
                 <span class="entete-avatar" aria-hidden="true">{{ initiale }}</span>
                 <span class="entete-pseudo">{{ pseudo }}</span>
               </button>
+              <!-- Crédit fidélité : survol (ou appui sur téléphone/tablette) = à quoi il sert, comment en gagner et l'utiliser -->
+              <div v-if="afficherCredit" class="credit" :class="{ ouvert: creditOuvert }" @mouseleave="creditOuvert = false" @keydown.esc="creditOuvert = false">
+                <button type="button" class="entete-credit" :aria-expanded="creditOuvert" aria-controls="credit-detail" @click="creditOuvert = !creditOuvert">
+                  <i class="fa-solid fa-coins" aria-hidden="true"></i><span class="visually-hidden">Crédit fidélité :</span> {{ formaterEuros(credit.solde) }}
+                </button>
+                <div id="credit-detail" class="credit-detail" role="dialog" aria-label="Crédit fidélité BTM">
+                  <p class="credit-tete"><span><i class="fa-solid fa-coins" aria-hidden="true"></i> Crédit fidélité BTM</span><strong>{{ formaterEuros(credit.solde) }}</strong></p>
+                  <dl class="credit-infos">
+                    <dt>À quoi ça sert ?</dt>
+                    <dd>C’est un bon d’achat offert par BTM : le fournisseur le <strong>déduit de votre prochain retrait</strong> au comptoir.</dd>
+                    <dt>Comment en gagner ?</dt>
+                    <dd>Chaque achat payé avec le code de retrait d’un devis enregistré vous rapporte environ <strong>{{ formaterEuros(creditPour100) }} pour 100 €</strong> d’achat.</dd>
+                    <dt>Comment l’utiliser ?</dt>
+                    <dd>Au comptoir, donnez votre code de retrait et demandez à utiliser votre crédit.</dd>
+                  </dl>
+                  <template v-if="credit.mouvements.length">
+                    <p class="credit-sous-titre">Derniers mouvements</p>
+                    <ul class="credit-mouvements">
+                      <li v-for="(m, i) in credit.mouvements" :key="i"><span>{{ m.libelle }}</span><strong :class="{ plus: m.montant > 0 }">{{ m.montant > 0 ? '+' : '' }}{{ formaterEuros(m.montant) }}</strong></li>
+                    </ul>
+                  </template>
+                  <p v-else class="credit-vide">Aucun mouvement pour l’instant : votre premier achat avec un code de retrait lancera votre cagnotte.</p>
+                  <router-link to="/calculateur" class="credit-action">Faire un devis <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></router-link>
+                  <p class="credit-note">Ni échangeable ni remboursable en espèces.</p>
+                </div>
+              </div>
               <button class="entete-deconnexion" type="button" title="Déconnexion" aria-label="Déconnexion" @click="deconnexion">
                 <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
               </button>
@@ -215,11 +264,16 @@ async function supprimerCompte() {
       <nav v-if="menuOuvert" id="menu-mobile" class="menu-mobile" aria-label="Menu mobile">
         <button v-if="connecte" class="menu-mobile-compte" type="button" @click="menuOuvert = false; ouvrirProfil()">
           <span class="entete-avatar" aria-hidden="true">{{ initiale }}</span>
-          <span class="menu-mobile-compte-texte"><strong>{{ pseudo }}</strong><small>{{ utilisateur?.email }}</small></span>
+          <span class="menu-mobile-compte-texte">
+            <strong>{{ pseudo }}</strong><small>{{ utilisateur?.email }}</small>
+            <small v-if="afficherCredit" class="menu-mobile-credit"><i class="fa-solid fa-coins" aria-hidden="true"></i> Crédit fidélité : {{ formaterEuros(credit.solde) }}</small>
+            <small v-if="afficherCredit" class="menu-mobile-credit-aide">Déduit de votre prochain achat au comptoir · environ {{ formaterEuros(creditPour100) }} gagnés pour 100 € d’achat</small>
+          </span>
           <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
         </button>
         <router-link v-for="l in liensVisibles" :key="l.to" :to="l.to" class="menu-mobile-lien" active-class="actif">
           <i :class="l.icone" aria-hidden="true"></i>{{ l.label }}
+          <b v-if="l.to === '/dashboard' && propositions" class="nav-pastille nav-pastille-menu">{{ propositions }}</b>
         </router-link>
         <div class="menu-mobile-actions">
           <button v-if="!connecte && backendDisponible" type="button" class="btn btn-contour-clair btn-bloc" @click="ouvrirAuth()">Connexion</button>
@@ -230,20 +284,13 @@ async function supprimerCompte() {
     </transition>
   </header>
 
-  <AuthentificationVue
-    v-if="authModalOuverte"
-    :mode="authModalMode"
-    modal
-    @fermer="fermerAuth"
-    @changer-mode="authModalMode = $event"
-  />
-
   <div v-if="profilOuvert" class="profil-overlay" @click.self="fermerProfil">
     <button class="profil-fermer" type="button" aria-label="Fermer le profil" @click="fermerProfil"><i class="fa-solid fa-xmark"></i></button>
     <section class="profil-dialogue" role="dialog" aria-modal="true" aria-labelledby="profil-titre">
       <div class="profil-blocs">
         <nav class="profil-actions" aria-label="Actions du compte">
           <button class="profil-action" :class="{ actif: profilVue === 'infos' }" type="button" @click="ouvrirAction('infos')"><i class="fa-solid fa-user"></i><span>Infos du compte<small>Voir mes informations</small></span><i class="fa-solid fa-chevron-right"></i></button>
+          <button class="profil-action" :class="{ actif: profilVue === 'type' }" type="button" @click="ouvrirAction('type')"><i class="fa-solid fa-briefcase"></i><span>Type de compte<small>{{ libelleTypeCompte }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
           <button class="profil-action" :class="{ actif: profilVue === 'mot-de-passe' }" type="button" @click="ouvrirAction('mot-de-passe')"><i class="fa-solid fa-lock"></i><span>Modifier le mot de passe<small>Sécuriser mon accès</small></span><i class="fa-solid fa-chevron-right"></i></button>
           <button class="profil-action" type="button" @click="fermerProfil(); router.push('/dashboard')"><i class="fa-solid fa-folder-open"></i><span>Mes archives de projet<small>Retrouver mes devis</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
           <button class="profil-action profil-action-danger" :class="{ actif: profilVue === 'supprimer' }" type="button" @click="ouvrirAction('supprimer')"><i class="fa-solid fa-trash"></i><span>Supprimer mon compte<small>Action définitive</small></span><i class="fa-solid fa-chevron-right"></i></button>
@@ -274,9 +321,10 @@ async function supprimerCompte() {
             <button class="btn btn-primaire" type="submit" :disabled="profilChargement"><i class="fa-solid fa-check"></i> {{ profilChargement ? 'Enregistrement...' : 'Enregistrer' }}</button>
           </form>
 
+          <ProfilTypeCompte v-else-if="profilVue === 'type'" />
           <form v-else-if="profilVue === 'mot-de-passe'" class="profil-formulaire" @submit.prevent="changerMotDePasse">
             <h3>Modifier le mot de passe</h3>
-            <p class="profil-contenu-intro">Renseignez d’abord votre ancien mot de passe, puis choisissez le nouveau.</p>
+            <p class="profil-contenu-intro">Renseignez d’abord votre ancien mot de passe, puis choisissez le nouveau. <button type="button" class="profil-oubli" @click="motDePasseOublie">Mot de passe oublié ?</button></p>
             <div class="champ"><label for="ancien-mot-de-passe">Ancien mot de passe</label><SaisieMotDePasse id="ancien-mot-de-passe" v-model="ancienMotDePasse"  required /></div>
             <div class="champ"><label for="nouveau-mot-de-passe">Nouveau mot de passe</label><SaisieMotDePasse id="nouveau-mot-de-passe" v-model="nouveauMotDePasse"  minlength="8" required /></div>
             <div class="champ"><label for="confirmation-mot-de-passe">Confirmer le mot de passe</label><SaisieMotDePasse id="confirmation-mot-de-passe" v-model="confirmationMotDePasse"  minlength="8" required /></div>
@@ -321,6 +369,13 @@ async function supprimerCompte() {
 /* Navigation (cachée en mobile, voir media queries) */
 .nav-principale { display: none; }
 .nav-principale ul { display: flex; gap: 2px; }
+/* proposition de BTM en attente (mettre un projet en avant sur l'accueil) */
+.nav-pastille {
+  position: absolute; top: 2px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center;
+  border-radius: 999px; background: #f59e0b; color: #fff; font-size: .68rem; font-weight: 800; line-height: 1;
+  box-shadow: 0 0 0 2px var(--abysse, #0b2a36);
+}
+.nav-pastille-menu { position: static; margin-left: auto; box-shadow: none; }
 .nav-lien {
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   height: 40px; padding: 0 14px; border-radius: 999px; color: rgba(255, 255, 255, .72);
@@ -358,6 +413,43 @@ async function supprimerCompte() {
 }
 .entete-utilisateur:hover { background: rgba(255, 255, 255, .08); }
 .entete-pseudo { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entete-credit {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px;
+  background: rgba(253, 230, 138, .14); color: #fde68a; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap;
+  transition: background var(--transition);
+}
+.entete-credit { border: 0; cursor: pointer; }
+.entete-credit:hover, .credit.ouvert .entete-credit { background: rgba(253, 230, 138, .24); }
+
+/* Détail du crédit : au survol ou au focus clavier (ordinateur), à l'appui (écran tactile) */
+.credit { position: relative; }
+.credit-detail {
+  position: absolute; top: calc(100% + 10px); right: -40px; z-index: 120; width: 330px; padding: 16px 18px;
+  border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; box-shadow: var(--ombre-lg); color: var(--texte);
+  opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .18s ease, transform .18s ease, visibility .18s;
+}
+.credit-detail::before { content: ''; position: absolute; top: -12px; left: 0; right: 0; height: 12px; } /* pont : le survol ne se perd pas entre le bouton et le panneau */
+.credit.ouvert .credit-detail, .credit:focus-within .credit-detail { opacity: 1; visibility: visible; transform: none; }
+@media (hover: hover) { .credit:hover .credit-detail { opacity: 1; visibility: visible; transform: none; } }
+.credit-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px solid var(--gris-200); color: var(--ardoise); font-weight: 700; }
+.credit-tete i { color: #d97706; margin-right: 4px; }
+.credit-tete strong { color: #b45309; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+.credit-infos { margin: 0; font-size: .84rem; line-height: 1.5; }
+.credit-infos dt { margin-top: 8px; color: var(--ardoise); font-weight: 700; }
+.credit-infos dt:first-child { margin-top: 0; }
+.credit-infos dd { margin: 2px 0 0; color: var(--texte-secondaire); }
+.credit-infos strong { color: var(--ardoise); }
+.credit-sous-titre { margin: 14px 0 6px; color: var(--texte-secondaire); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.credit-mouvements { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: .82rem; }
+.credit-mouvements li { display: flex; justify-content: space-between; gap: 10px; color: var(--gris-700); }
+.credit-mouvements strong { color: var(--ardoise); white-space: nowrap; }
+.credit-mouvements strong.plus { color: #047857; }
+.credit-vide { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--rayon); background: #fffbeb; color: #92400e; font-size: .82rem; line-height: 1.45; }
+.credit-action { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--lagon-700); font-size: .86rem; font-weight: 700; }
+.credit-action:hover { text-decoration: underline; text-underline-offset: 3px; }
+.credit-note { margin: 10px 0 0; color: var(--gris-500); font-size: .74rem; }
+.menu-mobile-credit { display: flex; align-items: center; gap: 6px; margin-top: 2px; color: #fde68a !important; font-weight: 600; }
+.menu-mobile-compte-texte .menu-mobile-credit-aide { white-space: normal; line-height: 1.4; }
 .entete-avatar {
   display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%;
   background: linear-gradient(135deg, var(--lagon-400), var(--lagon-700)); color: #fff;
@@ -475,6 +567,8 @@ async function supprimerCompte() {
 .profil-action-danger > i:first-child, .profil-action-danger span { color: var(--erreur); }
 .profil-contenu { min-height: 360px; padding: 26px; border: 1px solid var(--gris-200); border-radius: var(--rayon); background: #fff; }
 .profil-contenu h3, .profil-suppression h3 { margin-bottom: 8px; color: var(--ardoise); font-size: 1.45rem; }
+.profil-oubli { padding: 0; border: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 600; cursor: pointer; }
+.profil-oubli:hover { text-decoration: underline; text-underline-offset: 3px; }
 .profil-contenu-intro, .profil-suppression > p { margin-bottom: 22px; color: var(--texte-secondaire); line-height: 1.5; }
 .profil-infos-liste { display: flex; flex-direction: column; gap: 0; margin-bottom: 24px; border-top: 1px solid var(--gris-200); }
 .profil-infos-liste div { display: flex; justify-content: space-between; gap: 20px; padding: 13px 0; border-bottom: 1px solid var(--gris-200); }

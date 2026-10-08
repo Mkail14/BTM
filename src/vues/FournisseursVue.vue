@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { chargerFournisseurs, chargerCategories } from '@/services/supabase/serviceFournisseurs.js'
 import CarteFournisseur from '@/composants/fournisseurs/CarteFournisseur.vue'
 import FiltresFournisseurs from '@/composants/fournisseurs/FiltresFournisseurs.vue'
+import BandeauPage from '@/composants/commun/BandeauPage.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,6 +35,19 @@ const onglets = computed(() => {
     .map((c) => ({ ...c, nombre: nombres[c.id] || 0 }))
   return [{ id: '', libelle: 'Tous', icone: null, nombre: avantCategorie.value.length }, ...presentes]
 })
+// résumé du bandeau (sur tout l'annuaire, pas sur la recherche en cours)
+const pluriel = (n, mot) => `${mot}${n > 1 ? 's' : ''}`
+const pastilles = computed(() => {
+  if (chargement.value || !liste.value.length) return []
+  const n = liste.value.length
+  const cats = new Set(liste.value.map((f) => f.categorie_id)).size
+  const livrent = liste.value.filter((f) => f.livraison).length
+  return [
+    { icone: 'fa-solid fa-store', valeur: n, texte: pluriel(n, 'fournisseur') },
+    { icone: 'fa-solid fa-layer-group', valeur: cats, texte: pluriel(cats, 'catégorie') },
+    { icone: 'fa-solid fa-truck', valeur: livrent, texte: livrent > 1 ? 'livrent sur chantier' : 'livre sur chantier' }
+  ]
+})
 const filtreActif = computed(() => !!(recherche.value.trim() || categorie.value || livraison.value))
 
 onMounted(async () => {
@@ -58,11 +72,12 @@ function reinitialiser() { recherche.value = ''; categorie.value = ''; livraison
 <template>
   <div id="page-fournisseurs" class="page">
     <div class="conteneur annuaire">
-      <header class="annuaire-entete">
-        <span class="section-surtitre">Annuaire</span>
-        <h1 class="page-titre">Fournisseurs de Mayotte</h1>
-        <p class="page-sous-titre">Les entreprises de matériaux de l’île, à contacter directement : appel, itinéraire ou e-mail en un geste.</p>
-      </header>
+      <!-- même bandeau que « Mes projets » -->
+      <BandeauPage surtitre="Annuaire" titre="Fournisseurs de Mayotte" texte="Les entreprises de matériaux de l’île, à contacter directement : appel, itinéraire ou e-mail en un geste." :pastilles="pastilles">
+        <template #action>
+          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire mon devis</router-link>
+        </template>
+      </BandeauPage>
 
       <FiltresFournisseurs v-model:recherche="recherche" v-model:categorie="categorie" v-model:livraison="livraison" :onglets="onglets" />
 
@@ -103,7 +118,6 @@ function reinitialiser() { recherche.value = ''; categorie.value = ''; livraison
 </template>
 
 <style scoped>
-.annuaire-entete { margin-bottom: 28px; }
 
 .annuaire-barre { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 10px; }
 .annuaire-compteur { margin: 0; font-size: .86rem; color: var(--gris-500); }
@@ -150,8 +164,7 @@ ul.annuaire-liste[aria-busy] { margin-top: 24px; }
   .annuaire-squelette > span:first-child, .annuaire-squelette > span:last-child span { animation: none; }
 }
 @media (max-width: 600px) {
-  .annuaire-entete { margin-bottom: 20px; }
-  .annuaire-liste { margin-left: calc(-1 * var(--gouttiere)); margin-right: calc(-1 * var(--gouttiere)); border-width: 1px 0; border-radius: 0; }
+    .annuaire-liste { margin-left: calc(-1 * var(--gouttiere)); margin-right: calc(-1 * var(--gouttiere)); border-width: 1px 0; border-radius: 0; }
   .annuaire-pied { flex-direction: column; align-items: flex-start; text-align: left; }
   .annuaire-pied .btn { width: 100%; justify-content: center; }
 }

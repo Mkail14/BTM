@@ -16,6 +16,7 @@ import { chargerFournisseurs } from '@/services/supabase/serviceFournisseurs.js'
 import CarteProjet from '@/composants/tableau-de-bord/CarteProjet.vue'
 import PropositionsRealisation from '@/composants/tableau-de-bord/PropositionsRealisation.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
+import BandeauPage from '@/composants/commun/BandeauPage.vue'
 
 const router = useRouter()
 const { projets, vide, chargement, erreur, rafraichir, supprimer } = useProjets()
@@ -49,6 +50,12 @@ const depuisDernier = computed(() => {
   const jours = Math.round((Date.now() - new Date(dernier.value.cree_le)) / 86400000)
   return jours < 1 ? 'aujourd’hui' : jours < 2 ? 'hier' : `il y a ${jours} jours`
 })
+
+const pastilles = computed(() => (vide.value ? [] : [
+  { icone: 'fa-solid fa-folder-open', valeur: projets.value.length, texte: 'devis' },
+  { icone: 'fa-solid fa-coins', valeur: formaterEuros(totalCumule.value), texte: 'au total', prix: true },
+  { icone: 'fa-regular fa-clock', avant: 'dernier', valeur: depuisDernier.value }
+]))
 
 // ---------- Recherche, filtre, tri ----------
 const recherche = ref('')
@@ -99,19 +106,11 @@ async function confirmerSuppression() {
   <div id="page-dashboard" class="page">
     <div class="conteneur tdb">
       <!-- Bandeau : titre, résumé en pastilles, nouveau devis -->
-      <header class="tdb-bandeau">
-        <div class="tdb-bandeau-texte">
-          <span class="tdb-surtitre">Espace personnel</span>
-          <h1>Mes projets</h1>
-          <ul v-if="!vide" class="tdb-pastilles" aria-label="Résumé">
-            <li><i class="fa-solid fa-folder-open" aria-hidden="true"></i><strong>{{ projets.length }}</strong> devis</li>
-            <li><i class="fa-solid fa-coins" aria-hidden="true"></i><strong class="prix">{{ formaterEuros(totalCumule) }}</strong> au total</li>
-            <li><i class="fa-regular fa-clock" aria-hidden="true"></i>dernier <strong>{{ depuisDernier }}</strong></li>
-          </ul>
-          <p v-else>Vos devis enregistrés apparaîtront ici.</p>
-        </div>
-        <router-link to="/calculateur" class="tdb-nouveau"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouveau devis</router-link>
-      </header>
+      <BandeauPage surtitre="Espace personnel" titre="Mes projets" texte="Vos devis enregistrés apparaîtront ici." :pastilles="pastilles">
+        <template #action>
+          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouveau devis</router-link>
+        </template>
+      </BandeauPage>
 
       <!-- invitation de BTM à mettre un projet en avant sur la page d'accueil -->
       <PropositionsRealisation v-if="connecte" />
@@ -188,27 +187,6 @@ async function confirmerSuppression() {
 </template>
 
 <style scoped>
-/* Bandeau : même ambiance que le haut de l'accueil (ardoise → lagon), coins arrondis */
-.tdb-bandeau {
-  position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px;
-  padding: 34px 36px; overflow: hidden; border-radius: 28px; color: #fff;
-  background: radial-gradient(90% 140% at 100% 0%, rgba(34, 211, 238, .28), transparent 55%), linear-gradient(135deg, #0b1f2a 0%, #0f3b4d 60%, #0e5566 100%);
-}
-.tdb-bandeau::after { content: ''; position: absolute; right: -60px; bottom: -80px; width: 260px; height: 260px; border-radius: 50%; border: 40px solid rgba(255, 255, 255, .05); pointer-events: none; }
-.tdb-surtitre { display: inline-flex; align-items: center; gap: 10px; color: #f7c77a; font-size: .74rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
-.tdb-surtitre::before { content: ''; width: 22px; height: 2px; background: #f59e0b; }
-.tdb-bandeau h1 { margin: 10px 0 0; font-size: clamp(2.2rem, 4.5vw, 3.2rem); font-weight: 700; color: #fff; }
-.tdb-bandeau-texte > p { margin: 10px 0 0; color: rgba(255, 255, 255, .7); }
-.tdb-pastilles { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
-.tdb-pastilles li { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .78); font-size: .88rem; backdrop-filter: blur(6px); }
-.tdb-pastilles i { color: #67e8f9; font-size: .8rem; }
-.tdb-pastilles strong { color: #fff; }
-.tdb-nouveau {
-  position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 22px; border-radius: 14px;
-  background: #fff; color: var(--ardoise); font-weight: 700; box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .5); transition: transform var(--transition);
-}
-.tdb-nouveau:hover { transform: translateY(-2px); }
-.tdb-nouveau i { color: var(--lagon-600); }
 
 .tdb-note { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 20px; padding: 12px 16px; border-radius: var(--rayon); background: var(--gris-50); font-size: .9rem; color: var(--texte-secondaire); }
 .tdb-note i { margin-right: 4px; color: var(--lagon-600); }
@@ -273,8 +251,6 @@ async function confirmerSuppression() {
 .liste-move { transition: transform .3s ease; }
 
 @media (max-width: 760px) {
-  .tdb-bandeau { padding: 26px 22px; border-radius: 22px; }
-  .tdb-nouveau { width: 100%; justify-content: center; }
   .tdb-outils { flex-direction: column; align-items: stretch; }
   .tdb-recherche { flex-basis: auto; }
 }

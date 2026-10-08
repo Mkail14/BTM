@@ -40,13 +40,14 @@ const emit = defineEmits(['update:recherche', 'update:categorie', 'update:livrai
 </template>
 
 <style scoped>
-.filtres { display: flex; flex-direction: column; gap: 16px; }
+/* une seule barre blanche, comme sur « Mes projets » : recherche, catégories, livraison */
+.filtres { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: #fff; box-shadow: 0 6px 20px -14px rgba(11, 58, 77, .3); }
 
-.filtres-recherche { position: relative; display: flex; align-items: center; }
+.filtres-recherche { position: relative; flex: 1 1 280px; display: flex; align-items: center; }
 .filtres-recherche > i { position: absolute; left: 16px; color: var(--gris-400); pointer-events: none; }
 .filtres-recherche input {
-  width: 100%; min-height: 52px; padding: 0 48px 0 44px; border: 1px solid var(--gris-200); border-radius: 14px; background: var(--gris-50);
-  font: inherit; font-size: 1rem; color: var(--ardoise); transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+  width: 100%; min-height: 44px; padding: 0 48px 0 44px; border: 1px solid transparent; border-radius: 12px; background: var(--gris-50);
+  font: inherit; font-size: .95rem; color: var(--ardoise); transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
 .filtres-recherche input::placeholder { color: var(--gris-400); }
 .filtres-recherche input:focus { outline: none; background: #fff; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .14); }
@@ -57,7 +58,7 @@ const emit = defineEmits(['update:recherche', 'update:categorie', 'update:livrai
 }
 .filtres-recherche button:hover { background: var(--gris-200); }
 
-.filtres-ligne { display: flex; align-items: center; gap: 12px; }
+.filtres-ligne { display: flex; flex: 2 1 420px; align-items: center; gap: 10px; min-width: 0; }
 /* puces sur une ligne qui défile au doigt, fondu à droite pour signaler la suite */
 .filtres-puces {
   display: flex; flex: 1; gap: 8px; min-width: 0; overflow-x: auto; padding: 2px; scrollbar-width: none;
@@ -84,8 +85,11 @@ const emit = defineEmits(['update:recherche', 'update:categorie', 'update:livrai
 .filtres-livraison:has(input:focus-visible) { outline: 2px solid var(--lagon-600); outline-offset: 2px; }
 
 @media (max-width: 600px) {
+  .filtres { flex-direction: column; align-items: stretch; }
+  .filtres-recherche, .filtres-ligne { flex-basis: auto; width: 100%; min-width: 0; }
+  .filtres-puces { width: 100%; }
   .filtres-ligne { flex-direction: column; align-items: stretch; gap: 10px; }
   .filtres-livraison { align-self: flex-start; }
-  .filtres-puces { margin: 0 calc(-1 * var(--gouttiere)); padding: 2px var(--gouttiere); }
+  .filtres-puces { margin: 0; padding: 2px; }
 }
 </style>

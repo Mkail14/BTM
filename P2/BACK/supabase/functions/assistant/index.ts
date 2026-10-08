@@ -19,6 +19,8 @@ const json = (corps: unknown, status = 200) =>
 const MODELE_CLAUDE = "claude-haiku-4-5"; // dernier recours, si ANTHROPIC_API_KEY est configurée
 const MAX_REPONSES_IA = 40;         // par conversation : au-delà, un conseiller prend le relais
 const MAX_LONGUEUR = 1000;
+const MAX_CONVERSATIONS_HEURE = 10; // par adresse IP : nouvelles conversations
+const MAX_MESSAGES_HEURE = 60;      // par adresse IP : réponses de l'IA (protège les crédits d'IA)
 const uuid = /^[0-9a-f-]{36}$/i;
 const EMAIL = /^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]{2,}$/;
 const SITE = "https://www.btm.yt";
@@ -289,6 +291,12 @@ Deno.serve(async (req) => {
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(url, service);
     const corps = await req.json().catch(() => ({}));
+    // Limites par adresse IP (compteur limites_essais, migration 0027) : la base répond « limite atteinte » ou non
+    const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "inconnue";
+    const limiteAtteinte = async (cle: string, max: number) => {
+      const { data, error } = await admin.rpc("limite_atteinte", { p_cle: `${cle}:${ip}`, p_max: max, p_fenetre: "1 hour" });
+      return !error && data === true; // migration absente : pas de blocage
+    };
 
     // Visiteur connecté ? (facultatif : pour le nom affiché au conseiller)
     const auth = createClient(url, anon, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
@@ -330,6 +338,9 @@ Deno.serve(async (req) => {
     }
 
     if (!conv) {
+      if (await limiteAtteinte("assistant-conversation", MAX_CONVERSATIONS_HEURE)) {
+        return json({ erreur: "Trop de conversations ouvertes depuis votre connexion : réessayez dans une heure." }, 429);
+      }
       const meta = compte?.user_metadata || {};
       const nom = [meta.prenom, meta.nom].filter(Boolean).join(" ") || meta.pseudo || null;
       const { data, error } = await admin.from("support_conversations").insert({
@@ -389,6 +400,11 @@ Deno.serve(async (req) => {
     if (conv.statut === "humain") return reponse(apresInitial);
     if (conv.reponses_ia >= MAX_REPONSES_IA) {
       if (!enAttente) await passerConseiller("Conversation longue : limite de l'assistante atteinte.", "Pour aller plus loin, je vous passe un conseiller BTM : il vous répond ici même dès que possible.");
+      return reponse(apresInitial);
+    }
+
+    if (await limiteAtteinte("assistant-message", MAX_MESSAGES_HEURE)) {
+      await ajouter("ia", "Vous m’avez envoyé beaucoup de messages en peu de temps : patientez un peu avant de continuer, ou demandez à parler à un conseiller.");
       return reponse(apresInitial);
     }
 

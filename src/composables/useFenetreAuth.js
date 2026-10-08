@@ -7,13 +7,13 @@
  */
 import { reactive } from 'vue'
 
-const etat = reactive({ ouverte: false, mode: 'connexion', redirect: null, suspendu: null, profil: null, oubli: false })
+const etat = reactive({ ouverte: false, mode: 'connexion', redirect: null, suspendu: null, profil: null, oubli: false, parLien: false, lienExpire: false })
 
 // seules les adresses internes au site sont acceptées comme destination
 const interne = (chemin) => (typeof chemin === 'string' && chemin.startsWith('/') && !chemin.startsWith('//') ? chemin : null)
 
-export function ouvrirAuth(mode = 'connexion', { redirect = null, suspendu = null, profil = null, oubli = false } = {}) {
-  Object.assign(etat, { ouverte: true, mode: mode === 'inscription' ? 'inscription' : 'connexion', redirect: interne(redirect), suspendu, profil, oubli })
+export function ouvrirAuth(mode = 'connexion', { redirect = null, suspendu = null, profil = null, oubli = false, parLien = false, lienExpire = false } = {}) {
+  Object.assign(etat, { ouverte: true, mode: mode === 'inscription' ? 'inscription' : 'connexion', redirect: interne(redirect), suspendu, profil, oubli, parLien, lienExpire })
 }
 export function fermerAuth() {
   etat.ouverte = false

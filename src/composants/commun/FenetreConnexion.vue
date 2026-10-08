@@ -32,7 +32,9 @@ const props = defineProps({
   redirect: { type: String, default: null },  // page à rejoindre une fois connecté (ex. Résultats après « Enregistrer »)
   suspendu: { type: String, default: null },  // compte banni déconnecté : date de fin ou « vie »
   profil: { type: String, default: null },    // inscription : profil présélectionné (« professionnel »…)
-  oubli: Boolean                              // ouverte directement sur « Mot de passe oublié » (depuis le profil)
+  oubli: Boolean,                             // ouverte directement sur « Mot de passe oublié » (depuis le profil)
+  parLien: Boolean,                           // arrivée par le lien de l'e-mail : choix du nouveau mot de passe seulement
+  lienExpire: Boolean                         // lien de l'e-mail expiré : « Mot de passe oublié » avec un message
 })
 const emit = defineEmits(['fermer', 'changer-mode'])
 const router = useRouter()
@@ -60,8 +62,8 @@ const { connexion, inscription, backendDisponible, connecte, utilisateur } = use
 
 // Mot de passe oublié : le code vérifié connecte le compte avant qu'il ait choisi son mot de passe,
 // la fenêtre ne doit donc pas se fermer à la connexion tant que ce parcours est ouvert
-const modeOubli = ref(props.oubli)
-const dejaConnecte = connecte.value // parcours ouvert depuis le profil d'un compte connecté
+const modeOubli = ref(props.oubli || props.parLien || props.lienExpire)
+const dejaConnecte = connecte.value || props.parLien // profil d'un compte connecté, ou session ouverte par le lien de l'e-mail
 const quitterOubli = () => { if (dejaConnecte) emit('fermer'); else modeOubli.value = false }
 const finOubli = () => (dejaConnecte ? emit('fermer') : terminerConnexion())
 
@@ -301,7 +303,7 @@ function traduire(m = '') {
       </aside>
 
       <section class="carte auth-carte">
-        <MotDePasseOublie v-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" @retour="quitterOubli" @termine="finOubli" />
+        <MotDePasseOublie v-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" :par-lien="parLien" :lien-expire="lienExpire" @retour="quitterOubli" @termine="finOubli" />
         <template v-else>
           <h2 id="auth-titre" class="auth-titre">{{ !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
           <p class="texte-secondaire auth-intro">{{ !estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit, en moins d’une minute.' }}</p>

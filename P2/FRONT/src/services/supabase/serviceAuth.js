@@ -13,6 +13,27 @@ export async function connexion(email, motDePasse) {
   return data.user
 }
 
+/**
+ * Connexion ou création de compte avec Google ou Apple : le navigateur part chez le fournisseur, puis revient
+ * sur `retour` (page du site) avec la session, lue automatiquement par le client Supabase.
+ * Le fournisseur doit être activé dans Supabase (Authentication → Providers) et l'adresse du site autorisée
+ * dans Authentication → URL Configuration (Redirect URLs).
+ */
+export async function connexionExterne(fournisseur, retour = '') {
+  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
+  const redirectTo = window.location.origin + (retour.startsWith('/') ? retour : window.location.pathname)
+  const { error } = await supabase.auth.signInWithOAuth({ provider: fournisseur, options: { redirectTo } })
+  if (error) throw error
+}
+
+/** Jeton d'identité Google (bouton Google Identity Services) → session Supabase, sans quitter la page */
+export async function connexionGoogleJeton(jeton, nonce) {
+  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
+  const { data, error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: jeton, nonce })
+  if (error) throw erreurAuth(error)
+  return data.user
+}
+
 /** `retour` : page où ramène le lien de confirmation (ex. « /resultats » pour retrouver le devis en cours) */
 export async function inscription(email, motDePasse, identite = {}, retour = '') {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')

@@ -39,13 +39,21 @@ function animer() {
   raf = Math.abs(cible.x - courant.x) + Math.abs(cible.y - courant.y) > 0.001 ? requestAnimationFrame(animer) : null
 }
 
-// Fenêtres de l'immeuble en chantier : quelques-unes allumées, certaines clignotent
+// Immeuble en chantier : façade de 5 étages × 4 travées, toutes les fenêtres sont dans la façade.
+// Quelques-unes allumées (certaines clignotent), les autres éteintes pour dessiner la trame.
+const IMMEUBLE = { x: 1228, sol: 292, largeur: 76, etage: 22, etages: 5 }
+IMMEUBLE.haut = IMMEUBLE.sol - IMMEUBLE.etage * IMMEUBLE.etages // 182 : dalle du dernier étage fini
 const fenetres = []
-for (let etage = 0; etage < 5; etage++)
+for (let etage = 0; etage < IMMEUBLE.etages; etage++)
   for (let col = 0; col < 4; col++) {
     const n = etage * 4 + col
-    if ([1, 6, 7, 12, 14, 17].includes(n)) fenetres.push({ x: 1236 + col * 16, y: 262 - etage * 22, clignote: n % 3 === 0, delai: (n * 0.7) % 5 })
+    fenetres.push({
+      x: IMMEUBLE.x + 8 + col * 17,                                // 4 fenêtres de 9 px, marges de 8 px
+      y: IMMEUBLE.sol - (etage + 1) * IMMEUBLE.etage + 6,          // centrées dans la hauteur de l'étage
+      allumee: [1, 6, 7, 12, 14, 17].includes(n), clignote: n % 3 === 0, delai: (n * 0.7) % 5
+    })
   }
+const dalles = Array.from({ length: IMMEUBLE.etages - 1 }, (_, i) => IMMEUBLE.sol - (i + 1) * IMMEUBLE.etage)
 
 // accueil gardé en mémoire (keep-alive) : pas de suivi du pointeur pendant qu'on est sur une autre page
 const brancher = () => window.addEventListener('pointermove', surPointeur, { passive: true })
@@ -99,16 +107,18 @@ onBeforeUnmount(debrancher)
         <!-- Chantier (immeuble + grue) : masqué sur téléphone -->
         <g class="chantier">
         <!-- Immeuble en chantier -->
-        <g fill="#0a1216">
-          <rect x="1228" y="190" width="76" height="102" />
-          <rect x="1224" y="186" width="84" height="5" />
-        </g>
+        <!-- façade (5 étages finis) et dalle de toit débordante -->
+        <rect fill="#0a1216" :x="IMMEUBLE.x" :y="IMMEUBLE.haut" :width="IMMEUBLE.largeur" :height="IMMEUBLE.sol - IMMEUBLE.haut" />
+        <rect fill="#0a1216" :x="IMMEUBLE.x - 4" :y="IMMEUBLE.haut - 4" :width="IMMEUBLE.largeur + 8" height="4" />
+        <!-- dalles d'étage, à peine visibles -->
+        <path stroke="#16242b" stroke-width="1" :d="dalles.map((y) => `M${IMMEUBLE.x} ${y} H${IMMEUBLE.x + IMMEUBLE.largeur}`).join(' ')" />
+        <!-- étage en construction : poteaux et poutre, sans murs -->
         <g stroke="#27373f" stroke-width="1.5" fill="none">
-          <path d="M1224 186 V292 M1308 186 V292" />
-          <path d="M1228 168 V190 M1304 168 V190 M1228 168 H1304" />
+          <path :d="`M${IMMEUBLE.x + 2} ${IMMEUBLE.haut - 4} V${IMMEUBLE.haut - 24} M${IMMEUBLE.x + 38} ${IMMEUBLE.haut - 4} V${IMMEUBLE.haut - 24} M${IMMEUBLE.x + 74} ${IMMEUBLE.haut - 4} V${IMMEUBLE.haut - 24} M${IMMEUBLE.x} ${IMMEUBLE.haut - 24} H${IMMEUBLE.x + 76}`" />
+          <path :d="`M${IMMEUBLE.x + 2} ${IMMEUBLE.haut - 4} L${IMMEUBLE.x + 38} ${IMMEUBLE.haut - 24}`" stroke-width="1" />
         </g>
-        <rect v-for="(f, i) in fenetres" :key="i" class="fenetre" :class="{ clignote: f.clignote }"
-          :style="{ animationDelay: `${f.delai}s` }" :x="f.x" :y="f.y" width="8" height="10" />
+        <rect v-for="(f, i) in fenetres" :key="i" class="fenetre" :class="{ allumee: f.allumee, clignote: f.allumee && f.clignote }"
+          :style="f.allumee ? { animationDelay: `${f.delai}s` } : null" :x="f.x" :y="f.y" width="9" height="10" />
 
         <!-- Grue à tour (bord droit, sous la maquette 3D) -->
         <g class="grue" stroke="#27373f" fill="none" stroke-width="2">
@@ -185,7 +195,8 @@ onBeforeUnmount(debrancher)
 .sommet-nom { font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .18em; fill: rgba(255, 255, 255, .78); }
 .sommet-info { font-family: var(--font-corps); font-size: 8px; font-style: italic; fill: rgba(255, 213, 138, .6); }
 
-.fenetre { fill: #f7b955; opacity: .85; }
+.fenetre { fill: #16242b; }
+.fenetre.allumee { fill: #f7b955; opacity: .85; }
 .fenetre.clignote { animation: clignoter 6s steps(1) infinite; }
 
 .reflets line { animation: scintiller 7s linear infinite; }

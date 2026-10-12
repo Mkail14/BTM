@@ -170,10 +170,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <strong class="prix">{{ formaterEuros(p.valeur) }}</strong>
             </li>
           </ul>
-          <p class="resultats-frais">
-            <span><i class="fa-solid fa-hand-holding-heart" aria-hidden="true"></i> Frais BTM</span>
-            <strong class="prix resultats-gratuit">0 €</strong>
-          </p>
           <p v-if="resultat.prixFournisseur?.economie > 0" class="resultats-economie">
             <i class="fa-solid fa-piggy-bank" aria-hidden="true"></i>
             <span>Prix BTM chez <strong>{{ resultat.prixFournisseur.nom }}</strong> : vous économisez <strong>{{ formaterEuros(resultat.prixFournisseur.economie) }}</strong> par rapport au comptoir ({{ formaterEuros(resultat.prixFournisseur.totalComptoir) }}).</span>
@@ -202,15 +198,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
             </form>
           </template>
 
-          <div class="resultats-actions">
-            <!-- Devis en PDF : le voir dans la page, ou le télécharger directement -->
-            <div class="resultats-pdf" role="group" aria-label="Devis en PDF">
-              <BoutonBase icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" @click="pdf('visualiser')">Visualiser le PDF</BoutonBase>
-              <BoutonBase variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" @click="pdf('telecharger')">Télécharger</BoutonBase>
-            </div>
-            <BoutonBase variante="secondaire" icone="fa-regular fa-bookmark" @click="ouvrirDialogue">Enregistrer</BoutonBase>
-          </div>
-
+          <!-- Bas du bloc (ordinateur : calé au-dessus du pied, l'espace libre reste sous le prix) -->
+          <div class="resultats-bas">
           <!-- Code de retrait : projet enregistré en ligne -->
           <p v-if="codeRetrait" class="resultats-retrait">
             <i class="fa-solid fa-ticket" aria-hidden="true"></i>
@@ -218,11 +207,19 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           </p>
           <p v-else-if="connecte" class="resultats-retrait-aide"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <span>Enregistrez ce devis pour obtenir votre <strong>code de retrait</strong> : c’est lui qui vous donne le prix BTM chez le fournisseur.</span></p>
 
+          <!-- Une seule ligne : voir le PDF (large), puis le télécharger et enregistrer le devis (boutons carrés) -->
+          <div class="resultats-actions" role="group" aria-label="Actions du devis">
+            <BoutonBase class="resultats-action-principale" icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" @click="pdf('visualiser')">Visualiser le PDF</BoutonBase>
+            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
+            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-regular fa-bookmark" aria-label="Enregistrer le devis" title="Enregistrer le devis" @click="ouvrirDialogue" />
+          </div>
+
           <transition name="glisser">
             <BandeauAvertissement v-if="messageSucces" type="succes" compact>
               {{ messageSucces }} <router-link to="/dashboard" class="resultats-lien">Voir mes projets →</router-link>
             </BandeauAvertissement>
           </transition>
+          </div>
 
           <div class="resultats-pied">
             <details class="resultats-calcul">
@@ -350,10 +347,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-repartition span { display: flex; flex-direction: column; color: var(--texte-secondaire); font-size: .9rem; }
 .resultats-repartition small { color: var(--gris-500); font-size: .75rem; }
 .resultats-repartition strong { color: var(--ardoise); font-size: 1.1rem; }
-.resultats-frais { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 0; padding: 10px 14px; border: 1px dashed var(--gris-300); border-radius: var(--rayon); color: var(--texte-secondaire); font-size: .88rem; text-align: left; }
-.resultats-frais strong { color: var(--ardoise); font-size: .98rem; }
-.resultats-frais-info { margin-left: 4px; color: var(--gris-400); }
-.resultats-frais-info:hover { color: var(--lagon-700); }
 
 /* Code promo */
 .resultats-remise {
@@ -367,10 +360,11 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-remise-retirer:hover:not(:disabled) { background: #d1fae5; }
 .resultats-code-info { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; color: #b45309; font-size: .85rem; text-align: left; }
 .resultats-code-lien {
-  display: inline-flex; align-items: center; gap: 8px; margin-top: 14px; padding: 4px 2px; border: 0; background: none;
-  color: var(--lagon-700); font-size: .9rem; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-self: center; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; padding: 7px 16px;
+  border: 1.5px dashed var(--lagon-200); border-radius: 999px; background: none;
+  color: var(--lagon-700); font-size: .86rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s;
 }
-.resultats-code-lien:hover { text-decoration: underline; text-underline-offset: 3px; }
+.resultats-code-lien:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
 .resultats-code { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .resultats-code input {
   flex: 1 1 180px; min-height: 42px; padding: 0 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm);
@@ -381,9 +375,9 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-code input[aria-invalid="true"] { border-color: var(--erreur); }
 .resultats-code-erreur { flex-basis: 100%; margin: 0; color: var(--erreur); font-size: .85rem; text-align: left; }
 
-.resultats-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 24px; }
-.resultats-pdf { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-.resultats-pdf :deep(.btn) { flex: 1 1 auto; justify-content: center; }
+.resultats-actions { display: flex; gap: 10px; margin-top: 18px; }
+.resultats-actions .resultats-action-principale { flex: 1; min-width: 0; justify-content: center; }
+.resultats-actions .resultats-action-icone { flex: none; width: 48px; padding-inline: 0; justify-content: center; }
 
 .resultats-lien { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
 .resultats-lien:hover { text-decoration: underline; }
@@ -411,12 +405,11 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .modale-actions { display: flex; justify-content: flex-end; gap: 10px; }
 
 /* Gratuité, économie, devis pro */
-.resultats-frais .resultats-gratuit { color: #047857; }
-.resultats-frais i { margin-right: 6px; color: #047857; }
 .resultats-economie { display: flex; gap: 10px; margin: 10px 0 0; padding: 12px 14px; border-radius: var(--rayon); background: #ecfdf5; color: #065f46; font-size: .9rem; line-height: 1.5; }
 .resultats-economie i { margin-top: 3px; }
 .resultats-indispo { color: #b45309 !important; font-weight: 600; }
-.resultats-retrait-aide { display: flex; gap: 10px; margin: 16px 0 0; color: var(--texte-secondaire); font-size: .88rem; line-height: 1.5; }
+.resultats-bas { display: flex; flex-direction: column; }
+.resultats-retrait-aide { display: flex; gap: 12px; margin: 22px 0 0; padding: 12px 14px; border-radius: var(--rayon); background: var(--gris-50); color: var(--texte-secondaire); font-size: .86rem; line-height: 1.5; text-align: left; }
 .resultats-retrait-aide i { margin-top: 3px; color: var(--lagon-600); }
 .resultats-pro { border: 1.5px solid var(--ardoise); }
 .resultats-pro-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
@@ -469,7 +462,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
   .resultats-prix, .resultats-bloc { padding: 22px 18px; }
   .resultats-repartition { grid-template-columns: 1fr; }
   .resultats-repartition li { flex-direction: row; justify-content: space-between; align-items: center; text-align: left; }
-  .resultats-actions .btn { flex: 1; }
 }
 
 /* Ordinateur : prix | quoi acheter | où acheter, côte à côte et tenant dans l'écran.
@@ -485,9 +477,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
   .resultats-prix { display: flex; flex-direction: column; padding: 24px; }
   .resultats-titre { margin-top: 12px; font-size: 1.6rem; }
   .resultats-total { margin-bottom: 16px; font-size: clamp(2.6rem, 3.6vw, 3.4rem); }
-  .resultats-actions { flex-direction: column; margin-top: 18px; }
-  .resultats-actions :deep(.btn) { width: 100%; justify-content: center; }
-  .resultats-pied { margin-top: auto; }
+  .resultats-bas { margin-top: auto; } /* prix en haut, actions en bas : plus de grand vide entre les boutons et le pied */
   .resultats-colonne > .resultats-bloc:last-child { flex: 1; } /* même hauteur que les deux autres colonnes */
   .resultats-bloc { padding: 22px 24px; }
   .resultats-bloc h2 { font-size: 1.25rem; }

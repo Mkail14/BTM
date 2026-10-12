@@ -26,7 +26,8 @@ import { roleSession } from '@/routeur/index.js'
 import { supabase } from '@/services/supabase/client.js'
 import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
 import { fermerAuth } from '@/composables/useFenetreAuth.js'
-import { lireSuspension } from '@/services/supabase/serviceAuth.js'
+import { lireSuspension, connexionExterne, connexionGoogleJeton } from '@/services/supabase/serviceAuth.js'
+import { afficherBoutonGoogle } from '@/services/googleIdentite.js'
 import { memoriserSuspension } from '@/services/suspension.js'
 
 const props = defineProps({
@@ -274,6 +275,51 @@ async function soumettre() {
   }
 }
 
+// Google / Apple : connexion, ou création d'un compte particulier s'il n'existe pas encore (même bouton).
+// La page quitte le site le temps de l'identification : le devis en cours est mis de côté, comme à l'inscription.
+const externe = ref('') // fournisseur en cours de redirection
+async function continuerAvec(fournisseur) {
+  if (externe.value) return
+  erreurGlobale.value = ''; succes.value = ''
+  if (!backendDisponible) { erreurGlobale.value = 'Le backend Supabase n’est pas encore configuré.'; return }
+  externe.value = fournisseur
+  try {
+    const avecDevis = !!(calc.resultat.value || calc.cumul.value.length)
+    if (avecDevis) calc.mettreDeCote()
+    await connexionExterne(fournisseur, redirectionDemandee() || (avecDevis ? '/resultats' : ''))
+  } catch (err) {
+    externe.value = ''
+    erreurGlobale.value = /provider is not enabled|unsupported provider/i.test(err?.message || '')
+      ? `La connexion avec ${fournisseur === 'google' ? 'Google' : 'Apple'} n’est pas encore disponible.`
+      : traduire(err?.message)
+  }
+}
+
+// Google : bouton officiel (fenêtre « btm.yt », la page ne change pas) ; si Google ne se charge pas,
+// le bouton maison ci-dessus prend le relais (redirection par Supabase)
+const zoneGoogle = ref(null)
+const googleSecours = ref(!backendDisponible)
+watch([zoneGoogle, estInscription], async ([zone]) => {
+  if (!zone || googleSecours.value) return
+  try {
+    await afficherBoutonGoogle(zone, { texte: estInscription.value ? 'signup_with' : 'continue_with', surJeton: avecJetonGoogle })
+  } catch {
+    googleSecours.value = true
+  }
+}, { flush: 'post' })
+async function avecJetonGoogle(jeton, nonce) {
+  erreurGlobale.value = ''; succes.value = ''
+  externe.value = 'google'
+  try {
+    await connexionGoogleJeton(jeton, nonce)
+    await terminerConnexion()
+  } catch (err) {
+    erreurGlobale.value = traduire(err?.message)
+  } finally {
+    externe.value = ''
+  }
+}
+
 function traduire(m = '') {
   if (/database error (saving|updating)/i.test(m)) return MESSAGE_EMAIL_JETABLE // déclencheur trg_refuser_email_jetable (migration 0019)
   // le serveur d'envoi (SMTP) ne répond pas : Supabase abandonne l'inscription au bout de 10 s
@@ -450,6 +496,30 @@ function traduire(m = '') {
             </div>
           </form>
 
+          <!-- Google / Apple : à la connexion, et au choix du profil de l'inscription (compte particulier) -->
+          <div v-if="!estInscription || etape === 0" class="auth-externe">
+            <p class="auth-separateur"><span>{{ estInscription ? 'ou créez votre compte avec' : 'ou continuez avec' }}</span></p>
+            <div class="auth-externe-boutons">
+              <div v-if="!googleSecours" ref="zoneGoogle" class="auth-google" :class="{ occupe: externe === 'google' }"></div>
+              <button v-else type="button" class="auth-externe-bouton" :disabled="!!externe" @click="continuerAvec('google')">
+                <span v-if="externe === 'google'" class="spinner" aria-hidden="true"></span>
+                <svg v-else viewBox="0 0 48 48" width="18" height="18" aria-hidden="true">
+                  <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                  <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                  <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                  <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                </svg>
+                Google
+              </button>
+              <button type="button" class="auth-externe-bouton apple" :disabled="!!externe" @click="continuerAvec('apple')">
+                <span v-if="externe === 'apple'" class="spinner" aria-hidden="true"></span>
+                <i v-else class="fa-brands fa-apple" aria-hidden="true"></i>
+                Apple
+              </button>
+            </div>
+            <p v-if="estInscription" class="champ-aide auth-externe-note">Compte particulier. Professionnel ? Choisissez « Professionnel » ci-dessus pour faire vérifier votre SIRET.</p>
+          </div>
+
           <p class="auth-bascule">
             <template v-if="estInscription">
               Déjà un compte ?
@@ -505,6 +575,26 @@ function traduire(m = '') {
 .auth-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .auth-oubli { padding: 0; border: 0; background: transparent; color: var(--lagon-700); font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; }
 .auth-oubli:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* Google / Apple */
+.auth-externe { margin-top: 20px; }
+.auth-separateur { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; color: var(--texte-secondaire); font-size: .82rem; }
+.auth-separateur::before, .auth-separateur::after { content: ''; flex: 1; height: 1px; background: var(--gris-200); }
+/* l'un sous l'autre, même largeur et même hauteur que le bouton officiel de Google (40 px, 400 px au plus) */
+.auth-externe-boutons { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.auth-externe-boutons > * { width: 100%; max-width: 400px; }
+.auth-google { display: flex; justify-content: center; min-height: 40px; }
+.auth-google.occupe { opacity: .6; pointer-events: none; }
+.auth-externe-bouton {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 40px; padding: 0 14px;
+  border: 1px solid var(--gris-300); border-radius: var(--rayon); background: #fff; color: var(--ardoise);
+  font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s;
+}
+.auth-externe-bouton:hover:not(:disabled) { border-color: var(--gris-400); background: var(--gris-50); }
+.auth-externe-bouton:disabled { opacity: .6; cursor: default; }
+.auth-externe-bouton.apple { border-color: #000; background: #000; color: #fff; }
+.auth-externe-bouton.apple:hover:not(:disabled) { background: #1f1f1f; }
+.auth-externe-bouton.apple i { font-size: 1.15rem; }
+.auth-externe-note { margin: 10px 0 0; text-align: center; }
 .auth-bascule { margin-top: 22px; text-align: center; font-size: .95rem; color: var(--texte-secondaire); }
 .auth-bascule a { color: var(--lagon-700); font-weight: 700; }
 .auth-bascule button { border: 0; padding: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }

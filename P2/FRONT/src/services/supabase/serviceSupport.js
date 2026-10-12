@@ -8,15 +8,40 @@
 import { supabase, supabaseConfigure } from './client.js'
 
 // ---------- Visiteur ----------
+// { conversation_id, jeton, compte } : `compte` est le compte connecté au moment où la discussion a été gardée (null : visiteur).
+// La discussion d'un compte ne s'affiche qu'une fois connecté à ce compte ; celle d'un visiteur rejoint son compte à la connexion.
 const CLE = 'btm:assistance'
+let compteActuel = null
+const lireGardee = () => { try { return JSON.parse(localStorage.getItem(CLE) || 'null') } catch { return null } }
+const ecrireGardee = (v) => { try { v ? localStorage.setItem(CLE, JSON.stringify(v)) : localStorage.removeItem(CLE) } catch { /* stockage bloqué */ } }
 export function conversationGardee() {
-  try { return JSON.parse(localStorage.getItem(CLE) || 'null') } catch { return null }
+  const g = lireGardee()
+  if (!g?.conversation_id || (g.compte && g.compte !== compteActuel)) return null
+  return { conversation_id: g.conversation_id, jeton: g.jeton }
 }
 function garderConversation(r) {
-  try { if (r?.conversation_id) localStorage.setItem(CLE, JSON.stringify({ conversation_id: r.conversation_id, jeton: r.jeton })) } catch { /* stockage bloqué */ }
+  if (r?.conversation_id) ecrireGardee({ conversation_id: r.conversation_id, jeton: r.jeton, compte: compteActuel })
 }
 export function oublierConversation() {
-  try { localStorage.removeItem(CLE) } catch { /* stockage bloqué */ }
+  // compte connecté : la « nouvelle discussion » est notée, l'ancienne n'est pas rouverte au prochain chargement
+  ecrireGardee(compteActuel ? { compte: compteActuel } : null)
+}
+
+/**
+ * Connexion, déconnexion ou changement de compte (useAuth.surChangementCompte) :
+ *  - déconnexion ou autre compte : la discussion du compte précédent disparaît du navigateur (elle reste dans son compte) ;
+ *  - visiteur qui se connecte : sa discussion en cours est rattachée à son compte ;
+ *  - connexion sans discussion dans ce navigateur : on reprend la dernière discussion du compte.
+ */
+export async function changerCompteSupport(id) {
+  compteActuel = id || null
+  const g = lireGardee()
+  if (g?.compte && g.compte !== compteActuel) ecrireGardee(null)
+  if (!compteActuel || !supabaseConfigure) return
+  try {
+    if (conversationGardee()) await lireConversation(0) // la fonction « assistant » rattache la discussion au compte
+    else if (!lireGardee()) await assistant({ action: 'mienne' })
+  } catch { /* reprise au prochain chargement */ }
 }
 
 async function assistant(corps) {

@@ -309,6 +309,18 @@ Deno.serve(async (req) => {
       const { data } = await admin.from("support_conversations").select("*").eq("id", corps.conversation_id).eq("jeton", corps.jeton).maybeSingle();
       conv = data;
     }
+    // Discussion d'un compte : visible seulement connecté à ce compte (déconnecté, elle « disparaît »).
+    // Discussion d'un visiteur qui vient de se connecter : elle est rattachée à son compte.
+    if (conv?.utilisateur_id && conv.utilisateur_id !== compte?.id) conv = null;
+    else if (conv && !conv.utilisateur_id && compte) {
+      const meta = compte.user_metadata || {};
+      const { data } = await admin.from("support_conversations").update({
+        utilisateur_id: compte.id,
+        nom: conv.nom || [meta.prenom, meta.nom].filter(Boolean).join(" ") || meta.pseudo || null,
+        email: conv.email || compte.email || null,
+      }).eq("id", conv.id).is("utilisateur_id", null).select().maybeSingle();
+      if (data) conv = data;
+    }
     const lire = async (apres = 0) => {
       const { data } = await admin.from("support_messages").select("id, auteur, texte, cree_le")
         .eq("conversation_id", conv!.id).gt("id", apres).order("id").limit(200);
@@ -335,6 +347,16 @@ Deno.serve(async (req) => {
       if (!conv) return json({ erreur: "Conversation introuvable." }, 404);
       await presence();
       return reponse(Number(corps.apres) || 0);
+    }
+
+    // Connexion sur un navigateur sans discussion : dernière discussion du compte
+    if (corps.action === "mienne") {
+      if (!conv && compte) {
+        const { data } = await admin.from("support_conversations").select("*").eq("utilisateur_id", compte.id)
+          .order("mis_a_jour_le", { ascending: false }).limit(1).maybeSingle();
+        conv = data;
+      }
+      return conv ? reponse(0) : json({ conversation_id: null });
     }
 
     if (!conv) {

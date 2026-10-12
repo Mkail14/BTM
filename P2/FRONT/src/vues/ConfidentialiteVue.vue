@@ -31,6 +31,7 @@ const sections = computed(() => [
     'Base légale : l’exécution du service que vous demandez (article 6.1.b du RGPD).'] },
   { id: 'hebergement', titre: 'Hébergement et prestataires', texte: [
     'Base de données et comptes : Supabase, serveurs situés en Irlande (Union européenne). Site web : Vercel. E-mails (confirmation, mot de passe oublié) : OVHcloud, en France.',
+    'Avis : après un échange avec BTM, nous pouvons transmettre votre nom et votre adresse e-mail à Trustpilot pour qu’il vous invite à donner votre avis (intérêt légitime, article 6.1.f du RGPD). Vous pouvez ignorer cette invitation ou vous désinscrire depuis le lien qu’elle contient.',
     'Lors de l’inscription, le domaine de votre adresse e-mail est vérifié auprès de Cloudflare (pour refuser les adresses jetables) ; pour un compte professionnel, le SIRET est vérifié auprès de l’annuaire public des entreprises (api.gouv.fr).'] },
   { id: 'cookies', titre: 'Cookies et stockage dans votre navigateur', texte: [
     'BTM ne dépose que des éléments indispensables au fonctionnement du site. Ils sont exemptés de consentement selon les recommandations de la CNIL ; vous pouvez les effacer à tout moment (bouton ci-dessous ou réglages de votre navigateur).'], tableau: true },

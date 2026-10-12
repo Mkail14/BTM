@@ -163,15 +163,15 @@ export async function supprimerRealisation(r) {
 }
 export const televerserPhotoRealisation = (fichier) => { verifier(); return televerserPhoto(fichier, 'admin') }
 
-/** Avis Google recopié depuis la fiche Google de BTM (migration 0024) : création ou correction */
-export async function enregistrerAvisGoogle(a) {
+/** Avis Trustpilot recopié depuis la page Trustpilot de BTM (migration 0028) : création ou correction */
+export async function enregistrerAvisTrustpilot(a) {
   verifier()
   const champs = {
-    nom: a.nom.trim(), note: Number(a.note), commentaire: a.commentaire.trim(), ville: 'Google',
+    nom: a.nom.trim(), note: Number(a.note), commentaire: a.commentaire.trim(), ville: 'Trustpilot',
     lien: a.lien?.trim() || null, cree_le: a.date ? new Date(`${a.date}T12:00:00`).toISOString() : new Date().toISOString()
   }
   if (a.id) return ok(await supabase.from('avis').update(champs).eq('id', a.id).select().single())
-  return ok(await supabase.from('avis').insert({ ...champs, source: 'google', utilisateur_id: null }).select().single())
+  return ok(await supabase.from('avis').insert({ ...champs, source: 'trustpilot', utilisateur_id: null }).select().single())
 }
 
 // ---------- Fournisseurs et catégories ---------------------------------------------

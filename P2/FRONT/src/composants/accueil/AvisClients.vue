@@ -1,10 +1,11 @@
 <script setup>
 /**
  * AvisClients — synthèse des notes (moyenne + répartition) à gauche,
- * mur d'avis défilant verticalement à droite : avis du site à gauche et à droite, avis Google au centre (sens opposé).
+ * mur d'avis défilant verticalement à droite : avis du site à gauche et à droite, avis Trustpilot au centre (sens opposé).
  * Un utilisateur qui a déjà publié peut modifier son avis (migration 0024).
  * Les avis sont stockés dans Supabase (table avis) ; à défaut de connexion au back-end, des avis de démonstration s'affichent.
- * Publier un avis exige d'être connecté : sinon une fenêtre propose de se connecter ou de créer un compte.
+ * « Donner mon avis » propose d'abord le choix : sur le site (compte requis, sinon fenêtre de connexion / inscription)
+ * ou sur Trustpilot (page Trustpilot de BTM dans un nouvel onglet).
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
@@ -52,10 +53,10 @@ const repartition = computed(() => [5, 4, 3, 2, 1].map((note) => {
   return { note, nombre, part: avis.value.length ? (nombre / avis.value.length) * 100 : 0 }
 }))
 
-// Trois colonnes qui défilent en boucle : avis du site à gauche et à droite, avis Google au centre (sens inverse).
+// Trois colonnes qui défilent en boucle : avis du site à gauche et à droite, avis Trustpilot au centre (sens inverse).
 // Chaque colonne boucle sur une séquence assez longue pour remplir la hauteur visible ; une seule rangée sur mobile.
-const avisSite = computed(() => avis.value.filter((a) => a.source !== 'google'))
-const avisGoogle = computed(() => avis.value.filter((a) => a.source === 'google'))
+const avisSite = computed(() => avis.value.filter((a) => a.source !== 'trustpilot'))
+const avisTrustpilot = computed(() => avis.value.filter((a) => a.source === 'trustpilot'))
 const allonger = (liste, minimum) => {
   if (!liste.length) return []
   let sequence = [...liste]
@@ -66,17 +67,18 @@ const colonnes = computed(() => {
   const site = allonger(avisSite.value, 8)
   return [
     { cle: 'gauche', avis: site.filter((_, i) => i % 2 === 0), classe: 'avis-colonne-site' },
-    { cle: 'centre', avis: allonger(avisGoogle.value, 4), classe: 'avis-colonne-google avis-colonne-inverse', google: true },
+    { cle: 'centre', avis: allonger(avisTrustpilot.value, 4), classe: 'avis-colonne-trustpilot avis-colonne-inverse', trustpilot: true },
     { cle: 'droite', avis: site.filter((_, i) => i % 2 === 1), classe: 'avis-colonne-site avis-colonne-lente' }
   ]
 })
-// mobile : une rangée qui alterne avis du site et avis Google
+// mobile : une rangée qui alterne avis du site et avis Trustpilot
 const rangeeMobile = computed(() => {
-  const s = avisSite.value, g = avisGoogle.value, r = []
+  const s = avisSite.value, g = avisTrustpilot.value, r = []
   for (let i = 0; i < Math.max(s.length, g.length); i++) { if (s[i]) r.push(s[i]); if (g[i]) r.push(g[i]) }
   return r
 })
-const lienGoogle = computed(() => (/^https:\/\//.test(contenu.avis.lienGoogle || '') ? contenu.avis.lienGoogle : ''))
+// lien « laisser un avis » de la page Trustpilot de BTM (réglé dans l'admin → Contenus → Accueil — avis)
+const lienTrustpilot = computed(() => (/^https:\/\//.test(contenu.avis.lienTrustpilot || '') ? contenu.avis.lienTrustpilot : ''))
 
 async function chargerAvis() {
   try {
@@ -92,6 +94,17 @@ async function chargerMonAvis() {
   mien.value = connecte.value && utilisateur.value ? await monAvis(utilisateur.value.id) : null
 }
 watch(() => utilisateur.value?.id, chargerMonAvis)
+
+// « Donner mon avis » : choix entre le site et Trustpilot (sans lien Trustpilot réglé, on va directement au site)
+const choixOuvert = ref(false)
+function donnerAvis() {
+  if (lienTrustpilot.value) choixOuvert.value = true
+  else ouvrirModal()
+}
+function choisirSite() {
+  choixOuvert.value = false
+  ouvrirModal()
+}
 
 async function ouvrirModal() {
   if (backendDisponible && !connecte.value) { compteRequis.value = true; return }
@@ -167,24 +180,24 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
           </li>
         </ul>
 
-        <BoutonBase variante="primaire" :icone-droite="mien ? 'fa-solid fa-pen' : 'fa-solid fa-arrow-right'" @click="ouvrirModal">{{ mien ? 'Modifier mon avis' : contenu.avis.bouton }}</BoutonBase>
+        <BoutonBase variante="primaire" :icone-droite="mien ? 'fa-solid fa-pen' : 'fa-solid fa-arrow-right'" @click="donnerAvis">{{ mien ? 'Modifier mon avis' : contenu.avis.bouton }}</BoutonBase>
       </header>
 
-      <!-- Mur d'avis : site | Google | site -->
+      <!-- Mur d'avis : site | Trustpilot | site -->
       <div v-if="avis.length" class="avis-mur" aria-label="Avis clients">
         <div v-for="colonne in colonnes" :key="colonne.cle" class="avis-colonne" :class="colonne.classe">
-          <!-- colonne Google encore vide : invitation à laisser un avis (jamais de faux avis) -->
-          <div v-if="colonne.google && !colonne.avis.length" class="avis-carte avis-google avis-google-invitation">
-            <span class="avis-google-marque"><i class="fa-brands fa-google" aria-hidden="true"></i> Avis Google</span>
-            <p class="avis-commentaire">Vous avez travaillé avec BTM ? Votre avis sur Google aide les autres Mahorais à choisir.</p>
-            <a v-if="lienGoogle" :href="lienGoogle" target="_blank" rel="noopener noreferrer" class="avis-google-lien">Laisser un avis sur Google <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+          <!-- colonne Trustpilot encore vide : carte d'invitation (jamais de faux avis) ; on donne son avis via « Donner mon avis » -->
+          <div v-if="colonne.trustpilot && !colonne.avis.length" class="avis-carte avis-trustpilot avis-trustpilot-invitation">
+            <span class="avis-trustpilot-marque"><i class="fa-solid fa-star" aria-hidden="true"></i> Trustpilot</span>
+            <span class="avis-note" aria-hidden="true"><i v-for="n in 5" :key="n" class="fa-solid fa-star"></i></span>
+            <p class="avis-commentaire">Vous avez travaillé avec BTM ? Votre avis sur Trustpilot aide les autres Mahorais à choisir.</p>
           </div>
           <div v-else class="avis-piste" :style="{ '--duree': `${colonne.avis.length * 7}s` }">
             <article
               v-for="(element, index) in [...colonne.avis, ...colonne.avis]" :key="`${element.id}-${index}`"
-              class="avis-carte" :class="{ 'avis-google': element.source === 'google' }" :aria-hidden="index >= colonne.avis.length || undefined"
+              class="avis-carte" :class="{ 'avis-trustpilot': element.source === 'trustpilot' }" :aria-hidden="index >= colonne.avis.length || undefined"
             >
-              <span v-if="element.source === 'google'" class="avis-google-marque"><i class="fa-brands fa-google" aria-hidden="true"></i> Avis Google</span>
+              <span v-if="element.source === 'trustpilot'" class="avis-trustpilot-marque"><i class="fa-solid fa-star" aria-hidden="true"></i> Trustpilot</span>
               <span class="avis-note" :aria-label="`${element.note} étoiles sur 5`">
                 <i v-for="n in 5" :key="n" class="fa-solid fa-star" :class="{ eteinte: n > element.note }" aria-hidden="true"></i>
               </span>
@@ -194,11 +207,11 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
                 <span>
                   <strong>{{ element.nom }}</strong>
                   <small>
-                    {{ element.source === 'google' ? 'Google' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time>
+                    {{ element.source === 'trustpilot' ? 'Trustpilot' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time>
                     <template v-if="element.modifie"> · modifié</template>
                   </small>
                 </span>
-                <a v-if="element.lien" :href="element.lien" target="_blank" rel="noopener noreferrer" class="avis-source" :tabindex="index >= colonne.avis.length ? -1 : undefined" :aria-label="`Voir l’avis de ${element.nom} sur Google`">
+                <a v-if="element.lien" :href="element.lien" target="_blank" rel="noopener noreferrer" class="avis-source" :tabindex="index >= colonne.avis.length ? -1 : undefined" :aria-label="`Voir l’avis de ${element.nom} sur Trustpilot`">
                   <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
                 </a>
               </footer>
@@ -206,11 +219,11 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
           </div>
         </div>
 
-        <!-- Téléphone : une rangée qui alterne avis du site et avis Google -->
+        <!-- Téléphone : une rangée qui alterne avis du site et avis Trustpilot -->
         <div class="avis-colonne avis-colonne-mobile">
           <div class="avis-piste">
-            <article v-for="element in rangeeMobile" :key="`m-${element.id}`" class="avis-carte" :class="{ 'avis-google': element.source === 'google' }">
-              <span v-if="element.source === 'google'" class="avis-google-marque"><i class="fa-brands fa-google" aria-hidden="true"></i> Avis Google</span>
+            <article v-for="element in rangeeMobile" :key="`m-${element.id}`" class="avis-carte" :class="{ 'avis-trustpilot': element.source === 'trustpilot' }">
+              <span v-if="element.source === 'trustpilot'" class="avis-trustpilot-marque"><i class="fa-solid fa-star" aria-hidden="true"></i> Trustpilot</span>
               <span class="avis-note" :aria-label="`${element.note} étoiles sur 5`">
                 <i v-for="n in 5" :key="n" class="fa-solid fa-star" :class="{ eteinte: n > element.note }" aria-hidden="true"></i>
               </span>
@@ -219,13 +232,42 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
                 <span class="avis-avatar" aria-hidden="true">{{ element.nom.charAt(0).toUpperCase() }}</span>
                 <span>
                   <strong>{{ element.nom }}</strong>
-                  <small>{{ element.source === 'google' ? 'Google' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time></small>
+                  <small>{{ element.source === 'trustpilot' ? 'Trustpilot' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time></small>
                 </span>
               </footer>
             </article>
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Choix : avis sur le site ou sur Trustpilot -->
+    <div v-if="choixOuvert" class="avis-modal-fond" @click.self="choixOuvert = false">
+      <button class="avis-fermer" type="button" aria-label="Fermer" @click="choixOuvert = false">
+        <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+      </button>
+      <section class="avis-modal avis-choix" role="dialog" aria-modal="true" aria-labelledby="avis-choix-titre">
+        <h2 id="avis-choix-titre">Où donner votre avis ?</h2>
+        <p>Merci de prendre une minute pour BTM : votre avis aide les autres Mahorais à préparer leur chantier.</p>
+        <div class="avis-choix-options">
+          <button type="button" class="avis-choix-option" @click="choisirSite">
+            <span class="avis-choix-icone"><i class="fa-solid fa-house" aria-hidden="true"></i></span>
+            <span>
+              <strong>{{ mien ? 'Modifier mon avis sur le site' : 'Sur le site BTM' }}</strong>
+              <small>Affiché sur cette page · compte BTM requis</small>
+            </span>
+            <i class="fa-solid fa-arrow-right avis-choix-fleche" aria-hidden="true"></i>
+          </button>
+          <a :href="lienTrustpilot" target="_blank" rel="noopener noreferrer" class="avis-choix-option" @click="choixOuvert = false">
+            <span class="avis-choix-icone avis-choix-icone-trustpilot"><i class="fa-solid fa-star" aria-hidden="true"></i></span>
+            <span>
+              <strong>Sur Trustpilot</strong>
+              <small>Avis public · s’ouvre dans un nouvel onglet</small>
+            </span>
+            <i class="fa-solid fa-arrow-up-right-from-square avis-choix-fleche" aria-hidden="true"></i>
+          </a>
+        </div>
+      </section>
     </div>
 
     <!-- Compte requis pour publier -->
@@ -327,36 +369,28 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-colonne-inverse .avis-piste { animation-direction: reverse; }
 .avis-colonne-lente .avis-piste { animation-duration: calc(var(--duree, 30s) * 1.3); } /* les deux colonnes du site ne vont pas au même pas */
 
-/* ---------- Avis Google (colonne centrale) : couleurs et marque Google ---------- */
-/* Avis Google : même taille que ceux du site (la marque se place en haut à droite, sans ligne en plus),
-   en gris anthracite façon mode sombre de Google */
-.avis-carte.avis-google { position: relative; overflow: hidden; border-color: #3c4043; background: linear-gradient(160deg, #2d2f33 0%, #202124 100%); box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .6); }
-.avis-carte.avis-google::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, #4285f4 0 25%, #ea4335 25% 50%, #fbbc04 50% 75%, #34a853 75%); }
-.avis-google-marque { display: inline-flex; align-items: center; gap: 6px; color: #9aa0a6; font-size: .74rem; font-weight: 600; letter-spacing: .02em; }
-.avis-carte.avis-google > .avis-google-marque { position: absolute; top: 22px; right: 22px; }
-.avis-google-marque i {
-  font-size: .95rem; background: conic-gradient(from -45deg, #ea4335 0 25%, #4285f4 25% 50%, #34a853 50% 75%, #fbbc04 75%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-}
-.avis-google .avis-note { color: #fbbc04; }
-.avis-google .avis-note .eteinte { color: #5f6368; }
-.avis-google .avis-commentaire { color: #e8eaed; }
-.avis-google .avis-auteur strong { color: #8ab4f8; }
-.avis-google .avis-auteur small { color: #9aa0a6; }
-.avis-google .avis-avatar { background: #3c4043; color: #8ab4f8; }
+/* ---------- Avis Trustpilot (colonne centrale) : couleurs de Trustpilot ---------- */
+/* Même taille que les avis du site (la marque se place en haut à droite), fond sombre et étoiles vertes en carrés */
+.avis-carte.avis-trustpilot { position: relative; overflow: hidden; border-color: #2c2c2c; background: linear-gradient(160deg, #232323 0%, #191919 100%); box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .6); }
+.avis-carte.avis-trustpilot::before { content: ''; position: absolute; inset: 0 0 auto; height: 3px; background: #00b67a; }
+.avis-trustpilot-marque { display: inline-flex; align-items: center; gap: 6px; color: #e5e5dd; font-size: .74rem; font-weight: 600; letter-spacing: .02em; }
+.avis-trustpilot-marque i { color: #00b67a; font-size: .9rem; }
+.avis-carte.avis-trustpilot > .avis-trustpilot-marque { position: absolute; top: 22px; right: 22px; }
+.avis-trustpilot .avis-note { gap: 2px; }
+.avis-trustpilot .avis-note i { width: 18px; height: 18px; display: grid; place-items: center; background: #00b67a; color: #fff; font-size: .62rem; }
+.avis-trustpilot .avis-note .eteinte { background: #3a3a3a; color: #8c8c8c; }
+.avis-trustpilot .avis-commentaire { color: #f1f1ec; }
+.avis-trustpilot .avis-auteur strong { color: #fff; }
+.avis-trustpilot .avis-auteur small { color: #a3a39b; }
+.avis-trustpilot .avis-avatar { background: #2c2c2c; color: #00b67a; }
 .avis-source { margin-left: auto; width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; color: #5f6368; font-size: .78rem; }
-.avis-google .avis-source { color: #9aa0a6; }
-.avis-google .avis-source:hover { background: #3c4043; color: #8ab4f8; }
-.avis-source:hover { background: #f1f3f4; color: #1a73e8; }
-.avis-google-invitation { align-self: center; margin-top: 160px; }
-.avis-carte.avis-google-invitation > .avis-google-marque { position: static; }
-.avis-google-invitation .avis-commentaire { color: #e8eaed; }
-.avis-google-lien { align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; background: #1a73e8; color: #fff; font-size: .86rem; font-weight: 600; }
-.avis-google-lien:hover { background: #1765cc; }
-.avis-google-lien i { font-size: .72rem; }
+.avis-trustpilot .avis-source { color: #a3a39b; }
+.avis-trustpilot .avis-source:hover { background: #2c2c2c; color: #00b67a; }
+.avis-source:hover { background: #f1f3f4; color: var(--lagon-800); }
 .avis-modal-note { margin: 6px 0 0; color: var(--texte-secondaire); font-size: .9rem; line-height: 1.5; }
+.avis-trustpilot-invitation { align-self: center; margin-top: 160px; }
+.avis-carte.avis-trustpilot-invitation > .avis-trustpilot-marque { position: static; }
 .avis-colonne-mobile { display: none; }
-.avis-mur:hover .avis-piste { animation-play-state: paused; }
 @keyframes defiler { from { transform: translateY(0); } to { transform: translateY(calc(-50% - 8px)); } }
 
 .avis-carte { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #fff; border: 1px solid var(--bordure); border-radius: 18px; }
@@ -401,17 +435,32 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-compte-actions { display: flex; flex-direction: column; gap: 10px; }
 .avis-compte-actions :deep(.btn) { width: 100%; justify-content: center; min-height: 48px; }
 
+/* ---------- Choix : site ou Trustpilot ---------- */
+.avis-choix p { margin: 8px 0 22px; color: var(--texte-secondaire); line-height: 1.6; }
+.avis-modal.avis-choix { width: min(100%, 520px); }
+.avis-choix-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.avis-choix-option {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; text-align: left;
+  border: 1.5px solid var(--bordure); border-radius: var(--rayon-sm, 12px); background: #fff; color: var(--ardoise);
+  font: inherit; text-decoration: none; cursor: pointer; transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+.avis-choix-option:hover, .avis-choix-option:focus-visible { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .12); transform: translateY(-1px); }
+.avis-choix-option strong { display: block; font-size: .88rem; }
+.avis-choix-option small { display: block; margin-top: 2px; color: var(--gris-500); font-size: .72rem; line-height: 1.35; }
+.avis-choix-icone { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 9px; background: var(--lagon-50); color: var(--lagon-800); font-size: .85rem; }
+.avis-choix-icone-trustpilot { background: #00b67a; color: #fff; }
+.avis-choix-fleche { margin-left: auto; flex: none; color: var(--gris-500); font-size: .7rem; }
+
 /* ---------- Adaptations ---------- */
 @media (prefers-reduced-motion: reduce) {
   .avis-piste { animation: none; }
   .avis-mur { overflow-y: auto; }
   .avis-carte[aria-hidden] { display: none; }
 }
-/* écran moyen : avis du site + avis Google (la deuxième colonne du site est masquée) */
+/* écran moyen : avis du site + avis Trustpilot (la deuxième colonne du site est masquée) */
 @media (max-width: 1280px) {
   .avis-mur { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .avis-colonne-site.avis-colonne-lente { display: none; }
-}
+  .avis-colonne-site.avis-colonne-lente { display: none; }}
 @media (max-width: 900px) {
   .avis-grille { grid-template-columns: minmax(0, 1fr); }
   .avis-grille > * { min-width: 0; }
@@ -423,7 +472,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
     display: block; height: auto; overflow: visible; mask-image: none; -webkit-mask-image: none;
     margin-inline: calc(-1 * var(--gouttiere));
   }
-  .avis-colonne-site, .avis-colonne-google { display: none; }
+  .avis-colonne-site, .avis-colonne-trustpilot { display: none; }
   .avis-colonne-mobile { display: block; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 4px var(--gouttiere) 16px; -webkit-overflow-scrolling: touch; }
   .avis-colonne-mobile::-webkit-scrollbar { display: none; }
   .avis-colonne-mobile .avis-piste { flex-direction: row; animation: none; width: max-content; gap: 12px; }
@@ -432,5 +481,6 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
   .avis-fermer { top: 10px; right: 12px; }
   .avis-modal { padding: 26px 20px; }
   .avis-ligne { grid-template-columns: 1fr; gap: 0; }
+  .avis-choix-options { grid-template-columns: 1fr; }
 }
 </style>

@@ -5,7 +5,8 @@ const regles = [
   { titre: 'Mur', formule: 'S = L × H − ouvertures', detail: 'Parpaings S / 0,08 × 1,05' },
   { titre: 'Dalle', formule: 'V = L × l × ép.', detail: 'Béton 2,4 t/m³ · fer 5 kg/m²' },
   { titre: 'Fondation', formule: 'V = L × l × prof.', detail: 'Béton armé · acier 50 kg/m³' },
-  { titre: 'Terrasse', formule: 'Dalle + finition', detail: 'Carrelage 50 €/m² · lissé 15 €/m²' }
+  { titre: 'Terrasse', formule: 'Dalle + finition', detail: 'Carrelage 50 €/m² · lissé 15 €/m²' },
+  { titre: 'Carrelage', formule: 'S = L × l', detail: 'Carreaux +10 % · colle 5 kg/m²' }
 ]
 </script>
 
@@ -36,7 +37,10 @@ const regles = [
 .regles h2 { font-size: clamp(2rem, 4vw, 2.9rem); font-weight: 700; line-height: 1.08; }
 .regles p { margin: 18px 0 28px; color: var(--beton); line-height: 1.65; max-width: 520px; }
 .regles-liste { display: grid; grid-template-columns: 1fr; gap: 1px; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.1); margin: 0; }
-@media (min-width: 640px) { .regles-liste { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 640px) {
+  .regles-liste { grid-template-columns: 1fr 1fr; }
+  .regle:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
 .regle { background: var(--ardoise); padding: 24px; }
 .regle dt { font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: #fff; }
 .regle dd { margin: 8px 0 0; color: var(--lagon-300); font-size: .95rem; }

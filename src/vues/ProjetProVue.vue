@@ -220,6 +220,14 @@ const nb = (v, d = 2) => formaterNombre(v, d)
                   </label>
                 </template>
               </fieldset>
+              <fieldset class="pp-groupe">
+                <legend>
+                  <label class="pp-bascule"><input v-model="selection.carrelageInterieur" type="checkbox" /> Carrelage intérieur</label>
+                </legend>
+                <label v-if="selection.carrelageInterieur" class="pp-plein"><span>Format des carreaux</span>
+                  <select v-model="selection.formatCarreaux"><option value="30x30">30 × 30 cm</option><option value="45x45">45 × 45 cm</option><option value="60x60">60 × 60 cm</option></select>
+                </label>
+              </fieldset>
             </template>
 
             <dl v-if="mesures" class="pp-mesures">
@@ -230,6 +238,7 @@ const nb = (v, d = 2) => formaterNombre(v, d)
               <div v-if="mesures.surfaceMurs"><dt>Murs (hors ouvertures)</dt><dd>{{ nb(mesures.surfaceMurs) }} m²</dd></div>
               <div v-if="mesures.longueurFondations"><dt>Tranchées de fondation</dt><dd>{{ nb(mesures.longueurFondations) }} m</dd></div>
               <div v-if="mesures.surfaceTerrasse"><dt>Terrasse</dt><dd>{{ nb(mesures.surfaceTerrasse) }} m²</dd></div>
+              <div v-if="mesures.surfaceCarrelage"><dt>Carrelage intérieur</dt><dd>{{ nb(mesures.surfaceCarrelage) }} m²</dd></div>
             </dl>
           </section>
         </aside>

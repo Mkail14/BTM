@@ -12,7 +12,7 @@ const miseAJour = '28 septembre 2026'
 // Le taux des frais et l'adresse de contact suivent les réglages de l'admin
 const sections = computed(() => [
   { id: 'objet', titre: 'Objet du service', texte: [
-    'BTM — Bâtiment & Travaux Mayotte est une plateforme qui permet d’estimer le budget d’un projet de construction (mur, dalle, fondation, terrasse), de consulter un annuaire de fournisseurs de matériaux à Mayotte et d’enregistrer ses estimations dans un espace personnel.',
+    'BTM — Bâtiment & Travaux Mayotte est une plateforme qui permet d’estimer le budget d’un projet de construction (mur, dalle, fondation, terrasse, carrelage), de consulter un annuaire de fournisseurs de matériaux à Mayotte et d’enregistrer ses estimations dans un espace personnel.',
     'Les présentes conditions encadrent l’utilisation du site et la création d’un compte. En créant un compte, vous les acceptez.' ] },
   { id: 'estimations', titre: 'Nature des estimations', texte: [
     'Les quantités, prix et budgets affichés sont des estimations indicatives. Ils reposent sur des formules de calcul simplifiées et des prix unitaires provisoires ; ils ne constituent ni un devis, ni une offre de prix, ni un engagement contractuel.',

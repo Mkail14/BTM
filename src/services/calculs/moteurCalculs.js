@@ -8,9 +8,10 @@ import { calculerMur, listerMurs } from './formuleMur.js'
 import { calculerDalle } from './formuleDalle.js'
 import { calculerFondation } from './formuleFondation.js'
 import { calculerTerrasse } from './formuleTerrasse.js'
+import { calculerCarrelage } from './formuleCarrelage.js'
 import { nombre, arrondi } from './utilitaires.js'
 
-const FORMULES = { mur: calculerMur, dalle: calculerDalle, fondation: calculerFondation, terrasse: calculerTerrasse }
+const FORMULES = { mur: calculerMur, dalle: calculerDalle, fondation: calculerFondation, terrasse: calculerTerrasse, carrelage: calculerCarrelage }
 
 export const MESSAGES = {
   obligatoire: 'Ce champ est obligatoire',            // ER01

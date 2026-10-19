@@ -42,7 +42,8 @@ const survol = ref(null)
 
 <style scoped>
 .vitrine { background: #fff; }
-.ouvrages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.ouvrages { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+@media (max-width: 1280px) { .ouvrages { grid-template-columns: repeat(3, 1fr); } }
 
 .ouvrage {
   position: relative; display: flex; flex-direction: column; overflow: hidden;

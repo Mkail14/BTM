@@ -17,7 +17,7 @@ import { useCalculateur } from '@/composables/useCalculateur.js'
 const sansAccent = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 // mots qui désignent un ouvrage dans une phrase (les identifiants des ouvrages sont fixes)
-const MOTS_OUVRAGES = { mur: ['mur', 'cloture', 'parpaing'], dalle: ['dalle'], fondation: ['fondation', 'semelle', 'tranchee'], terrasse: ['terrasse'] }
+const MOTS_OUVRAGES = { mur: ['mur', 'cloture', 'parpaing'], dalle: ['dalle'], fondation: ['fondation', 'semelle', 'tranchee'], terrasse: ['terrasse'], carrelage: ['carrelage', 'carreau', 'carreaux', 'faience'] }
 function ouvrageDans(texte) {
   const t = sansAccent(texte)
   return typesProjets.find((type) => [sansAccent(type.libelle), ...(MOTS_OUVRAGES[type.id] || [])].some((mot) => new RegExp(`\\b${mot}s?\\b`).test(t))) || null

@@ -1,5 +1,5 @@
 /**
- * Projet professionnel (multi-ouvrages) : plusieurs maisons, dalles, murs et terrasses dans un même projet.
+ * Projet professionnel (multi-ouvrages) : plusieurs maisons (carrelées ou non), dalles, murs et terrasses dans un même projet.
  * Chaque ouvrage est calculé avec les formules du calculateur (mêmes paramètres, mêmes prix) ;
  * les matériaux sont additionnés en un seul devis, puis les frais de service BTM sont ajoutés une fois.
  * Coordonnées : 1 unité = 1 mètre ; x vers l'est, z vers le sud ; rotation en quarts de tour.
@@ -10,7 +10,7 @@ import { arrondi } from './utilitaires.js'
 export const TYPE_ENSEMBLE = 'ensemble'
 
 export const TYPES_OUVRAGES = {
-  maison: { libelle: 'Maison', icone: 'fa-solid fa-house', description: 'Fondations, dalle et murs périphériques' },
+  maison: { libelle: 'Maison', icone: 'fa-solid fa-house', description: 'Fondations, dalle, murs et carrelage' },
   dalle: { libelle: 'Dalle', icone: 'fa-solid fa-layer-group', description: 'Garage, parking, abri' },
   mur: { libelle: 'Mur', icone: 'fa-solid fa-building', description: 'Clôture, mur de soutènement' },
   terrasse: { libelle: 'Terrasse', icone: 'fa-solid fa-umbrella-beach', description: 'Carrelage ou béton lissé' }
@@ -28,7 +28,8 @@ export function creerOuvrage(type, existants = []) {
     return {
       ...base, longueur: 10, largeur: 8, hauteur: 2.7, epaisseurMur: 0.2, epaisseurDalle: 12,
       fondationLargeur: 0.5, fondationProfondeur: 0.6, portes: 1, fenetres: 4, refends: 0,
-      terrasse: false, terrasseProfondeur: 3, terrasseFinition: 'carrelage'
+      terrasse: false, terrasseProfondeur: 3, terrasseFinition: 'carrelage',
+      carrelageInterieur: false, formatCarreaux: '60x60'
     }
   }
   if (type === 'dalle') return { ...base, longueur: 6, largeur: 4, epaisseurDalle: 12 }
@@ -57,7 +58,8 @@ export function mesuresOuvrage(o) {
       surfaceMurs: arrondi(Math.max(0, perimetre * o.hauteur - ouvertures)), ouvertures: arrondi(ouvertures),
       volumeDalle: arrondi(o.longueur * o.largeur * o.epaisseurDalle / 100, 3),
       longueurFondations: arrondi(perimetre + o.refends * o.largeur),
-      surfaceTerrasse: o.terrasse ? arrondi(o.longueur * o.terrasseProfondeur) : 0
+      surfaceTerrasse: o.terrasse ? arrondi(o.longueur * o.terrasseProfondeur) : 0,
+      surfaceCarrelage: o.carrelageInterieur ? arrondi(interieur) : 0
     }
   }
   if (o.type === 'mur') return { surfaceMurs: arrondi(Math.max(0, o.longueur * o.hauteur - (o.ouvertures || 0))), longueur: o.longueur }
@@ -74,6 +76,7 @@ function decomposer(o) {
       { type: 'mur', libelle: 'Murs', dimensions: { longueur: m.perimetre, hauteur: o.hauteur, ouvertures: m.ouvertures } }
     ]
     if (o.terrasse) parties.push({ type: 'terrasse', libelle: 'Terrasse', dimensions: { longueur: o.longueur, largeur: o.terrasseProfondeur, epaisseur: 10, finition: o.terrasseFinition } })
+    if (o.carrelageInterieur && m.surfaceHabitable > 0) parties.push({ type: 'carrelage', libelle: 'Carrelage', dimensions: { longueur: o.longueur - 2 * o.epaisseurMur, largeur: o.largeur - 2 * o.epaisseurMur, format: o.formatCarreaux || '60x60' } })
     return parties
   }
   if (o.type === 'mur') return [{ type: 'mur', libelle: 'Mur', dimensions: { longueur: o.longueur, hauteur: o.hauteur, ouvertures: o.ouvertures || 0 } }]
@@ -134,7 +137,8 @@ export function calculerProjetPro(projet, { catalogue, tauxFrais = 0 } = {}) {
       { label: 'Surface habitable', valeur: somme('surfaceHabitable'), unite: 'm²' },
       { label: 'Surface de murs', valeur: somme('surfaceMurs'), unite: 'm²' },
       { label: 'Volume de dalles', valeur: somme('volumeDalle'), unite: 'm³' },
-      { label: 'Terrasses', valeur: somme('surfaceTerrasse'), unite: 'm²' }
+      { label: 'Terrasses', valeur: somme('surfaceTerrasse'), unite: 'm²' },
+      { label: 'Carrelage intérieur', valeur: somme('surfaceCarrelage'), unite: 'm²' }
     ].filter((m) => m.valeur)
   }
 }

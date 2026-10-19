@@ -219,6 +219,7 @@ onBeforeUnmount(debrancherScroll)
 .hero-raccourcis { width: 100%; animation: apparaitre .8s .3s ease both; }
 .hero-raccourcis-titre { margin: 0 0 10px; font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
 .hero-raccourcis ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hero-raccourcis li:last-child:nth-child(odd) { grid-column: 1 / -1; } /* 5 ouvrages : le dernier prend toute la ligne */
 .hero-raccourcis a {
   display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 0 14px; border-radius: 14px; color: #fff; font-weight: 600;
   background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .14); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);

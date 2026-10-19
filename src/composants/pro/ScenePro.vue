@@ -121,6 +121,10 @@ function construireMaison(o, g) {
   g.add(boite(fl, fp, W - t, M.fondation, L / 2 - t / 2, -fp / 2, cz))
   // Dalle
   g.add(boite(L, e, W, M.beton, 0, e / 2, cz))
+  if (o.carrelageInterieur) {
+    const c = { '30x30': .3, '45x45': .45 }[o.formatCarreaux] || .6
+    g.add(boite(L - 2 * t, .02, W - 2 * t, carrelage((L - 2 * t) / c, (W - 2 * t) / c), 0, e + .01, cz))
+  }
 
   // Ouvertures : portes sur la façade avant, fenêtres réparties (avant, arrière, côtés)
   const portes = Array.from({ length: Math.max(0, o.portes) }, () => ({ type: 'porte', largeur: PORTE.largeur, bas: 0, haut: Math.min(PORTE.hauteur, h - .1) }))

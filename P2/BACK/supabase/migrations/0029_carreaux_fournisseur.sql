@@ -1,11 +1,27 @@
 -- =============================================================================================
 -- 0029 — Carreaux des fournisseurs
+--   0. Type de projet « carrelage » et ses matériaux (colle, joint, carrelage de sol).
 --   1. Table carreaux_fournisseur : les modèles de carreaux qu'un fournisseur propose (nom, format,
 --      finition, couleur, photo, prix à l'unité). Lecture publique des modèles actifs, écriture par
 --      le fournisseur propriétaire.
 --   2. encaisser_devis : une ligne « carreau:<id> » du devis est encaissée au prix du modèle, chez le
 --      fournisseur qui le vend (les autres fournisseurs la voient comme manquante).
 -- =============================================================================================
+
+-- ---------- 0. Type de projet « Carrelage » et ses matériaux -------------------------------
+-- projets.type_projet_id référence types_projets : sans cette ligne, un devis carrelage ne s'enregistre pas.
+-- Les matériaux permettent aux fournisseurs de fixer leurs prix (catalogue) et à la caisse d'encaisser colle et joint.
+insert into public.types_projets (id, libelle, description, accroche, hypotheses, icone, ordre, parametres) values
+  ('carrelage', 'Carrelage', 'La pose de carreaux sur le sol d''une pièce', 'Carreaux, colle, joints',
+   'Carreaux +10 % pour les coupes et la casse, colle 5 kg/m² (sacs de 25 kg), joint 0,5 kg/m².',
+   'fa-solid fa-table-cells', 5, '{"margeCarreaux":1.1,"kgColleParM2":5,"kgParSacColle":25,"kgJointParM2":0.5}')
+on conflict (id) do nothing;
+
+insert into public.materiaux (id, libelle, unite, prix_unitaire, source) values
+  ('carrelage_sol',   'Carrelage de sol intérieur',    'm²',  30.00, 'Prix provisoire – à vérifier fournisseurs'),
+  ('colle_carrelage', 'Colle à carrelage (sac 25 kg)', 'sac', 16.00, 'Prix provisoire – à vérifier fournisseurs'),
+  ('joint_carrelage', 'Mortier joint carrelage',       'kg',   3.50, 'Prix provisoire – à vérifier fournisseurs')
+on conflict (id) do nothing;
 
 -- ---------- 1. Modèles de carreaux -----------------------------------------------------------
 create table if not exists public.carreaux_fournisseur (
@@ -37,7 +53,8 @@ create policy "carreaux : lecture" on public.carreaux_fournisseur for select to 
   );
 drop policy if exists "carreaux : ecriture fournisseur" on public.carreaux_fournisseur;
 create policy "carreaux : ecriture fournisseur" on public.carreaux_fournisseur for all to authenticated
-  using (fournisseur_id = public.mon_fournisseur()) with check (fournisseur_id = public.mon_fournisseur());
+  using (fournisseur_id = public.mon_fournisseur() or public.est_admin())
+  with check (fournisseur_id = public.mon_fournisseur() or public.est_admin());   -- l'admin peut masquer ou retirer un modèle
 grant select on public.carreaux_fournisseur to anon;
 grant select, insert, update, delete on public.carreaux_fournisseur to authenticated;
 

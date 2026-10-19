@@ -90,6 +90,15 @@ Deno.serve(async (req) => {
         const finition = String(dimensions.finition ?? "carrelage");
         lignes.push(ligne(finition === "beton_lisse" ? "beton_lisse" : "carrelage", surface));
       }
+    } else if (type === "carrelage") {
+      // carreaux +10 % (coupes, casse), colle en sacs, joint au kg — même formule que le calculateur du site
+      const surface = num("longueur") * num("largeur");
+      mesures.surface = arrondi(surface);
+      lignes = [
+        ligne("carrelage_sol", surface * (p.margeCarreaux as number)),
+        ligne("colle_carrelage", Math.ceil((surface * (p.kgColleParM2 as number)) / (p.kgParSacColle as number))),
+        ligne("joint_carrelage", surface * (p.kgJointParM2 as number)),
+      ];
     } else if (type === "fondation") {
       const volume = num("longueur") * num("largeur") * num("profondeur");
       const tonnesBeton = volume * (p.densiteBeton as number);

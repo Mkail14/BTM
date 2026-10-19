@@ -43,7 +43,9 @@ insert into public.types_projets (id, libelle, description, icone, ordre, parame
   ('fondation', 'Fondation', 'Semelles filantes en béton armé.', 'fa-solid fa-mountain', 3,
    '{"densiteBeton":2.4,"kgAcierParM3":50}'),
   ('terrasse', 'Terrasse', 'Dalle extérieure avec finition carrelage ou béton lissé.', 'fa-solid fa-umbrella-beach', 4,
-   '{"densiteBeton":2.4,"kgFerParM2":5,"tonnesGravierParM3":0.8}')
+   '{"densiteBeton":2.4,"kgFerParM2":5,"tonnesGravierParM3":0.8}'),
+  ('carrelage', 'Carrelage', 'La pose de carreaux sur le sol d''une pièce', 'fa-solid fa-table-cells', 5,
+   '{"margeCarreaux":1.1,"kgColleParM2":5,"kgParSacColle":25,"kgJointParM2":0.5}')
 on conflict (id) do update set libelle = excluded.libelle, description = excluded.description,
   icone = excluded.icone, ordre = excluded.ordre, parametres = excluded.parametres;
 
@@ -58,6 +60,9 @@ insert into public.materiaux (id, libelle, unite, prix_unitaire, source) values
   ('acier',       'Armatures acier HA',           'kg',  2.60,   'Prix provisoire – à vérifier fournisseurs'),
   ('gravier',     'Gravier concassé',             't',   85.00,  'Prix provisoire – à vérifier fournisseurs'),
   ('carrelage',   'Carrelage extérieur',          'm²',  50.00,  'Section 9.4 du CDC'),
-  ('beton_lisse', 'Finition béton lissé',         'm²',  15.00,  'Section 9.4 du CDC')
+  ('beton_lisse', 'Finition béton lissé',         'm²',  15.00,  'Section 9.4 du CDC'),
+  ('carrelage_sol',   'Carrelage de sol intérieur',    'm²',  30.00, 'Prix provisoire – à vérifier fournisseurs'),
+  ('colle_carrelage', 'Colle à carrelage (sac 25 kg)', 'sac', 16.00, 'Prix provisoire – à vérifier fournisseurs'),
+  ('joint_carrelage', 'Mortier joint carrelage',       'kg',   3.50, 'Prix provisoire – à vérifier fournisseurs')
 on conflict (id) do update set libelle = excluded.libelle, unite = excluded.unite,
   prix_unitaire = excluded.prix_unitaire, source = excluded.source;

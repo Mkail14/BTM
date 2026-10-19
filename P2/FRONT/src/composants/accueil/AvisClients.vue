@@ -39,6 +39,8 @@ const avisInitiaux = [
 ]
 
 const avis = ref([])
+// 'chargement' | 'pret' | 'erreur' : « Aucun avis » ne s'affiche qu'une fois la liste réellement reçue (et vide)
+const etatAvis = ref('chargement')
 const modalOuverte = ref(false)
 const envoiEffectue = ref(false)
 const envoiEnCours = ref(false)
@@ -77,15 +79,29 @@ const rangeeMobile = computed(() => {
   for (let i = 0; i < Math.max(s.length, g.length); i++) { if (s[i]) r.push(s[i]); if (g[i]) r.push(g[i]) }
   return r
 })
+// mobile : carte affichée, pour les points sous la rangée
+const rangee = ref(null)
+const carteVisible = ref(0)
+function suivreRangee() {
+  const el = rangee.value
+  const pas = el?.querySelector('.avis-carte')?.offsetWidth
+  if (pas) carteVisible.value = Math.min(rangeeMobile.value.length - 1, Math.round(el.scrollLeft / (pas + 12)))
+}
+function allerA(i) {
+  const cartes = rangee.value?.querySelectorAll('.avis-carte')
+  if (cartes?.[i]) rangee.value.scrollTo({ left: cartes[i].offsetLeft - cartes[0].offsetLeft, behavior: 'smooth' })
+}
 // lien « laisser un avis » de la page Trustpilot de BTM (réglé dans l'admin → Contenus → Accueil — avis)
 const lienTrustpilot = computed(() => (/^https:\/\//.test(contenu.avis.lienTrustpilot || '') ? contenu.avis.lienTrustpilot : ''))
 
 async function chargerAvis() {
   try {
     avis.value = backendDisponible ? await listerAvis() : avisInitiaux
+    etatAvis.value = 'pret'
   } catch (e) {
     console.warn('Avis indisponibles', e) // on n'affiche jamais d'avis qui ne sont pas en base
     avis.value = []
+    etatAvis.value = 'erreur'
   }
 }
 
@@ -162,23 +178,28 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
         <span class="section-surtitre">{{ contenu.avis.surtitre }}</span>
         <h2 id="avis-titre" class="section-titre">{{ contenu.avis.titre }}</h2>
 
-        <div v-if="avis.length" class="avis-score">
-          <strong>{{ moyenneTexte }}</strong>
-          <div>
-            <span class="etoiles" :style="{ '--remplissage': `${(moyenne / 5) * 100}%` }" :aria-label="`Note moyenne ${moyenneTexte} sur 5`"></span>
-            <small>{{ avis.length }} avis</small>
+        <!-- téléphone : note et répartition côte à côte dans une carte -->
+        <div v-if="avis.length" class="avis-resume">
+          <div class="avis-score">
+            <strong>{{ moyenneTexte }}</strong>
+            <div>
+              <span class="etoiles" :style="{ '--remplissage': `${(moyenne / 5) * 100}%` }" :aria-label="`Note moyenne ${moyenneTexte} sur 5`"></span>
+              <small>{{ avis.length }} avis</small>
+            </div>
           </div>
+
+          <ul class="avis-repartition" aria-label="Répartition des notes">
+            <li v-for="r in repartition" :key="r.note">
+              <span>{{ r.note }}</span>
+              <span class="avis-barre"><span :style="{ width: `${r.part}%` }"></span></span>
+              <span class="avis-barre-nombre">{{ r.nombre }}</span>
+            </li>
+          </ul>
         </div>
 
+        <p v-else-if="etatAvis === 'chargement'" class="avis-vide" aria-live="polite"><span class="spinner" aria-hidden="true"></span> Chargement des avis…</p>
+        <p v-else-if="etatAvis === 'erreur'" class="avis-vide">Les avis ne peuvent pas s’afficher pour le moment. Réessayez dans quelques instants.</p>
         <p v-else class="avis-vide">{{ contenu.avis.vide }}</p>
-
-        <ul v-if="avis.length" class="avis-repartition" aria-label="Répartition des notes">
-          <li v-for="r in repartition" :key="r.note">
-            <span>{{ r.note }}</span>
-            <span class="avis-barre"><span :style="{ width: `${r.part}%` }"></span></span>
-            <span class="avis-barre-nombre">{{ r.nombre }}</span>
-          </li>
-        </ul>
 
         <BoutonBase variante="primaire" :icone-droite="mien ? 'fa-solid fa-pen' : 'fa-solid fa-arrow-right'" @click="donnerAvis">{{ mien ? 'Modifier mon avis' : contenu.avis.bouton }}</BoutonBase>
       </header>
@@ -220,7 +241,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
         </div>
 
         <!-- Téléphone : une rangée qui alterne avis du site et avis Trustpilot -->
-        <div class="avis-colonne avis-colonne-mobile">
+        <div ref="rangee" class="avis-colonne avis-colonne-mobile" @scroll.passive="suivreRangee">
           <div class="avis-piste">
             <article v-for="element in rangeeMobile" :key="`m-${element.id}`" class="avis-carte" :class="{ 'avis-trustpilot': element.source === 'trustpilot' }">
               <span v-if="element.source === 'trustpilot'" class="avis-trustpilot-marque"><i class="fa-solid fa-star" aria-hidden="true"></i> Trustpilot</span>
@@ -237,6 +258,10 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
               </footer>
             </article>
           </div>
+        </div>
+        <!-- points : où l'on en est dans la rangée (un clic y amène) -->
+        <div v-if="rangeeMobile.length > 1" class="avis-points">
+          <button v-for="(element, i) in rangeeMobile" :key="`p-${element.id}`" type="button" :class="{ actif: i === carteVisible }" :aria-label="`Avis ${i + 1} sur ${rangeeMobile.length}`" :aria-current="i === carteVisible || undefined" @click="allerA(i)"></button>
         </div>
       </div>
     </div>
@@ -341,6 +366,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 
 /* ---------- Synthèse ---------- */
 .avis-vide { margin: 28px 0 32px; color: var(--texte-secondaire); line-height: 1.6; }
+.avis-vide .spinner { width: 14px; height: 14px; border-width: 2px; vertical-align: -2px; margin-right: 6px; }
 .avis-score { display: flex; align-items: center; gap: 16px; margin: 32px 0 20px; }
 .avis-score > strong { font-family: var(--font-display); font-size: 4rem; line-height: .9; color: var(--ardoise); }
 .avis-score small { display: block; margin-top: 4px; color: var(--gris-500); font-size: .85rem; }
@@ -390,7 +416,8 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-modal-note { margin: 6px 0 0; color: var(--texte-secondaire); font-size: .9rem; line-height: 1.5; }
 .avis-trustpilot-invitation { align-self: center; margin-top: 160px; }
 .avis-carte.avis-trustpilot-invitation > .avis-trustpilot-marque { position: static; }
-.avis-colonne-mobile { display: none; }
+.avis-colonne-mobile, .avis-points { display: none; }
+.avis-resume { display: contents; } /* ordinateur : note et répartition l'une sous l'autre */
 @keyframes defiler { from { transform: translateY(0); } to { transform: translateY(calc(-50% - 8px)); } }
 
 .avis-carte { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #fff; border: 1px solid var(--bordure); border-radius: 18px; }
@@ -472,11 +499,36 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
     display: block; height: auto; overflow: visible; mask-image: none; -webkit-mask-image: none;
     margin-inline: calc(-1 * var(--gouttiere));
   }
+  .avis-grille { gap: 28px; }
+
+  /* Synthèse : note à gauche, répartition à droite, dans une carte */
+  .avis-resume {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 22px;
+    margin: 24px 0 18px; padding: 18px 20px; background: #fff; border: 1px solid var(--bordure); border-radius: 18px;
+  }
+  .avis-score { flex-direction: column; align-items: flex-start; gap: 8px; margin: 0; }
+  .avis-score > strong { font-size: 3.2rem; }
+  .avis-score .etoiles { font-size: .95rem; letter-spacing: 1px; }
+  .avis-score small { margin-top: 2px; font-size: .8rem; }
+  .avis-repartition { gap: 5px; margin: 0; }
+  .avis-repartition li { grid-template-columns: 10px 1fr 14px; gap: 8px; font-size: .74rem; }
+  .avis-synthese :deep(.btn) { width: 100%; justify-content: center; }
+
+  /* Rangée d'avis : on glisse d'une carte à l'autre */
   .avis-colonne-site, .avis-colonne-trustpilot { display: none; }
-  .avis-colonne-mobile { display: block; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding: 4px var(--gouttiere) 16px; -webkit-overflow-scrolling: touch; }
+  .avis-colonne-mobile {
+    display: block; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gouttiere); scrollbar-width: none;
+    padding: 4px var(--gouttiere) 4px; -webkit-overflow-scrolling: touch;
+  }
   .avis-colonne-mobile::-webkit-scrollbar { display: none; }
   .avis-colonne-mobile .avis-piste { flex-direction: row; animation: none; width: max-content; gap: 12px; }
-  .avis-colonne-mobile .avis-carte { width: min(82vw, 320px); scroll-snap-align: center; flex: none; }
+  .avis-colonne-mobile .avis-carte { width: min(84vw, 330px); gap: 12px; padding: 20px; scroll-snap-align: start; flex: none; }
+  .avis-colonne-mobile .avis-auteur { margin-top: auto; } /* l'auteur reste en bas quand une carte voisine est plus longue */
+  .avis-colonne-mobile .avis-carte.avis-trustpilot > .avis-trustpilot-marque { top: 20px; right: 20px; }
+  .avis-points { display: flex; justify-content: center; gap: 2px; margin-top: 10px; }
+  .avis-points button { width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
+  .avis-points button::before { content: ''; display: block; width: 7px; height: 7px; margin: auto; border-radius: 99px; background: var(--gris-300); transition: width .25s, background .25s; }
+  .avis-points button.actif::before { width: 20px; background: var(--lagon-600, var(--ardoise)); }
   .avis-colonne-mobile .avis-carte[aria-hidden] { display: none; }
   .avis-fermer { top: 10px; right: 12px; }
   .avis-modal { padding: 26px 20px; }

@@ -40,7 +40,7 @@ export const typesProjets = reactive([
     champs: [
       { nom: 'longueur', question: 'Quelle est la longueur de la dalle ?', label: 'Longueur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '8' },
       { nom: 'largeur', question: 'Quelle est la largeur de la dalle ?', label: 'Largeur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '6' },
-      { nom: 'epaisseur', question: 'Quelle épaisseur pour la dalle ?', label: 'Épaisseur', unite: 'cm', min: 5, max: 60, pas: 1, placeholder: '12', aide: 'Généralement 10 à 15 cm' }
+      { nom: 'epaisseur', question: 'Quelle épaisseur pour la dalle ?', label: 'Épaisseur', unite: 'cm', min: 5, max: 60, pas: 1, placeholder: '12', aide: 'Abri ou terrasse : 10 cm · garage ou passage de voiture : 12 à 15 cm' }
     ],
     parametres: {
       densiteBeton: 2.4, kgFerParM2: 5, tonnesGravierParM3: 0.8
@@ -89,6 +89,34 @@ export const typesProjets = reactive([
     ],
     parametres: {
       densiteBeton: 2.4, kgFerParM2: 5, tonnesGravierParM3: 0.8
+    }
+  },
+  {
+    id: 'carrelage',
+    libelle: 'Carrelage',
+    accroche: 'Carreaux, colle, joints',
+    description: 'La pose de carreaux sur le sol d’une pièce',
+    sujet: 'Votre carrelage',
+    hypotheses: 'Carreaux +10 % pour les coupes et la casse, colle 5 kg/m² (sacs de 25 kg), joint 0,5 kg/m².',
+    icone: 'fa-solid fa-table-cells',
+    couleur: '#7c3aed',
+    ordre: 5,
+    champs: [
+      { nom: 'longueur', question: 'Quelle est la longueur de la pièce à carreler ?', label: 'Longueur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '5' },
+      { nom: 'largeur', question: 'Quelle est la largeur de la pièce ?', label: 'Largeur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '4' },
+      {
+        nom: 'format', question: 'Quelle taille de carreaux ?', label: 'Format des carreaux', type: 'select', defaut: '60x60',
+        options: [
+          { valeur: '30x30', label: '30 × 30 cm' },
+          { valeur: '45x45', label: '45 × 45 cm' },
+          { valeur: '60x60', label: '60 × 60 cm' }
+        ]
+      },
+      // modèle chez un fournisseur (carreaux_fournisseur, migration 0029) ou « standard » (prix moyen du catalogue)
+      { nom: 'carreau', question: 'Quels carreaux voulez-vous ?', label: 'Modèle de carreaux', type: 'carreau', defaut: 'standard' }
+    ],
+    parametres: {
+      margeCarreaux: 1.1, kgColleParM2: 5, kgParSacColle: 25, kgJointParM2: 0.5
     }
   }
 ])

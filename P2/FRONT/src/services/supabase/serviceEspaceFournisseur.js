@@ -162,6 +162,18 @@ export async function enregistrerArticle(fournisseurId, a) {
   if (error) throw erreurSql(error, '0016')
   return versArticle(data)
 }
+/** Import de fichier : ajoute les nouveaux articles et met à jour les existants, en deux requêtes */
+export async function importerArticles(fournisseurId, nouveaux, modifies) {
+  const champs = (a) => ({ fournisseur_id: fournisseurId, libelle: a.libelle.trim(), unite: a.unite.trim(), prix_unitaire: a.prix_unitaire, prix_comptoir: a.prix_comptoir ?? null, stock: a.stock, rupture: !!a.rupture, vendu: a.vendu !== false, mis_a_jour_le: new Date().toISOString() })
+  if (nouveaux.length) {
+    const { error } = await supabase.from('articles_fournisseur').insert(nouveaux.map(champs))
+    if (error) throw erreurSql(error, '0016')
+  }
+  if (modifies.length) {
+    const { error } = await supabase.from('articles_fournisseur').upsert(modifies.map((a) => ({ id: a.id, ...champs(a) })))
+    if (error) throw erreurSql(error, '0016')
+  }
+}
 export async function supprimerArticle(id) {
   const { error } = await supabase.from('articles_fournisseur').delete().eq('id', id)
   if (error) throw erreurSql(error, '0016')

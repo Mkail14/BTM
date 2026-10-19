@@ -42,6 +42,8 @@ const M = {
   vitre: new THREE.MeshStandardMaterial({ color: 0x67e8f9, roughness: .1, transparent: true, opacity: .7 }),
   bois: new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: .8 }),
   toile: new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: .7, side: THREE.DoubleSide }),
+  colle: new THREE.MeshStandardMaterial({ color: 0xe8e6e1, roughness: 1 }),
+  carreau: new THREE.MeshStandardMaterial({ color: 0xe9e5de, roughness: .3 }),
   personne: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: .8, transparent: true, opacity: .85 })
 }
 
@@ -49,6 +51,7 @@ const nb = (v, defaut) => {
   const n = parseFloat(String(v ?? '').replace(',', '.'))
   return Number.isFinite(n) && n > 0 ? n : defaut
 }
+const saisi = (v) => nb(v, 0) > 0 // valeur réellement donnée par l'utilisateur (sinon la maquette montre un exemple)
 const borner = (v, min, max) => Math.min(max, Math.max(min, v))
 const fr = (n, max = 2) => Number(n).toLocaleString('fr-FR', { maximumFractionDigits: max })
 const metres = (n) => `${fr(n, n < 10 ? 2 : 1)} m`
@@ -256,7 +259,9 @@ function construireDalle(d, struct, annot, finition) {
     cote(annot, new THREE.Vector3(L / 2 + off, .03, l / 2), new THREE.Vector3(L / 2 + off, .03, -l / 2), metres(l), new THREE.Vector3(.15, 0, 0))
     cote(annot, new THREE.Vector3(L / 2 + off * .4, gravier, l / 2 + off * .4), new THREE.Vector3(L / 2 + off * .4, yTop, l / 2 + off * .4), `${fr(e * 100, 0)} cm`, new THREE.Vector3(.08, 0, 0))
   }
-  legende.value = `${fr(L * l, 1)} m² · ${fr(L * l * e, 2)} m³ de béton`
+  // la maquette garde des dimensions d'exemple, mais la légende n'annonce que ce que l'utilisateur a saisi
+  const surface = saisi(d.longueur) && saisi(d.largeur)
+  legende.value = `${surface ? fr(L * l, 1) : '—'} m² · ${surface && saisi(d.epaisseur) ? fr(L * l * e, 2) : '—'} m³ de béton`
 }
 
 function construireFondation(d, struct, annot) {
@@ -294,7 +299,40 @@ function construireFondation(d, struct, annot) {
     const zp = L / 2 - Math.min(2.5, L * .25) // écarté de la cote de largeur pour éviter le chevauchement
     cote(annot, new THREE.Vector3(w / 2 + off, -p, zp), new THREE.Vector3(w / 2 + off, 0, zp), metres(p), new THREE.Vector3(.1, 0, 0))
   }
-  legende.value = `${fr(L * w * p, 2)} m³ de béton armé`
+  legende.value = `${saisi(d.longueur) && saisi(d.largeur) && saisi(d.profondeur) ? fr(L * w * p, 2) : '—'} m³ de béton armé`
+}
+
+// Un carreau intérieur par tuile de texture, joint clair sur le pourtour
+const motifCarreauSol = (ctx, s) => {
+  ctx.fillStyle = '#ece9e4'; ctx.fillRect(0, 0, s, s)
+  ctx.fillStyle = '#e3dfd8'; ctx.fillRect(s * .15, s * .2, s * .5, s * .45)
+  ctx.strokeStyle = '#a9a39a'; ctx.lineWidth = 4; ctx.strokeRect(2, 2, s - 4, s - 4)
+}
+
+function construireCarrelage(d, struct, annot) {
+  const L = borner(nb(d.longueur, 5), .5, 200)
+  const l = borner(nb(d.largeur, 4), .5, 200)
+  const taille = { '30x30': .3, '45x45': .45, '60x60': .6 }[d.format] || .6
+  const chape = .06, colle = .008, ep = .012
+
+  struct.add(boite(L, chape, l, M.beton, 0, chape / 2, 0))
+  // carreaux posés sur les 3/4, le reste montre la colle étalée sur la chape
+  const pose = L * .75
+  // teinte du modèle choisi chez un fournisseur (calculateur, carrelage), s'il est vendu dans ce format
+  const teinte = d.carreau?.format === d.format && /^#[0-9a-f]{6}$/i.test(d.carreau?.couleur || '') ? d.carreau.couleur : '#ffffff'
+  const mat = new THREE.MeshStandardMaterial({ map: textureMotif(motifCarreauSol, pose / taille, l / taille), color: teinte, roughness: .3 })
+  struct.add(boite(pose, colle + ep, l, mat, -L / 2 + pose / 2, chape + (colle + ep) / 2, 0))
+  struct.add(boite(L - pose, colle, l, M.colle, L / 2 - (L - pose) / 2, chape + colle / 2, 0))
+  // pile de carreaux prête à poser
+  for (let i = 0; i < 6; i++) struct.add(boite(taille, ep, taille, teinte === '#ffffff' ? M.carreau : new THREE.MeshStandardMaterial({ color: teinte, roughness: .3 }), L / 2 - (L - pose) / 2, chape + colle + ep / 2 + i * (ep + .002), 0))
+
+  if (!props.compacte) {
+    const off = Math.max(.6, Math.min(1.5, Math.max(L, l) * .07))
+    cote(annot, new THREE.Vector3(-L / 2, .03, l / 2 + off), new THREE.Vector3(L / 2, .03, l / 2 + off), metres(L), new THREE.Vector3(0, 0, .15))
+    cote(annot, new THREE.Vector3(L / 2 + off, .03, l / 2), new THREE.Vector3(L / 2 + off, .03, -l / 2), metres(l), new THREE.Vector3(.15, 0, 0))
+  }
+  const surface = saisi(d.longueur) && saisi(d.largeur)
+  legende.value = `${surface ? fr(L * l, 1) : '—'} m² à carreler · carreaux ${fr(taille * 100, 0)} × ${fr(taille * 100, 0)} cm`
 }
 
 // ---------- Scène ----------
@@ -305,6 +343,7 @@ function construire() {
   if (props.type === 'mur') construireMur(d, struct, annot)
   else if (props.type === 'dalle') construireDalle(d, struct, annot)
   else if (props.type === 'fondation') construireFondation(d, struct, annot)
+  else if (props.type === 'carrelage') construireCarrelage(d, struct, annot)
   else construireDalle(d, struct, annot, d.finition || 'carrelage')
   return { struct, annot }
 }

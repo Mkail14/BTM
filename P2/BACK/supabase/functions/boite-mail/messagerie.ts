@@ -5,7 +5,7 @@ import { simpleParser } from "npm:mailparser@3.7.1";
 import nodemailerModule from "npm:nodemailer@6.9.16";
 import MailComposerModule from "npm:nodemailer@6.9.16/lib/mail-composer/index.js";
 import { Buffer } from "node:buffer";
-import { classerEnvoi, sourceMessage } from "./imapBrut.ts";
+import { classerEnvoi, sourceMessage, sourcesMessages } from "./imapBrut.ts";
 
 // Imports statiques obligatoires : sur Supabase, un import() dynamique de paquet npm n'est pas embarqué
 // dans la fonction déployée, et l'appel reste bloqué indéfiniment (message qui ne s'ouvre jamais).
@@ -17,6 +17,7 @@ export type Config = { utilisateur: string; motDePasse: string; hoteImap: string
 
 const PAR_PAGE = 25;
 const TAILLE_MAX_LECTURE = 15 * 1024 * 1024; // au-delà, on n'ouvre pas le message dans le site
+const TAILLE_MAX_PRECHARGEMENT = 1024 * 1024; // préchargement : seulement les messages légers
 const TAILLE_MAX_IMAGE_INTEGREE = 400 * 1024; // images « cid: » converties en data: pour l'affichage
 
 // Dossiers spéciaux reconnus par leur rôle IMAP (RFC 6154), affichés en français
@@ -154,39 +155,49 @@ export const lister = (config: Config, dossier: string, page = 1, recherche = ""
 export const ouverture = (config: Config, dossier = "INBOX", recherche = "") =>
   avecImap(config, async (client) => ({ dossiers: await listeDossiers(client), liste: await listeMessages(client, dossier, 1, recherche) }));
 
-/** Contenu complet d'un message (le marque comme lu). Lu sans imapflow : voir imapBrut.ts */
-export async function lire(config: Config, dossier: string, uid: number) {
-  {
-    {
-      const brut = Buffer.from(await sourceMessage(config, dossier, uid, { marquerLu: true, tailleMax: TAILLE_MAX_LECTURE }));
-      const m = await (await analyseur())(brut);
+/** Message brut (RFC 822) → contenu affichable */
+async function analyserMessage(source: Uint8Array, dossier: string, uid: number) {
+  const m = await (await analyseur())(Buffer.from(source));
 
-      // images intégrées (cid:) : remplacées par leur contenu pour s'afficher sans requête externe
-      let html = typeof m.html === "string" ? m.html : "";
-      for (const p of m.attachments || []) {
-        if (p.cid && p.size <= TAILLE_MAX_IMAGE_INTEGREE && /^image\//.test(p.contentType)) {
-          html = html.split(`cid:${p.cid}`).join(`data:${p.contentType};base64,${p.content.toString("base64")}`);
-        }
-      }
-      return {
-        uid,
-        dossier,
-        messageId: m.messageId || null,
-        references: Array.isArray(m.references) ? m.references : m.references ? [m.references] : [],
-        de: adresses((m.from as any)?.value)[0] || { nom: "", email: "" },
-        a: adresses((m.to as any)?.value),
-        cc: adresses((m.cc as any)?.value),
-        repondreA: adresses((m.replyTo as any)?.value),
-        objet: m.subject || "(sans objet)",
-        date: m.date?.toISOString() || null,
-        texte: m.text || "",
-        html,
-        piecesJointes: (m.attachments || [])
-          .map((p, index) => ({ index, nom: p.filename || `piece-${index + 1}`, type: p.contentType, taille: p.size, integree: !!p.cid && p.contentDisposition === "inline" }))
-          .filter((p) => !p.integree),
-      };
+  // images intégrées (cid:) : remplacées par leur contenu pour s'afficher sans requête externe
+  let html = typeof m.html === "string" ? m.html : "";
+  for (const p of m.attachments || []) {
+    if (p.cid && p.size <= TAILLE_MAX_IMAGE_INTEGREE && /^image\//.test(p.contentType)) {
+      html = html.split(`cid:${p.cid}`).join(`data:${p.contentType};base64,${p.content.toString("base64")}`);
     }
   }
+  return {
+    uid,
+    dossier,
+    messageId: m.messageId || null,
+    references: Array.isArray(m.references) ? m.references : m.references ? [m.references] : [],
+    de: adresses((m.from as any)?.value)[0] || { nom: "", email: "" },
+    a: adresses((m.to as any)?.value),
+    cc: adresses((m.cc as any)?.value),
+    repondreA: adresses((m.replyTo as any)?.value),
+    objet: m.subject || "(sans objet)",
+    date: m.date?.toISOString() || null,
+    texte: m.text || "",
+    html,
+    piecesJointes: (m.attachments || [])
+      .map((p, index) => ({ index, nom: p.filename || `piece-${index + 1}`, type: p.contentType, taille: p.size, integree: !!p.cid && p.contentDisposition === "inline" }))
+      .filter((p) => !p.integree),
+  };
+}
+
+/** Contenu complet d'un message (le marque comme lu). Lu sans imapflow : voir imapBrut.ts */
+export async function lire(config: Config, dossier: string, uid: number) {
+  return analyserMessage(await sourceMessage(config, dossier, uid, { marquerLu: true, tailleMax: TAILLE_MAX_LECTURE }), dossier, uid);
+}
+
+/** Plusieurs messages en un appel (une seule connexion), sans les marquer comme lus : la messagerie
+ *  les précharge pour qu'ils s'ouvrent instantanément. Les messages lourds restent à l'ouverture classique. */
+export async function lirePlusieurs(config: Config, dossier: string, uids: number[]) {
+  const messages: unknown[] = [];
+  for (const [uid, source] of await sourcesMessages(config, dossier, uids, TAILLE_MAX_PRECHARGEMENT)) {
+    try { messages.push(await analyserMessage(source, dossier, uid)); } catch { /* illisible ici : il sera ouvert normalement */ }
+  }
+  return { messages };
 }
 
 /** Une pièce jointe, encodée en base64 */
@@ -244,11 +255,19 @@ export function supprimer(config: Config, dossier: string, uids: number[]) {
 
 export type Envoi = {
   a: string[]; cc?: string[]; cci?: string[]; objet: string; texte: string;
+  html?: string; // corps mis en forme par l'éditeur de l'admin (déjà nettoyé côté navigateur)
   enReponseA?: { messageId: string; references?: string[]; dossier?: string; uid?: number } | null;
   pieces?: { nom: string; type: string; base64: string }[];
 };
 
 const echapper = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Second filet de sécurité sur le HTML reçu : ni script, ni cadre, ni attribut on…, ni lien javascript: */
+const assainir = (html: string) => html
+  .replace(/<(script|style|iframe|object|embed|form|link|meta)\b[\s\S]*?(<\/\1\s*>|$)/gi, "")
+  .replace(/<\/?(script|style|iframe|object|embed|form|link|meta)\b[^>]*>/gi, "")
+  .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+  .replace(/(href|src)\s*=\s*(["']?)\s*(javascript|vbscript|data):[^"'\s>]*\2/gi, '$1="#"');
 
 /** Envoie un message (SMTP) et en garde une copie dans « Envoyés » (OVH ne le fait pas tout seul) */
 export async function envoyer(config: Config, e: Envoi) {
@@ -257,7 +276,7 @@ export async function envoyer(config: Config, e: Envoi) {
     to: e.a, cc: e.cc?.length ? e.cc : undefined, bcc: e.cci?.length ? e.cci : undefined,
     subject: e.objet,
     text: e.texte,
-    html: `<div style="font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2937">${echapper(e.texte).replace(/\n/g, "<br>")}</div>`,
+    html: `<div style="font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#1f2937">${e.html?.trim() ? assainir(e.html) : echapper(e.texte).replace(/\n/g, "<br>")}</div>`,
     inReplyTo: e.enReponseA?.messageId || undefined,
     references: e.enReponseA ? [...(e.enReponseA.references || []), e.enReponseA.messageId].filter(Boolean) : undefined,
     attachments: (e.pieces || []).map((p) => ({ filename: p.nom, contentType: p.type, content: p.base64, encoding: "base64" })),

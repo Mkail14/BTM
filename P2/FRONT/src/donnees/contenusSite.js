@@ -14,7 +14,7 @@ export const contenusParDefaut = {
   hero: {
     surtitre: 'Plateforme de devis BTP · Mayotte',
     titre: 'Le devis de vos travaux',
-    description: 'Budget, quantités et fournisseurs pour mur, dalle, fondation ou terrasse.',
+    description: 'Budget, quantités et fournisseurs pour mur, dalle, fondation, terrasse ou carrelage.',
     boutonPrincipal: 'Faire mon devis',
     boutonSecondaire: 'Annuaire des fournisseurs',
     raccourcisTitre: 'Que voulez-vous construire ?'

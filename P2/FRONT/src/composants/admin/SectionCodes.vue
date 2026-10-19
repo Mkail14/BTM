@@ -27,6 +27,15 @@ const utilisations = computed(() => {
   return n
 })
 
+// Bandeau de synthèse : ce que la liste ne montre pas d'un coup d'œil
+const synthese = computed(() => {
+  const codes = donnees.codes || []
+  const totalDevis = Object.values(utilisations.value).reduce((s, n) => s + n, 0)
+  const meilleur = codes.reduce((m, c) => ((utilisations.value[c.code] || 0) > (m ? utilisations.value[m.code] || 0 : 0) ? c : m), null)
+  const bientot = codes.filter((c) => statut(c) === 'actif' && c.expire_le && joursRestants(c) <= 7).length
+  return { totalDevis, meilleur, meilleurN: meilleur ? utilisations.value[meilleur.code] || 0 : 0, bientot }
+})
+
 const filtre = ref('tous')
 const filtres = [['tous', 'Tous'], ['actif', 'Actifs'], ['expire', 'Expirés'], ['desactive', 'Désactivés']]
 const compte = (f) => (donnees.codes || []).filter((c) => f === 'tous' || statut(c) === f).length
@@ -108,27 +117,44 @@ async function enregistrer() {
           {{ f[1] }} <small>{{ compte(f[0]) }}</small>
         </button>
       </div>
-      <button type="button" class="adm-btn adm-btn-noir" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouveau code</button>
+      <button type="button" class="adm-btn adm-btn-noir codes-nouveau" title="Nouveau code" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouveau code</button>
     </div>
 
-    <section class="adm-carte">
+    <!-- Synthèse -->
+    <ul v-if="donnees.codes?.length" class="codes-synthese">
+      <li class="adm-carte">
+        <span class="codes-synthese-icone"><i class="fa-solid fa-receipt" aria-hidden="true"></i></span>
+        <span><strong>{{ synthese.totalDevis }}</strong><small>devis avec un code</small></span>
+      </li>
+      <li class="adm-carte">
+        <span class="codes-synthese-icone"><i class="fa-solid fa-trophy" aria-hidden="true"></i></span>
+        <span v-if="synthese.meilleurN"><strong class="adm-mono">{{ synthese.meilleur.code }}</strong><small>le plus utilisé · {{ synthese.meilleurN }} devis</small></span>
+        <span v-else><strong>—</strong><small>aucun code utilisé</small></span>
+      </li>
+      <li class="adm-carte" :class="{ alerte: synthese.bientot }">
+        <span class="codes-synthese-icone"><i class="fa-regular fa-clock" aria-hidden="true"></i></span>
+        <span><strong>{{ synthese.bientot }}</strong><small>expire{{ synthese.bientot > 1 ? 'nt' : '' }} sous 7 jours</small></span>
+      </li>
+    </ul>
+
+    <section class="adm-carte codes-carte">
       <div v-if="!donnees.codes" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
       <div v-else class="adm-table-cadre">
-        <table class="adm-table adm-table-empile">
+        <table v-if="liste.length" class="adm-table codes-table">
           <thead><tr><th>Code</th><th>Réduction</th><th>Validité</th><th class="num">Devis</th><th>Actif</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             <tr v-for="c in liste" :key="c.id" :class="{ estompe: statut(c) !== 'actif' }">
-              <td class="principal">
+              <td class="principal c-code">
                 <span class="code-cellule">
                   <button type="button" class="code-puce adm-mono" :title="`Copier ${c.code}`" @click="copier(c)">{{ c.code }} <i class="fa-regular fa-copy" aria-hidden="true"></i></button>
                   <small v-if="c.note">{{ c.note }}</small>
                 </span>
               </td>
-              <td data-label="Réduction">
+              <td class="c-reduction">
                 <strong>{{ libelleReduction(c) }}</strong>
                 <small class="code-portee">{{ c.portee === 'frais' ? 'ancien code (sur les frais)' : 'sur tout le devis' }}</small>
               </td>
-              <td data-label="Validité">
+              <td class="c-validite">
                 <span v-if="!c.expire_le" class="adm-badge adm-badge-info sans-point"><i class="fa-solid fa-infinity" aria-hidden="true"></i> Sans limite</span>
                 <span v-else-if="expire(c)" class="adm-badge adm-badge-attention">Expiré le {{ formatDate(c.expire_le) }}</span>
                 <span v-else class="code-date">
@@ -136,9 +162,9 @@ async function enregistrer() {
                   <small :class="{ bientot: joursRestants(c) <= 7 }">{{ joursRestants(c) === 0 ? 'dernier jour' : `encore ${joursRestants(c)} j` }}</small>
                 </span>
               </td>
-              <td data-label="Devis" class="num">{{ utilisations[c.code] || 0 }}</td>
-              <td data-label="Actif"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="c.actif" :aria-label="`Activer le code ${c.code}`" @click="basculer(c)"></button></td>
-              <td class="actions">
+              <td class="num c-devis">{{ utilisations[c.code] || 0 }}<span class="c-devis-mot"> devis</span></td>
+              <td class="c-actif"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="c.actif" :aria-label="`Activer le code ${c.code}`" @click="basculer(c)"></button></td>
+              <td class="actions c-actions">
                 <button type="button" class="adm-icone-btn" title="Modifier" :aria-label="`Modifier ${c.code}`" @click="ouvrir(c)"><i class="fa-solid fa-pen"></i></button>
                 <button type="button" class="adm-icone-btn danger" title="Supprimer" :aria-label="`Supprimer ${c.code}`" @click="supprimer(c)"><i class="fa-solid fa-trash-can"></i></button>
               </td>
@@ -231,7 +257,24 @@ async function enregistrer() {
 
 <style scoped>
 .codes { display: flex; flex-direction: column; gap: 16px; }
-.codes .adm-section-tete { margin: 0; }
+.codes .adm-section-tete { margin: 0; flex-wrap: nowrap; }
+.codes .adm-section-tete > .adm-pilules { min-width: 0; }
+.codes-nouveau { flex: none; }
+
+/* Synthèse */
+.codes-synthese { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+.codes-synthese li { display: flex; align-items: center; gap: 14px; min-width: 0; padding: 14px 18px; }
+.codes-synthese li > span:last-child { display: flex; flex-direction: column; min-width: 0; }
+.codes-synthese strong { overflow: hidden; font-size: 1.35rem; font-weight: 600; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.codes-synthese strong.adm-mono { font-size: 1.05rem; letter-spacing: .04em; }
+.codes-synthese small { overflow: hidden; color: var(--adm-muet); font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
+.codes-synthese-icone { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-ligne-2); color: var(--adm-encre-2); }
+.codes-synthese li.alerte .codes-synthese-icone { background: var(--adm-attention-fond-2); color: var(--adm-attention-texte); }
+.codes-synthese li.alerte strong { color: var(--adm-attention-texte); }
+
+/* Tableau */
+.codes-table td { padding-block: 12px; }
+.c-devis-mot { display: none; }
 
 .code-cellule { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
 .code-cellule small { color: var(--adm-muet); font-size: .8rem; }
@@ -274,4 +317,68 @@ async function enregistrer() {
 .code-exemple-remise { color: #6ee7b7; font-weight: 600; }
 .code-exemple-total { margin-top: 6px; padding-top: 10px !important; border-top: 1px solid rgba(255, 255, 255, .15); color: #fff; font-weight: 700; }
 .code-exemple-note { margin: 8px 0 0; color: #fcd34d; font-size: .8rem; }
+
+/* Ordinateur et tablette : page fixe (« ecran-fixe » dans AdminVue) — filtres et synthèse en place, seule la liste défile */
+@media (min-width: 768px) and (min-height: 640px) {
+  .codes > .adm-alerte, .codes > .adm-section-tete, .codes-synthese { flex: none; }
+  .codes-carte { flex: 0 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .codes-carte .adm-table-cadre { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+  .codes-table thead th { position: sticky; top: 0; z-index: 1; border-bottom: 0; background: var(--adm-carte); box-shadow: inset 0 -1px 0 var(--adm-ligne); }
+}
+
+/* Tablette : synthèse et tableau resserrés */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .codes { gap: 12px; }
+  .codes-synthese { gap: 10px; }
+  .codes-synthese li { gap: 10px; padding: 12px 14px; }
+  .codes-synthese-icone { width: 34px; height: 34px; border-radius: 10px; font-size: .9rem; }
+  .codes-synthese strong { font-size: 1.15rem; }
+  .codes-synthese strong.adm-mono { font-size: .92rem; }
+  .codes-synthese small { font-size: .74rem; }
+  .codes-table th, .codes-table td { padding-inline: 10px; }
+  .code-portee { display: none; }
+}
+
+/* Téléphone : chaque code devient une carte — le code et son interrupteur en haut, la réduction en grand,
+   puis la validité, le nombre de devis et les actions */
+@media (max-width: 767px) {
+  .codes { gap: 12px; }
+  .codes .adm-section-tete { gap: 8px; }
+  .codes .adm-section-tete > .codes-nouveau { flex: none; width: 44px; min-height: 40px; padding: 0; font-size: 0; }
+  .codes-nouveau i { font-size: 1rem; }
+
+  .codes-synthese { gap: 8px; }
+  .codes-synthese li { flex-direction: column; align-items: flex-start; gap: 6px; padding: 10px 12px; border-radius: 16px; }
+  .codes-synthese-icone { width: 28px; height: 28px; border-radius: 9px; font-size: .78rem; }
+  .codes-synthese strong { font-size: 1.1rem; }
+  .codes-synthese strong.adm-mono { max-width: 100%; font-size: .82rem; }
+  .codes-synthese small { font-size: .7rem; white-space: normal; line-height: 1.3; }
+
+  .codes-carte { background: transparent; box-shadow: none; }
+  .codes-carte .adm-table-cadre { overflow: visible; } /* sinon l'ombre des cartes est rognée */
+  .codes-table, .codes-table tbody { display: block; }
+  .codes-table thead { display: none; }
+  .codes-table tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 12px; margin-bottom: 10px; padding: 14px 14px 10px;
+    grid-template-areas: "code actif" "reduction reduction" "validite devis" "actions actions";
+    border-radius: var(--adm-rayon-sm); background: var(--adm-carte); box-shadow: var(--adm-ombre);
+  }
+  .codes-table tbody tr:hover { background: var(--adm-carte); }
+  .codes-table td { display: block; padding: 0; border: 0; }
+  .c-code { grid-area: code; min-width: 0; }
+  .c-actif { grid-area: actif; }
+  .c-reduction { grid-area: reduction; }
+  .c-reduction strong { font-size: 1.3rem; font-weight: 600; }
+  .c-validite { grid-area: validite; align-self: center; }
+  .c-devis { grid-area: devis; align-self: center; color: var(--adm-encre-2); font-size: .86rem; }
+  .c-devis-mot { display: inline; }
+  .codes-table td.c-actions { grid-area: actions; display: flex; justify-content: flex-end; width: auto; margin: 0 -6px 0 0; padding-top: 8px; border-top: 1px solid var(--adm-ligne-2); }
+  .code-puce { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .code-cellule small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .codes-carte .adm-vide { border-radius: var(--adm-rayon-sm); background: var(--adm-carte); box-shadow: var(--adm-ombre); }
+
+  /* formulaire */
+  .code-saisie .adm-btn { padding: 0 14px; }
+  .code-valeur { max-width: none; }
+}
 </style>

@@ -23,6 +23,7 @@ import BoutonBase from '@/composants/commun/BoutonBase.vue'
               <h3>{{ f.nom }}</h3>
               <span class="badge">{{ f.categorie }}</span>
               <span v-if="f.livraison" class="badge badge-vert">Livraison</span>
+              <span v-if="f.demonstration" class="badge badge-demo" title="Fiche d’exemple : pas encore partenaire de BTM">Exemple</span>
             </div>
             <p>{{ f.description }}</p>
             <p class="partenaire-adresse"><i class="fa-solid fa-location-dot"></i> {{ f.adresse }}</p>
@@ -51,5 +52,6 @@ import BoutonBase from '@/composants/commun/BoutonBase.vue'
 .partenaire-adresse { font-size: .85rem !important; color: var(--gris-500) !important; display: flex; gap: 8px; align-items: center; }
 .partenaire-actions { display: flex; flex-wrap: wrap; gap: 8px; grid-column: 2; }
 @media (min-width: 900px) { .partenaire-actions { grid-column: auto; } }
+.badge-demo { background: #fef3c7; color: #92400e; }
 .mono { font-family: var(--font-mono) !important; }
 </style>

@@ -26,6 +26,8 @@ export const listerDossiers = () => boiteMail({ action: 'dossiers' })
 export const compterNonLus = () => boiteMail({ action: 'non-lus' })
 export const listerMessages = (dossier, page = 1, recherche = '') => boiteMail({ action: 'lister', dossier, page, recherche })
 export const lireMessage = (dossier, uid) => boiteMail({ action: 'lire', dossier, uid })
+/** Contenu de plusieurs messages (10 au plus) sans les marquer comme lus : préchargement de la liste */
+export const lireMessages = (dossier, uids) => boiteMail({ action: 'lire-plusieurs', dossier, uids })
 export const lirePieceJointe = (dossier, uid, index) => boiteMail({ action: 'piece', dossier, uid, index })
 export const marquerMessages = (dossier, uids, etat) => boiteMail({ action: 'marquer', dossier, uids, ...etat })
 export const deplacerMessages = (dossier, uids, vers) => boiteMail({ action: 'deplacer', dossier, uids, vers })

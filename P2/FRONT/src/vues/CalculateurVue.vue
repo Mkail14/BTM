@@ -9,12 +9,14 @@ import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCalculateur } from '@/composables/useCalculateur.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
-import { validerDimensions, formaterNombre } from '@/services/calculs/moteurCalculs.js'
+import { validerDimensions, formaterNombre, formaterEuros } from '@/services/calculs/moteurCalculs.js'
 import SelecteurTypeProjet from '@/composants/calculateur/SelecteurTypeProjet.vue'
 import Maquette3D from '@/composants/calculateur/Maquette3D.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import CatalogueDirect from '@/composants/calculateur/CatalogueDirect.vue'
+import SelecteurCarreau from '@/composants/calculateur/SelecteurCarreau.vue'
+import { modeleCarreau } from '@/services/calculs/formuleCarrelage.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 
@@ -26,7 +28,7 @@ const { estPro, connecte } = useAuth()
 // Le devis est réservé aux comptes : sans compte, l'estimation est gardée et la fenêtre « Créer un compte » s'ouvre ;
 // une fois connecté, la personne arrive sur son devis.
 async function allerAuDevis() {
-  if (!connecte.value) return ouvrirAuth('inscription', { redirect: '/resultats', message: 'Créez votre compte gratuit pour obtenir votre devis.' })
+  if (!connecte.value) return ouvrirAuth('inscription', { redirect: '/resultats', message: 'Un compte gratuit est nécessaire pour voir votre devis.' })
   // push() ne lève pas d'erreur quand la navigation est interrompue : il renvoie l'échec
   const echec = await router.push('/resultats')
   if (echec) throw new Error(echec.message || 'navigation vers les résultats interrompue')
@@ -131,6 +133,8 @@ function precedent() {
 }
 
 function choisirOption(q, valeur) {
+  // un autre format de carreaux : le modèle choisi (vendu dans un seul format) ne vaut plus
+  if (q.champ.nom === 'format' && !modeleCarreau({ ...calc.dimensions, format: valeur })) calc.definirDimensions({ carreau: 'standard' })
   ecrireValeur(q, valeur)
   suivant()
 }
@@ -235,6 +239,10 @@ onBeforeUnmount(() => {
 // ---------- Récapitulatif ----------
 function formater(champ, valeur) {
   if (champ.type === 'select') return champ.options.find((o) => o.valeur === valeur)?.label.split(' — ')[0] || valeur
+  if (champ.type === 'carreau') {
+    const m = modeleCarreau(calc.dimensions)
+    return m ? `« ${m.nom} » — ${m.fournisseur}, ${formaterEuros(m.prix)} le carreau` : 'Modèle standard (prix moyen)'
+  }
   if (valeur === '' || valeur === undefined || valeur === null) return champ.optionnel ? 'Aucune' : '—'
   return `${formaterNombre(String(valeur).replace(',', '.'), 2)} ${champ.unite}`
 }
@@ -334,6 +342,12 @@ const recapitulatif = computed(() => {
                     </div>
                   </template>
 
+                  <template v-else-if="question.champ.type === 'carreau'">
+                    <h2 class="assistant-question assistant-focus" tabindex="-1">{{ question.champ.question }}</h2>
+                    <p class="assistant-aide">Faites défiler les modèles des fournisseurs : le prix affiché est celui d’un carreau.</p>
+                    <SelecteurCarreau :format="calc.dimensions.format" :model-value="lireValeur(question)" @choisir="choisirOption(question, $event)" />
+                  </template>
+
                   <template v-else>
                     <label :for="`champ-${question.cle}`" class="assistant-question">{{ question.champ.question }}</label>
                     <p class="assistant-aide">{{ question.champ.aide || aideUnite(question.champ.unite) }}</p>
@@ -356,13 +370,14 @@ const recapitulatif = computed(() => {
 
                   <div class="assistant-actions">
                     <BoutonBase variante="ghost" type="button" icone="fa-solid fa-arrow-left" @click="precedent">Retour</BoutonBase>
-                    <BoutonBase v-if="!question.special && question.champ.type !== 'select'" type="submit" icone-droite="fa-solid fa-arrow-right">Continuer</BoutonBase>
+                    <BoutonBase v-if="!question.special && !['select', 'carreau'].includes(question.champ.type)" type="submit" icone-droite="fa-solid fa-arrow-right">Continuer</BoutonBase>
                   </div>
                 </div>
 
                 <div v-else key="recap" class="assistant-panneau">
                   <h2 class="assistant-question assistant-focus" tabindex="-1">Tout est prêt !</h2>
                   <p class="assistant-aide">Vérifiez vos réponses, puis lancez le calcul.</p>
+                  <p v-if="!connecte" class="assistant-aide"><i class="fa-solid fa-lock" aria-hidden="true"></i> Pour voir le prix, un compte gratuit vous sera demandé (3 courtes étapes, puis une confirmation par e-mail) : vos réponses sont gardées.</p>
 
                   <ul class="assistant-recap">
                     <li v-for="ligne in recapitulatif" :key="ligne.cle">

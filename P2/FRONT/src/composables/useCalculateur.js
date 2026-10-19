@@ -91,7 +91,7 @@ export function useCalculateur() {
     for (const k of Object.keys(dimensions)) delete dimensions[k]
     for (const k of Object.keys(erreurs)) delete erreurs[k]
     const t = trouverTypeProjet(id)
-    t?.champs.forEach((c) => { if (c.type === 'select') dimensions[c.nom] = c.defaut })
+    t?.champs.forEach((c) => { if (c.type === 'select' || c.type === 'carreau') dimensions[c.nom] = c.defaut })
     resultat.value = null
     erreurGlobale.value = ''
     persister()

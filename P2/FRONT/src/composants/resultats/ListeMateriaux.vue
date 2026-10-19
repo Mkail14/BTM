@@ -12,7 +12,7 @@ const icones = { parpaing: 'fa-solid fa-cube', ciment: 'fa-solid fa-sack-dollar'
         <thead><tr><th>Matériau</th><th class="num">Quantité</th><th class="num">Prix unitaire</th><th class="num">Sous-total</th></tr></thead>
         <tbody>
           <tr v-for="l in lignes" :key="l.id">
-            <td><span class="mat-nom"><i :class="icones[l.id] || 'fa-solid fa-box'" aria-hidden="true"></i>{{ l.libelle }}</span></td>
+            <td><span class="mat-nom"><i :class="icones[l.id] || (String(l.id).startsWith('carreau:') ? 'fa-solid fa-table-cells' : 'fa-solid fa-box')" aria-hidden="true"></i>{{ l.libelle }}</span></td>
             <td class="num mono">{{ formaterNombre(l.quantite, 2) }} <small>{{ l.unite }}</small></td>
             <td class="num mono">{{ formaterEuros(l.prixUnitaire) }}<small>/{{ l.unite }}</small></td>
             <td class="num prix">{{ formaterEuros(l.sousTotal) }}</td>

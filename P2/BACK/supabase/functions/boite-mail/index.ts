@@ -55,6 +55,11 @@ Deno.serve(async (req) => {
         if (!uid) return json({ erreur: "Message inconnu." }, 400);
         return json(await boite.lire(config, dossier, uid));
       }
+      case "lire-plusieurs": {
+        const uids = uidsValides(c.uids).slice(0, 10);
+        if (!uids.length) return json({ erreur: "Aucun message choisi." }, 400);
+        return json(await boite.lirePlusieurs(config, dossier, uids));
+      }
       case "piece": {
         const [uid] = uidsValides(c.uid);
         if (!uid || !Number.isInteger(c.index)) return json({ erreur: "Pièce jointe inconnue." }, 400);
@@ -88,7 +93,8 @@ Deno.serve(async (req) => {
           .map((p: any) => ({ nom: String(p.nom || "piece").slice(0, 150), type: String(p.type || "application/octet-stream").slice(0, 100), base64: String(p.base64 || "") }));
         if (pieces.reduce((s: number, p: { base64: string }) => s + p.base64.length * 0.75, 0) > TAILLE_MAX_PIECES) return json({ erreur: "Pièces jointes trop lourdes (10 Mo au total)." }, 400);
         const enReponseA = c.enReponseA?.messageId ? { messageId: String(c.enReponseA.messageId), references: listeEmails(c.enReponseA.references), dossier: c.enReponseA.dossier, uid: Number(c.enReponseA.uid) || undefined } : null;
-        return json(await boite.envoyer(config, { a, cc, cci, objet: objet || "(sans objet)", texte, enReponseA, pieces }));
+        const html = typeof c.html === "string" ? c.html.slice(0, 300_000) : "";
+        return json(await boite.envoyer(config, { a, cc, cci, objet: objet || "(sans objet)", texte, html, enReponseA, pieces }));
       }
       default: return json({ erreur: "Action inconnue." }, 400);
     }

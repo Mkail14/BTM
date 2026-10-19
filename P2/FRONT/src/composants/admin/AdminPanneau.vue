@@ -54,6 +54,10 @@ onBeforeUnmount(() => {
 @media (max-width: 640px) {
   .panneau-fond { padding: 0; align-items: flex-end; }
   .panneau, .panneau.large { width: 100%; height: 92dvh; border-radius: 24px 24px 0 0; animation-name: monter; }
+  .panneau-tete { padding: 18px 16px 14px; }
+  .panneau-corps { padding: 18px 16px; }
+  .panneau-pied { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
+  .panneau-pied > .adm-btn { flex: 1 1 auto; }
 }
 @keyframes fond { from { opacity: 0; } }
 @keyframes entree { from { transform: translateX(40px); opacity: 0; } }

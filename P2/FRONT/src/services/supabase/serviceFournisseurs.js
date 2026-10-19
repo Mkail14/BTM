@@ -3,7 +3,7 @@ import { supabase, supabaseConfigure } from './client.js'
 import { fournisseurs as locaux, categories as categoriesLocales, normaliserFournisseur } from '@/donnees/fournisseurs.js'
 
 // colonnes lues par normaliserFournisseur : inutile de rapatrier le reste de la table
-const COLONNES = 'id, slug, nom, categorie_id, commune, adresse, telephone, email, site_web, description, livraison, horaires, logo_url, latitude, longitude'
+const COLONNES = 'id, slug, nom, categorie_id, commune, adresse, telephone, email, site_web, description, livraison, horaires, logo_url, latitude, longitude, demonstration'
 // l'annuaire change rarement : gardé une minute en mémoire (retour sur la page sans nouvel appel ni attente)
 const DUREE_CACHE = 60_000
 let cacheFournisseurs = null

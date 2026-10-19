@@ -6,14 +6,22 @@
  */
 import { supabase, supabaseConfigure } from './client.js'
 import { arrondi } from '@/services/calculs/utilitaires.js'
+import { listerCarreauxPublics } from './serviceCarreaux.js'
 
 let cache = null
 export async function chargerOffres({ force = false } = {}) {
   if (!supabaseConfigure) return []
   if (cache && !force) return cache
-  const { data, error } = await supabase.rpc('offres_publiques')
+  const [{ data, error }, carreaux] = await Promise.all([supabase.rpc('offres_publiques'), listerCarreauxPublics({ force })])
   if (error) { console.warn('Offres indisponibles', error); return [] }
-  cache = data.map((o) => ({ ...o, prix: Number(o.prix), prix_comptoir: Number(o.prix_comptoir) }))
+  cache = [
+    ...data.map((o) => ({ ...o, prix: Number(o.prix), prix_comptoir: Number(o.prix_comptoir) })),
+    // un modèle de carreau n'est proposé que par le fournisseur qui l'a mis en ligne (ligne « carreau:<id> » du devis)
+    ...carreaux.map((c) => ({
+      fournisseur_id: c.fournisseur_id, fournisseur_nom: c.fournisseur, commune: c.commune, livraison: c.livraison,
+      materiau_id: `carreau:${c.id}`, prix: c.prix_unitaire, prix_comptoir: c.prix_comptoir ?? c.prix_unitaire, disponible: !c.rupture
+    }))
+  ]
   return cache
 }
 
@@ -78,7 +86,7 @@ export function appliquerPrixFournisseur(resultat, fournisseur) {
 export function meilleuresOffres(offres) {
   const m = {}
   for (const o of offres) {
-    if (!o.materiau_id || !o.disponible) continue
+    if (!o.materiau_id || !o.disponible || o.materiau_id.startsWith('carreau:')) continue
     const e = (m[o.materiau_id] ||= { min: o.prix, max: o.prix, comptoirMax: o.prix_comptoir, fournisseurs: 0 })
     e.min = Math.min(e.min, o.prix); e.max = Math.max(e.max, o.prix); e.comptoirMax = Math.max(e.comptoirMax, o.prix_comptoir); e.fournisseurs++
   }

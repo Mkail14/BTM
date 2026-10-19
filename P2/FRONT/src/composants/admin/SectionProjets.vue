@@ -74,11 +74,11 @@ async function supprimer(p) {
       </div>
     </div>
 
-    <section class="adm-carte">
+    <section class="adm-carte projets-carte">
       <div v-if="!donnees.projets" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
       <div v-else class="adm-table-cadre">
         <table class="adm-table adm-table-empile">
-          <thead><tr><th>Projet</th><th>Client</th><th>Fournisseur choisi</th><th>Créé le</th><th class="num">Devis client</th><th class="num">Revenu BTM</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+          <thead><tr><th>Projet</th><th>Client</th><th class="col-fournisseur">Fournisseur choisi</th><th class="col-date">Créé le</th><th class="num">Devis client</th><th class="num">Revenu BTM</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             <tr v-for="p in liste" :key="p.id" class="projets-ligne" @click="ouvrir(p)">
               <td class="principal">
@@ -88,8 +88,8 @@ async function supprimer(p) {
                 </span>
               </td>
               <td data-label="Client">{{ nomProfil[p.utilisateur_id] || 'Compte supprimé' }}</td>
-              <td data-label="Fournisseur">{{ nomFournisseur[p.fournisseur_id] || '—' }}</td>
-              <td data-label="Créé le">{{ formatDate(p.cree_le) }}</td>
+              <td data-label="Fournisseur" class="col-fournisseur">{{ nomFournisseur[p.fournisseur_id] || '—' }}</td>
+              <td data-label="Créé le" class="col-date">{{ formatDate(p.cree_le) }}</td>
               <td data-label="Devis client" class="num">{{ formaterEuros(p.cout_total) }}</td>
               <td data-label="Revenu BTM" class="num">
                 <strong>{{ formaterEuros(paiementDe[p.id]?.revenu_btm ?? fraisDe(p)) }}</strong>
@@ -103,7 +103,7 @@ async function supprimer(p) {
             </tr>
           </tbody>
           <tfoot v-if="liste.length">
-            <tr><td colspan="4">{{ liste.length }} projet{{ liste.length > 1 ? 's' : '' }}</td><td class="num">{{ formaterEuros(total) }}</td><td class="num"><strong>{{ formaterEuros(totalFrais) }}</strong></td><td></td></tr>
+            <tr><td colspan="2">{{ liste.length }} projet{{ liste.length > 1 ? 's' : '' }}</td><td class="col-fournisseur"></td><td class="col-date"></td><td class="num">{{ formaterEuros(total) }}</td><td class="num"><strong>{{ formaterEuros(totalFrais) }}</strong></td><td></td></tr>
           </tfoot>
         </table>
         <div v-if="!liste.length" class="adm-vide"><i class="fa-regular fa-folder-open"></i><p>Aucun projet ne correspond.</p></div>
@@ -168,6 +168,29 @@ async function supprimer(p) {
 .adm-table tfoot td { padding: 14px 16px; border-top: 1px solid var(--adm-ligne); color: var(--adm-encre-2); font-size: .86rem; }
 .adm-table td .adm-avatar { width: 38px; height: 38px; }
 @media (max-width: 760px) { .adm-table tfoot { display: none; } }
+
+/* Ordinateur et tablette : page fixe (« ecran-fixe » dans AdminVue) — filtres en place, seul le tableau défile,
+   ses en-têtes et son total restent visibles */
+@media (min-width: 768px) and (min-height: 640px) {
+  .projets > :not(.projets-carte) { flex: none; }
+  .projets-carte { flex: 0 1 auto; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .projets-carte .adm-table-cadre { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+  .projets-carte thead th { position: sticky; top: 0; z-index: 1; border-bottom: 0; background: var(--adm-carte); box-shadow: inset 0 -1px 0 var(--adm-ligne); }
+  .projets-carte tfoot td { position: sticky; bottom: 0; z-index: 1; border-top: 0; background: var(--adm-carte); box-shadow: inset 0 1px 0 var(--adm-ligne); }
+}
+/* Jusqu'à 1279 px : le tableau tient en largeur — la date (dans le détail du projet) s'efface ; sur tablette, le fournisseur aussi */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .projets { gap: 12px; }
+  .projets-carte .col-date { display: none; }
+  .projets-carte th, .projets-carte td { padding-inline: 12px; }
+  .projets-carte td { padding-block: 11px; }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .projets-carte .col-fournisseur { display: none; }
+  .projets-carte th, .projets-carte td { padding-inline: 10px; }
+  .projets-filtres .adm-pilules { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+  .projets-filtres .adm-pilule { flex: none; white-space: nowrap; }
+}
 
 .detail-total { display: flex; flex-direction: column; gap: 4px; padding: 20px 22px; border-radius: 18px; background: var(--adm-noir); color: #fff; }
 .detail-total small { font-size: .8rem; color: rgba(255, 255, 255, .6); }

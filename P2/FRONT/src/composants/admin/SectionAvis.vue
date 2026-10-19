@@ -193,7 +193,7 @@ async function enregistrerTrustpilot() {
 .avis-barre span { display: block; height: 100%; border-radius: 999px; background: var(--adm-noir); }
 .avis-nombre { text-align: right; font-variant-numeric: tabular-nums; }
 
-.avis-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+.avis-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
 .avis-carte { display: flex; flex-direction: column; gap: 14px; padding: 20px; transition: opacity var(--transition); }
 .avis-carte.masque { background: var(--adm-survol); box-shadow: inset 0 0 0 1px var(--adm-ligne); }
 .avis-carte.masque .avis-texte { color: var(--adm-muet); }
@@ -210,4 +210,29 @@ async function enregistrerTrustpilot() {
 .trustpilot-etoiles { display: flex; gap: 4px; }
 .trustpilot-etoiles button { padding: 2px; border: 0; background: none; color: var(--adm-ligne); font-size: 1.6rem; cursor: pointer; }
 .trustpilot-etoiles button.actif { color: #00b67a; }
+/* Ordinateur et tablette : page fixe (« ecran-fixe » dans AdminVue) — synthèse et filtres en place, seuls les avis défilent */
+@media (min-width: 768px) and (min-height: 640px) {
+  .avis > :not(.avis-grille) { flex: none; }
+  .avis-grille { flex: 1; min-height: 0; grid-auto-rows: max-content; align-content: start; margin: -4px -8px 0; padding: 4px 8px 8px; overflow-y: auto; scrollbar-width: thin; }
+}
+/* Jusqu'à 1279 px : synthèse plus basse, cartes plus étroites (3 colonnes à 1024 px) */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .avis { gap: 12px; }
+  .avis-haut { gap: 12px; }
+  .avis-synthese { flex: 1 1 auto; gap: 14px 28px; padding: 14px 18px; }
+  .avis-moyenne > strong { font-size: 2.4rem; }
+  .avis-repartition { flex: 1 1 220px; min-width: 200px; gap: 0; }
+  .avis-repartition button { padding-block: 2px; }
+  .avis-filtres { flex: 1 1 100%; }
+  .avis-filtres > .adm-btn { margin-left: auto; }
+  .avis-grille { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .avis-carte { gap: 10px; padding: 16px; }
+}
+@media (max-width: 640px) {
+  .avis-synthese { width: 100%; gap: 16px; }
+  .avis-repartition { flex: 1 1 100%; min-width: 0; }
+  .avis-repartition button { margin: 0; }
+  .avis-moyenne > strong { font-size: 2.4rem; }
+  .avis-carte { gap: 12px; padding: 16px; }
+}
 </style>

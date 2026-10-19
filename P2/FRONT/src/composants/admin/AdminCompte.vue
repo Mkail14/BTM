@@ -129,11 +129,11 @@ async function donnerRole() {
   const effets = {
     particulier: `${c.email} redeviendra un utilisateur normal : site public, calculateur et « Mes projets ».`,
     admin: `${c.email} pourra modifier tout le site, les prix et les comptes, et changer le profil des autres comptes.`,
-    professionnel: `${c.email} aura un compte professionnel vérifié, avec la page « Projet pro » : chantiers multi-ouvrages et maquette 3D.`,
+    professionnel: `${c.email} aura un compte professionnel vérifié, avec le devis pro : plusieurs ouvrages réunis dans un même devis.`,
     fournisseur: `${c.email} représentera ${entreprise} : il verra les devis qui ont choisi cette entreprise et confirmera leur paiement. Un compte fournisseur n’utilise plus le site comme client.`
   }
   const pertes = (c.role === 'admin' ? ' Ce compte perdra ses droits d’administrateur.' : '') + (c.role === 'fournisseur' && choix !== 'fournisseur' ? ' Il perdra son accès à l’espace fournisseur.' : '')
-    + (c.pro_statut === 'verifie' && choix === 'particulier' ? ' Il perdra la page « Projet pro ».' : '')
+    + (c.pro_statut === 'verifie' && choix === 'particulier' ? ' Il perdra le devis pro.' : '')
   const label = api.ROLES_COMPTE[choix].label.toLowerCase()
   if (!(await confirmer({ titre: `Donner le profil ${label} ?`, texte: effets[choix] + pertes, libelle: 'Donner ce profil', danger: c.role === 'admin' }))) return
   if (await changerRole(c, choix, fournisseurChoisi.value || null, `${nomDe(c)} est maintenant ${label} : le changement s’applique à sa prochaine connexion.`)) emailSaisi.value = ''
@@ -374,5 +374,13 @@ async function retirer(p) {
 .admins-liste { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .admins-liste li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--adm-ligne-2); }
 .admins-liste li:last-child { border-bottom: 0; }
-@media (max-width: 560px) { .chiffres { grid-template-columns: 1fr; } }
+@media (max-width: 560px) {
+  .chiffres { grid-template-columns: 1fr; }
+  .solde, .rib-carte { padding: 18px; }
+  .solde-montant { font-size: 1.8rem; }
+  .rib-iban { font-size: 1.02rem; letter-spacing: .04em; word-break: break-all; }
+  .compte-table { font-size: .82rem; }
+  .compte-table td, .compte-table th { padding: 8px 6px; }
+  .admins-ajout { padding: 14px; }
+}
 </style>

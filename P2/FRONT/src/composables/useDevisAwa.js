@@ -17,7 +17,7 @@ import { useCalculateur } from '@/composables/useCalculateur.js'
 const sansAccent = (t) => String(t ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 // mots qui désignent un ouvrage dans une phrase (les identifiants des ouvrages sont fixes)
-const MOTS_OUVRAGES = { mur: ['mur', 'cloture', 'parpaing'], dalle: ['dalle'], fondation: ['fondation', 'semelle', 'tranchee'], terrasse: ['terrasse'] }
+const MOTS_OUVRAGES = { mur: ['mur', 'cloture', 'parpaing'], dalle: ['dalle'], fondation: ['fondation', 'semelle', 'tranchee'], terrasse: ['terrasse'], carrelage: ['carrelage', 'carreau', 'carreaux', 'faience'] }
 function ouvrageDans(texte) {
   const t = sansAccent(texte)
   return typesProjets.find((type) => [sansAccent(type.libelle), ...(MOTS_OUVRAGES[type.id] || [])].some((mot) => new RegExp(`\\b${mot}s?\\b`).test(t))) || null
@@ -107,10 +107,11 @@ export function useDevisAwa() {
   }
 
   function choisirOuvrage(type, texte = '') {
-    const valeurs = {}
+    // le modèle de carreaux se choisit dans le calculateur (cartes des fournisseurs) : ici, le modèle standard
+    const valeurs = Object.fromEntries(type.champs.filter((c) => c.type === 'carreau').map((c) => [c.nom, c.defaut]))
     // mesures déjà données dans la phrase : prises dans l'ordre des questions, tant qu'elles sont plausibles
     const lus = nombresDans(texte)
-    for (const [i, champ] of type.champs.filter((c) => c.type !== 'select' && !c.optionnel).entries()) {
+    for (const [i, champ] of type.champs.filter((c) => !['select', 'carreau'].includes(c.type) && !c.optionnel).entries()) {
       if (!lus[i]) break
       const v = dansUnite(lus[i], champ)
       if (erreurValeur(champ, v)) break

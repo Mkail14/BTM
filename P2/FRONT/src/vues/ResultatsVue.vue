@@ -162,6 +162,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           </p>
           <h1 id="resultats-titre" class="resultats-titre">{{ titre }}</h1>
           <p class="resultats-total prix">{{ formaterEuros(resultat.total) }}</p>
+          <!-- toujours visible : ce que couvre le montant (le détail du calcul reste dans « Comment est fait le calcul ? ») -->
+          <p class="resultats-portee">{{ resultat.fraisService?.montant > 0 ? 'Matériaux et frais de service BTM' : 'Matériaux uniquement' }}, prix TTC. Main-d’œuvre, livraison et terrassement (travaux de creusement) non compris.</p>
 
           <!-- sans code promo, le détail répéterait le total -->
           <ul v-if="remise" class="resultats-repartition">
@@ -225,7 +227,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
             <details class="resultats-calcul">
               <summary>Comment est fait le calcul ?</summary>
               <p>{{ type.hypotheses }}</p>
-              <p>Prix TTC, hors terrassement et études. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
+              <p>Prix TTC, hors terrassement (creusement et préparation du terrain) et études. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
             </details>
             <button type="button" class="resultats-lien" @click="nouvelleEstimation"><i class="fa-solid fa-plus" aria-hidden="true"></i> Faire un nouveau devis</button>
           </div>
@@ -247,14 +249,14 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <button v-if="ouvrages.length > 1" type="button" class="resultats-pro-retirer" :aria-label="`Retirer ${libelleOuvrage(o)}`" @click="calc.retirerDuDevis(i)"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </li>
           </ul>
-          <p class="resultats-pro-aide">Réunissez tout votre chantier — murs, dalles, fondations, terrasses et achats directs — dans un seul devis et un seul code de retrait.</p>
+          <p class="resultats-pro-aide">Réunissez tout votre chantier — murs, dalles, fondations, terrasses, carrelage et achats directs — dans un seul devis et un seul code de retrait.</p>
         </section>
 
         <section class="carte resultats-bloc" aria-labelledby="achats-titre">
           <h2 id="achats-titre">Ce qu’il faut acheter</h2>
           <ul class="resultats-achats">
             <li v-for="l in resultat.lignes" :key="l.id">
-              <span class="resultats-achat-icone"><i :class="icones[l.id] || 'fa-solid fa-box'" aria-hidden="true"></i></span>
+              <span class="resultats-achat-icone"><i :class="icones[l.id] || (String(l.id).startsWith('carreau:') ? 'fa-solid fa-table-cells' : 'fa-solid fa-box')" aria-hidden="true"></i></span>
               <span class="resultats-achat-texte">
                 <strong>{{ formaterQuantite(l.quantite, l.unite) }}</strong>
                 <small>{{ l.libelle }} · {{ formaterEuros(l.prixUnitaire) }} / {{ l.unite === 'u' ? 'unité' : l.unite }}<template v-if="l.prixComptoir > l.prixUnitaire"> · <s>{{ formaterEuros(l.prixComptoir) }} au comptoir</s></template></small>
@@ -340,6 +342,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-resume { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; color: var(--texte-secondaire); font-size: .92rem; }
 .resultats-resume i { color: var(--lagon-600); margin-right: 4px; }
 .resultats-titre { margin-top: 18px; color: var(--ardoise); font-size: clamp(1.5rem, 3.4vw, 2rem); }
+.resultats-portee { margin: -14px auto 20px; max-width: 34ch; color: var(--texte-secondaire); font-size: .86rem; line-height: 1.45; }
 .resultats-total { margin: 4px 0 22px; color: var(--lagon-700); font-size: clamp(2.8rem, 9vw, 4.2rem); font-weight: 700; line-height: 1.05; letter-spacing: -.02em; }
 
 .resultats-repartition { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 0; padding: 0; list-style: none; }

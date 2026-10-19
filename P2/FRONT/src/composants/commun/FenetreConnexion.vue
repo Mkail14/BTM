@@ -26,7 +26,7 @@ import { roleSession } from '@/routeur/index.js'
 import { supabase } from '@/services/supabase/client.js'
 import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
 import { fermerAuth } from '@/composables/useFenetreAuth.js'
-import { lireSuspension, connexionExterne, connexionGoogleJeton } from '@/services/supabase/serviceAuth.js'
+import { lireSuspension, connexionExterne, connexionGoogleJeton, renvoyerConfirmation } from '@/services/supabase/serviceAuth.js'
 import { afficherBoutonGoogle } from '@/services/googleIdentite.js'
 import { memoriserSuspension } from '@/services/suspension.js'
 
@@ -126,6 +126,13 @@ function MESSAGE_SUSPENDU(jusqua) {
 }
 if (props.suspendu) erreurGlobale.value = MESSAGE_SUSPENDU(props.suspendu)
 const succes = ref('')
+// inscription réussie en attente de confirmation par e-mail : le formulaire laisse place aux consignes
+const compteCree = ref(null)
+// connexion ouverte par « J'ai confirmé, me connecter » : le compte existe, le texte d'accroche ne doit plus inviter à le créer
+const apresConfirmation = ref(false)
+const raison = computed(() => (apresConfirmation.value && !estInscription.value
+  ? 'Compte créé : connectez-vous pour afficher votre devis.'
+  : props.message))
 const chargement = ref(false)
 const estInscription = computed(() => props.mode === 'inscription')
 // Étape 0 : choix du profil ; ensuite les étapes propres au profil
@@ -139,7 +146,7 @@ function choisirProfil(type) {
   etape.value = 1
 }
 
-watch(() => props.mode, () => { erreurs.value = {}; erreurGlobale.value = ''; succes.value = ''; etape.value = 0; modeOubli.value = false })
+watch(() => props.mode, (m) => { if (m === 'inscription') apresConfirmation.value = false; erreurs.value = {}; erreurGlobale.value = ''; succes.value = ''; compteCree.value = null; etape.value = 0; modeOubli.value = false })
 // ouverte depuis « Créer un compte professionnel » : le profil est déjà choisi
 if (props.mode === 'inscription' && ['particulier', 'professionnel'].includes(props.profil)) choisirProfil(props.profil)
 watch(connecte, (v) => { if (v && !modeOubli.value) terminerConnexion() })
@@ -241,14 +248,12 @@ async function soumettre() {
       // le lien de confirmation s'ouvre dans un nouvel onglet : le devis en cours y est repris, sur la page demandée
       const avecDevis = !!(calc.resultat.value || calc.cumul.value.length)
       calc.mettreDeCote()
-      await inscription(email.value.trim(), motDePasse.value, {
+      const { confirmationRequise } = await inscription(email.value.trim(), motDePasse.value, {
         civilite: civilite.value, nom: nom.value.trim(), prenom: prenom.value.trim(), pseudo: pseudoAuto.value, telephone: telephone.value,
         type_profil: typeCompte.value, ...(pro ? { pro_siret: nettoyerSiret(siret.value), pro_raison_sociale: raisonSociale.value.trim() } : {})
       }, redirectionDemandee() || (avecDevis ? '/resultats' : ''))
-      const suite = avecDevis ? ' Votre devis vous attendra : le lien de confirmation vous y ramène.' : ''
-      succes.value = (pro
-        ? 'Compte créé ! Confirmez votre e-mail si demandé, puis connectez-vous. Vos outils professionnels s’ouvriront dès que notre équipe aura validé votre SIRET.'
-        : 'Compte créé ! Vérifiez votre boîte mail si une confirmation est requise, puis connectez-vous.') + suite
+      // sans confirmation demandée, la session est ouverte : le watch sur `connecte` termine la connexion
+      if (confirmationRequise) compteCree.value = { email: email.value.trim(), pro, avecDevis }
     } else {
       // le bouton reste en chargement jusqu'à l'arrivée sur la page de destination
       await connexion(email.value.trim(), motDePasse.value)
@@ -272,6 +277,20 @@ async function soumettre() {
     }
   } finally {
     chargement.value = false
+  }
+}
+
+// Nouvel envoi du lien de confirmation (« Rien reçu ? »)
+const renvoi = ref('') // '' | 'envoi' | 'fait'
+async function renvoyer() {
+  erreurGlobale.value = ''
+  renvoi.value = 'envoi'
+  try {
+    await renvoyerConfirmation(compteCree.value.email)
+    renvoi.value = 'fait'
+  } catch (err) {
+    renvoi.value = ''
+    erreurGlobale.value = traduire(err?.message)
   }
 }
 
@@ -345,9 +364,8 @@ function traduire(m = '') {
           <h2>BTM Pro</h2>
           <p>Chiffrez des chantiers entiers, pas seulement un mur.</p>
           <ul>
-            <li><i class="fa-solid fa-city"></i> Projets multi-ouvrages : maisons, dalles, murs, fondations</li>
-            <li><i class="fa-solid fa-cube"></i> Maquette 3D, visite intérieure et mesures exactes</li>
-            <li><i class="fa-solid fa-layer-group"></i> Plusieurs maisons dans un même projet</li>
+            <li><i class="fa-solid fa-city"></i> Plusieurs ouvrages dans un même devis : murs, dalles, fondations, terrasses, carrelage</li>
+            <li><i class="fa-solid fa-cart-shopping"></i> Ouvrages mesurés et achats directs réunis</li>
             <li><i class="fa-solid fa-file-pdf"></i> Un seul devis PDF avec code de retrait</li>
           </ul>
         </template>
@@ -364,9 +382,26 @@ function traduire(m = '') {
 
       <section class="carte auth-carte">
         <MotDePasseOublie v-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" :par-lien="parLien" :lien-expire="lienExpire" @retour="quitterOubli" @termine="finOubli" />
+        <!-- Inscription réussie, adresse à confirmer : plus de formulaire, seulement la marche à suivre -->
+        <div v-else-if="compteCree" class="auth-cree" role="status">
+          <span class="auth-cree-icone" aria-hidden="true"><i class="fa-solid fa-envelope-circle-check"></i></span>
+          <h2 id="auth-titre" class="auth-titre">Plus qu’une étape : confirmez votre e-mail</h2>
+          <p>Votre compte est créé. Nous venons d’envoyer un lien à <strong>{{ compteCree.email }}</strong> : ouvrez-le pour activer votre compte.</p>
+          <p v-if="compteCree.avecDevis">Vos réponses sont gardées : ce lien vous ramène directement au résultat de votre devis.</p>
+          <p v-if="compteCree.pro">Vos outils professionnels s’ouvriront dès que notre équipe aura validé votre SIRET.</p>
+          <p class="champ-aide">Rien reçu après quelques minutes ? Regardez dans vos courriers indésirables, ou
+            <button type="button" class="auth-lien" :disabled="renvoi === 'envoi'" @click="renvoyer">{{ renvoi === 'fait' ? 'e-mail renvoyé ✓' : 'renvoyez l’e-mail' }}</button>.
+          </p>
+          <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
+          <div class="auth-actions">
+            <BoutonBase type="button" variante="secondaire" @click="emit('fermer')">Fermer</BoutonBase>
+            <BoutonBase type="button" bloc icone="fa-solid fa-right-to-bracket" @click="apresConfirmation = true; emit('changer-mode', 'connexion')">J’ai confirmé, me connecter</BoutonBase>
+          </div>
+        </div>
         <template v-else>
           <h2 id="auth-titre" class="auth-titre">{{ !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
-          <p v-if="message && (!estInscription || etape === 0)" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ message }}</p>
+          <p v-if="raison && (!estInscription || etape === 0)" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ raison }}</p>
+          <p v-if="estInscription && etape <= 1" class="champ-aide auth-donnees">Vos informations servent uniquement à votre compte et à vos devis : elles ne sont ni vendues ni cédées à des tiers.</p>
           <p class="texte-secondaire auth-intro">{{!estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit, en moins d’une minute.' }}</p>
 
           <BandeauAvertissement v-if="!backendDisponible" type="info" compact class="auth-note">
@@ -389,14 +424,14 @@ function traduire(m = '') {
               <button type="button" class="auth-profil" @click="choisirProfil('particulier')">
                 <span class="auth-profil-icone"><i class="fa-solid fa-house-user" aria-hidden="true"></i></span>
                 <strong>Particulier</strong>
-                <small>Je prépare mon propre chantier : un mur, une dalle, une terrasse…</small>
+                <small>Je prépare mon propre chantier : un mur, une dalle, un carrelage…</small>
                 <span class="auth-profil-suite">Continuer <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
               </button>
               <button type="button" class="auth-profil pro" @click="choisirProfil('professionnel')">
                 <span class="auth-profil-badge">Pro</span>
                 <span class="auth-profil-icone"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i></span>
                 <strong>Professionnel</strong>
-                <small>Entreprise du BTP, artisan : projets multi-ouvrages et maquette 3D.</small>
+                <small>Entreprise du BTP, artisan : plusieurs ouvrages dans un même devis.</small>
                 <span class="auth-profil-suite">Continuer <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
               </button>
             </div>
@@ -445,7 +480,8 @@ function traduire(m = '') {
               <p v-else-if="suggestion" class="champ-aide auth-suggestion">Vouliez-vous écrire <button type="button" @click="appliquerSuggestion">{{ suggestion }}</button> ?</p>
             </div>
 
-            <ChampTelephone v-if="estInscription && nomEtape === 'Sécurité'" id="auth-telephone" v-model="telephone" requis :erreur="erreurs.telephone" />
+            <ChampTelephone v-if="estInscription && nomEtape === 'Sécurité'" id="auth-telephone" v-model="telephone" requis :erreur="erreurs.telephone"
+              aide="Il sert à votre retrait de matériaux chez le fournisseur. Jamais vendu ni cédé à des fins commerciales." />
             <div v-if="!estInscription || nomEtape === 'Sécurité'" class="champ">
               <label for="auth-mdp">Mot de passe</label>
               <SaisieMotDePasse id="auth-mdp" v-model="motDePasse"  :autocomplete="estInscription ? 'new-password' : 'current-password'" placeholder="8 caractères minimum" :aria-invalid="!!erreurs.motDePasse" style="font-family: var(--font-corps)" />
@@ -491,7 +527,7 @@ function traduire(m = '') {
                 :icone="!estInscription ? 'fa-solid fa-right-to-bracket' : derniereEtape ? 'fa-solid fa-user-plus' : ''"
                 :icone-droite="derniereEtape ? '' : 'fa-solid fa-arrow-right'"
               >
-                {{ !estInscription ? 'Se connecter' : derniereEtape ? 'Créer mon compte' : 'Continuer' }}
+                {{ !estInscription ? 'Se connecter' : !derniereEtape ? 'Continuer' : chargement ? 'Création de votre compte…' : 'Créer mon compte' }}
               </BoutonBase>
             </div>
           </form>
@@ -551,6 +587,7 @@ function traduire(m = '') {
 .auth-titre { font-size: 2.2rem; color: var(--ardoise); }
 .auth-raison { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: var(--lagon-50, #ecfeff); border: 1px solid var(--gris-200); color: var(--ardoise); font-weight: 600; font-size: .92rem; }
 .auth-raison i { color: var(--primaire); }
+.auth-donnees { margin: 6px 0 0; }
 .auth-intro { margin: 4px 0 20px; }
 .auth-note { margin-bottom: 20px; }
 .auth-note code { font-family: var(--font-mono); font-size: .8rem; background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 4px; }
@@ -597,6 +634,13 @@ function traduire(m = '') {
 .auth-externe-note { margin: 10px 0 0; text-align: center; }
 .auth-bascule { margin-top: 22px; text-align: center; font-size: .95rem; color: var(--texte-secondaire); }
 .auth-bascule a { color: var(--lagon-700); font-weight: 700; }
+.auth-cree { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.auth-cree p { margin: 0; line-height: 1.6; color: var(--texte-secondaire); }
+.auth-cree strong { color: var(--ardoise); word-break: break-all; }
+.auth-cree-icone { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-size: 1.6rem; background: var(--lagon-50, #ecfeff); color: var(--primaire); }
+.auth-cree .auth-actions { margin-top: 12px; }
+.auth-lien { border: 0; padding: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
+.auth-lien:disabled { opacity: .6; cursor: wait; }
 .auth-bascule button { border: 0; padding: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
 .auth-fermer { position: fixed; top: 22px; right: 24px; z-index: 2; width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 1.2rem; cursor: pointer; transition: background .2s, transform .2s; }
 .auth-fermer:hover { background: rgba(255,255,255,.25); transform: rotate(90deg); }

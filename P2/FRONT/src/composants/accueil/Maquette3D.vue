@@ -17,7 +17,7 @@ function planifier(tache) {
 
 <script setup>
 /**
- * Maquette3D — maquette three.js procédurale d'un ouvrage (mur, dalle, fondation, terrasse),
+ * Maquette3D — maquette three.js procédurale d'un ouvrage (mur, dalle, fondation, terrasse, carrelage),
  * façon maquette d'architecte : matériaux réalistes, ombres douces, légère oscillation.
  * Pivote vers l'utilisateur quand `actif` est vrai (survol de la carte).
  * La scène n'est construite qu'à l'approche de l'écran, et le rendu ne tourne que lorsqu'elle est visible.
@@ -268,7 +268,33 @@ function construireTerrasse(g, m) {
   planter(-0.6, -0.72, 0.7)
 }
 
-const constructeurs = { mur: construireMur, dalle: construireDalle, fondation: construireFondation, terrasse: construireTerrasse }
+function construireCarrelage(g, m) {
+  const Lx = 2.8, Lz = 2.2, h = 0.1, j = 0.012, ep = 0.022
+  boite(g, Lx, h, Lz, m.beton, 0, 0, 0)
+
+  // colle étalée sur la partie encore à carreler
+  const colle = matiere('#e4e1da', { roughness: 1 })
+  boite(g, Lx, 0.008, Lz, colle, 0, h, 0)
+
+  // grands carreaux clairs, posés depuis le fond ; la dernière rangée reste à poser
+  const nx = 5, nz = 4
+  const c = (Lz - (nz + 1) * j) / nz
+  const teintes = ['#f1efeb', '#e9e6e0', '#f5f3ef'].map((t) => matiere(t, { roughness: 0.25 }))
+  for (let i = 0; i < nx; i++)
+    for (let k = 0; k < nz; k++) {
+      if (i === nx - 1 && k >= 1) continue
+      boite(g, c, ep, c, teintes[Math.floor(rnd() * 3)], -Lx / 2 + j + c / 2 + i * (c + j), h + 0.008, -Lz / 2 + j + c / 2 + k * (c + j), 0.004)
+    }
+
+  // pile de carreaux et seau de colle
+  for (let p = 0; p < 5; p++) boite(g, c * 0.9, ep, c * 0.9, teintes[p % 3], Lx / 2 - c / 2 - 0.05, h + 0.008 + p * (ep + 0.003), Lz / 2 - c / 2 - 0.1, 0.004)
+  const seau = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.14, 0.32, 24), matiere('#f59e0b', { roughness: 0.6 }))
+  seau.position.set(Lx / 2 - 0.35, h + 0.008 + 0.16, -0.05)
+  seau.castShadow = seau.receiveShadow = true
+  g.add(seau)
+}
+
+const constructeurs = { mur: construireMur, dalle: construireDalle, fondation: construireFondation, terrasse: construireTerrasse, carrelage: construireCarrelage }
 
 /* ---------- Scène ---------- */
 

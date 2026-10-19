@@ -25,7 +25,8 @@ const PALETTES = {
   mur: ['#f2fbfd', '#bfe9f2', '#0e7490'],
   dalle: ['#f1faf7', '#c3e8dc', '#0f766e'],
   fondation: ['#f5f7fa', '#d3dce8', '#334155'],
-  terrasse: ['#fffaf0', '#f5dfb3', '#b45309']
+  terrasse: ['#fffaf0', '#f5dfb3', '#b45309'],
+  carrelage: ['#f7f5fb', '#ddd6ee', '#6d28d9']
 }
 const palette = computed(() => PALETTES[props.projet.type] || ['#f7f5fb', '#ddd6ee', '#4c3d7a'])
 // « Dalle 8 × 6 m » : ce que mesure le devis, s'il le précise

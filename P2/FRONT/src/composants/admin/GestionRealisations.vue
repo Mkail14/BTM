@@ -285,7 +285,7 @@ async function enregistrer() {
 .gr-compteur strong { color: var(--adm-encre); }
 .gr-compteur.plein { background: var(--adm-attention-fond-2); color: var(--adm-attention-texte-2); }
 
-.gr-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+.gr-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
 .gr-carte { display: flex; flex-direction: column; overflow: hidden; }
 .gr-photo { position: relative; aspect-ratio: 4 / 3; background: var(--adm-ligne-2); }
 .gr-photo img { width: 100%; height: 100%; object-fit: cover; }
@@ -301,11 +301,17 @@ async function enregistrer() {
 .gr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 12px 12px 16px; }
 .gr-icones { display: flex; margin-left: auto; }
 
-/* Ordinateur : l'en-tête et les filtres restent en place, seules les réalisations défilent (page fixe de SectionContenus) */
-@media (min-width: 1024px) and (min-height: 640px) {
+/* Ordinateur et tablette : l'en-tête et les filtres restent en place, seules les réalisations défilent (page fixe de SectionContenus) */
+@media (min-width: 768px) and (min-height: 640px) {
   .gr-tete, .gr > .adm-pilules { flex: none; }
   /* max-content : sans lui, les cartes (overflow: hidden) sont écrasées pour tenir dans la hauteur au lieu de défiler */
   .gr-grille { flex: 1; min-height: 0; grid-auto-rows: max-content; align-content: start; margin: 0 -8px; padding: 0 8px 24px; overflow-y: auto; scrollbar-width: thin; }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .gr { gap: 12px; }
+  .gr-tete { gap: 12px; padding: 16px 18px; }
+  .gr-grille { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 }
 
 .gr-depot {

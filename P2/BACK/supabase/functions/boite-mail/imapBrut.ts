@@ -141,3 +141,32 @@ export async function sourceMessage(
   }
 }
 
+/** Contenu brut de plusieurs messages sur une seule connexion, sans les marquer comme lus (préchargement) */
+export async function sourcesMessages(
+  config: { hoteImap: string; utilisateur: string; motDePasse: string },
+  dossier: string, uids: number[], tailleMax = Infinity,
+): Promise<Map<number, Uint8Array>> {
+  const c = new Connexion(await Deno.connectTls({ hostname: config.hoteImap, port: 993 }));
+  const sources = new Map<number, Uint8Array>();
+  try {
+    await c.ligne();
+    await c.commande(`LOGIN ${chaine(config.utilisateur)} ${chaine(config.motDePasse)}`);
+    await c.commande(`EXAMINE ${nomDossier(dossier)}`);
+    // tailles demandées en une fois : les messages trop lourds (ou supprimés entre-temps) sont laissés de côté
+    const tailles = new Map<number, number>();
+    for (const l of (await c.commandeTexte(`UID FETCH ${uids.join(",")} (RFC822.SIZE)`)).split("\n")) {
+      const uid = Number(l.match(/UID (\d+)/i)?.[1]), taille = Number(l.match(/RFC822\.SIZE (\d+)/i)?.[1]);
+      if (uid && Number.isFinite(taille)) tailles.set(uid, taille);
+    }
+    for (const uid of uids) {
+      if (!tailles.has(uid) || tailles.get(uid)! > tailleMax) continue;
+      const source = await c.commande(`UID FETCH ${uid} (BODY.PEEK[])`);
+      if (source) sources.set(uid, source);
+    }
+    await c.commande("LOGOUT").catch(() => {});
+    return sources;
+  } finally {
+    c.fermer();
+  }
+}
+

@@ -8,9 +8,10 @@ import { calculerMur, listerMurs } from './formuleMur.js'
 import { calculerDalle } from './formuleDalle.js'
 import { calculerFondation } from './formuleFondation.js'
 import { calculerTerrasse } from './formuleTerrasse.js'
+import { calculerCarrelage } from './formuleCarrelage.js'
 import { nombre, arrondi } from './utilitaires.js'
 
-const FORMULES = { mur: calculerMur, dalle: calculerDalle, fondation: calculerFondation, terrasse: calculerTerrasse }
+const FORMULES = { mur: calculerMur, dalle: calculerDalle, fondation: calculerFondation, terrasse: calculerTerrasse, carrelage: calculerCarrelage }
 
 export const MESSAGES = {
   obligatoire: 'Ce champ est obligatoire',            // ER01
@@ -46,7 +47,7 @@ function validerChamps(champs, valeurs, erreurs, prefixe = '') {
   for (const champ of champs) {
     const cle = prefixe + champ.nom
     const brut = valeurs[champ.nom]
-    if (champ.type === 'select') {
+    if (champ.type === 'select' || champ.type === 'carreau') {
       if (!brut) erreurs[cle] = MESSAGES.obligatoire
       continue
     }
@@ -138,7 +139,7 @@ export function calculerEstimation(typeId, dimensions, options = {}) {
   const resultat = appliquerRemise(Number(options.tauxFrais) > 0 ? ajouterFraisService(brut, options.tauxFrais) : brut, options.remise)
 
   const dims = {}
-  for (const c of type.champs) dims[c.nom] = c.type === 'select' ? (dimensions[c.nom] ?? c.defaut) : nombre(dimensions[c.nom])
+  for (const c of type.champs) dims[c.nom] = c.type === 'select' || c.type === 'carreau' ? (dimensions[c.nom] ?? c.defaut) : nombre(dimensions[c.nom])
   if (typeId === 'mur' && dimensions.autresMurs?.length) {
     dims.autresMurs = dimensions.autresMurs.map((m) => ({
       longueur: nombre(m.longueur), hauteur: nombre(m.hauteur), ouvertures: nombre(m.ouvertures)
@@ -159,7 +160,7 @@ export function resumerDimensions(typeId, dimensions = {}) {
   const type = trouverTypeProjet(typeId)
   if (!type) return ''
   const resume = type.champs
-    .filter((c) => c.type !== 'select' && dimensions[c.nom] !== undefined && dimensions[c.nom] !== '')
+    .filter((c) => !['select', 'carreau'].includes(c.type) && dimensions[c.nom] !== undefined && dimensions[c.nom] !== '')
     .map((c) => `${dimensions[c.nom]} ${c.unite}`)
     .join(' × ')
   const autres = dimensions.autresMurs?.length || 0

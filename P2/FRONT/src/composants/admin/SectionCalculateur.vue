@@ -64,7 +64,11 @@ const LIBELLES_PARAMETRES = {
   densiteBeton: { label: 'Densité du béton', unite: 't/m³' },
   kgFerParM2: { label: 'Ferraillage par m²', unite: 'kg/m²' },
   tonnesGravierParM3: { label: 'Gravier par m³ de dalle', unite: 't/m³' },
-  kgAcierParM3: { label: 'Acier par m³ de béton', unite: 'kg/m³' }
+  kgAcierParM3: { label: 'Acier par m³ de béton', unite: 'kg/m³' },
+  margeCarreaux: { label: 'Coefficient de marge (coupes, casse)', unite: '×', aide: '1,1 = 10 % de carreaux en plus' },
+  kgColleParM2: { label: 'Colle par m²', unite: 'kg/m²' },
+  kgParSacColle: { label: 'Poids d’un sac de colle', unite: 'kg' },
+  kgJointParM2: { label: 'Joint par m²', unite: 'kg/m²' }
 }
 
 const typeActif = ref(typesProjets[0].id)
@@ -100,8 +104,8 @@ async function choisirType(id) {
 
 // Simulation : exemple type (valeurs d'exemple du formulaire public), avant / après modification
 const catalogue = computed(() => (donnees.materiaux?.length ? { ...materiauxLocaux, ...indexerMateriaux(donnees.materiaux) } : materiauxLocaux))
-const exemple = computed(() => Object.fromEntries(type.value.champs.map((c) => [c.nom, c.type === 'select' ? c.defaut : c.placeholder])))
-const resumeExemple = computed(() => type.value.champs.filter((c) => c.type !== 'select').map((c) => `${String(c.placeholder).replace('.', ',')} ${c.unite}`).join(' × '))
+const exemple = computed(() => Object.fromEntries(type.value.champs.map((c) => [c.nom, ['select', 'carreau'].includes(c.type) ? c.defaut : c.placeholder])))
+const resumeExemple = computed(() => type.value.champs.filter((c) => !['select', 'carreau'].includes(c.type)).map((c) => `${String(c.placeholder).replace('.', ',')} ${c.unite}`).join(' × '))
 function simuler(parametres) {
   try { return calculerEstimation(type.value.id, exemple.value, { catalogue: catalogue.value, parametres }).total } catch { return null }
 }
@@ -379,8 +383,21 @@ async function enregistrerTaux() {
   .prix-table .adm-saisie:not(:hover):not(:focus):not([aria-invalid]) { border-color: transparent; background: transparent; }
   .prix-table .prix-montant .adm-saisie:not(:focus):not([aria-invalid]) { border-color: var(--adm-ligne); background: var(--adm-champ); }
 }
-/* Ordinateur : page fixe (« ecran-fixe » dans AdminVue). Les onglets et l'en-tête restent en place, seul le contenu défile */
-@media (min-width: 1024px) and (min-height: 640px) {
+/* Tablette : le tableau des prix tient en largeur (la date de mise à jour, secondaire, s'efface) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .calc { gap: 12px; }
+  .prix-table th:nth-child(5), .prix-table td.prix-date { display: none; }
+  .prix-table th, .prix-table td { padding-inline: 8px; }
+  .prix-table td.principal { min-width: 170px; }
+  .prix-cellule { width: 150px; }
+  .prix-unite { width: 64px; }
+  .calc .ouvrages-choix { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; } /* une rangée : la hauteur va aux formules */
+  .ouvrage-choix { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
+  .ouvrage-choix-icone { width: 36px; height: 36px; border-radius: 12px; }
+  .ouvrage-choix > span:last-child { max-width: 100%; }
+}
+/* Ordinateur et tablette : page fixe (« ecran-fixe » dans AdminVue). Les onglets et l'en-tête restent en place, seul le contenu défile */
+@media (min-width: 768px) and (min-height: 640px) {
   .calc-onglets, .calc > .adm-alerte, .ouvrages-choix, .prix-tete, .prix-alerte { flex: none; }
   .calc > section.adm-carte { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .calc .adm-table-cadre { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
@@ -391,7 +408,7 @@ async function enregistrerTaux() {
 }
 
 /* Ouvrages */
-.ouvrages-choix { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.ouvrages-choix { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .ouvrage-choix {
   display: flex; align-items: center; gap: 14px; padding: 16px; border: 0; font: inherit; text-align: left; cursor: pointer;
   transition: background var(--transition), color var(--transition), box-shadow var(--transition);
@@ -448,5 +465,23 @@ async function enregistrerTaux() {
 @media (max-width: 900px) {
   .ouvrages-choix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ouvrage-grille { grid-template-columns: minmax(0, 1fr); }
+}
+/* Téléphone : les trois onglets se partagent la largeur (icône au-dessus du libellé), rien ne déborde */
+@media (max-width: 640px) {
+  .calc-onglets .adm-segments { width: 100%; overflow: visible; border-radius: 20px; }
+  .calc-onglets .adm-segments button {
+    position: relative; flex: 1 1 0; flex-direction: column; justify-content: center; gap: 4px; min-width: 0; min-height: 58px; padding: 6px 4px;
+    border-radius: 16px; font-size: .76rem; line-height: 1.2; text-align: center; white-space: normal;
+  }
+  .calc-point { position: absolute; top: 8px; right: 10px; }
+  .prix-actions { flex-wrap: wrap; width: 100%; }
+  .prix-actions .adm-btn-noir { flex: 1; }
+  .prix-alerte { margin: 0 16px 14px; }
+  .ouvrages-choix { gap: 10px; }
+  .ouvrage-choix { gap: 10px; padding: 12px; }
+  .ouvrage-choix-icone { width: 36px; height: 36px; border-radius: 12px; }
+  .frais-deux { grid-template-columns: minmax(0, 1fr); }
+  .frais-champ { max-width: none; }
+  .simulation-actions { grid-template-columns: minmax(0, 1fr); max-width: none; }
 }
 </style>

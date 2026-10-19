@@ -14,7 +14,10 @@ export const materiaux = {
   acier:       { id: 'acier',       libelle: 'Armatures acier HA',           unite: 'kg',  prixUnitaire: 2.6 },
   gravier:     { id: 'gravier',     libelle: 'Gravier concassé',             unite: 't',   prixUnitaire: 85 },
   carrelage:   { id: 'carrelage',   libelle: 'Carrelage extérieur',          unite: 'm²',  prixUnitaire: 50 },
-  beton_lisse: { id: 'beton_lisse', libelle: 'Finition béton lissé',         unite: 'm²',  prixUnitaire: 15 }
+  beton_lisse: { id: 'beton_lisse', libelle: 'Finition béton lissé',         unite: 'm²',  prixUnitaire: 15 },
+  carrelage_sol:   { id: 'carrelage_sol',   libelle: 'Carrelage de sol intérieur',  unite: 'm²',  prixUnitaire: 30 },
+  colle_carrelage: { id: 'colle_carrelage', libelle: 'Colle à carrelage (sac 25 kg)', unite: 'sac', prixUnitaire: 16 },
+  joint_carrelage: { id: 'joint_carrelage', libelle: 'Mortier joint carrelage',      unite: 'kg',  prixUnitaire: 3.5 }
 }
 
 /** Convertit une liste de lignes Supabase en dictionnaire indexé par id */

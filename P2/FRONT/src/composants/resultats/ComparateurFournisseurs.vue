@@ -63,7 +63,7 @@ function choisir(f) {
         <button type="button" class="cf-carte" :class="{ actif: modelValue === f.fiche.id }" :aria-pressed="modelValue === f.fiche.id" @click="choisir(f)">
           <span class="cf-choix" aria-hidden="true"><i v-if="modelValue === f.fiche.id" class="fa-solid fa-check"></i></span>
           <span class="cf-identite">
-            <strong>{{ f.fiche.nom }}<em v-if="meilleur && meilleur.fiche.id === f.fiche.id" class="cf-meilleur">Meilleur prix</em></strong>
+            <strong>{{ f.fiche.nom }}<em v-if="meilleur && meilleur.fiche.id === f.fiche.id" class="cf-meilleur">Meilleur prix</em><em v-if="f.fiche.demonstration" class="cf-demo" title="Pas encore partenaire de BTM : prix fictifs">Exemple · prix fictifs</em></strong>
             <small>{{ f.fiche.categorie }} · {{ f.fiche.commune }}<template v-if="f.fiche.livraison"> · livraison</template></small>
             <small v-if="f.chiffrage" class="cf-dispo" :class="{ complet: f.complet }">
               <i :class="f.complet ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-half-stroke'" aria-hidden="true"></i>
@@ -82,6 +82,7 @@ function choisir(f) {
     <button v-if="liste.length > 4" type="button" class="cf-plus" @click="tousVisibles = !tousVisibles">
       {{ tousVisibles ? 'Voir moins' : `Voir les ${liste.length} fournisseurs` }}
     </button>
+    <p v-if="!chargement && liste.some((f) => f.fiche.demonstration)" class="cf-note cf-note-demo"><i class="fa-solid fa-flask" aria-hidden="true"></i> Les fournisseurs marqués « Exemple » ne sont pas encore partenaires de BTM : leurs prix sont fictifs et servent à montrer le fonctionnement du site.</p>
     <p class="cf-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Le prix BTM s’applique chez le fournisseur sur présentation du code de retrait de votre devis enregistré. Chaque achat vous rapporte aussi du crédit fidélité.</p>
   </section>
 </template>
@@ -106,6 +107,9 @@ function choisir(f) {
 .cf-identite strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ardoise); }
 .cf-identite small { color: var(--texte-secondaire); font-size: .8rem; }
 .cf-meilleur { padding: 1px 8px; border-radius: 999px; background: #dcfce7; color: #166534; font-style: normal; font-size: .7rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.cf-demo { padding: 1px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-style: normal; font-size: .7rem; font-weight: 700; }
+.cf-note-demo { padding: 10px 12px; border-radius: 10px; background: #fffbeb; color: #92400e; }
+.cf-note-demo i { color: #b45309 !important; }
 .cf-dispo { font-weight: 600; color: #b45309 !important; }
 .cf-dispo.complet { color: #047857 !important; }
 .cf-dispo.inconnu { color: var(--gris-500) !important; font-weight: 500; }

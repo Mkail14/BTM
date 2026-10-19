@@ -5,6 +5,8 @@
  */
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { envoyerMessage, lireFichier } from '@/services/supabase/serviceMessagerie.js'
+import { texteVersHtml } from '@/services/htmlMessage.js'
+import EditeurRiche from './EditeurRiche.vue'
 
 const props = defineProps({ brouillon: { type: Object, required: true } })
 const emit = defineEmits(['fermer', 'envoye'])
@@ -20,7 +22,9 @@ const unSeulDestinataire = computed(() => m.value.a.split(/[,;]/).filter((x) => 
 const envoi = ref(false)
 const erreur = ref('')
 const champA = ref(null)
-const champTexte = ref(null)
+const editeur = ref(null)
+// signature et message cité arrivent en texte : l'éditeur les reçoit en HTML (citation, liens cliquables)
+const htmlDepart = m.value.html || texteVersHtml(m.value.texte)
 
 const taillePieces = computed(() => m.value.pieces.reduce((s, p) => s + (p.taille || p.base64.length * 0.75), 0))
 const tailleLisible = (o) => (o > 1024 * 1024 ? `${(o / 1024 / 1024).toFixed(1).replace('.', ',')} Mo` : `${Math.max(1, Math.round(o / 1024))} Ko`)
@@ -29,7 +33,7 @@ const titre = computed(() => (m.value.enReponseA ? 'Répondre' : props.brouillon
 onMounted(async () => {
   await nextTick()
   // réponse : le curseur va au début du message ; nouveau message ou transfert : au destinataire
-  if (m.value.a && champTexte.value) { champTexte.value.focus(); champTexte.value.setSelectionRange(0, 0) } else champA.value?.focus()
+  if (m.value.a && editeur.value) editeur.value.focusDebut(); else champA.value?.focus()
 })
 
 async function ajouterPieces(e) {
@@ -49,7 +53,7 @@ async function envoyer() {
     await envoyerMessage({
       a: m.value.a, cc: copies.value ? m.value.cc : '',
       cci: [copies.value ? m.value.cci : '', inviterTrustpilot.value && unSeulDestinataire.value ? ADRESSE_TRUSTPILOT : ''].filter((x) => x.trim()).join(', '),
-      objet: m.value.objet, texte: m.value.texte, enReponseA: m.value.enReponseA || null,
+      objet: m.value.objet, texte: editeur.value.lireTexte(), html: editeur.value.lireHtml(), enReponseA: m.value.enReponseA || null,
       pieces: m.value.pieces.map(({ nom, type, base64 }) => ({ nom, type, base64 }))
     })
     emit('envoye')
@@ -82,7 +86,7 @@ async function envoyer() {
         <label class="mr-ligne"><span>Objet</span><input v-model="m.objet" type="text" maxlength="300" placeholder="Objet du message" /></label>
       </div>
 
-      <textarea ref="champTexte" v-model="m.texte" class="mr-texte" aria-label="Message" placeholder="Votre message…"></textarea>
+      <EditeurRiche ref="editeur" :html="htmlDepart" />
 
       <ul v-if="m.pieces.length" class="mr-pieces">
         <li v-for="(p, i) in m.pieces" :key="i">
@@ -123,7 +127,6 @@ async function envoyer() {
 .mr-ligne input { flex: 1; min-width: 0; min-height: 44px; border: 0; outline: 0; background: transparent; color: var(--adm-encre); font: inherit; font-size: .93rem; }
 .mr-ligne input:disabled { color: var(--adm-encre-2); }
 .mr-lien { border: 0; background: none; color: var(--adm-accent); font: inherit; font-size: .84rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.mr-texte { flex: 1; min-height: 260px; padding: 16px 22px; border: 0; outline: 0; resize: none; color: var(--adm-encre); font: inherit; font-size: .95rem; line-height: 1.6; }
 .mr-pieces { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0 22px 10px; list-style: none; }
 .mr-pieces li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 10px; background: var(--adm-ligne-2); font-size: .84rem; }
 .mr-pieces span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,150 +1,233 @@
 <script setup>
 /**
  * Page d'attente de btm.yt : le site est en création et n'ouvre qu'avec au moins SEUIL_FOURNISSEURS
- * fournisseurs partenaires. Affichée à la place du site public (voir useOuverture et App.vue).
+ * fournisseurs partenaires (voir useOuverture et App.vue). Même identité que l'accueil : décor du
+ * mont Choungui (HeroPaysage), en-tête BTM, surtitre et titres du héros, boutons et champs du site.
+ * Une page fixe, sans défilement.
+ * « Devenir partenaire » envoie une vraie demande : elle arrive dans Admin → Support (et par e-mail sur
+ * contact@btm.yt), avec l'adresse de l'entreprise pour lui répondre — même circuit que l'assistance du site.
  */
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import LogoBtm from '@/composants/commun/LogoBtm.vue'
+import BoutonBase from '@/composants/commun/BoutonBase.vue'
+import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
+import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
+import HeroPaysage from '@/composants/accueil/HeroPaysage.vue'
+import { defineAsyncComponent } from 'vue'
+// scène 3D chargée à part (three.js) : la page s'affiche sans l'attendre
+const RobotChantier3D = defineAsyncComponent(() => import('@/composants/commun/RobotChantier3D.vue'))
+const ordinateur = typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches
 import { useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import { SEUIL_FOURNISSEURS } from '@/composables/useOuverture.js'
+import { demanderConseiller } from '@/services/supabase/serviceSupport.js'
+import { erreurEmail } from '@/services/validation.js'
 
 const props = defineProps({ partenaires: { type: Number, default: 0 } })
 const { ouvrirAuth } = useFenetreAuth()
 
 const prets = computed(() => Math.min(props.partenaires, SEUIL_FOURNISSEURS))
-const reste = computed(() => SEUIL_FOURNISSEURS - prets.value)
 const annee = new Date().getFullYear()
 
-const ETAPES = [
-  { icone: 'fa-solid fa-ruler-combined', titre: 'Chiffrez', texte: 'Mur, dalle, fondation, terrasse ou carrelage : vos quantités et votre budget en quelques questions.' },
-  { icone: 'fa-solid fa-scale-balanced', titre: 'Comparez', texte: 'Le prix exact de votre devis chez chaque fournisseur de l’île, et ce qu’il a en stock.' },
-  { icone: 'fa-solid fa-ticket', titre: 'Retirez', texte: 'Un code de retrait à présenter au comptoir, pour payer le prix BTM.' }
-]
-const sujet = encodeURIComponent('Devenir fournisseur partenaire BTM')
+// page fixe : pas de barre de défilement tant qu'elle est affichée
+onMounted(() => { document.documentElement.classList.add('page-fixe') })
+onBeforeUnmount(() => { document.documentElement.classList.remove('page-fixe') })
+
+// ---------- Demande de partenariat ----------
+const ouvert = ref(false)
+const etat = ref('saisie') // 'saisie' | 'envoi' | 'envoye'
+const erreur = ref('')
+const vide = () => ({ entreprise: '', nom: '', email: '', telephone: '', commune: '', produits: '' })
+const f = ref(vide())
+const premierChamp = ref(null)
+
+function ouvrir() {
+  ouvert.value = true
+  if (etat.value === 'envoye') { etat.value = 'saisie'; f.value = vide() }
+  erreur.value = ''
+  nextTick(() => premierChamp.value?.focus())
+}
+function fermer() { if (etat.value !== 'envoi') ouvert.value = false }
+
+async function envoyer() {
+  const d = f.value
+  erreur.value = !d.entreprise.trim() || !d.nom.trim() ? 'Indiquez le nom de l’entreprise et le vôtre.'
+    : erreurEmail(d.email.trim()) || (!d.telephone ? 'Indiquez un numéro de téléphone valide.' : '')
+  if (erreur.value) return
+  etat.value = 'envoi'
+  const contexte = [
+    'Demande de partenariat fournisseur',
+    `Entreprise : ${d.entreprise.trim()}`,
+    `Contact : ${d.nom.trim()} · ${d.telephone} · ${d.email.trim()}`,
+    d.commune.trim() && `Commune : ${d.commune.trim()}`,
+    d.produits.trim() && `Produits : ${d.produits.trim()}`
+  ].filter(Boolean).join('\n')
+  try {
+    await demanderConseiller({ contexte, email: d.email.trim(), nom: `${d.nom.trim()} (${d.entreprise.trim()})` })
+    etat.value = 'envoye'
+  } catch (e) {
+    etat.value = 'saisie'
+    erreur.value = e?.message || 'L’envoi n’a pas abouti. Réessayez, ou écrivez-nous à contact@btm.yt.'
+  }
+}
 </script>
 
 <template>
   <div class="bientot">
-    <div class="bientot-fond" aria-hidden="true"></div>
+    <HeroPaysage />
 
+    <!-- même en-tête que le site (logo et marque), réduit à l'accès partenaires -->
     <header class="bientot-entete">
-      <span class="bientot-logo"><LogoBtm :taille="44" /><span><strong>BTM</strong><small>Bâtiment &amp; Travaux Mayotte</small></span></span>
-      <button type="button" class="bientot-partenaires" @click="ouvrirAuth('connexion')"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Espace partenaires</button>
+      <div class="conteneur bientot-entete-inner">
+        <span class="bientot-logo">
+          <LogoBtm :taille="42" />
+          <span class="bientot-marque"><strong>BTM</strong><small>Bâtiment &amp; Travaux Mayotte</small></span>
+        </span>
+        <button type="button" class="bientot-connexion" @click="ouvrirAuth('connexion')">Espace partenaires</button>
+      </div>
     </header>
 
-    <main class="bientot-corps">
-      <p class="bientot-surtitre"><span class="bientot-point" aria-hidden="true"></span> Site en cours de création</p>
-      <h1>Le devis de vos travaux arrive bientôt à Mayotte.</h1>
-      <p class="bientot-intro">
-        BTM ouvrira dès que <strong>{{ SEUIL_FOURNISSEURS }} fournisseurs partenaires</strong> seront prêts à servir vos devis,
-        pour que vous puissiez toujours comparer leurs prix.
-      </p>
+    <main class="conteneur bientot-corps">
+      <div class="bientot-texte">
+        <p class="bientot-surtitre">Plateforme de devis BTP · Mayotte</p>
+        <h1 class="bientot-titre">Le site ouvre bientôt.</h1>
+        <p class="bientot-desc">
+          Budget, quantités et fournisseurs pour vos travaux, au même endroit.
+          BTM ouvre dès que {{ SEUIL_FOURNISSEURS }} fournisseurs partenaires l’ont rejoint.
+        </p>
 
-      <section class="bientot-jauge" aria-label="Fournisseurs partenaires">
-        <div class="bientot-jauge-tete">
-          <span>Fournisseurs partenaires</span>
-          <strong>{{ prets }} / {{ SEUIL_FOURNISSEURS }}</strong>
+        <div class="bientot-avancement" role="progressbar" :aria-valuenow="prets" aria-valuemin="0" :aria-valuemax="SEUIL_FOURNISSEURS" :aria-label="`${prets} fournisseur partenaire sur ${SEUIL_FOURNISSEURS}`">
+          <span v-for="n in SEUIL_FOURNISSEURS" :key="n" :class="{ fait: n <= prets }"></span>
+          <small>{{ prets }} / {{ SEUIL_FOURNISSEURS }} fournisseurs partenaires</small>
         </div>
-        <div class="bientot-barre" role="progressbar" :aria-valuenow="prets" aria-valuemin="0" :aria-valuemax="SEUIL_FOURNISSEURS">
-          <span :style="{ width: `${(prets / SEUIL_FOURNISSEURS) * 100}%` }"></span>
-        </div>
-        <p>{{ reste > 0 ? `Encore ${reste} partenaire${reste > 1 ? 's' : ''} avant l’ouverture.` : 'Tout est prêt : ouverture imminente.' }}</p>
-      </section>
 
-      <ul class="bientot-etapes">
-        <li v-for="(e, i) in ETAPES" :key="e.titre">
-          <span class="bientot-etape-icone"><i :class="e.icone" aria-hidden="true"></i></span>
-          <span><small>0{{ i + 1 }}</small><strong>{{ e.titre }}</strong><span>{{ e.texte }}</span></span>
-        </li>
-      </ul>
-
-      <section class="bientot-fournisseur">
-        <div>
-          <h2>Vous vendez des matériaux à Mayotte ?</h2>
-          <p>Mettez vos prix et vos produits en ligne, recevez des clients avec leur commande déjà chiffrée. Sans abonnement.</p>
+        <div class="bientot-actions">
+          <BoutonBase variante="primaire" icone-droite="fa-solid fa-arrow-right" @click="ouvrir">Devenir partenaire</BoutonBase>
         </div>
-        <a class="bientot-bouton" :href="`mailto:contact@btm.yt?subject=${sujet}`"><i class="fa-solid fa-handshake" aria-hidden="true"></i> Devenir partenaire</a>
-      </section>
+      </div>
+      <!-- le chantier en cours : un robot BTM monte un mur, en boucle (ordinateur seulement) -->
+      <div v-if="ordinateur" class="bientot-scene"><RobotChantier3D /></div>
     </main>
 
-    <footer class="bientot-pied">
-      <span><a href="mailto:contact@btm.yt">contact@btm.yt</a> · <a href="tel:+262639941101">0639 94 11 01</a> · Mamoudzou, Mayotte (976)</span>
-      <span>© {{ annee }} BTM · <router-link to="/conditions">Conditions</router-link> · <router-link to="/confidentialite">Confidentialité</router-link></span>
+    <footer class="conteneur bientot-pied">
+      <span>© {{ annee }} BTM — Bâtiment &amp; Travaux Mayotte · Mamoudzou (976)</span>
+      <span><router-link to="/conditions">Conditions</router-link> · <router-link to="/confidentialite">Confidentialité</router-link></span>
     </footer>
+
+    <!-- Demande de partenariat : même voile que la fenêtre de connexion du site -->
+    <div v-if="ouvert" class="bientot-voile" @click.self="fermer" @keydown.esc="fermer">
+      <section class="carte bientot-fenetre" role="dialog" aria-modal="true" aria-labelledby="partenaire-titre">
+        <button type="button" class="bientot-fermer" aria-label="Fermer la fenêtre" @click="fermer"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+
+        <template v-if="etat === 'envoye'">
+          <span class="bientot-merci-icone" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></span>
+          <h2 id="partenaire-titre" class="bientot-fenetre-titre">Demande envoyée</h2>
+          <p class="texte-secondaire bientot-fenetre-intro">Merci ! L’équipe BTM vous recontacte à <strong>{{ f.email }}</strong> ou au {{ f.telephone }}.</p>
+          <BoutonBase variante="primaire" bloc @click="fermer">Fermer</BoutonBase>
+        </template>
+
+        <form v-else novalidate class="bientot-form" @submit.prevent="envoyer">
+          <div>
+            <h2 id="partenaire-titre" class="bientot-fenetre-titre">Devenir partenaire</h2>
+            <p class="texte-secondaire bientot-fenetre-intro">Vous vendez des matériaux à Mayotte ? Laissez vos coordonnées : nous vous présentons BTM et ouvrons votre espace fournisseur.</p>
+          </div>
+          <div class="bientot-champs">
+            <div class="champ plein"><label for="p-ent">Entreprise</label><input id="p-ent" ref="premierChamp" v-model="f.entreprise" maxlength="80" autocomplete="organization" placeholder="Nom de l’entreprise" /></div>
+            <div class="champ"><label for="p-nom">Votre nom</label><input id="p-nom" v-model="f.nom" maxlength="60" autocomplete="name" placeholder="Prénom Nom" /></div>
+            <div class="champ"><label for="p-com">Commune</label><input id="p-com" v-model="f.commune" maxlength="60" autocomplete="address-level2" placeholder="Mamoudzou" /></div>
+            <div class="champ plein"><label for="p-mail">Adresse e-mail</label><input id="p-mail" v-model="f.email" type="email" maxlength="254" autocomplete="email" placeholder="contact@entreprise.yt" /></div>
+            <ChampTelephone id="p-tel" v-model="f.telephone" class="plein" />
+            <div class="champ plein"><label for="p-prod">Ce que vous vendez <small class="texte-secondaire">(facultatif)</small></label><input id="p-prod" v-model="f.produits" maxlength="160" placeholder="Ciment, parpaings, carrelage…" /></div>
+          </div>
+          <BandeauAvertissement v-if="erreur" type="erreur" compact>{{ erreur }}</BandeauAvertissement>
+          <BoutonBase type="submit" variante="primaire" bloc icone="fa-solid fa-paper-plane" :chargement="etat === 'envoi'">Envoyer ma demande</BoutonBase>
+        </form>
+      </section>
+    </div>
   </div>
 </template>
 
+<style>
+/* page d'attente : fixe, sans défilement */
+html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
+</style>
+
 <style scoped>
+/* même cadre que le héros de l'accueil : fond sombre, décor du Choungui, texte blanc */
 .bientot {
-  position: relative; min-height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
-  background: var(--ardoise); color: #e2e8f0; font-family: var(--font-corps);
+  position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; isolation: isolate;
+  background: #0a0f14; color: #fff;
 }
-/* lagon et sable en halos, quadrillage de chantier très léger */
-.bientot-fond {
-  position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(60rem 40rem at 85% -10%, rgba(8, 145, 178, .35), transparent 60%),
-    radial-gradient(40rem 30rem at -10% 110%, rgba(245, 158, 11, .14), transparent 60%),
-    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 48px 48px,
-    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 48px 48px;
-}
-.bientot > *:not(.bientot-fond) { position: relative; }
 
-.bientot-entete { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px clamp(16px, 5vw, 56px); }
-.bientot-logo { display: flex; align-items: center; gap: 12px; }
-.bientot-logo strong { display: block; font-family: var(--font-display); font-size: 1.6rem; letter-spacing: .04em; color: #fff; line-height: 1; }
-.bientot-logo small { color: #94a3b8; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
-.bientot-partenaires {
-  display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border: 1px solid rgba(255,255,255,.18); border-radius: 999px;
-  background: rgba(255,255,255,.04); color: #e2e8f0; font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer;
+/* ---------- En-tête (repris d'EnteteApp) ---------- */
+.bientot-entete { flex: none; height: var(--hauteur-entete); }
+.bientot-entete-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.bientot-logo { display: flex; align-items: center; gap: 10px; }
+.bientot-logo :deep(.logo-btm) { width: 38px; height: 38px; }
+.bientot-marque { display: flex; flex-direction: column; gap: 3px; line-height: 1; }
+.bientot-marque strong { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; letter-spacing: .08em; }
+.bientot-marque small { font-size: .62rem; color: var(--lagon-200); opacity: .8; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.bientot-connexion {
+  height: 40px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; background: transparent;
+  color: rgba(255, 255, 255, .85); font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; transition: color var(--transition), border-color var(--transition);
 }
-.bientot-partenaires:hover { border-color: var(--lagon-400); color: #fff; }
+.bientot-connexion:hover { color: #fff; border-color: #fff; }
 
-.bientot-corps { flex: 1; width: min(100%, 980px); margin: 0 auto; padding: clamp(24px, 6vh, 72px) clamp(16px, 5vw, 56px) 48px; }
+/* ---------- Texte (repris du héros) ---------- */
+.bientot-corps { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; min-height: 0; }
+@media (min-width: 900px) { .bientot-corps { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3vw; } }
+.bientot-scene { height: min(62vh, 560px); min-height: 0; padding-bottom: 6vh; animation: apparaitre .9s .2s ease both; }
+.bientot-texte { width: 100%; max-width: 610px; padding-bottom: 8vh; }
 .bientot-surtitre {
-  display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; padding: 6px 14px; border-radius: 999px;
-  background: rgba(8, 145, 178, .16); color: var(--lagon-200); font-size: .8rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  display: inline-flex; align-items: center; gap: 10px; margin: 0 0 22px; font-size: .78rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+  color: #f7c77a; animation: apparaitre .6s ease both;
 }
-.bientot-point { width: 8px; height: 8px; border-radius: 50%; background: var(--sable-fonce); box-shadow: 0 0 0 0 rgba(245, 158, 11, .6); animation: bientot-pouls 2s infinite; }
-@keyframes bientot-pouls { 70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
-@media (prefers-reduced-motion: reduce) { .bientot-point { animation: none; } }
-.bientot h1 { margin: 0; max-width: 18ch; font-family: var(--font-display); font-size: clamp(2.5rem, 7vw, 4.6rem); font-weight: 700; line-height: 1; color: #fff; }
-.bientot-intro { max-width: 56ch; margin: 20px 0 0; color: #cbd5e1; font-size: clamp(1rem, 2.2vw, 1.15rem); line-height: 1.6; }
-.bientot-intro strong { color: var(--sable); }
-
-.bientot-jauge { max-width: 460px; margin-top: 32px; padding: 18px 20px; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; background: rgba(15, 23, 42, .6); backdrop-filter: blur(6px); }
-.bientot-jauge-tete { display: flex; align-items: baseline; justify-content: space-between; color: #94a3b8; font-size: .88rem; }
-.bientot-jauge-tete strong { color: #fff; font-family: var(--font-display); font-size: 1.6rem; }
-.bientot-barre { height: 10px; margin: 10px 0; border-radius: 999px; background: rgba(255,255,255,.08); overflow: hidden; }
-.bientot-barre span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--lagon-500), var(--lagon-300)); transition: width .6s ease; }
-.bientot-jauge p { margin: 0; color: #94a3b8; font-size: .84rem; }
-
-.bientot-etapes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 40px 0 0; padding: 0; list-style: none; }
-.bientot-etapes li { display: flex; gap: 14px; padding: 18px; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; background: rgba(255,255,255,.03); }
-.bientot-etape-icone { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 12px; background: rgba(8, 145, 178, .18); color: var(--lagon-300); }
-.bientot-etapes li > span:last-child { display: flex; flex-direction: column; gap: 3px; }
-.bientot-etapes small { color: #64748b; font-size: .72rem; font-weight: 700; letter-spacing: .08em; }
-.bientot-etapes strong { color: #fff; font-size: 1.02rem; }
-.bientot-etapes li > span:last-child > span { color: #94a3b8; font-size: .86rem; line-height: 1.5; }
-
-.bientot-fournisseur {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; margin-top: 28px; padding: 22px 24px;
-  border-radius: 18px; background: linear-gradient(120deg, rgba(8, 145, 178, .28), rgba(14, 116, 144, .12)); border: 1px solid rgba(103, 232, 249, .2);
+.bientot-surtitre::before { content: ''; width: 26px; height: 2px; background: #f59e0b; }
+.bientot-titre {
+  margin: 0; font-family: var(--font-display); font-size: clamp(2.6rem, 6vw, 4.6rem); font-weight: 700; line-height: 1.02; letter-spacing: -.01em;
+  color: #fff; animation: apparaitre .7s .08s ease both;
 }
-.bientot-fournisseur h2 { margin: 0; color: #fff; font-family: var(--font-corps); font-size: 1.15rem; }
-.bientot-fournisseur p { margin: 6px 0 0; max-width: 52ch; color: #cbd5e1; font-size: .92rem; line-height: 1.5; }
-.bientot-bouton {
-  display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px; border-radius: 12px;
-  background: var(--sable-fonce); color: var(--ardoise); font-weight: 700; text-decoration: none; white-space: nowrap;
-}
-.bientot-bouton:hover { background: var(--sable); }
+.bientot-desc { margin: 24px 0 0; max-width: 560px; color: var(--beton); font-size: clamp(1rem, 1.4vw, 1.15rem); line-height: 1.65; animation: apparaitre .7s .18s ease both; }
 
-.bientot-pied { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 20px; padding: 18px clamp(16px, 5vw, 56px) 24px; border-top: 1px solid rgba(255,255,255,.08); color: #64748b; font-size: .82rem; }
-.bientot-pied a { color: #94a3b8; text-decoration: none; }
+.bientot-avancement { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 28px; animation: apparaitre .7s .24s ease both; }
+.bientot-avancement span { width: 56px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .2); }
+.bientot-avancement span.fait { background: var(--lagon-400); }
+.bientot-avancement small { margin-left: 8px; color: var(--beton); font-size: .85rem; }
+.bientot-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; animation: apparaitre .7s .28s ease both; }
+
+.bientot-pied {
+  flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding-top: 14px; padding-bottom: 16px;
+  color: rgba(255, 255, 255, .6); font-size: .78rem;
+}
+.bientot-pied a { color: rgba(255, 255, 255, .75); }
 .bientot-pied a:hover { color: #fff; }
 
-@media (max-width: 760px) {
-  .bientot-etapes { grid-template-columns: 1fr; }
-  .bientot-partenaires span, .bientot-logo small { display: none; }
+/* ---------- Fenêtre « Devenir partenaire » (même voile que la connexion) ---------- */
+.bientot-voile {
+  position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px;
+  background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.bientot-fenetre { position: relative; width: min(100%, 520px); max-height: calc(100dvh - 48px); overflow: hidden auto; padding: 32px; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); }
+.bientot-fenetre-titre { margin: 0; font-family: var(--font-display); font-size: 2.2rem; color: var(--ardoise); }
+.bientot-fenetre-intro { margin: 6px 0 0; line-height: 1.5; }
+.bientot-fermer {
+  position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: var(--gris-100); color: var(--gris-600); cursor: pointer;
+}
+.bientot-form { display: flex; flex-direction: column; gap: 18px; }
+.bientot-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.bientot-champs > * { min-width: 0; }
+.bientot-champs .plein { grid-column: 1 / -1; }
+.bientot-champs input { width: 100%; min-width: 0; font-family: var(--font-corps); } /* comme les champs de la fenêtre de connexion */
+.bientot-champs small { font-weight: 400; }
+.bientot-merci-icone { display: block; margin-bottom: 10px; color: #047857; font-size: 2.2rem; }
+.bientot-fenetre > .btn-bloc { margin-top: 20px; }
+
+@media (max-width: 639px) {
+  .bientot-surtitre { font-size: .7rem; letter-spacing: .12em; margin-bottom: 14px; }
+  .bientot-marque small { display: none; }
+  .bientot-champs { grid-template-columns: 1fr; }
+  .bientot-fenetre { padding: 26px 22px; }
+  .bientot-voile { padding: 14px; }
+  .bientot-pied { justify-content: center; text-align: center; }
 }
 </style>

@@ -119,6 +119,8 @@ watch(() => route.query, (q) => {
   position: fixed; left: 12px; bottom: 12px; z-index: 900; padding: 4px 10px; border-radius: 999px; pointer-events: none;
   color: #fff; font: 700 .68rem/1.4 var(--font-corps); letter-spacing: .08em; text-transform: uppercase; box-shadow: 0 4px 12px rgba(15, 23, 42, .25);
 }
+/* téléphone : en haut au centre, pour ne couvrir ni le contenu ni les onglets du bas de l'espace fournisseur */
+@media (max-width: 767px) { .repere-version { left: 50%; bottom: auto; top: 4px; transform: translateX(-50%); padding: 1px 8px; font-size: .6rem; } }
 .repere-version.develop { background: #7c3aed; }
 .repere-version.local { background: #ea580c; }
 </style>

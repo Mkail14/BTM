@@ -214,20 +214,11 @@ function construireFondation(g, m) {
 }
 
 function construireTerrasse(g, m) {
-  const Lx = 2.8, Lz = 2, h = 0.18, j = 0.012
+  const Lx = 2.8, Lz = 2, h = 0.18
   boite(g, Lx, h, Lz, m.beton, 0, 0, 0)
   boite(g, 1, 0.09, 0.3, m.beton, 0.6, 0, Lz / 2 + 0.15)
-  boite(g, Lx, 0.006, Lz, matiere('#bdb6a8'), 0, h, 0)
-
-  const nx = 7, nz = 5
-  const cx = (Lx - (nx + 1) * j) / nx, cz = (Lz - (nz + 1) * j) / nz
-  const teintes = ['#ebe3d5', '#e2d8c6', '#f0e9dd'].map((c) => matiere(c, { roughness: 0.45 }))
-  const aPoser = (i, k) => (i === nx - 1 && k >= nz - 2) || (i === nx - 2 && k === nz - 1)
-  for (let i = 0; i < nx; i++)
-    for (let k = 0; k < nz; k++) {
-      if (aPoser(i, k)) continue
-      boite(g, cx, 0.022, cz, teintes[Math.floor(rnd() * 3)], -Lx / 2 + j + cx / 2 + i * (cx + j), h + 0.006, -Lz / 2 + j + cz / 2 + k * (cz + j), 0.006)
-    }
+  // finition béton lissé : surface continue, légèrement satinée
+  boite(g, Lx - 0.02, 0.02, Lz - 0.02, matiere('#c9ccd1', { roughness: 0.35, metalness: 0.05 }), 0, h + 0.01, 0)
 
   // garde-corps vitré sur deux côtés
   const verre = new THREE.MeshPhysicalMaterial({ color: '#cdeff4', transparent: true, opacity: 0.28, roughness: 0.05 })

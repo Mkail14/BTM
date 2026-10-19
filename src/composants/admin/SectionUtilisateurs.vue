@@ -10,7 +10,7 @@ import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
 import AdminPanneau from './AdminPanneau.vue'
 import PanneauPropositionRealisation from './PanneauPropositionRealisation.vue'
 import { formaterSiret, lienAnnuaire, rechercherSiret } from '@/services/entreprises.js'
-import { demanderCodeMotDePasse } from '@/services/supabase/serviceAuth.js'
+import { envoyerLienMotDePasse } from '@/services/supabase/serviceAuth.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
 const { utilisateur: moi } = useAuth()
@@ -113,9 +113,9 @@ async function statuer(decision) {
 }
 
 async function reinitialiser(p) {
-  // même e-mail que « Mot de passe oublié ? » : un code à saisir sur le site (fenêtre de connexion → « J’ai déjà reçu un code »)
-  if (!(await confirmer({ titre: 'Réinitialiser le mot de passe ?', texte: `Un e-mail avec un code sera envoyé à ${p.email}. La personne le saisit dans « Mot de passe oublié ? » pour choisir son nouveau mot de passe.`, libelle: 'Envoyer le code' }))) return
-  await executer(() => demanderCodeMotDePasse(p.email), `Code envoyé à ${p.email}.`)
+  // même e-mail que « Mot de passe oublié ? » : un lien qui ouvre le site sur le choix du nouveau mot de passe
+  if (!(await confirmer({ titre: 'Réinitialiser le mot de passe ?', texte: `Un e-mail avec un lien sera envoyé à ${p.email}. En cliquant dessus, la personne choisit son nouveau mot de passe.`, libelle: 'Envoyer le lien' }))) return
+  await executer(() => envoyerLienMotDePasse(p.email), `Lien de réinitialisation envoyé à ${p.email}.`)
 }
 
 // ---------- Suppression définitive (n'importe quel compte sauf le sien, revérifié par le serveur) ----------

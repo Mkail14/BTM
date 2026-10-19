@@ -137,7 +137,7 @@ function ouvrirAction(action) {
   suppressionConfirmee.value = false
 }
 
-// ancien mot de passe oublié : un code reçu par e-mail permet d'en choisir un nouveau (fenêtre de connexion)
+// ancien mot de passe oublié : un lien reçu par e-mail permet d'en choisir un nouveau (fenêtre de connexion)
 function motDePasseOublie() {
   fermerProfil()
   ouvrirFenetreAuth('connexion', { oubli: true })

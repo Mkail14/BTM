@@ -1,5 +1,5 @@
 /** Authentification Supabase (email + mot de passe) */
-import { supabase, supabaseConfigure } from './client.js'
+import { supabase, supabaseConfigure, SITE_PUBLIC } from './client.js'
 import { controlerEmailReel, MESSAGE_EMAIL_JETABLE } from '../validation.js'
 
 // Le déclencheur `trg_refuser_email_jetable` (migration 0019) fait échouer l'écriture dans auth.users :
@@ -101,23 +101,18 @@ export async function lireSuspension(email, motDePasse) {
   }
 }
 
-// ---------- Mot de passe oublié : code reçu par e-mail ----------------------------------
+// ---------- Mot de passe oublié : lien reçu par e-mail ----------------------------------
 /**
- * Envoie l'e-mail « Reset Password » (gabarit emails/mot-de-passe-oublie.html, à coller dans Supabase) : il contient
- * le code, et un lien de secours vers /nouveau-mot-de-passe. Supabase répond pareil que l'adresse ait un compte ou non.
+ * Envoie l'e-mail « Reset Password » (gabarit emails/mot-de-passe-oublie.html) : il contient un lien vers
+ * /nouveau-mot-de-passe du site public (même demandé depuis localhost : il s'ouvre souvent sur un téléphone),
+ * qui ouvre la session du compte. Supabase répond pareil que l'adresse ait un compte ou non.
  */
-export async function demanderCodeMotDePasse(email) {
+export async function envoyerLienMotDePasse(email) {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/nouveau-mot-de-passe` })
+  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${SITE_PUBLIC}/nouveau-mot-de-passe` })
   if (error) throw error
 }
-/** Vérifie le code : ouvre la session du compte, sans laquelle le mot de passe ne peut pas être changé */
-export async function verifierCodeMotDePasse(email, code) {
-  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
-  const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'recovery' })
-  if (error) throw error
-}
-/** Nouveau mot de passe du compte dont la session vient d'être ouverte par le code */
+/** Nouveau mot de passe du compte dont la session vient d'être ouverte par le lien de l'e-mail */
 export async function definirMotDePasse(motDePasse) {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
   const { error } = await supabase.auth.updateUser({ password: motDePasse })

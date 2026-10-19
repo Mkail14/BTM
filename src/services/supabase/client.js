@@ -10,6 +10,12 @@ const cle = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabaseConfigure = Boolean(url && cle && !url.includes('xxxxxxxx'))
 
+/**
+ * Les liens envoyés par e-mail (mot de passe oublié, invitation) s'ouvrent souvent ailleurs (téléphone, autre personne) :
+ * ils pointent toujours vers le site public, jamais vers localhost ou une prévisualisation Vercel protégée.
+ */
+export const SITE_PUBLIC = 'https://www.btm.yt'
+
 export const supabase = supabaseConfigure
   ? createClient(url, cle, { auth: { persistSession: true, autoRefreshToken: true } })
   : null

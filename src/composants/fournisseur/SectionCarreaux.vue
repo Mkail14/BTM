@@ -230,11 +230,11 @@ async function supprimer(c) {
 .car-visuel.petit { width: 72px; height: 72px; flex: none; border-radius: 12px; overflow: hidden; }
 .car-visuel img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .car-badges { position: absolute; top: 10px; left: 10px; display: flex; gap: 6px; }
-.car-rupture { background: #fee2e2; color: #991b1b; }
+.car-rupture { background: var(--adm-danger-fond); color: var(--adm-danger-texte); }
 .car-corps { display: flex; flex-direction: column; gap: 3px; padding: 14px 18px 0; }
 .car-corps small { color: var(--adm-encre-2); font-size: .82rem; }
 .car-prix { margin: 8px 0 0; color: var(--adm-encre-2); font-size: .86rem; }
-.car-prix b { color: var(--lagon-700); font-size: 1.3rem; font-weight: 600; }
+.car-prix b { color: var(--adm-info-texte); font-size: 1.3rem; font-weight: 600; }
 .car-prix span { display: block; color: var(--adm-muet); font-size: .8rem; }
 .car-comptoir { margin: 0; color: var(--adm-muet); font-size: .8rem; }
 .car-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding: 12px 18px; border-top: 1px solid var(--adm-ligne-2); color: var(--adm-muet); font-size: .8rem; }
@@ -243,4 +243,22 @@ async function supprimer(c) {
 .car-formats { box-shadow: inset 0 0 0 1px var(--adm-ligne); align-self: flex-start; }
 .car-couleur { width: 64px; height: 40px; padding: 2px; cursor: pointer; }
 .car-photo { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+/* Téléphone : une carte par ligne, visuel à gauche, réglages dessous */
+@media (max-width: 767px) {
+  .car { gap: 12px; }
+  .car-barre { gap: 10px; }
+  .car-barre > .adm-btn { order: -1; flex: 1 1 100%; }
+  .car-barre > .adm-pilules { flex: 1 1 100%; min-width: 0; }
+  .car-grille { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .car-carte { display: grid; grid-template-columns: 96px minmax(0, 1fr); }
+  .car-visuel:not(.petit) { height: auto; min-height: 104px; grid-row: 1; }
+  .car-badges { top: 6px; left: 6px; flex-direction: column; align-items: flex-start; }
+  .car-corps { padding: 12px 14px; }
+  .car-prix { margin-top: 4px; }
+  .car-prix b { font-size: 1.15rem; }
+  .car-pied { grid-column: 1 / -1; gap: 6px 14px; padding: 8px 10px 8px 14px; }
+  .car-pied > span { margin-left: auto; }
+  .car-vide { padding: 32px 18px; }
+}
 </style>

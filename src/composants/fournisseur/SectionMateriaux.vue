@@ -181,7 +181,7 @@ async function supprimerArticle(a) {
     <section v-if="onglet === 'btm'" class="adm-carte">
       <div v-if="!brouillon.length" class="adm-vide"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i><p>Catalogue indisponible : exécutez la migration 0014 sur Supabase.</p></div>
       <div v-else class="adm-table-cadre">
-        <table class="adm-table adm-table-empile">
+        <table class="adm-table adm-table-empile mat-table">
           <thead>
             <tr><th>Matériau</th><th class="num">Référence</th><th>Prix au comptoir</th><th>Prix BTM (avec code)</th><th>Stock</th><th>Rupture</th><th>Je le vends</th></tr>
           </thead>
@@ -190,27 +190,27 @@ async function supprimerArticle(a) {
               <td class="principal">
                 <span class="mat-nom"><strong>{{ l.libelle }}</strong><small>à l’unité : {{ l.unite === 'u' ? 'pièce' : l.unite }}</small></span>
               </td>
-              <td data-label="Référence" class="num mat-ref">{{ formaterEuros(l.prix_unitaire) }}</td>
-              <td data-label="Prix au comptoir">
+              <td data-label="Référence" class="num mat-ref mat-c-ref">{{ formaterEuros(l.prix_unitaire) }}</td>
+              <td data-label="Prix au comptoir" class="mat-c-comptoir">
                 <span class="mat-champ">
                   <span class="adm-saisie-unite"><input v-model="l.comptoir" inputmode="decimal" :placeholder="l.prix || nombre(l.prix_unitaire)" :disabled="!l.vendu" :aria-invalid="Number.isNaN(lire(l.comptoir)) || undefined" :aria-label="`Prix au comptoir : ${l.libelle}`" /><span>€</span></span>
                 </span>
               </td>
-              <td data-label="Prix BTM (avec code)">
+              <td data-label="Prix BTM (avec code)" class="mat-c-prix">
                 <span class="mat-champ">
                   <span class="adm-saisie-unite"><input v-model="l.prix" inputmode="decimal" :placeholder="nombre(l.prix_unitaire)" :disabled="!l.vendu" :aria-invalid="Number.isNaN(lire(l.prix)) || undefined" :aria-label="`Prix BTM : ${l.libelle}`" /><span>€</span></span>
                   <small v-if="economie(l)" class="moins">−{{ economie(l) }} %</small>
                 </span>
               </td>
-              <td data-label="Stock">
+              <td data-label="Stock" class="mat-c-stock">
                 <span class="mat-champ">
                   <span class="adm-saisie-unite"><input v-model="l.stock" inputmode="decimal" placeholder="non suivi" :disabled="!l.vendu" :aria-invalid="Number.isNaN(lire(l.stock)) || undefined" :aria-label="`Stock : ${l.libelle}`" /><span>{{ l.unite }}</span></span>
                 </span>
               </td>
-              <td data-label="Rupture">
+              <td data-label="En rupture" class="mat-c-rupture">
                 <button type="button" role="switch" class="adm-interrupteur mat-rupture" :aria-checked="l.rupture" :disabled="!l.vendu" :aria-label="`En rupture : ${l.libelle}`" @click="l.rupture = !l.rupture"></button>
               </td>
-              <td data-label="Je le vends">
+              <td data-label="Je le vends" class="mat-c-vend">
                 <button type="button" role="switch" class="adm-interrupteur" :aria-checked="l.vendu" :aria-label="`Je vends : ${l.libelle}`" @click="l.vendu = !l.vendu"></button>
               </td>
             </tr>
@@ -229,15 +229,15 @@ async function supprimerArticle(a) {
       </div>
       <div v-else-if="!articlesFiltres.length" class="adm-vide"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><p>Aucun article ne correspond.</p></div>
       <div v-else class="adm-table-cadre">
-        <table class="adm-table adm-table-empile">
+        <table class="adm-table adm-table-empile mat-table mat-table-articles">
           <thead><tr><th>Article</th><th class="num">Prix</th><th class="num">Stock</th><th>Rupture</th><th>En vente</th><th class="actions"><span class="visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             <tr v-for="a in articlesFiltres" :key="a.id" :class="{ estompe: !a.vendu, rupture: a.vendu && (a.rupture || a.stock === 0) }">
               <td class="principal"><span class="mat-nom"><strong>{{ a.libelle }}</strong><small>vendu à l’unité : {{ a.unite }}</small></span></td>
-              <td data-label="Prix" class="num">{{ formaterEuros(a.prix_unitaire) }} / {{ a.unite }}</td>
-              <td data-label="Stock" class="num">{{ a.stock == null ? 'non suivi' : `${nombre(a.stock)} ${a.unite}` }}</td>
-              <td data-label="Rupture"><button type="button" role="switch" class="adm-interrupteur mat-rupture" :aria-checked="a.rupture" :disabled="!a.vendu" :aria-label="`En rupture : ${a.libelle}`" @click="basculerArticle(a, 'rupture')"></button></td>
-              <td data-label="En vente"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="a.vendu" :aria-label="`En vente : ${a.libelle}`" @click="basculerArticle(a, 'vendu')"></button></td>
+              <td data-label="Prix" class="num mat-c-ref">{{ formaterEuros(a.prix_unitaire) }} / {{ a.unite }}</td>
+              <td data-label="Stock" class="num mat-c-stock">{{ a.stock == null ? 'non suivi' : `${nombre(a.stock)} ${a.unite}` }}</td>
+              <td data-label="En rupture" class="mat-c-rupture"><button type="button" role="switch" class="adm-interrupteur mat-rupture" :aria-checked="a.rupture" :disabled="!a.vendu" :aria-label="`En rupture : ${a.libelle}`" @click="basculerArticle(a, 'rupture')"></button></td>
+              <td data-label="En vente" class="mat-c-vend"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="a.vendu" :aria-label="`En vente : ${a.libelle}`" @click="basculerArticle(a, 'vendu')"></button></td>
               <td class="actions">
                 <button type="button" class="adm-icone-btn" title="Modifier" :aria-label="`Modifier ${a.libelle}`" @click="ouvrirArticle(a)"><i class="fa-solid fa-pen" aria-hidden="true"></i></button>
                 <button type="button" class="adm-icone-btn danger" title="Supprimer" :aria-label="`Supprimer ${a.libelle}`" @click="supprimerArticle(a)"><i class="fa-solid fa-trash-can" aria-hidden="true"></i></button>
@@ -247,6 +247,15 @@ async function supprimerArticle(a) {
         </table>
       </div>
     </section>
+
+    <!-- Téléphone : enregistrer reste à portée tant qu'il y a des modifications -->
+    <div v-if="onglet === 'btm' && modifiees.length" class="mat-barre-bas">
+      <span>{{ modifiees.length }} modification{{ modifiees.length > 1 ? 's' : '' }}</span>
+      <button type="button" class="adm-btn adm-btn-fantome" :disabled="enregistrement" @click="preparer">Annuler</button>
+      <button type="button" class="adm-btn adm-btn-noir" :disabled="enregistrement" @click="enregistrer">
+        <span v-if="enregistrement" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Enregistrer
+      </button>
+    </div>
 
     <p class="mat-aide"><i class="fa-solid fa-circle-info" aria-hidden="true"></i>
       <template v-if="onglet === 'btm'">Le prix BTM est celui que paient les clients BTM (avec leur code) ; affichez un prix au comptoir plus élevé pour montrer l’économie. Prix BTM vide : prix de référence. Stock vide : non suivi. Un matériau en rupture n’est pas vendu en caisse.</template>
@@ -329,14 +338,14 @@ async function supprimerArticle(a) {
 .imp-bilan li { display: flex; flex-direction: column; padding: 12px 14px; border-radius: 12px; background: var(--adm-ligne-2); }
 .imp-bilan strong { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
 .imp-bilan span { color: var(--adm-encre-2); font-size: .8rem; }
-.imp-bilan li.erreur { background: #fff1f2; color: var(--adm-baisse); }
-.imp-erreurs { padding: 12px 14px; border-radius: 12px; background: #fff7ed; color: #9a3412; font-size: .86rem; }
+.imp-bilan li.erreur { background: var(--adm-danger-fond); color: var(--adm-baisse); }
+.imp-erreurs { padding: 12px 14px; border-radius: 12px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .86rem; }
 .imp-erreurs p { margin: 0; }
 .imp-erreurs ul { margin: 8px 0 0; padding-left: 18px; max-height: 180px; overflow: auto; }
 .imp-erreurs li { margin: 2px 0; }
 .imp-table { max-height: 360px; overflow: auto; }
 .imp-suite { margin: 8px 0 0; color: var(--adm-muet); font-size: .82rem; }
-.mat-badge-rupture { background: #fff1f2; color: var(--adm-baisse); box-shadow: inset 0 0 0 1px #fecdd3; }
+.mat-badge-rupture { background: var(--adm-danger-fond); color: var(--adm-baisse); box-shadow: inset 0 0 0 1px var(--adm-danger-fond-2); }
 .mat-badge-rupture::before { display: none; }
 .mat-nom { display: flex; flex-direction: column; }
 .mat-nom strong { font-weight: 600; }
@@ -344,22 +353,96 @@ async function supprimerArticle(a) {
 .mat-ref { color: var(--adm-encre-2); }
 .mat-champ { display: inline-flex; align-items: center; gap: 8px; }
 .mat-champ .adm-saisie-unite { width: 136px; }
-.mat-champ input { width: 100%; min-height: 38px; padding: 6px 44px 6px 12px; border: 1px solid var(--adm-ligne); border-radius: 10px; background: #fff; font: inherit; font-size: .9rem; text-align: right; font-variant-numeric: tabular-nums; }
+.mat-champ input { width: 100%; min-height: 38px; padding: 6px 44px 6px 12px; border: 1px solid var(--adm-ligne); border-radius: 10px; background: var(--adm-champ); color: var(--adm-encre); font: inherit; font-size: .9rem; text-align: right; font-variant-numeric: tabular-nums; }
 .mat-champ input:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 3px rgba(8, 145, 178, .14); }
 .mat-champ input[aria-invalid] { border-color: var(--adm-baisse); }
-.mat-champ input::placeholder { color: #b8c0cc; }
+.mat-champ input::placeholder { color: var(--adm-muet); }
 .mat-champ input:disabled { background: var(--adm-ligne-2); }
 .mat-champ small { font-size: .76rem; font-weight: 700; }
-.mat-champ small.moins { color: #047857; }
+.mat-c-stock .mat-champ input { padding-right: 50px; }
+.mat-champ small.moins { color: var(--adm-ok-texte); }
 .mat-champ small.plus { color: var(--adm-baisse); }
 .mat-rupture[aria-checked="true"] { background: var(--adm-baisse); }
 .adm-table tr.modifie td:first-child { box-shadow: inset 3px 0 0 var(--adm-accent); }
-.adm-table tr.rupture td.principal strong::after { content: 'Rupture'; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: #fff1f2; color: var(--adm-baisse); font-size: .7rem; font-weight: 700; }
+.adm-table tr.rupture td.principal strong::after { content: 'Rupture'; margin-left: 8px; padding: 1px 8px; border-radius: 999px; background: var(--adm-danger-fond); color: var(--adm-baisse); font-size: .7rem; font-weight: 700; }
 .mat-aide { display: flex; gap: 8px; margin: 0; color: var(--adm-muet); font-size: .82rem; line-height: 1.5; }
 .mat-aide i { margin-top: 3px; }
 .mat-option { display: flex; align-items: center; gap: 12px; font-size: .92rem; font-weight: 500; cursor: pointer; }
 .mat-vide { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 44px 24px; text-align: center; }
 .mat-vide h2 { margin: 6px 0 0; font-family: var(--font-corps); font-size: 1.15rem; font-weight: 600; }
 .mat-vide p { margin: 0 0 8px; max-width: 440px; color: var(--adm-encre-2); font-size: .92rem; }
+.mat-barre-bas { display: none; }
+
+/* Tablette et téléphone : chaque matériau devient une carte (le tableau à 7 colonnes cachait « Je le vends ») */
+@media (max-width: 1023px) {
+  .mat-table, .mat-table tbody { display: block; }
+  .mat-table thead { display: none; }
+  .mat-table tbody tr { border-bottom: 1px solid var(--adm-ligne); }
+  .mat-table tbody tr:last-child { border-bottom: 0; }
+  .mat-table tbody td { border: 0; }
+  .mat-table tbody tr:hover { background: none; }
+  /* Une ligne = une carte : nom et « vendu » en tête, puis les 3 champs côte à côte */
+  .mat-table tbody tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; padding: 14px; }
+  .mat-table tbody td { display: flex; padding: 0; text-align: left; }
+  .mat-table td.principal { grid-column: 1 / 3; grid-row: 1; align-self: center; padding: 0; }
+  .mat-table .mat-c-vend { grid-column: 3; grid-row: 1; flex-direction: row; align-items: center; justify-content: flex-end; gap: 8px; }
+  .mat-table .mat-c-vend::before { content: 'Vendu' !important; }
+  .mat-table .mat-c-comptoir, .mat-table .mat-c-prix, .mat-table .mat-c-stock { grid-row: 2; flex-direction: column; align-items: stretch; gap: 4px; }
+  .mat-table td[data-label]::before { content: attr(data-label); color: var(--adm-muet); font-size: .72rem; white-space: nowrap; }
+  .mat-table .mat-c-stock::before { content: 'Stock' !important; }
+  .mat-table .mat-c-comptoir::before { content: 'Comptoir' !important; }
+  .mat-table .mat-c-prix::before { content: 'Prix BTM' !important; }
+  .mat-table tbody tr { align-items: start; align-content: start; }
+  .mat-table .mat-champ input::placeholder { font-size: .74rem; }
+  .mat-table .mat-c-stock .mat-champ input { padding-right: 40px; }
+  .mat-table .mat-c-stock .mat-champ input::placeholder { font-size: .68rem; }
+  .mat-table .mat-c-ref { grid-column: 1 / 3; grid-row: 3; justify-content: flex-start; gap: 6px; font-size: .82rem; }
+  .mat-table .mat-c-ref::before { content: 'Référence BTM :'; }
+  .mat-table .mat-c-rupture { grid-column: 3; grid-row: 3; align-items: center; justify-content: flex-end; gap: 8px; }
+  .mat-table .mat-c-rupture::before { content: 'Rupture' !important; }
+  .mat-table .mat-champ { display: flex; flex-wrap: wrap; gap: 2px 6px; }
+  .mat-table .mat-champ .adm-saisie-unite { width: 100%; }
+  .mat-table .mat-champ input { min-height: 40px; padding: 6px 30px 6px 8px; font-size: .88rem; }
+  .mat-table .mat-champ .adm-saisie-unite span { right: 8px; font-size: .72rem; }
+  /* non vendu : la carte se replie sur son nom */
+  .mat-table tr.estompe td { opacity: 1; }
+  .mat-table tr.estompe td.principal { opacity: .55; }
+  .mat-table tr.estompe .mat-c-comptoir, .mat-table tr.estompe .mat-c-prix, .mat-table tr.estompe .mat-c-stock,
+  .mat-table tr.estompe .mat-c-ref, .mat-table tr.estompe .mat-c-rupture { display: none; }
+
+  /* Mes articles : prix, stock et rupture sur la 2e ligne, actions à droite */
+  .mat-table-articles .mat-c-ref { grid-column: 1; grid-row: 2; flex-direction: column; gap: 2px; font-weight: 600; }
+  .mat-table-articles .mat-c-ref::before { content: 'Prix'; font-weight: 400; }
+  .mat-table-articles .mat-c-stock { grid-column: 2; flex-direction: column; gap: 2px; text-align: left; }
+  .mat-table-articles .mat-c-rupture { grid-row: 2; }
+  .mat-table-articles tr.estompe .mat-c-ref, .mat-table-articles tr.estompe .mat-c-stock { display: flex; opacity: .55; }
+  .mat-table-articles td.actions { grid-column: 1 / -1; grid-row: 3; justify-content: flex-end; gap: 4px; padding: 0; }
+
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .mat-table tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mat-table tbody tr { border-right: 1px solid var(--adm-ligne-2); }
+  .mat-table tbody tr:last-child { border-bottom: 1px solid var(--adm-ligne); }
+}
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 767px) {
+  .mat { gap: 12px; }
+  .mat-barre { gap: 8px; }
+  .mat-barre > .adm-segments { flex: 1 1 100%; }
+  .mat-barre > .adm-segments button { flex: 1; justify-content: center; padding: 0 10px; }
+  .mat-fichier { margin-left: auto; }
+  .mat-fichier .adm-btn { min-height: 36px; padding: 0 14px; font-size: .84rem; }
+  .mat-barre > .mat-actions:not(.adm-btn) { display: none; } /* remplacé par la barre du bas */
+  .mat-barre > .adm-btn.mat-actions { flex: 1 1 100%; margin-left: 0; }
+
+  .mat-barre-bas {
+    position: sticky; bottom: calc(var(--ef-bas, 0px) + 8px); z-index: 5; display: flex; align-items: center; gap: 6px;
+    padding: 8px 8px 8px 16px; border-radius: 20px; background: var(--adm-carte); box-shadow: 0 0 0 1px var(--adm-ligne), 0 12px 32px rgba(15, 23, 42, .18);
+  }
+  .mat-barre-bas > span { flex: 1; min-width: 0; color: var(--adm-encre-2); font-size: .84rem; font-weight: 600; }
+  .mat-barre-bas .adm-btn { min-height: 42px; padding: 0 14px; }
+  .mat-vide { padding: 32px 18px; }
+}
 .mat-vide-icone { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 16px; background: var(--adm-noir); color: #fff; font-size: 1.3rem; }
 </style>

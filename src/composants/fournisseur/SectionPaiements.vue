@@ -190,27 +190,27 @@ async function confirmerAnnulation() {
           <p v-else>Aucun encaissement sur cette période{{ filtreMoyen ? ` en ${MOYENS[filtreMoyen].court.toLowerCase()}` : '' }}.</p>
         </div>
         <div v-else class="adm-table-cadre">
-          <table class="adm-table adm-table-empile">
+          <table class="adm-table adm-table-empile pai-table">
             <thead>
               <tr><th>Reçu</th><th>Date</th><th>Projet</th><th>Moyen</th><th>Référence</th><th class="num">Montant</th><th class="actions"><span class="visually-hidden">Actions</span></th></tr>
             </thead>
             <tbody>
               <tr v-for="p in liste" :key="p.id">
                 <td class="principal"><strong class="adm-mono">{{ p.numero_recu || '—' }}</strong></td>
-                <td data-label="Date">{{ formatHeure(p.paye_le) }}</td>
-                <td data-label="Projet">
+                <td data-label="Date" class="pai-c-date">{{ formatHeure(p.paye_le) }}</td>
+                <td data-label="Projet" class="pai-c-projet">
                   <span class="pai-projet"><span>{{ p.projet_nom }}</span><small v-if="p.code_retrait" class="adm-mono">{{ p.code_retrait }}</small></span>
                 </td>
-                <td data-label="Moyen">
+                <td data-label="Moyen" class="pai-c-moyen">
                   <span v-if="MOYENS[p.moyen]" class="adm-badge sans-point pai-badge" :class="`pai-${p.moyen}`"><i :class="MOYENS[p.moyen].icone" aria-hidden="true"></i> {{ MOYENS[p.moyen].court }}</span>
                   <span v-else class="pai-muet">—</span>
                 </td>
-                <td data-label="Référence">
+                <td data-label="Référence" class="pai-c-ref">
                   <span v-if="p.reference" class="adm-mono">{{ p.reference }}</span>
                   <span v-else-if="p.moyen === 'especes'" class="pai-muet">reçu {{ formaterEuros(p.montant_recu) }} · rendu {{ formaterEuros(p.rendu || 0) }}</span>
                   <span v-else class="pai-muet">—</span>
                 </td>
-                <td data-label="Montant" class="num">
+                <td data-label="Montant" class="num pai-c-montant">
                   <strong>{{ formaterEuros(p.montant_devis) }}</strong>
                   <small v-if="p.lignes_manquantes?.length" class="pai-partiel" :title="p.lignes_manquantes.map((l) => l.libelle).join(', ')">partiel · {{ p.lignes_manquantes.length }} manquant{{ p.lignes_manquantes.length > 1 ? 's' : '' }}</small>
                 </td>
@@ -372,7 +372,7 @@ async function confirmerAnnulation() {
 .rev-historique { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .rev-historique li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--adm-ligne-2); }
 .rev-historique li:last-child { border-bottom: 0; }
-.rev-h-icone { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: #ecfdf5; color: #047857; }
+.rev-h-icone { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
 .rev-h-texte { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .rev-h-texte small { color: var(--adm-muet); font-size: .8rem; }
 .rev-vide { margin: 0; color: var(--adm-muet); font-size: .88rem; }
@@ -397,11 +397,11 @@ async function confirmerAnnulation() {
 .pai-projet small { color: var(--adm-muet); }
 .pai-muet { color: var(--adm-muet); font-size: .84rem; }
 .pai-badge i { font-size: .72rem; }
-.pai-carte { background: var(--adm-accent-doux); color: var(--lagon-800); box-shadow: inset 0 0 0 1px var(--lagon-200); }
-.pai-especes { background: #ecfdf5; color: #047857; box-shadow: inset 0 0 0 1px #a7f3d0; }
-.pai-virement { background: #f5f3ff; color: #6d28d9; box-shadow: inset 0 0 0 1px #ddd6fe; }
-.pai-cheque { background: #fffbeb; color: #b45309; box-shadow: inset 0 0 0 1px #fde68a; }
-.pai-partiel { display: block; color: #b45309; font-size: .75rem; }
+.pai-carte { background: var(--adm-accent-doux); color: var(--adm-info-texte); box-shadow: inset 0 0 0 1px var(--adm-info-bord); }
+.pai-especes { background: var(--adm-ok-fond); color: var(--adm-ok-texte); box-shadow: inset 0 0 0 1px var(--adm-ok-bord); }
+.pai-virement { background: var(--adm-violet-fond); color: var(--adm-violet-texte); box-shadow: inset 0 0 0 1px var(--adm-violet-bord); }
+.pai-cheque { background: var(--adm-attention-fond); color: var(--adm-attention-texte); box-shadow: inset 0 0 0 1px var(--adm-attention-bord); }
+.pai-partiel { display: block; color: var(--adm-attention-texte); font-size: .75rem; }
 .pai-pied { color: var(--adm-muet); font-size: .84rem; }
 .adm-table tfoot td { padding: 14px 16px; border-top: 1px solid var(--adm-ligne); }
 
@@ -409,8 +409,8 @@ async function confirmerAnnulation() {
 .pai-journal { margin: 0; padding: 8px 18px 14px; list-style: none; }
 .pai-journal li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 14px; padding: 14px 4px; border-top: 1px solid var(--adm-ligne-2); }
 .pai-journal li:first-child { border-top: 0; }
-.pai-journal-icone { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: #d1fae5; color: #047857; font-size: .85rem; }
-.pai-journal li.annulation .pai-journal-icone { background: #fff1f2; color: var(--adm-baisse); }
+.pai-journal-icone { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--adm-ok-fond); color: var(--adm-ok-texte); font-size: .85rem; }
+.pai-journal li.annulation .pai-journal-icone { background: var(--adm-danger-fond); color: var(--adm-baisse); }
 .pai-journal-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pai-journal-texte p { margin: 0; font-size: .92rem; }
 .pai-journal-texte small { color: var(--adm-muet); font-size: .8rem; }
@@ -423,8 +423,64 @@ async function confirmerAnnulation() {
 .pai-annulation-recap div { padding: 10px 12px; border-radius: 12px; background: var(--adm-ligne-2); }
 .pai-annulation-recap dt { font-size: .76rem; color: var(--adm-muet); }
 .pai-annulation-recap dd { margin: 2px 0 0; font-weight: 600; font-size: .9rem; }
-.pai-rappel { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #fffbeb; color: #92400e; font-size: .86rem; line-height: 1.45; }
+.pai-rappel { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .86rem; line-height: 1.45; }
 .pai-rappel i { margin-top: 3px; }
 
 @media (max-width: 1100px) { .pai-totaux { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pai-totaux > li:first-child { grid-column: 1 / -1; } }
+
+/* Tablette et téléphone : le tableau à 7 colonnes devient une liste de cartes */
+@media (max-width: 1023px) {
+  .pai-table, .pai-table tbody { display: block; }
+  .pai-table thead { display: none; }
+  .pai-table tbody tr { border-bottom: 1px solid var(--adm-ligne); }
+  .pai-table tbody tr:last-child { border-bottom: 0; }
+  .pai-table tfoot { display: block; border-top: 1px solid var(--adm-ligne); }
+  /* Un encaissement = une carte de 4 lignes : reçu et montant, projet, date et référence, moyen et actions */
+  .pai-table tbody tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'recu montant' 'projet projet' 'date ref' 'moyen actions';
+    align-items: center; gap: 2px 12px; padding: 12px 14px;
+  }
+  .pai-table tbody td { display: block; padding: 0; border: 0; text-align: left; }
+  .pai-table tbody td[data-label]::before { display: none; }
+  .pai-table td.principal { grid-area: recu; padding: 0; }
+  .pai-c-montant { grid-area: montant; text-align: right !important; }
+  .pai-c-montant strong { font-size: 1.05rem; }
+  .pai-c-projet { grid-area: projet; font-weight: 600; }
+  .pai-c-projet small { display: none; }
+  .pai-c-date { grid-area: date; color: var(--adm-muet); font-size: .8rem; }
+  .pai-c-ref { grid-area: ref; justify-self: end; max-width: 100%; overflow: hidden; color: var(--adm-muet); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+  .pai-c-moyen { grid-area: moyen; margin-top: 6px; }
+  .pai-table td.actions { grid-area: actions; display: flex; gap: 2px; margin-top: 6px; padding: 0; }
+  .pai-table tfoot tr { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; }
+  .pai-table tfoot td { display: block; padding: 0; border: 0; }
+  .pai-table tfoot td:empty { display: none; }
+}
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 767px) {
+  .pai { gap: 14px; }
+  .rev { gap: 12px 14px; padding: 16px; }
+  .rev-icone { width: 42px; height: 42px; border-radius: 12px; }
+  .rev-texte { flex: 1 1 0; }
+  .rev-texte strong { font-size: 1.4rem; }
+  .rev > .adm-btn { flex: 1 1 100%; }
+  .pai-barre { gap: 10px; }
+  .pai-barre > .adm-segments { flex: 1 1 auto; }
+  .pai-barre > .adm-segments button { flex: 1; justify-content: center; }
+  .pai-barre > .adm-btn { flex: 1 1 100%; }
+  .pai-totaux { gap: 8px; }
+  .pai-total-general { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 10px; padding: 14px 16px; }
+  .pai-total-general span { flex: 1 1 100%; }
+  .pai-total-general strong { font-size: 1.5rem; }
+  .pai-moyen { gap: 2px; padding: 10px 14px; }
+  .pai-moyen span { font-size: .78rem; }
+  .pai-moyen strong { font-size: 1rem; }
+
+  .pai-info { margin: 14px 14px 4px; }
+  .pai-journal { padding: 6px 14px 12px; }
+  .pai-journal li { gap: 10px; padding: 12px 0; }
+  .rev-chiffres { grid-template-columns: 1fr; }
+  .rev-chiffres div { display: flex; justify-content: space-between; align-items: baseline; }
+  .pai-annulation-recap { grid-template-columns: 1fr; }
+}
 </style>

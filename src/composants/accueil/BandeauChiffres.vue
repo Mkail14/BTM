@@ -5,7 +5,7 @@ const regles = [
   { titre: 'Mur', formule: 'S = L × H − ouvertures', detail: 'Parpaings S / 0,08 × 1,05' },
   { titre: 'Dalle', formule: 'V = L × l × ép.', detail: 'Béton 2,4 t/m³ · fer 5 kg/m²' },
   { titre: 'Fondation', formule: 'V = L × l × prof.', detail: 'Béton armé · acier 50 kg/m³' },
-  { titre: 'Terrasse', formule: 'Dalle + finition', detail: 'Carrelage 50 €/m² · lissé 15 €/m²' },
+  { titre: 'Terrasse', formule: 'Dalle + béton lissé', detail: 'Finition lissée 15 €/m²' },
   { titre: 'Carrelage', formule: 'S = L × l', detail: 'Carreaux +10 % · colle 5 kg/m²' }
 ]
 </script>

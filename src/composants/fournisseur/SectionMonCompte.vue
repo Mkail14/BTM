@@ -116,7 +116,12 @@ async function changerMotDePasse() {
 .mc-aide { display: flex; align-items: flex-start; gap: 8px; margin: 16px 0 0; font-size: .82rem; color: var(--adm-encre-2); line-height: 1.5; }
 .mc-aide i { margin-top: 3px; }
 .mc-actions { display: flex; justify-content: flex-end; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--adm-ligne-2); }
-@media (max-width: 1100px) { .mc { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .mc { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .mc { gap: 14px; }
+  .mc-actions { margin-top: 16px; padding-top: 14px; }
+  .mc-actions .adm-btn { width: 100%; }
+}
 @media (min-width: 1101px) and (min-height: 640px) {
   .mc { height: 100%; align-items: stretch; }
   .mc > form { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }

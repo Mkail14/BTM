@@ -344,7 +344,7 @@ function construire() {
   else if (props.type === 'dalle') construireDalle(d, struct, annot)
   else if (props.type === 'fondation') construireFondation(d, struct, annot)
   else if (props.type === 'carrelage') construireCarrelage(d, struct, annot)
-  else construireDalle(d, struct, annot, d.finition || 'carrelage')
+  else construireDalle(d, struct, annot, 'beton_lisse')
   return { struct, annot }
 }
 

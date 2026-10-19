@@ -13,6 +13,7 @@ import { useAuth } from '@/composables/useAuth.js'
 import { initiales } from '@/composables/useAdmin.js'
 import { useEspaceFournisseur } from '@/composables/useEspaceFournisseur.js'
 import { activerModeSite } from '@/composables/useModeSite.js'
+import { useThemeAdmin } from '@/composables/useThemeAdmin.js'
 import LogoBtm from '@/composants/commun/LogoBtm.vue'
 import AdminRetours from '@/composants/admin/AdminRetours.vue'
 import SectionTableauBord from '@/composants/fournisseur/SectionTableauBord.vue'
@@ -39,9 +40,22 @@ const route = useRoute()
 const router = useRouter()
 const { fournisseurLie, deconnexion } = useAuth()
 const { fiche, devis, erreur, enAttente, nomCompte, soldeBtm, charger } = useEspaceFournisseur()
+const { sombre, basculer: basculerTheme } = useThemeAdmin()
 
-const section = computed(() => sections.find((s) => s.id === route.params.section) || sections[0])
+// « Carreaux » seulement pour un vendeur de carrelage : la catégorie fixée par l'admin fait foi
+// (pas les Matériaux, où tout est coché « vendu » par défaut)
+const CATEGORIES_CARRELAGE = ['carrelage-finition', 'carreaux']
+const vendCarreaux = computed(() => CATEGORIES_CARRELAGE.includes(fiche.value?.categorie_id))
+const sectionsVisibles = computed(() => sections.filter((s) => s.id !== 'carreaux' || vendCarreaux.value))
+const section = computed(() => sectionsVisibles.value.find((s) => s.id === route.params.section) || sections[0])
 const lienSection = (id) => (id === 'apercu' ? '/espace-fournisseur' : `/espace-fournisseur/${id}`)
+// Téléphone : barre d'onglets en bas pour les gestes du comptoir, le reste dans le menu
+const ONGLETS_BAS = [
+  { id: 'apercu', label: 'Accueil', icone: 'fa-solid fa-chart-simple' },
+  { id: 'valider', label: 'Valider', icone: 'fa-solid fa-ticket' },
+  { id: 'paiements', label: 'Paiements', icone: 'fa-solid fa-receipt' },
+  { id: 'materiaux', label: 'Matériaux', icone: 'fa-solid fa-boxes-stacked' }
+]
 const menuOuvert = ref(false)
 const recherche = ref('')
 const ongletCompte = ref('entreprise')
@@ -64,17 +78,24 @@ async function seDeconnecter() {
 </script>
 
 <template>
-  <div class="adm adm-cadre" :class="{ 'ecran-fixe': section.fixe }">
-    <!-- Barre latérale -->
+  <div class="adm adm-cadre ef" :class="{ 'adm-sombre': sombre, 'ecran-fixe': section.fixe }">
+    <!-- Barre latérale (ordinateur, tablette) ; tiroir (téléphone) -->
     <aside class="adm-lat" :class="{ ouvert: menuOuvert }" aria-label="Navigation de l’espace fournisseur">
-      <router-link to="/espace-fournisseur" class="adm-lat-logo" aria-label="Tableau de bord">
-        <span class="adm-lat-logo-icone"><LogoBtm :taille="30" /></span>
-        <span class="adm-lat-logo-texte"><strong>BTM</strong><small>Espace fournisseur</small></span>
+      <div class="ef-lat-tete">
+        <router-link to="/espace-fournisseur" class="adm-lat-logo" aria-label="Tableau de bord">
+          <span class="adm-lat-logo-icone"><LogoBtm :taille="30" /></span>
+          <span class="adm-lat-logo-texte"><strong>BTM</strong><small>Espace fournisseur</small></span>
+        </router-link>
+        <button type="button" class="ef-lat-fermer" aria-label="Fermer le menu" @click="menuOuvert = false"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <router-link :to="lienSection('compte')" class="ef-lat-entreprise">
+        <span class="adm-avatar rond">{{ initiales(fiche?.nom || nomCompte) }}</span>
+        <span><strong>{{ fiche?.nom || nomCompte }}</strong><small>{{ nomCompte }}</small></span>
       </router-link>
 
       <nav class="adm-lat-nav">
         <router-link
-          v-for="s in sections" :key="s.id" :to="lienSection(s.id)"
+          v-for="s in sectionsVisibles" :key="s.id" :to="lienSection(s.id)"
           class="adm-lat-lien" :class="{ actif: section.id === s.id }" :aria-current="section.id === s.id ? 'page' : undefined"
         >
           <i :class="s.icone" aria-hidden="true"></i><span>{{ s.label }}</span>
@@ -104,6 +125,11 @@ async function seDeconnecter() {
           <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
           <input v-model="recherche" type="search" :placeholder="section.recherche" :aria-label="section.recherche" />
         </label>
+        <div class="adm-haut-outils">
+          <button type="button" class="adm-haut-outil" :aria-pressed="sombre" :title="sombre ? 'Passer au thème clair' : 'Passer au thème sombre'" :aria-label="sombre ? 'Passer au thème clair' : 'Passer au thème sombre'" @click="basculerTheme">
+            <i :class="sombre ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+          </button>
+        </div>
         <router-link :to="lienSection('compte')" class="adm-haut-profil ef-profil" title="Mon compte">
           <span class="adm-avatar rond">{{ initiales(fiche?.nom || nomCompte) }}</span>
           <span><strong>{{ fiche?.nom || nomCompte }}</strong><small>{{ nomCompte }}</small></span>
@@ -131,18 +157,94 @@ async function seDeconnecter() {
       <component :is="section.composant" v-else :key="section.id" v-bind="section.recherche ? { recherche } : {}" />
     </div>
 
+    <!-- Téléphone : onglets du comptoir, toujours à portée du pouce -->
+    <nav class="ef-onglets" aria-label="Accès rapide">
+      <router-link
+        v-for="o in ONGLETS_BAS" :key="o.id" :to="lienSection(o.id)"
+        :class="{ actif: section.id === o.id }" :aria-current="section.id === o.id ? 'page' : undefined"
+      >
+        <span class="ef-onglet-icone">
+          <i :class="o.icone" aria-hidden="true"></i>
+          <small v-if="o.id === 'valider' && enAttente.length" class="ef-onglet-pastille">{{ enAttente.length }}</small>
+          <small v-else-if="o.id === 'paiements' && soldeBtm.reste > 0" class="ef-onglet-point"></small>
+        </span>
+        {{ o.label }}
+      </router-link>
+      <button type="button" :class="{ actif: !ONGLETS_BAS.some((o) => o.id === section.id) }" :aria-expanded="menuOuvert" @click="menuOuvert = true">
+        <span class="ef-onglet-icone"><i class="fa-solid fa-bars" aria-hidden="true"></i></span>
+        Menu
+      </button>
+    </nav>
+
     <AdminRetours />
   </div>
 </template>
 
 <style scoped>
-.ef-compteur { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: #f59e0b; color: var(--adm-noir); font-size: .74rem; font-weight: 700; text-align: center; }
+.ef-compteur { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: #f59e0b; color: #0f172a; font-size: .74rem; font-weight: 700; text-align: center; }
 .ef-profil { text-decoration: none; }
+/* Bouton thème clair / sombre, comme dans l'espace admin */
+.adm-haut-outils { display: flex; flex: none; gap: 2px; padding: 4px; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre); }
+.adm-haut-outil {
+  position: relative; width: 38px; height: 38px; flex: none; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: transparent; color: var(--adm-encre-2); cursor: pointer; transition: background var(--transition), color var(--transition);
+}
+.adm-haut-outil:hover { background: var(--adm-ligne-2); color: var(--adm-encre); }
+.adm-haut-outil:focus-visible { outline: 2px solid var(--adm-accent); outline-offset: 2px; }
 .ef-erreur { align-items: center; }
 .ef-erreur .adm-btn { margin-left: auto; }
 .ef-point { width: 8px; height: 8px; margin-left: auto; border-radius: 50%; background: #f59e0b; }
 .ef-compte { display: flex; flex-direction: column; gap: 18px; }
 .ef-compte > .adm-segments { align-self: flex-start; }
+
+/* Tête du menu et entreprise connectée */
+.ef-lat-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ef-lat-fermer { display: none; width: 40px; height: 40px; flex: none; place-items: center; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .08); color: #fff; font-size: 1.05rem; cursor: pointer; }
+.ef-lat-entreprise { display: none; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; background: rgba(255, 255, 255, .07); color: #fff; text-decoration: none; }
+.ef-lat-entreprise .adm-avatar { width: 40px; height: 40px; background: #fff; color: #0f172a; font-size: .8rem; }
+.ef-lat-entreprise > span:last-child { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.ef-lat-entreprise strong { font-size: .95rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ef-lat-entreprise small { color: rgba(255, 255, 255, .55); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Onglets du bas : téléphone seulement */
+.ef-onglets { display: none; }
+
+@media (max-width: 767px) {
+  .ef { --ef-bas: calc(66px + env(safe-area-inset-bottom)); padding-bottom: calc(var(--ef-bas) + 12px); }
+  .ef-lat-fermer { display: inline-grid; }
+  .ef-lat-entreprise { display: flex; }
+  .adm-lat { gap: 16px; }
+
+  /* En-tête : titre à gauche, entreprise à droite (le menu est dans les onglets du bas) */
+  .adm-haut { flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+  .adm-burger { display: none; }
+  .adm-haut-titre { order: 0; flex: 1 1 0; }
+  .adm-haut-titre h1 { font-size: 1.45rem; line-height: 1.2; }
+  .adm-haut-outils { order: 1; }
+  .ef-profil { display: inline-flex; order: 1; padding: 3px; }
+  .ef-profil > span:nth-child(2), .ef-profil > i { display: none; }
+  .ef-profil .adm-avatar { width: 40px; height: 40px; }
+  .adm-haut-recherche { order: 2; flex: 1 1 100%; }
+  .ef-compte { gap: 14px; }
+  .ef-compte > .adm-segments { align-self: stretch; }
+  .ef-compte > .adm-segments button { flex: 1; justify-content: center; }
+
+  .ef-onglets {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 240; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    height: var(--ef-bas); padding: 6px 4px env(safe-area-inset-bottom); background: var(--adm-carte);
+    border-top: 1px solid var(--adm-ligne); box-shadow: 0 -6px 24px rgba(15, 23, 42, .06);
+  }
+  .ef-onglets > a, .ef-onglets > button {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; padding: 0 2px; border: 0; border-radius: 14px;
+    background: none; color: var(--adm-muet); font: inherit; font-size: .7rem; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .ef-onglet-icone { position: relative; display: grid; place-items: center; width: 52px; height: 30px; border-radius: 999px; font-size: 1.05rem; transition: background var(--transition); }
+  .ef-onglets .actif { color: var(--adm-encre); }
+  .ef-onglets .actif .ef-onglet-icone { background: var(--adm-noir); color: #fff; }
+  .ef-onglet-pastille { position: absolute; top: -4px; right: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #f59e0b; color: #0f172a; font-size: .66rem; font-weight: 700; line-height: 18px; text-align: center; }
+  .ef-onglet-point { position: absolute; top: 1px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 2px var(--adm-carte); }
+}
 
 /* Tableau de bord et compte : exactement la hauteur de l'écran, sans défilement de la page (ordinateur) */
 @media (min-width: 1024px) and (min-height: 640px) {

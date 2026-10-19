@@ -107,6 +107,8 @@ function definirQuantite(l, valeur) {
   quantites.value = { ...quantites.value, [l.id]: q }
   saisies.value = { ...saisies.value, [l.id]: String(q).replace('.', ',') }
 }
+// Devis ouvert depuis un lien (?code=) avant que le catalogue soit chargé : on refait la préparation avec les vrais prix et stocks
+watch(catalogue, () => { if (etape.value === 'preparation' && devis.value) preparer() })
 const toutFournir = () => { for (const l of devis.value?.resultat?.lignes || []) definirQuantite(l, catalogue.value[l.id]?.stock != null ? Math.min(l.quantite, catalogue.value[l.id].stock) : l.quantite) }
 // Articles du fournisseur vendus en plus du devis : [{ ...article, quantite, saisie }]
 const extras = ref([])
@@ -348,6 +350,12 @@ async function recuPdf(mode) {
           </button>
           <p v-if="!calcul.fournies.length" class="adm-erreur-texte">Aucun matériau remis : rien à encaisser.</p>
         </aside>
+
+        <!-- Téléphone : total et suite toujours visibles -->
+        <div class="val-barre">
+          <span><small>Le client paie</small><strong>{{ formaterEuros(calcul.montant) }}</strong></span>
+          <button type="button" class="adm-btn adm-btn-noir" :disabled="!pretPreparation" @click="etape = 'caisse'">Passer en caisse <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+        </div>
       </div>
 
       <!-- ========== 3. Caisse (terminal) ========== -->
@@ -413,6 +421,13 @@ async function recuPdf(mode) {
           </button>
           <button type="button" class="val-terminal-retour" :disabled="encaissement" @click="etape = 'preparation'"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Modifier la préparation</button>
         </aside>
+
+        <div class="val-barre">
+          <span><small>{{ moyen ? MOYENS[moyen].court : 'À encaisser' }}</small><strong>{{ formaterEuros(calcul.montant) }}</strong></span>
+          <button type="button" class="adm-btn val-barre-valider" :disabled="!pretAEncaisser || encaissement" @click="encaisser">
+            <span v-if="encaissement" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-lock" aria-hidden="true"></i> Valider
+          </button>
+        </div>
       </div>
 
       <!-- ========== 4. Reçu ========== -->
@@ -448,12 +463,12 @@ async function recuPdf(mode) {
 
 /* Étapes */
 .val-etapes { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.val-etapes li { display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px; background: #fff; box-shadow: var(--adm-ombre); color: var(--adm-muet); font-size: .88rem; font-weight: 600; }
+.val-etapes li { display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre); color: var(--adm-muet); font-size: .88rem; font-weight: 600; }
 .val-etape-num { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--adm-ligne-2); font-size: .8rem; }
 .val-etapes li.active { color: var(--adm-encre); }
 .val-etapes li.active .val-etape-num { background: var(--adm-noir); color: #fff; }
-.val-etapes li.faite { color: #047857; }
-.val-etapes li.faite .val-etape-num { background: #d1fae5; }
+.val-etapes li.faite { color: var(--adm-ok-texte); }
+.val-etapes li.faite .val-etape-num { background: var(--adm-ok-fond); }
 
 /* 1. Code */
 .val-code-grille { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: stretch; }
@@ -465,11 +480,11 @@ async function recuPdf(mode) {
 .val-code > p { margin: 0 0 8px; max-width: 380px; color: var(--adm-encre-2); font-size: .9rem; }
 .val-code-icone { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--adm-noir); color: #fff; font-size: 1.5rem; }
 .val-code-champ {
-  width: 100%; max-width: 340px; height: 68px; padding: 0 16px; border: 2px solid var(--adm-ligne); border-radius: 16px; background: #fff;
+  width: 100%; max-width: 340px; height: 68px; padding: 0 16px; border: 2px solid var(--adm-ligne); border-radius: 16px; background: var(--adm-champ); color: var(--adm-encre);
   font-family: var(--font-mono); font-size: 2rem; font-weight: 700; letter-spacing: .14em; text-align: center; text-transform: uppercase; color: var(--adm-encre);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
-.val-code-champ::placeholder { color: #cfd5de; }
+.val-code-champ::placeholder { color: var(--adm-muet); }
 .val-code-champ:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 5px rgba(8, 145, 178, .14); }
 .val-code-champ[aria-invalid="true"] { border-color: var(--adm-baisse); }
 .val-code-btn { width: 100%; max-width: 340px; min-height: 48px; margin-top: 4px; }
@@ -479,7 +494,7 @@ async function recuPdf(mode) {
 
 /* Devis retrouvé */
 .val-devis { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-block: 16px; }
-.val-devis-icone { width: 48px; height: 48px; background: var(--adm-accent-doux); color: var(--lagon-700); font-size: 1.1rem; }
+.val-devis-icone { width: 48px; height: 48px; background: var(--adm-accent-doux); color: var(--adm-info-texte); font-size: 1.1rem; }
 .val-devis-texte { flex: 1 1 240px; display: flex; flex-direction: column; min-width: 0; }
 .val-devis-texte strong { font-size: 1.05rem; font-weight: 600; }
 .val-devis-texte small { color: var(--adm-muet); font-size: .84rem; }
@@ -491,25 +506,25 @@ async function recuPdf(mode) {
 .val-lignes { margin: 0; padding: 8px 12px 12px; list-style: none; }
 .val-lignes li { display: grid; grid-template-columns: minmax(0, 1fr) auto 96px; align-items: center; gap: 16px; padding: 14px 12px; border-top: 1px solid var(--adm-ligne-2); transition: background var(--transition); }
 .val-lignes li:first-child { border-top: 0; }
-.val-lignes li.manquant { background: #fffbeb; border-radius: 12px; }
+.val-lignes li.manquant { background: var(--adm-attention-fond); border-radius: 12px; }
 .val-lignes li.manquant .val-ligne-texte strong, .val-lignes li.manquant .val-ligne-prix { color: var(--adm-muet); text-decoration: line-through; }
-.val-lignes li.partiel { background: #f0f9ff; border-radius: 12px; }
+.val-lignes li.partiel { background: var(--adm-accent-doux); border-radius: 12px; }
 .val-ligne-texte s { color: var(--adm-muet); }
-.val-stock { color: #047857 !important; font-weight: 600; }
+.val-stock { color: var(--adm-ok-texte) !important; font-weight: 600; }
 .val-stock.hors { color: var(--adm-baisse) !important; }
 .val-quantite { display: inline-flex; align-items: center; gap: 6px; }
 .val-quantite .adm-saisie-unite { width: 118px; }
 .val-quantite input { width: 100%; min-height: 38px; padding: 6px 40px 6px 12px; border: 1px solid var(--adm-ligne); border-radius: 10px; font: inherit; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
 .val-quantite input:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 3px rgba(8, 145, 178, .14); }
 .val-ligne-prix { text-align: right; }
-.val-extra { background: #f5f3ff; border-radius: 12px; }
-.val-credit { display: flex; gap: 10px; padding: 12px; border-radius: 12px; background: #ecfdf5; color: #065f46; font-size: .86rem; cursor: pointer; }
+.val-extra { background: var(--adm-violet-fond); border-radius: 12px; }
+.val-credit { display: flex; gap: 10px; padding: 12px; border-radius: 12px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); font-size: .86rem; cursor: pointer; }
 .val-credit input { width: 18px; height: 18px; margin-top: 2px; accent-color: #059669; }
 .val-credit span { display: flex; flex-direction: column; }
-.val-credit small { color: #047857; font-size: .78rem; }
+.val-credit small { color: var(--adm-ok-texte); font-size: .78rem; }
 .val-commission { display: flex; gap: 8px; margin: 0; color: var(--adm-muet); font-size: .8rem; line-height: 1.45; }
 .val-commission i { margin-top: 3px; }
-.val-extra .val-ligne-texte strong i { margin-right: 4px; color: #6d28d9; }
+.val-extra .val-ligne-texte strong i { margin-right: 4px; color: var(--adm-violet-texte); }
 .val-quantite-vide { width: 36px; }
 .val-ajout { display: flex; gap: 8px; padding: 4px 24px 20px; }
 .val-ajout select { flex: 1; min-height: 42px; }
@@ -526,7 +541,7 @@ async function recuPdf(mode) {
 .val-resume dd { margin: 0; font-variant-numeric: tabular-nums; }
 .val-total { display: flex; align-items: baseline; justify-content: space-between; margin: 0; padding-top: 14px; border-top: 1px solid var(--adm-ligne); }
 .val-total strong { font-size: 1.9rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.val-note { display: flex; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px; background: #fffbeb; color: #92400e; font-size: .84rem; line-height: 1.45; }
+.val-note { display: flex; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .84rem; line-height: 1.45; }
 .val-note i { margin-top: 3px; }
 .val-plein { width: 100%; min-height: 48px; }
 
@@ -534,7 +549,7 @@ async function recuPdf(mode) {
 .val-moyens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .val-moyen {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 104px; padding: 14px 10px;
-  border: 2px solid var(--adm-ligne); border-radius: 18px; background: #fff; color: var(--adm-encre-2); font: inherit; font-size: .88rem; font-weight: 600; text-align: center; cursor: pointer;
+  border: 2px solid var(--adm-ligne); border-radius: 18px; background: var(--adm-champ); color: var(--adm-encre-2); font: inherit; font-size: .88rem; font-weight: 600; text-align: center; cursor: pointer;
   transition: border-color var(--transition), background var(--transition), color var(--transition);
 }
 .val-moyen i { font-size: 1.5rem; }
@@ -542,13 +557,13 @@ async function recuPdf(mode) {
 .val-moyen[aria-checked="true"] { border-color: var(--adm-noir); background: var(--adm-noir); color: #fff; }
 .val-saisie { display: flex; flex-direction: column; gap: 16px; margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--adm-ligne-2); }
 .val-consignes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 20px; color: var(--adm-encre-2); font-size: .9rem; line-height: 1.5; }
-.val-avertissement { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #fffbeb; color: #92400e; font-size: .88rem; }
+.val-avertissement { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .88rem; }
 .val-avertissement i { margin-top: 3px; }
 .val-especes { display: flex; flex-direction: column; gap: 12px; }
 .val-especes input { font-size: 1.3rem; font-weight: 600; }
-.val-rendu { display: flex; align-items: baseline; justify-content: space-between; margin: 0; padding: 14px 18px; border-radius: 14px; background: #ecfdf5; color: #047857; }
+.val-rendu { display: flex; align-items: baseline; justify-content: space-between; margin: 0; padding: 14px 18px; border-radius: 14px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
 .val-rendu strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
-.val-rendu.manque { background: #fff1f2; color: var(--adm-baisse); }
+.val-rendu.manque { background: var(--adm-danger-fond); color: var(--adm-baisse); }
 
 .val-terminal {
   position: sticky; top: 16px; display: flex; flex-direction: column; gap: 6px; padding: 24px; border-radius: 28px;
@@ -557,6 +572,7 @@ async function recuPdf(mode) {
 .val-terminal-tete { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; color: rgba(255, 255, 255, .55); font-family: var(--font-mono); font-size: .8rem; }
 .val-terminal-libelle { color: rgba(255, 255, 255, .6); font-size: .85rem; }
 .val-terminal-montant { font-size: clamp(2.2rem, 3.4vw, 2.8rem); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; color: #67e8f9; }
+:global(.adm-sombre) .val-terminal-montant { color: #fff; }
 .val-terminal-detail { color: rgba(255, 255, 255, .55); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .val-terminal-moyen { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .1); font-size: .84rem; }
 .val-terminal-valider {
@@ -570,8 +586,8 @@ async function recuPdf(mode) {
 
 /* 4. Reçu */
 .val-recu { display: flex; flex-direction: column; align-items: center; gap: 12px; padding-block: 40px; text-align: center; }
-.val-recu-icone { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; background: #d1fae5; color: #047857; font-size: 1.6rem; }
-.val-recu-icone.ancien { background: var(--adm-accent-doux); color: var(--lagon-700); }
+.val-recu-icone { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; background: var(--adm-ok-fond); color: var(--adm-ok-texte); font-size: 1.6rem; }
+.val-recu-icone.ancien { background: var(--adm-accent-doux); color: var(--adm-info-texte); }
 .val-recu h2 { margin: 4px 0 0; font-family: var(--font-corps); font-size: 1.35rem; font-weight: 600; }
 .val-recu-numero { margin: 0; color: var(--adm-encre-2); }
 .val-recu-numero strong { font-size: 1.1rem; color: var(--adm-encre); }
@@ -581,14 +597,82 @@ async function recuPdf(mode) {
 .val-recu-infos dd { margin: 2px 0 0; font-weight: 600; }
 .val-recu-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 
+.val-ajout select { min-width: 0; }
+.val-barre { display: none; }
+
 @media (max-width: 1100px) {
-  .val-grille, .val-code-grille { grid-template-columns: 1fr; }
+  .val-grille, .val-code-grille { grid-template-columns: minmax(0, 1fr); }
   .val-resume, .val-terminal { position: static; }
 }
-@media (max-width: 640px) {
-  .val-moyens { grid-template-columns: 1fr 1fr; }
-  .val-lignes li { grid-template-columns: minmax(0, 1fr) auto; }
-  .val-quantite { grid-column: 1 / -1; justify-self: start; }
-  .val-code-champ { font-size: 1.6rem; }
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 767px) {
+  .val { gap: 14px; }
+
+  /* étapes : une seule ligne, seul le libellé de l'étape en cours est écrit */
+  .val-etapes { flex-wrap: nowrap; gap: 6px; }
+  .val-etapes li { flex: none; gap: 8px; padding: 4px; font-size: .84rem; }
+  .val-etapes li.active { flex: 1; padding-right: 14px; }
+  .val-etapes li:not(.active) > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  .val-code { padding: 24px 16px; gap: 8px; }
+  .val-code-icone { width: 48px; height: 48px; border-radius: 14px; font-size: 1.2rem; }
+  .val-code h2 { font-size: 1.1rem; }
+  .val-code > p { font-size: .84rem; }
+  .val-code-champ { height: 60px; font-size: 1.55rem; letter-spacing: .1em; }
+  .val-attente li { gap: 10px; }
+  .val-attente .adm-identite { flex: 1; min-width: 0; }
+
+  .val-devis { flex-wrap: nowrap; gap: 12px; padding: 12px 14px; }
+  .val-devis-icone { width: 40px; height: 40px; }
+  .val-devis-texte { flex: 1 1 0; }
+  .val-devis-texte strong { font-size: .98rem; line-height: 1.25; }
+  .val-devis-texte small { font-size: .78rem; }
+  .val-devis > .adm-badge { display: none; }
+  .val-devis > .adm-btn { flex: none; padding: 0 10px; }
+
+  /* préparation : libellé en haut, quantité à gauche et sous-total à droite en dessous */
+  .val-pad { padding: 16px 16px 0; }
+  .val-pad p { font-size: .8rem; }
+  .val-lignes { padding: 6px 8px 10px; }
+  .val-lignes li { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 12px 8px; }
+  .val-ligne-texte { grid-column: 1 / -1; }
+  .val-quantite { justify-self: start; }
+  .val-quantite .adm-saisie-unite { width: 104px; }
+  .val-ajout { flex-wrap: wrap; padding: 4px 16px 16px; }
+  .val-ajout select { flex: 1 1 100%; }
+  .val-ajout .adm-btn { flex: 1; }
+
+  .val-resume > .val-plein { display: none; } /* remplacé par la barre du bas */
+  .val-total strong { font-size: 1.6rem; }
+
+  /* caisse : montant en premier, moyens en 2 × 2 plus bas */
+  .val-terminal { order: -1; gap: 2px; padding: 16px 18px; border-radius: 22px; }
+  .val-terminal-tete { margin-bottom: 6px; }
+  .val-terminal-montant { font-size: 2.1rem; }
+  .val-terminal-moyen { margin-top: 6px; }
+  .val-terminal-valider { display: none; } /* remplacé par la barre du bas */
+  .val-terminal-retour { align-self: flex-start; min-height: 34px; margin-top: 6px; padding: 0; }
+  .val-moyens { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .val-moyen { flex-direction: row; justify-content: flex-start; gap: 10px; min-height: 56px; padding: 10px 12px; border-radius: 14px; font-size: .84rem; text-align: left; }
+  .val-moyen i { font-size: 1.15rem; }
+  .val-saisie { margin-top: 16px; padding-top: 16px; }
+  .val-billets { flex-wrap: wrap; }
+
+  .val-barre {
+    position: sticky; bottom: calc(var(--ef-bas, 0px) + 8px); z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 10px 10px 18px; border-radius: 20px; background: var(--adm-carte); box-shadow: 0 0 0 1px var(--adm-ligne), 0 12px 32px rgba(15, 23, 42, .18);
+  }
+  .val-barre > span { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+  .val-barre small { color: var(--adm-muet); font-size: .74rem; }
+  .val-barre strong { font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .val-barre .adm-btn { flex: none; min-height: 46px; }
+  .val-barre-valider { background: #10b981; color: #fff; }
+  .val-barre-valider:hover:not(:disabled) { background: #059669; }
+
+  .val-recu { padding: 28px 16px; }
+  .val-recu-infos { grid-template-columns: 1fr 1fr; }
+  .val-recu-actions { width: 100%; flex-direction: column; }
+  .val-recu-actions .adm-btn { width: 100%; }
 }
 </style>

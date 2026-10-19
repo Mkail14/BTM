@@ -7,7 +7,7 @@
  *  - particulier : Identité → Sécurité → Validation ;
  *  - professionnel : Entreprise (SIRET) → Contact → Sécurité → Validation.
  * Le pseudo (nom affiché) est déduit du prénom et du nom.
- * « Mot de passe oublié ? » remplace le formulaire par MotDePasseOublie (code reçu par e-mail).
+ * « Mot de passe oublié ? » remplace le formulaire par MotDePasseOublie (lien reçu par e-mail).
  */
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -64,13 +64,13 @@ function terminerConnexion() {
 }
 const { connexion, inscription, backendDisponible, connecte, utilisateur } = useAuth()
 
-// Mot de passe oublié : le code vérifié connecte le compte avant qu'il ait choisi son mot de passe,
+// Mot de passe oublié : le lien de l'e-mail connecte le compte avant qu'il ait choisi son mot de passe,
 // la fenêtre ne doit donc pas se fermer à la connexion tant que ce parcours est ouvert
 const modeOubli = ref(props.oubli || props.parLien || props.lienExpire)
 const dejaConnecte = connecte.value || props.parLien // profil d'un compte connecté, ou session ouverte par le lien de l'e-mail
 const quitterOubli = () => { if (dejaConnecte) emit('fermer'); else modeOubli.value = false }
 // Mot de passe enregistré : chacun rejoint son espace (tableau de bord pour un admin, espace fournisseur),
-// quel que soit le parcours (code reçu, lien de l'e-mail, profil). Rôle relu à neuf : la session vient d'être ouverte.
+// quel que soit le parcours (lien de l'e-mail, profil). Rôle relu à neuf : la session vient d'être ouverte.
 async function finOubli() {
   try {
     const { data } = await supabase.auth.getUser()

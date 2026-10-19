@@ -1,9 +1,9 @@
 <script setup>
 /**
- * Arrivée par le lien de l'e-mail « réinitialiser le mot de passe » (lien de secours, ou envoyé par un admin).
+ * Arrivée par le lien de l'e-mail « réinitialiser le mot de passe » (demandé sur le site, ou envoyé par un admin).
  * Pas de page à part : Supabase ouvre une session temporaire à partir du lien, puis la fenêtre de connexion du site
- * s'ouvre par-dessus l'accueil sur « Nouveau mot de passe » — la même fenêtre que le parcours par code.
- * Lien expiré ou déjà utilisé : la fenêtre propose de recevoir un nouveau code.
+ * s'ouvre par-dessus l'accueil sur « Nouveau mot de passe » — la même fenêtre que « Mot de passe oublié ».
+ * Lien expiré ou déjà utilisé : la fenêtre propose de recevoir un nouveau lien.
  * Deux formes de lien sont acceptées : celle de Supabase (#access_token=…) et un lien direct « ?token_hash=… ».
  */
 import { onMounted } from 'vue'

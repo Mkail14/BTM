@@ -120,7 +120,12 @@ const annuler = () => { brouillon.value = depuisFiche(props.fiche); tentative.va
   .mf { grid-template-columns: 1fr; }
   .mf-apercu { position: static; }
 }
-@media (max-width: 640px) { .mf-fixes { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 640px) {
+  .mf { gap: 14px; }
+  .mf-fixes { grid-template-columns: 1fr 1fr; margin-bottom: 16px; padding: 12px 14px; }
+  .mf-actions { flex-direction: column-reverse; margin-top: 16px; padding-top: 14px; }
+  .mf-actions .adm-btn { width: 100%; }
+}
 
 /* Mon compte sur ordinateur : tient dans l'écran (la carte défile seulement si l'écran est trop petit) */
 @media (min-width: 1101px) and (min-height: 640px) {

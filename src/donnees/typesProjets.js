@@ -68,24 +68,17 @@ export const typesProjets = reactive([
   {
     id: 'terrasse',
     libelle: 'Terrasse',
-    accroche: 'Carrelage ou béton lissé',
-    description: 'Un sol extérieur carrelé ou en béton lissé',
+    accroche: 'Dalle en béton lissé',
+    description: 'Un sol extérieur en béton lissé',
     sujet: 'Votre terrasse',
-    hypotheses: 'Calcul d’une dalle (comme ci-dessus) + finition carrelage (50 €/m²) ou béton lissé (15 €/m²).',
+    hypotheses: 'Calcul d’une dalle (comme ci-dessus) + finition béton lissé (15 €/m²). Pour carreler, voir l’ouvrage Carrelage.',
     icone: 'fa-solid fa-umbrella-beach',
     couleur: '#f59e0b',
     ordre: 4,
     champs: [
       { nom: 'longueur', question: 'Quelle est la longueur de la terrasse ?', label: 'Longueur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '6' },
       { nom: 'largeur', question: 'Quelle est la largeur de la terrasse ?', label: 'Largeur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '4' },
-      { nom: 'epaisseur', question: 'Quelle épaisseur pour la terrasse ?', label: 'Épaisseur', unite: 'cm', min: 5, max: 60, pas: 1, placeholder: '10', aide: 'Généralement 10 cm' },
-      {
-        nom: 'finition', question: 'Quelle finition voulez-vous ?', label: 'Finition', type: 'select', defaut: 'carrelage',
-        options: [
-          { valeur: 'carrelage', label: 'Carrelage — 50 €/m²' },
-          { valeur: 'beton_lisse', label: 'Béton lissé — 15 €/m²' }
-        ]
-      }
+      { nom: 'epaisseur', question: 'Quelle épaisseur pour la terrasse ?', label: 'Épaisseur', unite: 'cm', min: 5, max: 60, pas: 1, placeholder: '10', aide: 'Généralement 10 cm' }
     ],
     parametres: {
       densiteBeton: 2.4, kgFerParM2: 5, tonnesGravierParM3: 0.8

@@ -3,7 +3,7 @@
  * elles ne renvoient / n'écrivent des données que si le compte connecté a le rôle « admin »
  * (fonction SQL est_admin(), migrations 0004, 0006 et 0007).
  */
-import { supabase, supabaseConfigure } from './client.js'
+import { supabase, supabaseConfigure, SITE_PUBLIC } from './client.js'
 import { normaliserResultat } from '@/services/calculs/moteurCalculs.js'
 import { televerserPhoto, supprimerPhotos } from './serviceRealisations.js'
 
@@ -72,7 +72,7 @@ async function fonctionAdmin(corps) {
 }
 export const lireUtilisateur = (id) => fonctionAdmin({ action: 'lire', id })
 export const modifierUtilisateur = (id, champs) => fonctionAdmin({ action: 'modifier', id, ...champs })
-export const reinitialiserMotDePasse = (id) => fonctionAdmin({ action: 'reinitialiser', id, origine: window.location.origin })
+export const reinitialiserMotDePasse = (id) => fonctionAdmin({ action: 'reinitialiser', id, origine: SITE_PUBLIC })
 /** Suppression définitive du compte (refusée par le serveur pour son propre compte) */
 export const supprimerUtilisateur = (id) => fonctionAdmin({ action: 'supprimer', id })
 /** Bannissement (migration 0022) : `jusqua` = date ISO de fin, ou null pour un ban à vie */
@@ -84,11 +84,11 @@ export const banActif = (p) => !!p?.banni_le && (!p.banni_jusqua || new Date(p.b
 // Statut lu dans Auth : { id, email, statut: 'invite'|'actif', invite_le, derniere_connexion, fournisseur_id }
 export const listerAccesFournisseurs = async () => (await fonctionAdmin({ action: 'acces_fournisseurs' })).acces || []
 /** Invite le responsable par e-mail ; { envoye: false, lien } si l'e-mail n'a pas pu partir, { relie: true } si le compte existait */
-export const inviterFournisseur = (email, fournisseurId) => fonctionAdmin({ action: 'inviter_fournisseur', email, fournisseur_id: fournisseurId, origine: window.location.origin })
+export const inviterFournisseur = (email, fournisseurId) => fonctionAdmin({ action: 'inviter_fournisseur', email, fournisseur_id: fournisseurId, origine: SITE_PUBLIC })
 /** Renvoie l'invitation (compte pas encore activé) ou un e-mail de nouveau mot de passe (compte actif) */
-export const relancerFournisseur = (id) => fonctionAdmin({ action: 'relancer_fournisseur', id, origine: window.location.origin })
+export const relancerFournisseur = (id) => fonctionAdmin({ action: 'relancer_fournisseur', id, origine: SITE_PUBLIC })
 /** Lien d'invitation à transmettre soi-même (quand l'e-mail ne part pas) */
-export const lienFournisseur = async (id) => (await fonctionAdmin({ action: 'lien_fournisseur', id, origine: window.location.origin })).lien
+export const lienFournisseur = async (id) => (await fonctionAdmin({ action: 'lien_fournisseur', id, origine: SITE_PUBLIC })).lien
 /** Retire l'accès : compte jamais activé supprimé, compte actif redevenu particulier */
 export const retirerFournisseur = (id) => fonctionAdmin({ action: 'retirer_fournisseur', id })
 

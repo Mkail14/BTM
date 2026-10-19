@@ -129,11 +129,11 @@ async function donnerRole() {
   const effets = {
     particulier: `${c.email} redeviendra un utilisateur normal : site public, calculateur et « Mes projets ».`,
     admin: `${c.email} pourra modifier tout le site, les prix et les comptes, et changer le profil des autres comptes.`,
-    professionnel: `${c.email} aura un compte professionnel vérifié, avec la page « Projet pro » : chantiers multi-ouvrages et maquette 3D.`,
+    professionnel: `${c.email} aura un compte professionnel vérifié, avec le devis pro : plusieurs ouvrages réunis dans un même devis.`,
     fournisseur: `${c.email} représentera ${entreprise} : il verra les devis qui ont choisi cette entreprise et confirmera leur paiement. Un compte fournisseur n’utilise plus le site comme client.`
   }
   const pertes = (c.role === 'admin' ? ' Ce compte perdra ses droits d’administrateur.' : '') + (c.role === 'fournisseur' && choix !== 'fournisseur' ? ' Il perdra son accès à l’espace fournisseur.' : '')
-    + (c.pro_statut === 'verifie' && choix === 'particulier' ? ' Il perdra la page « Projet pro ».' : '')
+    + (c.pro_statut === 'verifie' && choix === 'particulier' ? ' Il perdra le devis pro.' : '')
   const label = api.ROLES_COMPTE[choix].label.toLowerCase()
   if (!(await confirmer({ titre: `Donner le profil ${label} ?`, texte: effets[choix] + pertes, libelle: 'Donner ce profil', danger: c.role === 'admin' }))) return
   if (await changerRole(c, choix, fournisseurChoisi.value || null, `${nomDe(c)} est maintenant ${label} : le changement s’applique à sa prochaine connexion.`)) emailSaisi.value = ''

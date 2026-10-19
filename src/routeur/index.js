@@ -9,7 +9,7 @@ const routes = [
   { path: '/calculateur', name: 'calculateur', component: () => import('@/vues/CalculateurVue.vue'), meta: { titre: 'Calculateur' } },
   { path: '/resultats', name: 'resultats', component: () => import('@/vues/ResultatsVue.vue'), meta: { titre: 'Résultats', necessiteConnexion: true, fenetre: 'inscription', message: 'Créez votre compte gratuit pour obtenir votre devis.' } },
   { path: '/fournisseurs', name: 'fournisseurs', component: () => import('@/vues/FournisseursVue.vue'), meta: { titre: 'Fournisseurs' } },
-  { path: '/projet-pro', name: 'projet-pro', component: () => import('@/vues/ProjetProVue.vue'), meta: { titre: 'Projet pro' } },
+  { path: '/projet-pro', redirect: '/calculateur' }, // ancienne page 3D retirée : les pros réunissent leurs ouvrages depuis le calculateur
   { path: '/dashboard', name: 'dashboard', component: () => import('@/vues/TableauDeBordVue.vue'), meta: { titre: 'Mes projets', necessiteConnexion: true } },
   { path: '/admin/:section?', name: 'admin', component: () => import('@/vues/AdminVue.vue'), meta: { titre: 'Administration', necessiteConnexion: true, necessiteAdmin: true, pleinEcran: true } },
   { path: '/espace-fournisseur/:section?', name: 'espace-fournisseur', component: () => import('@/vues/EspaceFournisseurVue.vue'), meta: { titre: 'Espace fournisseur', necessiteConnexion: true, necessiteFournisseur: true, pleinEcran: true } },

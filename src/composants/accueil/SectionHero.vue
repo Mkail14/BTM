@@ -33,7 +33,7 @@ const salutation = computed(() => {
   return `Bonjour ${nomComplet || infos?.pseudo || utilisateur.value.email.split('@')[0]}`
 })
 
-// Téléphone (< 640 px) : la maquette 3D est remplacée par des raccourcis vers les 4 types de devis
+// Téléphone (< 640 px) : la maquette 3D est remplacée par des raccourcis vers les types de devis
 const requete = typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)') : null
 const telephone = ref(!!requete?.matches)
 const surTaille = (e) => { telephone.value = e.matches }

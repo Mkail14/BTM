@@ -364,9 +364,8 @@ function traduire(m = '') {
           <h2>BTM Pro</h2>
           <p>Chiffrez des chantiers entiers, pas seulement un mur.</p>
           <ul>
-            <li><i class="fa-solid fa-city"></i> Projets multi-ouvrages : maisons, dalles, murs, fondations</li>
-            <li><i class="fa-solid fa-cube"></i> Maquette 3D, visite intérieure et mesures exactes</li>
-            <li><i class="fa-solid fa-layer-group"></i> Plusieurs maisons dans un même projet</li>
+            <li><i class="fa-solid fa-city"></i> Plusieurs ouvrages dans un même devis : murs, dalles, fondations, terrasses, carrelage</li>
+            <li><i class="fa-solid fa-cart-shopping"></i> Ouvrages mesurés et achats directs réunis</li>
             <li><i class="fa-solid fa-file-pdf"></i> Un seul devis PDF avec code de retrait</li>
           </ul>
         </template>
@@ -432,7 +431,7 @@ function traduire(m = '') {
                 <span class="auth-profil-badge">Pro</span>
                 <span class="auth-profil-icone"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i></span>
                 <strong>Professionnel</strong>
-                <small>Entreprise du BTP, artisan : projets multi-ouvrages et maquette 3D.</small>
+                <small>Entreprise du BTP, artisan : plusieurs ouvrages dans un même devis.</small>
                 <span class="auth-profil-suite">Continuer <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
               </button>
             </div>

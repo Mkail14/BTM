@@ -336,13 +336,13 @@ export async function statuerVerificationPro(profilId, decision, motif) {
 
 // ---------- Profil d'un compte, tel que l'admin le choisit -----------------------------------
 /**
- * Quatre profils, chacun avec ses pages : utilisateur (site public et « Mes projets »), professionnel (en plus la page
- * « Projet pro »), fournisseur (espace fournisseur), administrateur (administration). Dans l'admin, ce choix unique
+ * Quatre profils, chacun avec ses pages : utilisateur (site public et « Mes projets »), professionnel (en plus le devis
+ * pro, plusieurs ouvrages réunis), fournisseur (espace fournisseur), administrateur (administration). Dans l'admin, ce choix unique
  * règle le rôle, le type de profil, la fiche fournisseur liée et le statut professionnel de la base.
  */
 export const ROLES_COMPTE = {
   particulier: { label: 'Particulier', icone: 'fa-solid fa-user', classe: '', aide: 'Site public : calculateur, devis et « Mes projets ».' },
-  professionnel: { label: 'Professionnel', icone: 'fa-solid fa-helmet-safety', classe: 'adm-badge-violet', aide: 'Comme un utilisateur, avec en plus la page « Projet pro » : chantiers multi-ouvrages et maquette 3D.' },
+  professionnel: { label: 'Professionnel', icone: 'fa-solid fa-helmet-safety', classe: 'adm-badge-violet', aide: 'Comme un utilisateur, avec en plus le devis pro : plusieurs ouvrages réunis dans un même devis.' },
   fournisseur: { label: 'Fournisseur', icone: 'fa-solid fa-truck', classe: 'adm-badge-info', aide: 'Espace fournisseur de son entreprise : devis reçus, paiements et catalogue.' },
   admin: { label: 'Administrateur', icone: 'fa-solid fa-user-shield', classe: 'adm-badge-noir', aide: 'Administration du site : textes, prix, comptes et reversements.' }
 }

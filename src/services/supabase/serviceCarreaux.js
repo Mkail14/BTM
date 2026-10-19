@@ -51,6 +51,13 @@ const erreurTable = (error) => (TABLE_ABSENTE.includes(error?.code)
   ? new Error('La gestion des carreaux n’est pas encore activée (migration 0029).')
   : error)
 
+/** Admin : tous les modèles, masqués compris (la RLS réserve cette lecture à l'admin) */
+export async function listerTousCarreaux() {
+  const { data, error } = await supabase.from('carreaux_fournisseur').select(COLONNES).order('fournisseur_id').order('cree_le')
+  if (error) throw erreurTable(error)
+  return (data || []).map(versCarreau)
+}
+
 export async function listerMesCarreaux(fournisseurId) {
   const { data, error } = await supabase.from('carreaux_fournisseur').select(COLONNES).eq('fournisseur_id', fournisseurId).order('cree_le')
   if (error) throw erreurTable(error)

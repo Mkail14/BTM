@@ -104,8 +104,8 @@ async function choisirType(id) {
 
 // Simulation : exemple type (valeurs d'exemple du formulaire public), avant / après modification
 const catalogue = computed(() => (donnees.materiaux?.length ? { ...materiauxLocaux, ...indexerMateriaux(donnees.materiaux) } : materiauxLocaux))
-const exemple = computed(() => Object.fromEntries(type.value.champs.map((c) => [c.nom, c.type === 'select' ? c.defaut : c.placeholder])))
-const resumeExemple = computed(() => type.value.champs.filter((c) => c.type !== 'select').map((c) => `${String(c.placeholder).replace('.', ',')} ${c.unite}`).join(' × '))
+const exemple = computed(() => Object.fromEntries(type.value.champs.map((c) => [c.nom, ['select', 'carreau'].includes(c.type) ? c.defaut : c.placeholder])))
+const resumeExemple = computed(() => type.value.champs.filter((c) => !['select', 'carreau'].includes(c.type)).map((c) => `${String(c.placeholder).replace('.', ',')} ${c.unite}`).join(' × '))
 function simuler(parametres) {
   try { return calculerEstimation(type.value.id, exemple.value, { catalogue: catalogue.value, parametres }).total } catch { return null }
 }

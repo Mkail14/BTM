@@ -107,10 +107,11 @@ export function useDevisAwa() {
   }
 
   function choisirOuvrage(type, texte = '') {
-    const valeurs = {}
+    // le modèle de carreaux se choisit dans le calculateur (cartes des fournisseurs) : ici, le modèle standard
+    const valeurs = Object.fromEntries(type.champs.filter((c) => c.type === 'carreau').map((c) => [c.nom, c.defaut]))
     // mesures déjà données dans la phrase : prises dans l'ordre des questions, tant qu'elles sont plausibles
     const lus = nombresDans(texte)
-    for (const [i, champ] of type.champs.filter((c) => c.type !== 'select' && !c.optionnel).entries()) {
+    for (const [i, champ] of type.champs.filter((c) => !['select', 'carreau'].includes(c.type) && !c.optionnel).entries()) {
       if (!lus[i]) break
       const v = dansUnite(lus[i], champ)
       if (erreurValeur(champ, v)) break

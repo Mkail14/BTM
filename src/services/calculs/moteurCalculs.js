@@ -160,7 +160,7 @@ export function resumerDimensions(typeId, dimensions = {}) {
   const type = trouverTypeProjet(typeId)
   if (!type) return ''
   const resume = type.champs
-    .filter((c) => c.type !== 'select' && dimensions[c.nom] !== undefined && dimensions[c.nom] !== '')
+    .filter((c) => !['select', 'carreau'].includes(c.type) && dimensions[c.nom] !== undefined && dimensions[c.nom] !== '')
     .map((c) => `${dimensions[c.nom]} ${c.unite}`)
     .join(' × ')
   const autres = dimensions.autresMurs?.length || 0

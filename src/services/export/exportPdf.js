@@ -142,6 +142,7 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
     : (type?.champs || []).map((c) => {
         const v = resultat.dimensions?.[c.nom]
         if (c.type === 'select') return [c.label, c.options.find((o) => o.valeur === v)?.label.split(' — ')[0] || String(v ?? '')]
+        if (c.type === 'carreau') return [c.label, v && typeof v === 'object' ? propre(`${v.nom}${v.fournisseur ? ` (${v.fournisseur})` : ''}`) : 'Modèle standard']
         return [c.label, `${nombre(v, 2)} ${c.unite}`]
       })
   const mesures = (resultat.mesures || []).map((m) => [m.label, typeof m.valeur === 'number' ? `${nombre(m.valeur, 3)} ${m.unite}`.trim() : `${m.valeur}`])

@@ -11,6 +11,8 @@ import ApercuPdf from '@/composants/commun/ApercuPdf.vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { PAGES_ESPACE } from '@/routeur/index.js'
 import { modeSite, quitterModeSite } from '@/composables/useModeSite.js'
+import { useOuverture, PAGES_LIBRES, LIBELLES_ENVIRONNEMENT } from '@/composables/useOuverture.js'
+import BientotVue from '@/vues/BientotVue.vue'
 
 // L'espace admin a sa propre mise en page (barre latérale) : pas d'en-tête ni de pied du site
 const route = useRoute()
@@ -39,6 +41,11 @@ function retourEspace() {
   router.push({ name: 'espace-fournisseur' })
 }
 
+// Trois versions : en ligne (btm.yt), develop, locale. En ligne, tant que le site n'a pas assez de fournisseurs
+// partenaires, la page d'attente remplace le site public (espaces admin / fournisseur et pages légales exceptés).
+const { environnement, partenaires, enAttente } = useOuverture()
+const pageAttente = computed(() => enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value && !fournisseurLie.value)
+
 // Connexion / inscription : une fenêtre superposée au site (il n'y a pas de page de connexion).
 // Disponible partout, y compris dans les espaces admin et fournisseur (qui n'ont pas l'en-tête du site).
 const FenetreConnexion = defineAsyncComponent(() => import('@/composants/commun/FenetreConnexion.vue'))
@@ -55,6 +62,11 @@ watch(() => route.query, (q) => {
 </script>
 
 <template>
+  <!-- En ligne, avant l'ouverture : page d'attente (rien pendant la vérification, pour ne pas montrer le site une seconde) -->
+  <template v-if="pageAttente">
+    <BientotVue v-if="enAttente" :partenaires="partenaires || 0" />
+  </template>
+  <template v-else>
   <a class="lien-evitement" href="#contenu-principal">Aller au contenu</a>
   <EnteteApp v-if="!pleinEcran" />
   <main id="contenu-principal">
@@ -74,11 +86,14 @@ watch(() => route.query, (q) => {
     <BandeauCookies />
   </template>
   <ApercuPdf />
+  </template>
   <FenetreConnexion
     v-if="fenetreAuth.ouverte"
     :mode="fenetreAuth.mode" :redirect="fenetreAuth.redirect" :suspendu="fenetreAuth.suspendu" :profil="fenetreAuth.profil" :oubli="fenetreAuth.oubli" :par-lien="fenetreAuth.parLien" :lien-expire="fenetreAuth.lienExpire" :message="fenetreAuth.message"
     @fermer="fermerAuth" @changer-mode="fenetreAuth.mode = $event"
   />
+  <!-- Repère de version (develop, locale) : jamais sur btm.yt -->
+  <span v-if="environnement !== 'en-ligne'" class="repere-version" :class="environnement" :title="`Version ${LIBELLES_ENVIRONNEMENT[environnement].toLowerCase()} du site`">{{ LIBELLES_ENVIRONNEMENT[environnement] }}</span>
   <div v-if="visiteFournisseur" class="visite-fournisseur" role="region" aria-label="Visite du site">
     <span><i class="fa-solid fa-briefcase" aria-hidden="true"></i> Vous visitez le site en tant que <strong>professionnel</strong></span>
     <button type="button" @click="retourEspace"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Retour à mon espace</button>
@@ -100,4 +115,10 @@ watch(() => route.query, (q) => {
 .visite-fournisseur button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: #fff; color: #0f172a; font: inherit; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .visite-fournisseur button i { margin: 0; color: inherit; }
 @media (max-width: 560px) { .visite-fournisseur > span { display: none; } }
+.repere-version {
+  position: fixed; left: 12px; bottom: 12px; z-index: 900; padding: 4px 10px; border-radius: 999px; pointer-events: none;
+  color: #fff; font: 700 .68rem/1.4 var(--font-corps); letter-spacing: .08em; text-transform: uppercase; box-shadow: 0 4px 12px rgba(15, 23, 42, .25);
+}
+.repere-version.develop { background: #7c3aed; }
+.repere-version.local { background: #ea580c; }
 </style>

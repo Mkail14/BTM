@@ -4,6 +4,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useAdmin, initiales, correspond } from '@/composables/useAdmin.js'
 import AdminPanneau from './AdminPanneau.vue'
 import PanneauAccesFournisseur from './PanneauAccesFournisseur.vue'
+import AdminCarreaux from './AdminCarreaux.vue'
+import { listerTousCarreaux } from '@/services/supabase/serviceCarreaux.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
 onMounted(() => charger(['fournisseurs', 'categories', 'profils'], { force: true }))
@@ -36,6 +38,17 @@ const liste = computed(() => (donnees.fournisseurs || []).filter((f) =>
 const nbActifs = computed(() => (donnees.fournisseurs || []).filter((f) => f.actif).length)
 
 const nbAccesActifs = computed(() => (accesListe.value || []).filter((a) => a.statut === 'actif').length)
+// Carreaux mis en ligne par chaque fournisseur (migration 0029) : comptés sur sa fiche, gérés dans son panneau.
+// Avant la migration, la liste est simplement vide.
+const carreaux = ref([])
+async function chargerCarreaux() { try { carreaux.value = await listerTousCarreaux() } catch { carreaux.value = [] } }
+onMounted(chargerCarreaux)
+const carreauxDe = computed(() => {
+  const g = {}
+  for (const c of carreaux.value) (g[c.fournisseur_id] ||= []).push(c)
+  return g
+})
+
 const telLien = (t) => `tel:${(t || '').replace(/[^\d+]/g, '')}`
 
 // Couleur d'avatar stable par fournisseur (lisible en thème clair comme sombre)
@@ -169,6 +182,7 @@ async function supprimerCategorie(c) {
           <div class="fiche-etiquettes">
             <span class="fiche-etiquette"><i :class="categorie[f.categorie_id]?.icone || 'fa-solid fa-tag'" aria-hidden="true"></i> {{ categorie[f.categorie_id]?.libelle || f.categorie_id }}</span>
             <span v-if="f.livraison" class="fiche-etiquette"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Livraison</span>
+            <button v-if="carreauxDe[f.id]?.length" type="button" class="fiche-etiquette fiche-etiquette-lien" :title="`Voir les carreaux de ${f.nom}`" @click="ouvrir(f)"><i class="fa-solid fa-table-cells" aria-hidden="true"></i> {{ carreauxDe[f.id].length }} modèle{{ carreauxDe[f.id].length > 1 ? 's' : '' }} de carreaux</button>
             <span v-if="f.demonstration" class="adm-badge adm-badge-attention sans-point" title="Pas encore partenaire : prix fictifs, signalés sur le site">Démonstration</span>
             <span v-if="!f.actif" class="adm-badge adm-badge-attention sans-point">Masqué</span>
           </div>
@@ -232,6 +246,8 @@ async function supprimerCategorie(c) {
         </div>
       </form>
       <p v-if="formErreur" class="adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ formErreur }}</p>
+      <!-- ce que le fournisseur vend en ligne : ses modèles de carreaux (il les gère depuis son espace) -->
+      <AdminCarreaux v-if="formulaire.id && carreauxDe[formulaire.id]?.length" :carreaux="carreauxDe[formulaire.id]" @maj="chargerCarreaux" />
       <template #pied>
         <button type="button" class="adm-btn adm-btn-clair" @click="formulaire = null">Annuler</button>
         <button type="submit" form="form-fournisseur" class="adm-btn adm-btn-noir" :disabled="enregistrement">
@@ -312,6 +328,8 @@ async function supprimerCategorie(c) {
 .fiche-etiquettes { display: flex; flex-wrap: wrap; gap: 6px; }
 .fiche-etiquette { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--adm-ligne-2); color: var(--adm-encre-2); font-size: .76rem; font-weight: 600; }
 .fiche-etiquette i { font-size: .72rem; color: var(--adm-muet); }
+.fiche-etiquette-lien { border: 0; font-family: inherit; cursor: pointer; }
+.fiche-etiquette-lien:hover { color: var(--adm-encre); }
 .fiche-contact { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: .86rem; }
 .fiche-contact li { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--adm-encre-2); }
 .fiche-contact i { width: 16px; flex: none; color: var(--adm-muet); font-size: .8rem; text-align: center; }

@@ -199,6 +199,7 @@ export async function enregistrerFournisseur(f) {
     horaires: f.horaires?.trim() || null,
     logo_url: f.logo_url?.trim() || null,
     livraison: !!f.livraison,
+    demonstration: !!f.demonstration,
     actif: f.actif !== false
   }
   if (f.id) return ok(await supabase.from('fournisseurs').update(champs).eq('id', f.id).select().single())

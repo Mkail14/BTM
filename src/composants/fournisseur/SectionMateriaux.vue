@@ -5,6 +5,7 @@
  *    son stock (vide = non suivi) et la rupture de stock (le matériau n'est alors plus vendu en caisse) ;
  *  - Mes articles : ses propres produits (brouette, outillage…), vendus en caisse en plus du devis.
  * À l'encaissement, ces prix s'appliquent et les stocks sont décomptés (encaisser_devis, migrations 0014 et 0016).
+ * Tout le catalogue peut aussi être rempli d'un coup : modèle CSV à télécharger, puis import du fichier rempli.
  */
 import { computed, ref, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin.js'
@@ -12,12 +13,13 @@ import { useEspaceFournisseur } from '@/composables/useEspaceFournisseur.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 import * as api from '@/services/supabase/serviceEspaceFournisseur.js'
+import { analyserCatalogue, genererModele, telecharger } from '@/services/catalogueCsv.js'
 import AdminPanneau from '@/composants/admin/AdminPanneau.vue'
 
 const props = defineProps({ recherche: { type: String, default: '' } })
 const { notifier, confirmer } = useAdmin()
 const { fournisseurLie } = useAuth()
-const { materiauxBtm, catalogue, articles, rechargerCatalogue } = useEspaceFournisseur()
+const { fiche, materiauxBtm, catalogue, articles, rechargerCatalogue } = useEspaceFournisseur()
 
 const onglet = ref('btm')
 const nombre = (v) => (v === null || v === undefined ? '' : String(v).replace('.', ','))
@@ -104,6 +106,48 @@ async function basculerArticle(a, champ) {
     if (champ === 'rupture') notifier(a.rupture ? `« ${a.libelle} » est en rupture.` : `« ${a.libelle} » est de nouveau disponible.`, 'info')
   } catch (e) { notifier(e?.message || 'Modification impossible.', 'erreur') }
 }
+// ================= Fichier : modèle et import =================
+function telechargerModele() {
+  const nom = (fiche.value?.nom || 'fournisseur').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase()
+  telecharger(genererModele(materiauxBtm.value, catalogue.value, articles.value), `catalogue-btm-${nom}.csv`)
+}
+const champFichier = ref(null)
+const apercu = ref(null) // { fichier, materiaux, nouveaux, modifies, erreurs }
+const importEnCours = ref(false)
+async function lireFichier(e) {
+  const fichier = e.target.files?.[0]
+  e.target.value = '' // le même fichier pourra être choisi de nouveau après correction
+  if (!fichier) return
+  if (fichier.size > 2_000_000) { notifier('Fichier trop lourd (2 Mo au plus).', 'erreur'); return }
+  if (/\.xlsx?$/i.test(fichier.name)) { notifier('Fichier Excel : enregistrez-le d’abord en CSV (Fichier → Enregistrer sous → CSV, séparateur point-virgule).', 'erreur'); return }
+  let texte = await fichier.text()
+  // CSV d'un ancien Excel (Windows-1252) : ses accents sont illisibles en UTF-8
+  if (texte.includes('�')) texte = new TextDecoder('windows-1252').decode(await fichier.arrayBuffer())
+  apercu.value = { fichier: fichier.name, ...analyserCatalogue(texte, materiauxBtm.value, articles.value) }
+}
+const aImporter = computed(() => (apercu.value ? apercu.value.materiaux.length + apercu.value.nouveaux.length + apercu.value.modifies.length : 0))
+const pluriel = (n, mot, s = 's') => `${n} ${mot}${n > 1 ? s : ''}`
+async function importer() {
+  const a = apercu.value
+  importEnCours.value = true
+  try {
+    if (a.materiaux.length) await api.enregistrerCatalogue(fournisseurLie.value, a.materiaux)
+    await api.importerArticles(fournisseurLie.value, a.nouveaux, a.modifies)
+    await rechargerCatalogue()
+    const bilan = [
+      a.materiaux.length && pluriel(a.materiaux.length, 'matériau', 'x') + ' BTM',
+      a.nouveaux.length && pluriel(a.nouveaux.length, 'article') + ' ajouté' + (a.nouveaux.length > 1 ? 's' : ''),
+      a.modifies.length && pluriel(a.modifies.length, 'article') + ' mis à jour'
+    ].filter(Boolean)
+    notifier(`Catalogue importé : ${bilan.join(', ')}.`)
+    apercu.value = null
+  } catch (e) {
+    notifier(e?.message || 'Import impossible.', 'erreur')
+  } finally {
+    importEnCours.value = false
+  }
+}
+
 async function supprimerArticle(a) {
   if (!(await confirmer({ titre: 'Supprimer cet article ?', texte: `« ${a.libelle} » ne sera plus proposé en caisse. Les reçus déjà émis le conservent.`, libelle: 'Supprimer', danger: true }))) return
   try { await api.supprimerArticle(a.id); await rechargerCatalogue(); notifier('Article supprimé.') } catch (e) { notifier(e?.message || 'Suppression impossible.', 'erreur') }
@@ -118,6 +162,11 @@ async function supprimerArticle(a) {
         <button type="button" role="tab" :aria-selected="onglet === 'articles'" @click="onglet = 'articles'"><i class="fa-solid fa-box-open" aria-hidden="true"></i> Mes articles <small>{{ stats.articles }}</small></button>
       </div>
       <span v-if="stats.rupture" class="adm-badge mat-badge-rupture"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ stats.rupture }} en rupture</span>
+      <div class="mat-fichier">
+        <button type="button" class="adm-btn adm-btn-clair" title="Fichier CSV à ouvrir dans Excel, déjà rempli avec votre catalogue actuel" :disabled="!materiauxBtm.length" @click="telechargerModele"><i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i> Modèle</button>
+        <button type="button" class="adm-btn adm-btn-clair" title="Remplir tout le catalogue depuis un fichier CSV" :disabled="!materiauxBtm.length" @click="champFichier.click()"><i class="fa-solid fa-file-import" aria-hidden="true"></i> Importer</button>
+        <input ref="champFichier" type="file" accept=".csv,.txt,text/csv,text/plain" hidden @change="lireFichier" />
+      </div>
       <div v-if="onglet === 'btm'" class="mat-actions">
         <button type="button" class="adm-btn adm-btn-fantome" :disabled="!modifiees.length || enregistrement" @click="preparer">Annuler</button>
         <button type="button" class="adm-btn adm-btn-noir" :disabled="!modifiees.length || enregistrement" @click="enregistrer">
@@ -204,6 +253,44 @@ async function supprimerArticle(a) {
       <template v-else>Vos articles s’ajoutent en caisse, à l’étape « Préparation ». Leur stock est décompté à chaque vente et restitué en cas d’annulation.</template>
     </p>
 
+    <AdminPanneau v-if="apercu" titre="Importer un catalogue" :sous-titre="apercu.fichier" @fermer="apercu = null">
+      <div class="imp">
+        <ul class="imp-bilan">
+          <li><strong>{{ apercu.materiaux.length }}</strong><span>matériau{{ apercu.materiaux.length > 1 ? 'x' : '' }} BTM mis à jour</span></li>
+          <li><strong>{{ apercu.nouveaux.length }}</strong><span>article{{ apercu.nouveaux.length > 1 ? 's' : '' }} ajouté{{ apercu.nouveaux.length > 1 ? 's' : '' }}</span></li>
+          <li><strong>{{ apercu.modifies.length }}</strong><span>article{{ apercu.modifies.length > 1 ? 's' : '' }} mis à jour</span></li>
+          <li v-if="apercu.erreurs.length" class="erreur"><strong>{{ apercu.erreurs.length }}</strong><span>ligne{{ apercu.erreurs.length > 1 ? 's' : '' }} ignorée{{ apercu.erreurs.length > 1 ? 's' : '' }}</span></li>
+        </ul>
+
+        <div v-if="apercu.erreurs.length" class="imp-erreurs" role="alert">
+          <p><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Ces lignes ne seront pas importées. Corrigez le fichier puis importez-le de nouveau, ou importez le reste maintenant.</p>
+          <ul><li v-for="e in apercu.erreurs.slice(0, 50)" :key="e.ligne + e.message"><b>Ligne {{ e.ligne }}</b> {{ e.message }}</li></ul>
+          <p v-if="apercu.erreurs.length > 50">… et {{ apercu.erreurs.length - 50 }} autres.</p>
+        </div>
+
+        <div v-if="aImporter" class="adm-table-cadre imp-table">
+          <table class="adm-table">
+            <thead><tr><th>Produit</th><th class="num">Prix BTM</th><th class="num">Comptoir</th><th class="num">Stock</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="l in [...apercu.materiaux, ...apercu.modifies, ...apercu.nouveaux].slice(0, 200)" :key="l.materiau_id || l.id || l.libelle" :class="{ estompe: !l.vendu }">
+                <td><span class="mat-nom"><strong>{{ l.libelle }}</strong><small>{{ l.materiau_id ? 'Matériau BTM' : l.id ? 'Article mis à jour' : 'Nouvel article' }} · {{ l.unite }}</small></span></td>
+                <td class="num">{{ l.prix_unitaire == null ? 'référence' : formaterEuros(l.prix_unitaire) }}</td>
+                <td class="num">{{ l.prix_comptoir == null ? '—' : formaterEuros(l.prix_comptoir) }}</td>
+                <td class="num">{{ l.stock == null ? 'non suivi' : nombre(l.stock) }}</td>
+                <td><span v-if="!l.vendu" class="adm-badge sans-point">Pas en vente</span><span v-else-if="l.rupture" class="adm-badge mat-badge-rupture">Rupture</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-if="aImporter > 200" class="imp-suite">… et {{ aImporter - 200 }} autres lignes.</p>
+        </div>
+        <p class="mat-aide"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Les produits absents du fichier ne sont ni modifiés ni supprimés.</p>
+      </div>
+      <template #pied>
+        <button type="button" class="adm-btn adm-btn-clair" @click="apercu = null">Annuler</button>
+        <button type="button" class="adm-btn adm-btn-noir" :disabled="!aImporter || importEnCours" @click="importer"><span v-if="importEnCours" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Importer {{ aImporter }} ligne{{ aImporter > 1 ? 's' : '' }}</button>
+      </template>
+    </AdminPanneau>
+
     <AdminPanneau v-if="formulaire" :titre="formulaire.id ? 'Modifier l’article' : 'Nouvel article'" sous-titre="Un produit que vous vendez en plus des matériaux BTM." @fermer="formulaire = null">
       <form id="form-article" class="adm-grille-form" novalidate @submit.prevent="enregistrerArticle">
         <div class="adm-champ plein"><label for="ar-nom">Nom *</label><input id="ar-nom" v-model="formulaire.libelle" maxlength="80" placeholder="Ex. : Brouette 100 L" /></div>
@@ -235,6 +322,20 @@ async function supprimerArticle(a) {
 .mat-barre { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .mat-barre .adm-segments small { margin-left: 4px; opacity: .6; font-weight: 500; }
 .mat-actions { display: flex; gap: 8px; margin-left: auto; }
+.mat-fichier { display: flex; gap: 8px; margin-left: auto; }
+.mat-fichier + .mat-actions { margin-left: 0; }
+.imp { display: flex; flex-direction: column; gap: 16px; }
+.imp-bilan { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.imp-bilan li { display: flex; flex-direction: column; padding: 12px 14px; border-radius: 12px; background: var(--adm-ligne-2); }
+.imp-bilan strong { font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+.imp-bilan span { color: var(--adm-encre-2); font-size: .8rem; }
+.imp-bilan li.erreur { background: #fff1f2; color: var(--adm-baisse); }
+.imp-erreurs { padding: 12px 14px; border-radius: 12px; background: #fff7ed; color: #9a3412; font-size: .86rem; }
+.imp-erreurs p { margin: 0; }
+.imp-erreurs ul { margin: 8px 0 0; padding-left: 18px; max-height: 180px; overflow: auto; }
+.imp-erreurs li { margin: 2px 0; }
+.imp-table { max-height: 360px; overflow: auto; }
+.imp-suite { margin: 8px 0 0; color: var(--adm-muet); font-size: .82rem; }
 .mat-badge-rupture { background: #fff1f2; color: var(--adm-baisse); box-shadow: inset 0 0 0 1px #fecdd3; }
 .mat-badge-rupture::before { display: none; }
 .mat-nom { display: flex; flex-direction: column; }

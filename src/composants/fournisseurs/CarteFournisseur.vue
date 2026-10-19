@@ -30,6 +30,7 @@ const itineraire = computed(() => {
           <span class="fr-nom">
             <strong>{{ fournisseur.nom }}</strong>
             <span v-if="fournisseur.livraison" class="fr-badge"><i class="fa-solid fa-truck" aria-hidden="true"></i>Livraison</span>
+            <span v-if="fournisseur.demonstration" class="fr-badge fr-demo" title="Fiche d’exemple : cette entreprise n’est pas encore partenaire de BTM, ses prix sur BTM sont fictifs."><i class="fa-solid fa-flask" aria-hidden="true"></i>Exemple</span>
           </span>
           <span class="fr-infos">
             <span>{{ fournisseur.categorie }}</span>
@@ -44,6 +45,7 @@ const itineraire = computed(() => {
     </div>
 
     <div v-show="ouvert" :id="idDetails" class="fr-details">
+      <p v-if="fournisseur.demonstration" class="fr-avertissement"><i class="fa-solid fa-flask" aria-hidden="true"></i> Fiche d’exemple : cette entreprise n’est pas encore partenaire de BTM. Les prix affichés pour elle sur BTM sont fictifs ; contactez-la directement pour ses tarifs.</p>
       <p v-if="fournisseur.description" class="fr-description">{{ fournisseur.description }}</p>
       <dl>
         <div><dt><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Adresse</dt><dd>{{ fournisseur.adresse || fournisseur.commune }}</dd></div>
@@ -96,6 +98,10 @@ const itineraire = computed(() => {
 .fr-appel:hover i { color: #fff; }
 
 .fr-details { padding: 4px 16px 22px 84px; background: var(--gris-50); animation: apparaitre .2s ease; }
+.fr-demo { background: #fef3c7; color: #92400e; }
+.fr-demo i { color: #b45309; }
+.fr-avertissement { display: flex; gap: 8px; margin: 0 0 14px; max-width: 580px; padding: 10px 12px; border-radius: 10px; background: #fffbeb; color: #92400e; font-size: .86rem; line-height: 1.5; }
+.fr-avertissement i { margin-top: 3px; }
 .fr-description { margin: 0 0 16px; max-width: 580px; color: var(--gris-600); font-size: .92rem; line-height: 1.6; }
 .fr-details dl { display: grid; gap: 8px; margin: 0; }
 .fr-details dl > div { display: grid; grid-template-columns: 110px 1fr; gap: 12px; font-size: .88rem; }

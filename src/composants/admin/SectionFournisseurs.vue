@@ -50,7 +50,7 @@ async function basculerActif(f) {
 }
 
 // ---------- Formulaire fournisseur ----------
-const vide = () => ({ id: null, nom: '', categorie_id: filtreCategorie.value || donnees.categories?.[0]?.id || '', commune: '', adresse: '', telephone: '', email: '', site_web: '', description: '', horaires: '', logo_url: '', livraison: false, actif: true })
+const vide = () => ({ id: null, nom: '', categorie_id: filtreCategorie.value || donnees.categories?.[0]?.id || '', commune: '', adresse: '', telephone: '', email: '', site_web: '', description: '', horaires: '', logo_url: '', livraison: false, actif: true, demonstration: false })
 const formulaire = ref(null)
 const formErreur = ref('')
 const enregistrement = ref(false)
@@ -169,6 +169,7 @@ async function supprimerCategorie(c) {
           <div class="fiche-etiquettes">
             <span class="fiche-etiquette"><i :class="categorie[f.categorie_id]?.icone || 'fa-solid fa-tag'" aria-hidden="true"></i> {{ categorie[f.categorie_id]?.libelle || f.categorie_id }}</span>
             <span v-if="f.livraison" class="fiche-etiquette"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Livraison</span>
+            <span v-if="f.demonstration" class="adm-badge adm-badge-attention sans-point" title="Pas encore partenaire : prix fictifs, signalés sur le site">Démonstration</span>
             <span v-if="!f.actif" class="adm-badge adm-badge-attention sans-point">Masqué</span>
           </div>
 
@@ -227,6 +228,7 @@ async function supprimerCategorie(c) {
         <div class="plein four-options">
           <label class="four-option"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="formulaire.livraison" @click="formulaire.livraison = !formulaire.livraison"></button> Livraison possible</label>
           <label class="four-option"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="formulaire.actif" @click="formulaire.actif = !formulaire.actif"></button> Visible dans l’annuaire</label>
+          <label class="four-option" title="À décocher dès que l’entreprise a donné son accord et ses vrais prix"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="formulaire.demonstration" @click="formulaire.demonstration = !formulaire.demonstration"></button> Démonstration (pas encore partenaire, prix fictifs)</label>
         </div>
       </form>
       <p v-if="formErreur" class="adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ formErreur }}</p>

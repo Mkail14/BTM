@@ -26,7 +26,8 @@ export const fournisseurs = [
     livraison: true,
     horaires: 'Lun–Ven 6h30–15h30, Sam 6h30–11h30',
     logo: '/logos/etpc.svg',
-    couleur: '#0e7490'
+    couleur: '#0e7490',
+    demonstration: true
   },
   {
     id: 'ibs',
@@ -42,7 +43,8 @@ export const fournisseurs = [
     livraison: true,
     horaires: 'Lun–Ven 7h00–16h00',
     logo: '/logos/ibs.svg',
-    couleur: '#0891b2'
+    couleur: '#0891b2',
+    demonstration: true
   },
   {
     id: 'batimax',
@@ -58,7 +60,8 @@ export const fournisseurs = [
     livraison: true,
     horaires: 'Lun–Sam 7h30–17h00',
     logo: '/logos/batimax.svg',
-    couleur: '#f59e0b'
+    couleur: '#f59e0b',
+    demonstration: true
   }
 ]
 
@@ -79,6 +82,7 @@ export function normaliserFournisseur(ligne) {
     site_web: ligne.site_web,
     description: ligne.description,
     livraison: !!ligne.livraison,
+    demonstration: !!ligne.demonstration,
     horaires: ligne.horaires,
     latitude: ligne.latitude ?? null,
     longitude: ligne.longitude ?? null,

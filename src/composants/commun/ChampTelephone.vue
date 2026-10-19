@@ -12,7 +12,8 @@ const props = defineProps({
   id: { type: String, default: 'champ-telephone' },
   label: { type: String, default: 'Numéro de téléphone' },
   erreur: { type: String, default: '' },
-  requis: { type: Boolean, default: false }
+  requis: { type: Boolean, default: false },
+  aide: { type: String, default: '' } // texte affiché sous le champ tant qu'il n'y a pas d'erreur
 })
 const emit = defineEmits(['update:modelValue', 'update:valide'])
 
@@ -83,6 +84,7 @@ const message = computed(() => props.erreur || (formatInvalide.value ? `Numéro 
       <i v-if="valide && !message" class="fa-solid fa-circle-check tel-coche" aria-hidden="true"></i>
     </div>
     <p v-if="message" :id="`${id}-aide`" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ message }}</p>
+    <p v-else-if="aide" :id="`${id}-aide`" class="champ-aide">{{ aide }}</p>
   </div>
 </template>
 

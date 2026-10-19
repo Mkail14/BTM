@@ -10,8 +10,13 @@ const props = defineProps({ brouillon: { type: Object, required: true } })
 const emit = defineEmits(['fermer', 'envoye'])
 
 const TAILLE_MAX = 10 * 1024 * 1024
+// Adresse d'invitation automatique de Trustpilot : en copie cachée, Trustpilot invite le destinataire à noter BTM
+const ADRESSE_TRUSTPILOT = 'btm.yt+4134deb157@invite.trustpilot.com'
 const m = ref({ a: '', cc: '', cci: '', objet: '', texte: '', pieces: [], ...props.brouillon })
 const copies = ref(!!(m.value.cc || m.value.cci))
+const inviterTrustpilot = ref(false)
+// Trustpilot n'invite qu'un client par e-mail : la case n'est proposée qu'avec un seul destinataire
+const unSeulDestinataire = computed(() => m.value.a.split(/[,;]/).filter((x) => x.trim()).length === 1)
 const envoi = ref(false)
 const erreur = ref('')
 const champA = ref(null)
@@ -42,7 +47,8 @@ async function envoyer() {
   envoi.value = true
   try {
     await envoyerMessage({
-      a: m.value.a, cc: copies.value ? m.value.cc : '', cci: copies.value ? m.value.cci : '',
+      a: m.value.a, cc: copies.value ? m.value.cc : '',
+      cci: [copies.value ? m.value.cci : '', inviterTrustpilot.value && unSeulDestinataire.value ? ADRESSE_TRUSTPILOT : ''].filter((x) => x.trim()).join(', '),
       objet: m.value.objet, texte: m.value.texte, enReponseA: m.value.enReponseA || null,
       pieces: m.value.pieces.map(({ nom, type, base64 }) => ({ nom, type, base64 }))
     })
@@ -95,6 +101,10 @@ async function envoyer() {
           <i class="fa-solid fa-paperclip" aria-hidden="true"></i> Joindre un fichier
           <input type="file" multiple class="visually-hidden" @change="ajouterPieces" />
         </label>
+        <label class="mr-trustpilot" :class="{ inactif: !unSeulDestinataire }" :title="unSeulDestinataire ? 'Trustpilot enverra au destinataire une invitation à noter BTM' : 'Un seul destinataire pour inviter sur Trustpilot'">
+          <input v-model="inviterTrustpilot" type="checkbox" :disabled="!unSeulDestinataire" />
+          <i class="fa-solid fa-star" aria-hidden="true"></i> Inviter à noter BTM sur Trustpilot
+        </label>
         <small class="mr-limite">{{ m.pieces.length ? `${tailleLisible(taillePieces)} / 10 Mo` : '' }}</small>
         <button type="button" class="adm-btn adm-btn-fantome" @click="emit('fermer')">Annuler</button>
       </footer>
@@ -123,6 +133,9 @@ async function envoyer() {
 .mr .adm-erreur-texte { margin: 0 22px 10px; }
 .mr-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 22px; border-top: 1px solid var(--adm-ligne); background: var(--adm-survol); }
 .mr-joindre { cursor: pointer; }
+.mr-trustpilot { display: inline-flex; align-items: center; gap: 6px; color: var(--adm-encre-2); font-size: .84rem; cursor: pointer; }
+.mr-trustpilot i { color: #00b67a; }
+.mr-trustpilot.inactif { opacity: .5; cursor: not-allowed; }
 .mr-limite { flex: 1; color: var(--adm-muet); font-size: .8rem; }
 @media (max-width: 640px) { .mr-fond { padding: 0; } .mr { max-height: 100%; height: 100%; border-radius: 0; } }
 </style>

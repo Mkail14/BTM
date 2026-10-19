@@ -379,8 +379,21 @@ async function enregistrerTaux() {
   .prix-table .adm-saisie:not(:hover):not(:focus):not([aria-invalid]) { border-color: transparent; background: transparent; }
   .prix-table .prix-montant .adm-saisie:not(:focus):not([aria-invalid]) { border-color: var(--adm-ligne); background: var(--adm-champ); }
 }
-/* Ordinateur : page fixe (« ecran-fixe » dans AdminVue). Les onglets et l'en-tête restent en place, seul le contenu défile */
-@media (min-width: 1024px) and (min-height: 640px) {
+/* Tablette : le tableau des prix tient en largeur (la date de mise à jour, secondaire, s'efface) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .calc { gap: 12px; }
+  .prix-table th:nth-child(5), .prix-table td.prix-date { display: none; }
+  .prix-table th, .prix-table td { padding-inline: 8px; }
+  .prix-table td.principal { min-width: 170px; }
+  .prix-cellule { width: 150px; }
+  .prix-unite { width: 64px; }
+  .calc .ouvrages-choix { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; } /* une rangée : la hauteur va aux formules */
+  .ouvrage-choix { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px; }
+  .ouvrage-choix-icone { width: 36px; height: 36px; border-radius: 12px; }
+  .ouvrage-choix > span:last-child { max-width: 100%; }
+}
+/* Ordinateur et tablette : page fixe (« ecran-fixe » dans AdminVue). Les onglets et l'en-tête restent en place, seul le contenu défile */
+@media (min-width: 768px) and (min-height: 640px) {
   .calc-onglets, .calc > .adm-alerte, .ouvrages-choix, .prix-tete, .prix-alerte { flex: none; }
   .calc > section.adm-carte { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .calc .adm-table-cadre { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
@@ -448,5 +461,23 @@ async function enregistrerTaux() {
 @media (max-width: 900px) {
   .ouvrages-choix { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ouvrage-grille { grid-template-columns: minmax(0, 1fr); }
+}
+/* Téléphone : les trois onglets se partagent la largeur (icône au-dessus du libellé), rien ne déborde */
+@media (max-width: 640px) {
+  .calc-onglets .adm-segments { width: 100%; overflow: visible; border-radius: 20px; }
+  .calc-onglets .adm-segments button {
+    position: relative; flex: 1 1 0; flex-direction: column; justify-content: center; gap: 4px; min-width: 0; min-height: 58px; padding: 6px 4px;
+    border-radius: 16px; font-size: .76rem; line-height: 1.2; text-align: center; white-space: normal;
+  }
+  .calc-point { position: absolute; top: 8px; right: 10px; }
+  .prix-actions { flex-wrap: wrap; width: 100%; }
+  .prix-actions .adm-btn-noir { flex: 1; }
+  .prix-alerte { margin: 0 16px 14px; }
+  .ouvrages-choix { gap: 10px; }
+  .ouvrage-choix { gap: 10px; padding: 12px; }
+  .ouvrage-choix-icone { width: 36px; height: 36px; border-radius: 12px; }
+  .frais-deux { grid-template-columns: minmax(0, 1fr); }
+  .frais-champ { max-width: none; }
+  .simulation-actions { grid-template-columns: minmax(0, 1fr); max-width: none; }
 }
 </style>

@@ -239,7 +239,6 @@ const date = (d) => {
     <section class="sp-fil adm-carte" aria-label="Discussion">
       <div v-if="!active" class="sp-fil-vide">
         <i class="fa-solid fa-headset" aria-hidden="true"></i>
-        <p>Choisissez une discussion pour répondre au client.</p>
       </div>
       <template v-else>
         <header class="sp-entete">
@@ -291,9 +290,37 @@ const date = (d) => {
 
 <style scoped>
 .support { display: grid; grid-template-columns: 1fr; gap: 14px; min-height: 0; }
-@media (min-width: 1024px) {
+/* Ordinateur et tablette : la liste et la discussion côte à côte, à hauteur d'écran */
+@media (min-width: 768px) {
   .support { grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); height: 100%; }
   .support > * { min-height: 0; }
+}
+/* Tablette : les deux panneaux tiennent dans l'écran (la page n'est pas « à hauteur d'écran » sous 1024 px) :
+   la liste et la discussion défilent chacune de leur côté, la zone de réponse reste toujours visible en bas */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .support { grid-template-columns: 280px minmax(0, 1fr); gap: 12px; height: calc(100dvh - 140px); min-height: 480px; }
+  .sp-liste, .sp-fil { min-height: 0; }
+  /* filtres sur une seule ligne qui glisse, plutôt qu'empilés sur trois lignes */
+  .sp-filtres { flex-wrap: nowrap; padding: 10px; overflow-x: auto; scrollbar-width: none; }
+  .sp-filtres::-webkit-scrollbar { display: none; }
+  .sp-filtres .adm-pilule { flex: none; }
+  .sp-notif, .sp-hors-service { padding: 8px 12px; font-size: .78rem; }
+  .sp-conversations { padding: 4px; }
+  .sp-conv { gap: 4px; padding: 10px 12px; }
+  .sp-entete { padding: 10px 14px; }
+  .sp-client small { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .sp-raison { padding: 8px 14px; }
+  .sp-messages { padding: 14px; overscroll-behavior: contain; }
+  .sp-message { max-width: 85%; }
+  .sp-actions { flex-wrap: nowrap; padding: 8px 14px 0; overflow-x: auto; scrollbar-width: none; }
+  .sp-actions .adm-btn { flex: none; }
+  .sp-reponse { padding: 8px 14px 12px; }
+  .sp-reponse textarea { min-height: 52px; max-height: 30dvh; font-size: 1rem; resize: none; }
+}
+/* Tablette en portrait étroite : la liste se resserre pour laisser la place à la discussion */
+@media (min-width: 768px) and (max-width: 860px) {
+  .support { grid-template-columns: 240px minmax(0, 1fr); }
+  .sp-reponse .adm-btn { padding: 0 14px; }
 }
 .sp-liste { display: flex; flex-direction: column; min-height: 320px; overflow: hidden; }
 .sp-filtres { padding: 14px 14px 10px; border-bottom: 1px solid var(--adm-ligne); }
@@ -347,10 +374,20 @@ const date = (d) => {
 .sp-reponse { display: flex; align-items: flex-end; gap: 10px; padding: 10px 18px 16px; }
 .sp-reponse textarea { flex: 1; min-height: 70px; padding: 10px 14px; border: 1px solid var(--adm-ligne); border-radius: 12px; resize: vertical; font: inherit; font-size: .9rem; line-height: 1.5; }
 .sp-reponse textarea:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 4px rgba(8, 145, 178, .14); }
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .sp-fil { display: none; }
   .fil-ouvert .sp-fil { display: flex; }
   .fil-ouvert .sp-liste { display: none; }
   .sp-retour { display: inline-grid; }
+}
+@media (max-width: 640px) {
+  .sp-filtres { padding: 10px 10px 8px; }
+  .sp-entete { gap: 8px; padding: 10px 12px; }
+  .sp-raison { padding: 10px 14px; }
+  .sp-messages { padding: 12px; }
+  .sp-message { max-width: 88%; }
+  .sp-actions { padding: 8px 12px 0; }
+  .sp-reponse { gap: 8px; padding: 8px 12px 12px; }
+  .sp-reponse textarea { min-height: 56px; }
 }
 </style>

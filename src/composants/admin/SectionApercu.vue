@@ -223,9 +223,9 @@ const erreurGlobale = computed(() => Object.values(erreurs)[0])
       <div class="calendrier" @keydown.esc="calendrierOuvert = false">
         <button
           type="button" class="adm-pilule apercu-dates" :class="{ actif: periode === 'perso' }"
-          :aria-expanded="calendrierOuvert" aria-haspopup="dialog" aria-live="polite" @click="ouvrirCalendrier"
+          :aria-expanded="calendrierOuvert" aria-haspopup="dialog" aria-live="polite" :title="libellePlage" @click="ouvrirCalendrier"
         >
-          <i class="fa-regular fa-calendar" aria-hidden="true"></i> {{ libellePlage }} <i class="fa-solid fa-chevron-down calendrier-chevron" aria-hidden="true"></i>
+          <i class="fa-regular fa-calendar" aria-hidden="true"></i> <span class="apercu-dates-texte">{{ libellePlage }}</span> <i class="fa-solid fa-chevron-down calendrier-chevron" aria-hidden="true"></i>
         </button>
 
         <template v-if="calendrierOuvert">
@@ -457,13 +457,82 @@ const erreurGlobale = computed(() => Object.values(erreurs)[0])
   .vigilance-icone { width: 26px; height: 26px; }
 }
 
-/* Écrans trop petits pour tout afficher : les blocs s'empilent et la page défile normalement */
-@media (max-width: 1023px), (max-height: 639px) {
-  .apercu { grid-template-rows: none; grid-template-areas: "alerte alerte" "filtres filtres" "kpis kpis" "graphe graphe" "ouvrages ouvrages" "projets projets" "vigilance vigilance"; }
+/* Tablette : l'écran tient sans défiler, par ordre d'importance — les chiffres, l'évolution, puis ce qui demande une action
+   (« À surveiller ») à côté des ouvrages demandés. « Derniers projets » disparaît : c'est la page Projets en plus étroit. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .apercu {
+    gap: 12px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1.35fr) minmax(0, 1fr);
+    grid-template-areas: "alerte alerte" "filtres filtres" "kpis kpis" "graphe graphe" "vigilance ouvrages";
+  }
+  .apercu-projets { display: none; }
+  .apercu-kpis { gap: 10px; }
+  .kpi { gap: 4px; padding: 12px 14px; }
+  .kpi-label { font-size: .8rem; }
+  .kpi-valeur { font-size: 1.3rem; }
+  .kpi-pied { font-size: .72rem; }
+  .apercu-carte { padding: 16px 18px; }
+  .apercu-carte .adm-carte-tete { margin-bottom: 10px; }
+  .apercu-graphe-zone :deep(.graphe) { min-height: 140px; }
+  .repartition { gap: 6px; }
+  .repartition li { grid-template-columns: 96px 1fr 28px; gap: 10px; font-size: .86rem; }
+}
+
+/* Écrans trop petits pour tout afficher (téléphone, ou tablette couchée peu haute) : les blocs s'empilent et la page défile.
+   Ce qui demande une action passe juste après les chiffres. */
+@media (max-width: 767px), (max-height: 639px) {
+  .apercu { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "alerte" "filtres" "kpis" "vigilance" "graphe" "ouvrages" "projets"; }
   .apercu-graphe-zone :deep(.graphe) { height: 240px; }
   .apercu-defile { overflow: visible; }
   .adm-table th { position: static; }
 }
-@media (max-width: 1023px) { .apercu-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 480px) { .apercu-kpis { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 767px) { .apercu-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Téléphone : indicateurs deux par deux, plus compacts, au lieu de quatre grandes cartes empilées */
+@media (max-width: 560px) {
+  .apercu { gap: 12px; }
+  .apercu-kpis { gap: 10px; }
+  .kpi { gap: 4px; padding: 12px 14px; }
+  .kpi-label { font-size: .8rem; }
+  .kpi-valeur { font-size: 1.2rem; }
+  .kpi-pied { font-size: .72rem; }
+  .apercu-carte { padding: 16px; }
+  .apercu-projets { padding: 16px 4px 6px; }
+  .apercu-graphe-zone :deep(.graphe) { height: 210px; }
+  .repartition li { grid-template-columns: 92px 1fr 28px; gap: 10px; font-size: .86rem; }
+}
+
+/* Téléphone assez haut : tableau de bord fixe, comme sur ordinateur. On garde l'essentiel — les chiffres, l'évolution
+   et « À surveiller » (ce qui demande une action) ; la répartition des ouvrages et les derniers projets (page Projets) s'effacent. */
+@media (max-width: 767px) and (min-height: 560px) {
+  .apercu {
+    height: 100%; gap: 10px; grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-areas: "alerte" "filtres" "kpis" "graphe" "vigilance";
+  }
+  .apercu-ouvrages, .apercu-projets { display: none; }
+
+  /* période sur une ligne : les pilules défilent, le calendrier se réduit à son icône (la plage est dans son infobulle) */
+  .apercu-filtres { flex-wrap: nowrap; gap: 8px; }
+  .apercu-filtres > .adm-pilules { flex: 1 1 auto; min-width: 0; }
+  .apercu-filtres .adm-pilule { min-height: 34px; padding: 0 13px; font-size: .82rem; }
+  .apercu-dates { padding: 0 12px; }
+  .apercu-dates-texte, .calendrier-chevron { display: none; }
+
+  .apercu-kpis { gap: 8px; }
+  .kpi { gap: 2px; padding: 10px 12px; border-radius: 18px; }
+  .kpi-label { font-size: .76rem; }
+  .kpi-valeur { font-size: 1.12rem; }
+  .kpi-pied { font-size: .7rem; }
+
+  .apercu-carte { padding: 12px 14px; border-radius: 18px; }
+  .apercu-carte .adm-carte-tete { margin-bottom: 6px; }
+  .apercu-carte .adm-carte-tete p { display: none; }
+  .apercu-carte .adm-carte-tete h2 { font-size: .95rem; }
+  .apercu-graphe .adm-segments button { min-height: 28px; padding: 0 10px; font-size: .76rem; }
+  .apercu-graphe-zone :deep(.graphe) { height: 100%; min-height: 110px; }
+  .apercu-graphe-squelette { min-height: 110px; }
+  .apercu-defile { overflow-y: auto; }
+  .vigilance a, .vigilance button { padding: 5px 6px; font-size: .84rem; }
+  .vigilance-icone { width: 28px; height: 28px; }
+}
 </style>

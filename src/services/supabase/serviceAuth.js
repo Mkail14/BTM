@@ -13,14 +13,47 @@ export async function connexion(email, motDePasse) {
   return data.user
 }
 
-/** `retour` : page où ramène le lien de confirmation (ex. « /resultats » pour retrouver le devis en cours) */
+/**
+ * Connexion ou création de compte avec Google ou Apple : le navigateur part chez le fournisseur, puis revient
+ * sur `retour` (page du site) avec la session, lue automatiquement par le client Supabase.
+ * Le fournisseur doit être activé dans Supabase (Authentication → Providers) et l'adresse du site autorisée
+ * dans Authentication → URL Configuration (Redirect URLs).
+ */
+export async function connexionExterne(fournisseur, retour = '') {
+  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
+  const redirectTo = window.location.origin + (retour.startsWith('/') ? retour : window.location.pathname)
+  const { error } = await supabase.auth.signInWithOAuth({ provider: fournisseur, options: { redirectTo } })
+  if (error) throw error
+}
+
+/** Jeton d'identité Google (bouton Google Identity Services) → session Supabase, sans quitter la page */
+export async function connexionGoogleJeton(jeton, nonce) {
+  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
+  const { data, error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: jeton, nonce })
+  if (error) throw erreurAuth(error)
+  return data.user
+}
+
+/**
+ * `retour` : page où ramène le lien de confirmation (ex. « /resultats » pour retrouver le devis en cours).
+ * Renvoie `{ user, confirmationRequise }` : sans session, Supabase attend que l'adresse soit confirmée par e-mail.
+ */
 export async function inscription(email, motDePasse, identite = {}, retour = '') {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
   await controlerEmailReel(email)
   const emailRedirectTo = window.location.origin + (retour.startsWith('/') ? retour : '')
   const { data, error } = await supabase.auth.signUp({ email, password: motDePasse, options: { data: identite, emailRedirectTo } })
   if (error) throw erreurAuth(error)
-  return data.user
+  // adresse déjà inscrite : Supabase répond sans erreur (anti-énumération), mais sans aucune identité
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new Error('User already registered')
+  return { user: data.user, confirmationRequise: !data.session }
+}
+
+/** Renvoie l'e-mail de confirmation d'inscription (même lien de retour que le premier envoi) */
+export async function renvoyerConfirmation(email) {
+  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
+  const { error } = await supabase.auth.resend({ type: 'signup', email })
+  if (error) throw error
 }
 
 export async function deconnexion() {

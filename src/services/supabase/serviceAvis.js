@@ -11,7 +11,7 @@ const versFront = (l) => ({
   note: l.note,
   commentaire: l.commentaire || '',
   date: l.cree_le,
-  source: l.source || 'site', // 'site' (utilisateur du site) ou 'google' (recopié depuis la fiche Google)
+  source: l.source || 'site', // 'site' (utilisateur du site) ou 'trustpilot' (recopié depuis la page Trustpilot)
   lien: l.lien || null,
   modifie: l.modifie_le || null
 })

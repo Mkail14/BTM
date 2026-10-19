@@ -3,24 +3,35 @@
  * Messagerie de contact@btm.yt : dossiers | liste des messages | lecture.
  * Lire, répondre, répondre à tous, transférer, écrire, marquer lu / non lu / important, déplacer, supprimer,
  * pièces jointes (téléchargement, aperçu des PDF). Le contenu HTML des e-mails est affiché dans un cadre isolé
- * (aucun script, images distantes bloquées par défaut : elles servent souvent à pister l'ouverture des messages).
+ * (aucun script ; les images distantes sont affichées directement).
+ *
+ * Rapidité : la dernière liste de chaque dossier s'affiche tout de suite (mémoire + appareil), les messages récents
+ * sont préchargés (sans être marqués lus) pour s'ouvrir instantanément, la liste se met à jour seule toutes les
+ * 30 secondes et au retour sur l'onglet, et suppressions / déplacements s'affichent avant la réponse du serveur.
+ * Téléphone : présentation de Gmail (dossiers en tiroir, avatars à toucher pour sélectionner, bouton « Nouveau »
+ * flottant, lecture en plein écran avec Répondre / Transférer en bas).
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin.js'
 import { useMessagerie } from '@/composables/useMessagerie.js'
 import { apercuPdf, fermerApercuPdf } from '@/services/export/livrerPdf.js'
 import {
-  ouvrirBoite, listerMessages, lireMessage, lirePieceJointe, marquerMessages, deplacerMessages, supprimerMessages, versBlob
+  ouvrirBoite, listerMessages, lireMessage, lireMessages, lirePieceJointe, marquerMessages, deplacerMessages, supprimerMessages, versBlob
 } from '@/services/supabase/serviceMessagerie.js'
 import MessagerieRedaction from './MessagerieRedaction.vue'
 
 const { notifier, confirmer } = useAdmin()
-const { nonLus, majDepuisDossiers, memoire } = useMessagerie()
+const { nonLus, majDepuisDossiers, memoire, memoriser, sauverMemoire, LISTE_VIDE } = useMessagerie()
 const MOI = 'contact@btm.yt'
 const SIGNATURE = '\n\n--\nL’équipe BTM — Bâtiment & Travaux Mayotte\nwww.btm.yt · contact@btm.yt'
+const ACTUALISATION = 30000 // mise à jour automatique de la liste
+const PRECHARGES = 12 // messages récents préchargés…
+const PAR_LOT = 4 // …par appels de 4 (une seule connexion à la boîte par appel)
+const TAILLE_PRECHARGEMENT = 1024 * 1024 // les messages plus lourds s'ouvrent à la demande
 
 // gardés en mémoire (useMessagerie) : revenir dans la messagerie affiche tout de suite la dernière liste
 const { dossiers, dossier, liste } = memoire
+const tiroir = ref(false) // téléphone : tiroir des dossiers ouvert
 const recherche = ref('')
 const rechercheActive = ref('')
 const ouvert = ref(null) // message affiché (en-tête tout de suite, contenu dès qu'il est arrivé)
@@ -28,7 +39,6 @@ const chargementListe = ref(false)
 const chargementMessage = ref(false) // contenu du message en cours de chargement
 const erreur = ref('')
 const selection = ref([])
-const imagesDistantes = ref(false)
 const brouillon = ref(null) // fenêtre de rédaction ouverte
 const pieceEnCours = ref(null)
 
@@ -39,37 +49,103 @@ const tousCoches = computed(() => liste.value.messages.length > 0 && selection.v
 const ICONES = { reception: 'fa-solid fa-inbox', envoyes: 'fa-solid fa-paper-plane', brouillons: 'fa-regular fa-file-lines', indesirables: 'fa-solid fa-ban', corbeille: 'fa-regular fa-trash-can', archives: 'fa-solid fa-box-archive' }
 
 // ---------- Chargements ----------
-// Page 1 : dossiers + messages en un seul appel ; autres pages : la liste seule
-async function actualiser(page = 1) {
+// Numéro de la dernière demande de liste : une réponse dépassée (changement de dossier, suppression entre-temps) est ignorée
+let requete = 0
+function invaliderListe() { requete++; chargementListe.value = false }
+
+// Page 1 : dossiers + messages en un seul appel ; autres pages : la liste seule.
+// « discret » (mise à jour automatique) : pas de message d'erreur tant qu'une liste est affichée.
+async function actualiser(page = 1, { discret = false } = {}) {
+  const n = ++requete
+  const chemin = dossier.value, cherche = rechercheActive.value
   chargementListe.value = true
-  erreur.value = ''
+  if (!discret) erreur.value = ''
   try {
+    let nouvelle
     if (page === 1) {
-      const r = await ouvrirBoite(dossier.value, rechercheActive.value)
+      const r = await ouvrirBoite(chemin, cherche)
+      if (n !== requete) return
       dossiers.value = r.dossiers
-      liste.value = r.liste
       majDepuisDossiers(r.dossiers)
-      memoire.chargee.value = true
+      nouvelle = r.liste
     } else {
-      liste.value = await listerMessages(dossier.value, page, rechercheActive.value)
+      nouvelle = await listerMessages(chemin, page, cherche)
+      if (n !== requete) return
     }
-    selection.value = []
+    liste.value = nouvelle
+    erreur.value = ''
+    if (!cherche) memoire.listes.set(chemin, nouvelle)
+    memoire.chargee.value = true
+    sauverMemoire()
+    const presents = new Set(nouvelle.messages.map((m) => m.uid))
+    selection.value = selection.value.filter((uid) => presents.has(uid))
+    precharger()
   } catch (e) {
-    erreur.value = e.message
+    if (n !== requete) return
+    if (!discret || !liste.value.messages.length) erreur.value = e.message
   } finally {
-    chargementListe.value = false
+    if (n === requete) chargementListe.value = false
   }
 }
 const chargerListe = actualiser
 const toutRecharger = () => actualiser(liste.value.page)
-onMounted(() => actualiser()) // la liste en mémoire reste affichée pendant l'actualisation
+
+// Mise à jour automatique : toutes les 30 s quand l'onglet est visible, et dès qu'on y revient
+function actualiserEnFond() {
+  if (!document.hidden && !chargementListe.value) actualiser(liste.value.page, { discret: true })
+}
+let minuterie
+onMounted(() => {
+  actualiser() // la liste en mémoire reste affichée pendant l'actualisation
+  minuterie = setInterval(actualiserEnFond, ACTUALISATION)
+  document.addEventListener('visibilitychange', actualiserEnFond)
+  window.addEventListener('focus', actualiserEnFond)
+})
+onBeforeUnmount(() => {
+  clearInterval(minuterie)
+  document.removeEventListener('visibilitychange', actualiserEnFond)
+  window.removeEventListener('focus', actualiserEnFond)
+})
 
 function choisirDossier(chemin) {
+  tiroir.value = false
+  if (chemin === dossier.value && !rechercheActive.value) { ouvert.value = null; return }
   dossier.value = chemin
   ouvert.value = null
   recherche.value = rechercheActive.value = ''
-  liste.value = { messages: [], total: 0, page: 1, pages: 1 }
+  liste.value = memoire.listes.get(chemin) || LISTE_VIDE() // dernière liste connue du dossier, tout de suite
   actualiser()
+}
+
+// ---------- Préchargement ----------
+// Les messages récents sont lus à l'avance (sans les marquer comme lus) : leur ouverture est instantanée.
+const prechargements = new Map() // clé du message → chargement en cours
+let prechargementActif = false
+let prechargementIndisponible = false // fonction serveur pas encore à jour : on n'insiste pas
+async function precharger() {
+  if (prechargementActif || prechargementIndisponible) return
+  const chemin = dossier.value
+  const aLire = liste.value.messages
+    .filter((m) => m.taille <= TAILLE_PRECHARGEMENT && !memoire.messages.has(`${chemin}:${m.uid}`))
+    .slice(0, PRECHARGES)
+  if (!aLire.length) return
+  prechargementActif = true
+  try {
+    for (let i = 0; i < aLire.length && dossier.value === chemin; i += PAR_LOT) {
+      const lot = aLire.slice(i, i + PAR_LOT)
+      const chargement = lireMessages(chemin, lot.map((m) => m.uid))
+        .then((r) => {
+          for (const c of r.messages || []) memoriser(`${chemin}:${c.uid}`, { ...c, important: lot.find((m) => m.uid === c.uid)?.important ?? false })
+        })
+        .catch((e) => { if (/action inconnue/i.test(e.message)) prechargementIndisponible = true })
+      lot.forEach((m) => prechargements.set(`${chemin}:${m.uid}`, chargement))
+      await chargement
+      lot.forEach((m) => prechargements.delete(`${chemin}:${m.uid}`))
+      if (prechargementIndisponible) break
+    }
+  } finally {
+    prechargementActif = false
+  }
 }
 function rechercher() { rechercheActive.value = recherche.value.trim(); actualiser() }
 function effacerRecherche() { recherche.value = rechercheActive.value = ''; actualiser() }
@@ -81,19 +157,32 @@ function ajusterNonLus(ecart) {
   if (d?.cle === 'reception') nonLus.value = Math.max(0, nonLus.value + ecart)
 }
 
+/** Message ouvert : marqué lu tout de suite à l'écran ; « serveur » quand la boîte ne l'a pas déjà fait (contenu préchargé) */
+function marquerLu(m, serveur) {
+  if (m.lu) return
+  m.lu = true
+  ajusterNonLus(-1)
+  if (serveur) marquerMessages(dossier.value, [m.uid], { lu: true }).catch(() => {})
+}
+
 async function ouvrir(m) {
-  imagesDistantes.value = false
-  const cle = `${dossier.value}:${m.uid}`
+  const chemin = dossier.value, cle = `${chemin}:${m.uid}`
   const enMemoire = memoire.messages.get(cle)
-  if (enMemoire) { ouvert.value = enMemoire; return }
+  if (enMemoire) { ouvert.value = enMemoire; marquerLu(m, true); return }
   // en-tête connu par la liste : affiché tout de suite, le contenu suit
   ouvert.value = { ...m, cc: [], repondreA: [], texte: '', html: '', piecesJointes: [], partiel: true }
   chargementMessage.value = true
   try {
-    const complet = { ...(await lireMessage(dossier.value, m.uid)), important: m.important }
-    memoire.messages.set(cle, complet)
-    if (ouvert.value?.uid === m.uid) ouvert.value = complet
-    if (!m.lu) { m.lu = true; ajusterNonLus(-1) }
+    // déjà en cours de préchargement : on attend ce chargement plutôt que d'en lancer un second
+    await prechargements.get(cle)
+    let complet = memoire.messages.get(cle)
+    if (complet) marquerLu(m, true)
+    else {
+      complet = { ...(await lireMessage(chemin, m.uid)), important: m.important }
+      memoriser(cle, complet)
+      marquerLu(m, false)
+    }
+    if (ouvert.value?.uid === m.uid && dossier.value === chemin) ouvert.value = complet
   } catch (e) {
     if (ouvert.value?.uid === m.uid) ouvert.value = null
     notifier(e.message, 'erreur')
@@ -103,48 +192,74 @@ async function ouvrir(m) {
 }
 
 // ---------- Actions ----------
+// Affichées tout de suite ; si la boîte refuse, l'écran revient à l'état précédent.
 const uidsVises = (uid) => (uid ? [uid] : selection.value)
 
 async function marquer(etat, uid) {
   const uids = uidsVises(uid)
   if (!uids.length) return
+  const chemin = dossier.value
+  const avant = []
+  const appliquer = (m, e) => {
+    if ('lu' in e && m.lu !== e.lu) ajusterNonLus(e.lu ? -1 : 1)
+    Object.assign(m, e)
+    const enMemoire = memoire.messages.get(`${chemin}:${m.uid}`)
+    if (enMemoire && 'important' in e) enMemoire.important = e.important
+    if (ouvert.value?.uid === m.uid && 'important' in e) ouvert.value.important = e.important
+  }
+  for (const m of liste.value.messages) {
+    if (!uids.includes(m.uid)) continue
+    avant.push([m, Object.fromEntries(Object.keys(etat).map((k) => [k, m[k]]))])
+    appliquer(m, etat)
+  }
+  selection.value = []
+  sauverMemoire()
   try {
-    await marquerMessages(dossier.value, uids, etat)
-    for (const m of liste.value.messages) {
-      if (!uids.includes(m.uid)) continue
-      if ('lu' in etat && m.lu !== etat.lu) ajusterNonLus(etat.lu ? -1 : 1)
-      Object.assign(m, etat)
-      const enMemoire = memoire.messages.get(`${dossier.value}:${m.uid}`)
-      if (enMemoire && 'important' in etat) enMemoire.important = etat.important
-    }
-    if (ouvert.value && uids.includes(ouvert.value.uid) && 'important' in etat) ouvert.value.important = etat.important
-    selection.value = []
-  } catch (e) { notifier(e.message, 'erreur') }
+    await marquerMessages(chemin, uids, etat)
+  } catch (e) {
+    avant.forEach(([m, ancien]) => appliquer(m, ancien))
+    notifier(e.message, 'erreur')
+  }
+}
+
+/** Retire des messages de la liste affichée ; renvoie de quoi les remettre si la boîte refuse */
+function retirerDeLaListe(uids) {
+  invaliderListe() // une actualisation partie avant ne doit pas les faire réapparaître
+  const precedente = liste.value
+  const retires = precedente.messages.filter((m) => uids.includes(m.uid))
+  const nonLusRetires = retires.filter((m) => !m.lu).length
+  liste.value = { ...precedente, messages: precedente.messages.filter((m) => !uids.includes(m.uid)), total: Math.max(0, precedente.total - retires.length) }
+  if (nonLusRetires) ajusterNonLus(-nonLusRetires)
+  if (ouvert.value && uids.includes(ouvert.value.uid)) ouvert.value = null
+  selection.value = []
+  return () => { liste.value = precedente; if (nonLusRetires) ajusterNonLus(nonLusRetires) }
 }
 
 async function supprimer(uid) {
   const uids = uidsVises(uid)
   if (!uids.length) return
   if (estCorbeille.value && !(await confirmer({ titre: 'Supprimer définitivement ?', texte: `${uids.length > 1 ? `${uids.length} messages seront effacés` : 'Ce message sera effacé'} pour toujours.`, libelle: 'Supprimer', danger: true }))) return
+  const chemin = dossier.value
+  const remettre = retirerDeLaListe(uids)
   try {
-    const r = await supprimerMessages(dossier.value, uids)
-    uids.forEach((uid) => memoire.messages.delete(`${dossier.value}:${uid}`))
+    const r = await supprimerMessages(chemin, uids)
+    uids.forEach((uid) => memoire.messages.delete(`${chemin}:${uid}`))
     notifier(r.definitif ? 'Supprimé définitivement.' : uids.length > 1 ? `${uids.length} messages mis à la corbeille.` : 'Message mis à la corbeille.')
-    if (ouvert.value && uids.includes(ouvert.value.uid)) ouvert.value = null
-    toutRecharger()
-  } catch (e) { notifier(e.message, 'erreur') }
+    toutRecharger() // complète la page et met à jour les compteurs des dossiers
+  } catch (e) { remettre(); notifier(e.message, 'erreur') }
 }
 
 async function deplacer(vers, uid) {
   const uids = uidsVises(uid)
   if (!uids.length || !vers) return
+  const chemin = dossier.value
+  const remettre = retirerDeLaListe(uids)
   try {
-    await deplacerMessages(dossier.value, uids, vers)
-    uids.forEach((uid) => memoire.messages.delete(`${dossier.value}:${uid}`))
+    await deplacerMessages(chemin, uids, vers)
+    uids.forEach((uid) => memoire.messages.delete(`${chemin}:${uid}`))
     notifier(`Déplacé vers « ${dossiers.value.find((d) => d.chemin === vers)?.libelle || vers} ».`)
-    if (ouvert.value && uids.includes(ouvert.value.uid)) ouvert.value = null
     toutRecharger()
-  } catch (e) { notifier(e.message, 'erreur') }
+  } catch (e) { remettre(); notifier(e.message, 'erreur') }
 }
 
 function basculerSelection(uid) {
@@ -203,17 +318,14 @@ function apresEnvoi() {
 }
 
 // ---------- Affichage ----------
-const contientImagesDistantes = computed(() => /<img[^>]+src=["']?https?:/i.test(ouvert.value?.html || ''))
-// Cadre isolé (sandbox sans scripts) : liens ouverts dans un nouvel onglet, images distantes seulement sur demande
+// Cadre isolé (sandbox sans scripts) : liens ouverts dans un nouvel onglet, images distantes affichées d'office
 const documentHtml = computed(() => {
   const html = ouvert.value?.html
   if (!html) return ''
-  const images = imagesDistantes.value ? 'data: https: http:' : 'data:'
-  const masquer = imagesDistantes.value ? '' : 'img[src^="http"]{display:none}' // pas d'icône d'image cassée tant qu'elles sont bloquées
   // les « target » propres au message sont retirés : tous les liens suivent <base target="_blank"> (un lien qui voudrait
   // s'ouvrir dans le cadre ou la page serait bloqué par l'isolation, et le clic ne ferait rien)
   const corps = html.replace(/(<a\b[^>]*?)\s+target\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1')
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${images}; style-src 'unsafe-inline'; font-src data:"><base target="_blank"><style>body{margin:0;padding:18px 20px;font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#0f172a;word-wrap:break-word}img{max-width:100%;height:auto}table{max-width:100%}a{color:#0e7490}${masquer}</style></head><body>${corps}</body></html>`
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'; font-src data:"><base target="_blank"><style>body{margin:0;padding:18px 20px;font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;color:#0f172a;word-wrap:break-word}img{max-width:100%;height:auto}table{max-width:100%}a{color:#0e7490}</style></head><body>${corps}</body></html>`
 })
 
 // Message en texte brut : adresses web et e-mails rendus cliquables (découpage en morceaux, aucun HTML injecté).
@@ -252,15 +364,27 @@ function dateCourte(d) {
 }
 const tailleLisible = (o) => (o > 1024 * 1024 ? `${(o / 1024 / 1024).toFixed(1).replace('.', ',')} Mo` : `${Math.max(1, Math.round(o / 1024))} Ko`)
 const initiale = (a) => (a?.nom || a?.email || '?').trim().charAt(0).toUpperCase()
+// Liste : l'expéditeur, ou le destinataire dans « Envoyés »
+const correspondant = (m) => (dossierActif.value?.cle === 'envoyes' ? m.a[0] : m.de) || { nom: '', email: '' }
+// Avatar (téléphone) : une couleur stable par adresse, comme dans Gmail
+function couleur(a) {
+  let h = 0
+  for (const c of (a?.email || a?.nom || '?').toLowerCase()) h = (h * 31 + c.charCodeAt(0)) % 360
+  return `hsl(${h} 45% 46%)`
+}
 
 watch(dossier, () => { selection.value = [] })
 </script>
 
 <template>
-  <div class="messagerie" :class="{ 'lecture-ouverte': ouvert }">
-    <!-- Dossiers -->
-    <aside class="mg-dossiers adm-carte">
-      <button type="button" class="adm-btn adm-btn-noir mg-nouveau" @click="nouveau"><i class="fa-solid fa-pen" aria-hidden="true"></i> Nouveau message</button>
+  <div class="messagerie" :class="{ 'lecture-ouverte': ouvert, 'tiroir-ouvert': tiroir }">
+    <!-- Dossiers (téléphone : tiroir) -->
+    <aside class="mg-dossiers adm-carte" @keydown.esc="tiroir = false">
+      <div class="mg-tiroir-tete">
+        <strong><i class="fa-solid fa-at" aria-hidden="true"></i> contact@btm.yt</strong>
+        <button type="button" class="adm-icone-btn" aria-label="Fermer les dossiers" @click="tiroir = false"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+      </div>
+      <button type="button" class="adm-btn adm-btn-noir mg-nouveau" @click="tiroir = false; nouveau()"><i class="fa-solid fa-pen" aria-hidden="true"></i> Nouveau message</button>
       <nav aria-label="Dossiers">
         <button v-for="d in dossiers" :key="d.chemin" type="button" class="mg-dossier" :class="{ actif: d.chemin === dossier }" @click="choisirDossier(d.chemin)">
           <i :class="ICONES[d.cle] || 'fa-regular fa-folder'" aria-hidden="true"></i><span>{{ d.libelle }}</span>
@@ -269,24 +393,33 @@ watch(dossier, () => { selection.value = [] })
       </nav>
       <p class="mg-boite"><i class="fa-solid fa-at" aria-hidden="true"></i> contact@btm.yt</p>
     </aside>
+    <div v-if="tiroir" class="mg-voile" aria-hidden="true" @click="tiroir = false"></div>
 
     <!-- Liste -->
     <section class="mg-liste adm-carte" aria-label="Messages">
       <form class="mg-recherche" role="search" @submit.prevent="rechercher">
-        <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
-        <input v-model="recherche" type="search" placeholder="Rechercher (expéditeur, objet, texte)" aria-label="Rechercher dans les messages" />
+        <button type="button" class="mg-ouvrir-tiroir" aria-label="Dossiers" :aria-expanded="tiroir" @click="tiroir = true"><i class="fa-solid fa-bars-staggered" aria-hidden="true"></i></button>
+        <i class="fa-solid fa-magnifying-glass mg-loupe" aria-hidden="true"></i>
+        <input v-model="recherche" type="search" placeholder="Rechercher dans les messages" aria-label="Rechercher dans les messages" />
         <button v-if="rechercheActive" type="button" class="mg-lien" @click="effacerRecherche">Effacer</button>
       </form>
 
-      <div class="mg-outils">
-        <input type="checkbox" :checked="tousCoches" :indeterminate="selection.length > 0 && !tousCoches" aria-label="Tout sélectionner" @change="toutCocher" />
+      <div class="mg-outils" :class="{ selection: selection.length }">
+        <button v-if="selection.length" type="button" class="adm-icone-btn mg-annuler-selection" aria-label="Annuler la sélection" @click="selection = []"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        <input type="checkbox" class="mg-tout" :checked="tousCoches" :indeterminate="selection.length > 0 && !tousCoches" aria-label="Tout sélectionner" @change="toutCocher" />
         <template v-if="selection.length">
           <span class="mg-nb">{{ selection.length }} sélectionné{{ selection.length > 1 ? 's' : '' }}</span>
           <button type="button" class="adm-icone-btn" title="Marquer comme lu" aria-label="Marquer comme lu" @click="marquer({ lu: true })"><i class="fa-regular fa-envelope-open" aria-hidden="true"></i></button>
           <button type="button" class="adm-icone-btn" title="Marquer comme non lu" aria-label="Marquer comme non lu" @click="marquer({ lu: false })"><i class="fa-solid fa-envelope" aria-hidden="true"></i></button>
           <button type="button" class="adm-icone-btn danger" :title="estCorbeille ? 'Supprimer définitivement' : 'Mettre à la corbeille'" :aria-label="estCorbeille ? 'Supprimer définitivement' : 'Mettre à la corbeille'" @click="supprimer()"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
         </template>
-        <span v-else class="mg-nb">{{ dossierActif?.libelle }}<template v-if="liste.total"> · {{ liste.total }}</template></span>
+        <template v-else>
+          <span class="mg-nb">{{ dossierActif?.libelle }}<template v-if="liste.total"> · {{ liste.total }}</template></span>
+          <button type="button" class="mg-choix-dossier" :aria-expanded="tiroir" @click="tiroir = true">
+            {{ rechercheActive ? `Résultats pour « ${rechercheActive} »` : dossierActif?.libelle || 'Boîte de réception' }}<small v-if="liste.total"> · {{ liste.total }}</small>
+            <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+          </button>
+        </template>
         <button type="button" class="adm-icone-btn mg-actualiser" title="Actualiser" aria-label="Actualiser" :disabled="chargementListe" @click="toutRecharger"><i class="fa-solid fa-rotate-right" :class="{ 'fa-spin': chargementListe }" aria-hidden="true"></i></button>
       </div>
 
@@ -296,7 +429,11 @@ watch(dossier, () => { selection.value = [] })
 
       <ul v-else class="mg-messages">
         <li v-for="m in liste.messages" :key="m.uid" class="mg-message" :class="{ 'non-lu': !m.lu, actif: ouvert?.uid === m.uid, coche: selection.includes(m.uid) }">
-          <input type="checkbox" :checked="selection.includes(m.uid)" :aria-label="`Sélectionner « ${m.objet} »`" @change="basculerSelection(m.uid)" />
+          <input type="checkbox" class="mg-case" :checked="selection.includes(m.uid)" :aria-label="`Sélectionner « ${m.objet} »`" @change="basculerSelection(m.uid)" />
+          <!-- téléphone : l'avatar sert de case à cocher, comme dans Gmail -->
+          <button type="button" class="mg-avatar" :style="selection.includes(m.uid) ? null : { background: couleur(correspondant(m)) }" :aria-pressed="selection.includes(m.uid)" :aria-label="`Sélectionner « ${m.objet} »`" @click="basculerSelection(m.uid)">
+            <i v-if="selection.includes(m.uid)" class="fa-solid fa-check" aria-hidden="true"></i><template v-else>{{ initiale(correspondant(m)) }}</template>
+          </button>
           <button type="button" class="mg-message-corps" @click="ouvrir(m)">
             <span class="mg-de">{{ dossierActif?.cle === 'envoyes' ? `À : ${m.a[0]?.nom || m.a[0]?.email || ''}` : m.de.nom || m.de.email }}</span>
             <span class="mg-date">{{ dateCourte(m.date) }}</span>
@@ -319,7 +456,10 @@ watch(dossier, () => { selection.value = [] })
       </div>
     </section>
 
-    <!-- Lecture -->
+    <!-- Téléphone : bouton flottant « Nouveau », comme dans Gmail -->
+    <button v-if="!ouvert && !brouillon && !tiroir" type="button" class="mg-fab" @click="nouveau"><i class="fa-solid fa-pen" aria-hidden="true"></i> Nouveau</button>
+
+    <!-- Lecture (téléphone : plein écran) -->
     <section class="mg-lecture adm-carte" aria-label="Lecture du message">
       <div v-if="!ouvert" class="mg-lecture-vide">
         <i class="fa-regular fa-envelope-open" aria-hidden="true"></i>
@@ -329,8 +469,8 @@ watch(dossier, () => { selection.value = [] })
         <div class="mg-actions">
           <button type="button" class="adm-icone-btn mg-retour" aria-label="Retour à la liste" @click="ouvert = null"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></button>
           <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="ouvert.partiel" @click="repondre(false)"><i class="fa-solid fa-reply" aria-hidden="true"></i> Répondre</button>
-          <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="ouvert.partiel" @click="repondre(true)"><i class="fa-solid fa-reply-all" aria-hidden="true"></i> <span class="mg-txt">Répondre à tous</span></button>
-          <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="ouvert.partiel" @click="transferer"><i class="fa-solid fa-share" aria-hidden="true"></i> <span class="mg-txt">Transférer</span></button>
+          <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="ouvert.partiel" title="Répondre à tous" aria-label="Répondre à tous" @click="repondre(true)"><i class="fa-solid fa-reply-all" aria-hidden="true"></i> <span class="mg-txt">Répondre à tous</span></button>
+          <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="ouvert.partiel" title="Transférer" aria-label="Transférer" @click="transferer"><i class="fa-solid fa-share" aria-hidden="true"></i> <span class="mg-txt">Transférer</span></button>
           <span class="mg-espace"></span>
           <button type="button" class="adm-icone-btn" :title="ouvert.important ? 'Retirer des importants' : 'Important'" :aria-label="ouvert.important ? 'Retirer des importants' : 'Marquer comme important'" @click="marquer({ important: !ouvert.important }, ouvert.uid)"><i :class="ouvert.important ? 'fa-solid fa-star mg-jaune' : 'fa-regular fa-star'" aria-hidden="true"></i></button>
           <button type="button" class="adm-icone-btn" title="Marquer comme non lu" aria-label="Marquer comme non lu" @click="marquer({ lu: false }, ouvert.uid); ouvert = null"><i class="fa-solid fa-envelope" aria-hidden="true"></i></button>
@@ -349,14 +489,10 @@ watch(dossier, () => { selection.value = [] })
               <strong>{{ ouvert.de.nom || ouvert.de.email }}</strong> <small v-if="ouvert.de.nom">&lt;{{ ouvert.de.email }}&gt;</small>
               <p>À : {{ ouvert.a.map(adresseTexte).join(', ') || '—' }}<template v-if="ouvert.cc.length"> · Cc : {{ ouvert.cc.map(adresseTexte).join(', ') }}</template></p>
             </div>
-            <time :datetime="ouvert.date">{{ dateLongue(ouvert.date) }}</time>
+            <time :datetime="ouvert.date" :title="dateLongue(ouvert.date)"><span class="mg-date-longue">{{ dateLongue(ouvert.date) }}</span><span class="mg-date-courte">{{ dateCourte(ouvert.date) }}</span></time>
           </div>
         </header>
 
-        <p v-if="contientImagesDistantes && !imagesDistantes" class="mg-images">
-          <i class="fa-regular fa-image" aria-hidden="true"></i> Images distantes masquées pour votre confidentialité.
-          <button type="button" class="mg-lien" @click="imagesDistantes = true">Afficher les images</button>
-        </p>
 
         <div v-if="chargementMessage && ouvert.partiel" class="mg-corps-attente"><span class="spinner spinner-grand" aria-hidden="true"></span><span>Ouverture du message…</span></div>
         <iframe v-else-if="documentHtml" class="mg-corps-html" :srcdoc="documentHtml" sandbox="allow-popups allow-popups-to-escape-sandbox" :title="`Contenu du message « ${ouvert.objet} »`"></iframe>
@@ -377,6 +513,13 @@ watch(dossier, () => { selection.value = [] })
               </button>
             </li>
           </ul>
+        </div>
+
+        <!-- Téléphone : réponses en bas de l'écran, à portée du pouce -->
+        <div class="mg-reponses">
+          <button type="button" :disabled="ouvert.partiel" @click="repondre(false)"><i class="fa-solid fa-reply" aria-hidden="true"></i> Répondre</button>
+          <button type="button" :disabled="ouvert.partiel" @click="repondre(true)"><i class="fa-solid fa-reply-all" aria-hidden="true"></i> À tous</button>
+          <button type="button" :disabled="ouvert.partiel" @click="transferer"><i class="fa-solid fa-share" aria-hidden="true"></i> Transférer</button>
         </div>
       </template>
     </section>
@@ -449,7 +592,6 @@ watch(dossier, () => { selection.value = [] })
 .mg-expediteur small { color: var(--adm-muet); }
 .mg-expediteur p { margin: 2px 0 0; overflow: hidden; color: var(--adm-muet); font-size: .8rem; text-overflow: ellipsis; white-space: nowrap; }
 .mg-expediteur time { color: var(--adm-muet); font-size: .78rem; white-space: nowrap; }
-.mg-images { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 8px 20px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .82rem; }
 .mg-corps-attente { display: grid; place-content: center; justify-items: center; gap: 10px; flex: 1; color: var(--adm-muet); font-size: .88rem; }
 .mg-corps-html { flex: 1; width: 100%; min-height: 300px; border: 0; background: #fff; }
 .mg-corps-texte { flex: 1; margin: 0; padding: 18px 20px; overflow: auto; color: var(--adm-encre); font: inherit; font-size: .93rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
@@ -463,17 +605,101 @@ watch(dossier, () => { selection.value = [] })
 .mg-rouge { color: #dc2626; }
 .mg-pieces .spinner, .mg-outils .spinner { width: 14px; height: 14px; border-width: 2px; }
 
-/* Téléphone et tablette : une colonne à la fois (dossiers + liste, puis la lecture) */
-@media (max-width: 1023px) {
-  .mg-dossiers { flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .mg-dossiers nav { flex-direction: row; flex-wrap: wrap; }
-  .mg-nouveau { margin: 0 6px 0 0; }
-  .mg-dossier { width: auto; }
-  .mg-boite { display: none; }
+/* Petit écran d'ordinateur : trois colonnes ne tiennent pas, le message ouvert prend la place de la liste */
+@media (min-width: 1024px) and (max-width: 1399px) {
+  .messagerie { grid-template-columns: 200px minmax(0, 1fr); }
   .mg-lecture { display: none; }
+  .lecture-ouverte .mg-liste { display: none; }
   .lecture-ouverte .mg-lecture { display: flex; }
-  .lecture-ouverte .mg-liste, .lecture-ouverte .mg-dossiers { display: none; }
   .mg-retour { display: inline-grid; }
+  .mg-txt { display: none; }
 }
-@media (max-width: 560px) { .mg-txt { display: none; } }
+
+/* Éléments propres au téléphone */
+.mg-tiroir-tete, .mg-voile, .mg-ouvrir-tiroir, .mg-choix-dossier, .mg-annuler-selection, .mg-avatar, .mg-fab, .mg-reponses, .mg-date-courte { display: none; }
+
+/* Téléphone et tablette : présentation de Gmail */
+@media (max-width: 1023px) {
+  .messagerie { gap: 0; }
+
+  /* Dossiers : tiroir glissant depuis la gauche */
+  .mg-dossiers {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 290; width: min(300px, 86vw); padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
+    border-radius: 0 22px 22px 0; overflow-y: auto; overscroll-behavior: contain;
+    transform: translateX(-105%); visibility: hidden; transition: transform .28s cubic-bezier(.22, .61, .36, 1), visibility 0s .28s;
+  }
+  .tiroir-ouvert .mg-dossiers { transform: none; visibility: visible; transition-delay: 0s; box-shadow: 0 30px 80px rgba(15, 23, 42, .35); }
+  .mg-tiroir-tete { display: flex; align-items: center; justify-content: space-between; padding: 0 0 10px 8px; font-size: .9rem; }
+  .mg-tiroir-tete i { margin-right: 6px; color: var(--adm-muet); }
+  .mg-dossier { min-height: 46px; }
+  .mg-boite { display: none; }
+  .mg-voile { display: block; position: fixed; inset: 0; z-index: 285; background: rgba(15, 23, 42, .4); }
+
+  /* Liste : barre de recherche arrondie qui reste en haut, lignes pleine largeur */
+  .mg-liste { min-height: 0; padding-bottom: 84px; overflow: visible; border-radius: 0; background: transparent; box-shadow: none; }
+  .mg-recherche { position: sticky; top: 8px; z-index: 6; min-height: 50px; margin: 0 0 4px; padding: 0 8px 0 4px; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre); }
+  .mg-recherche input { font-size: 1rem; } /* 16 px : pas de zoom automatique sur iPhone */
+  .mg-loupe { display: none; }
+  .mg-ouvrir-tiroir { display: grid; place-items: center; width: 42px; height: 42px; flex: none; border: 0; border-radius: 50%; background: transparent; color: var(--adm-encre-2); font-size: 1.05rem; cursor: pointer; }
+  .mg-ouvrir-tiroir:hover { background: var(--adm-ligne-2); }
+  .mg-outils { min-height: 44px; padding: 4px 4px 4px 6px; border-bottom: 0; }
+  .mg-outils.selection { position: sticky; top: 64px; z-index: 5; margin-bottom: 6px; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre); }
+  .mg-outils:not(.selection) .mg-nb, .mg-tout { display: none; }
+  .mg-annuler-selection { display: inline-grid; }
+  .mg-choix-dossier {
+    display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; padding: 6px 8px; border: 0; background: none;
+    color: var(--adm-muet); font: inherit; font-size: .76rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; text-align: left; cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mg-choix-dossier small { font-size: inherit; font-weight: 500; }
+  .mg-choix-dossier i { font-size: .62rem; }
+  .mg-messages { overflow: visible; border-radius: var(--adm-rayon-sm); background: var(--adm-carte); box-shadow: var(--adm-ombre); }
+  .mg-message { align-items: center; gap: 12px; padding: 11px 6px 11px 12px; }
+  .mg-message:first-child { border-radius: var(--adm-rayon-sm) var(--adm-rayon-sm) 0 0; }
+  .mg-message:last-child { border-bottom: 0; border-radius: 0 0 var(--adm-rayon-sm) var(--adm-rayon-sm); }
+  .mg-message.non-lu { box-shadow: none; }
+  .mg-message.coche { background: var(--adm-accent-doux); }
+  .mg-case { display: none; }
+  .mg-avatar {
+    display: grid; place-items: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%;
+    background: var(--adm-accent); color: #fff; font: inherit; font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+  .mg-de { font-size: .95rem; }
+  .mg-objet { font-size: .88rem; }
+  .mg-message.non-lu .mg-date { color: var(--adm-encre); font-weight: 700; }
+  .mg-etoile { width: 38px; height: 38px; }
+  .mg-pages { border-top: 0; }
+  .mg-vide, .mg-erreur { border-radius: var(--adm-rayon-sm); background: var(--adm-carte); }
+  .mg-erreur { margin: 0 0 8px; background: var(--adm-danger-fond); }
+
+  /* Bouton flottant « Nouveau » */
+  .mg-fab {
+    display: inline-flex; align-items: center; gap: 10px; position: fixed; right: 16px; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 200;
+    min-height: 56px; padding: 0 22px 0 20px; border: 0; border-radius: 18px; background: var(--adm-accent-doux); color: var(--adm-info-texte);
+    font: inherit; font-size: .95rem; font-weight: 600; box-shadow: 0 4px 14px rgba(15, 23, 42, .2), 0 1px 3px rgba(15, 23, 42, .12); cursor: pointer;
+  }
+
+  /* Lecture : plein écran ; la liste reste dessous, à sa position de défilement */
+  .mg-lecture { display: none; }
+  .lecture-ouverte .mg-lecture { display: flex; position: fixed; inset: 0; z-index: 240; min-height: 0; padding-bottom: env(safe-area-inset-bottom); border-radius: 0; box-shadow: none; overscroll-behavior: contain; }
+  .mg-retour { display: inline-grid; }
+  .mg-actions { flex-wrap: nowrap; gap: 2px; padding: 8px 8px 4px; border-bottom: 0; }
+  .mg-actions > .adm-btn { display: none; }
+  .mg-deplacer { max-width: 116px; }
+  .mg-entete { padding: 6px 16px 12px; }
+  .mg-entete h2 { font-size: 1.25rem; font-weight: 600; }
+  .mg-date-longue { display: none; }
+  .mg-date-courte { display: inline; }
+  .mg-corps-html { min-height: 0; }
+  .mg-corps-texte { padding: 14px 16px; overscroll-behavior: contain; }
+  .mg-pieces { max-height: 30vh; padding: 10px 16px; overflow-y: auto; }
+  .mg-reponses { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--adm-ligne); }
+  .mg-reponses button {
+    display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 8px; min-width: 0; min-height: 44px; padding: 0 10px;
+    border: 1px solid var(--adm-ligne-forte); border-radius: 999px; background: transparent; color: var(--adm-encre);
+    font: inherit; font-size: .88rem; font-weight: 600; white-space: nowrap; cursor: pointer;
+  }
+  .mg-reponses button:disabled { opacity: .5; cursor: default; }
+}
+@media (max-width: 380px) { .mg-reponses button { font-size: .8rem; gap: 6px; } .mg-deplacer { max-width: 90px; } }
 </style>

@@ -374,5 +374,13 @@ async function retirer(p) {
 .admins-liste { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .admins-liste li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--adm-ligne-2); }
 .admins-liste li:last-child { border-bottom: 0; }
-@media (max-width: 560px) { .chiffres { grid-template-columns: 1fr; } }
+@media (max-width: 560px) {
+  .chiffres { grid-template-columns: 1fr; }
+  .solde, .rib-carte { padding: 18px; }
+  .solde-montant { font-size: 1.8rem; }
+  .rib-iban { font-size: 1.02rem; letter-spacing: .04em; word-break: break-all; }
+  .compte-table { font-size: .82rem; }
+  .compte-table td, .compte-table th { padding: 8px 6px; }
+  .admins-ajout { padding: 14px; }
+}
 </style>

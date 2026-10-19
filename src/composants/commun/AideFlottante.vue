@@ -5,7 +5,8 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useContenuSite } from '@/composables/useContenuSite.js'
-import { conversationGardee, lireConversation } from '@/services/supabase/serviceSupport.js'
+import { surChangementCompte } from '@/composables/useAuth.js'
+import { conversationGardee, lireConversation, changerCompteSupport } from '@/services/supabase/serviceSupport.js'
 import AssistanceChat from './AssistanceChat.vue'
 
 const contenu = useContenuSite()
@@ -37,6 +38,7 @@ const lireVu = () => { try { return Number(localStorage.getItem(CLE_VU)) || 0 } 
 function marquerVu(id) { try { localStorage.setItem(CLE_VU, String(id)) } catch { /* stockage bloqué */ } }
 let minuterie = null
 async function verifierReponse() {
+  if (!conversationGardee()) reponseNonVue.value = false
   if (chatOuvert.value || document.hidden || !conversationGardee()) return
   try {
     const r = await lireConversation(lireVu())
@@ -44,6 +46,17 @@ async function verifierReponse() {
     reponseNonVue.value = r.messages.some((m) => m.auteur === 'conseiller')
   } catch { /* nouvel essai au prochain tour */ }
 }
+
+// ---------- Discussion liée au compte ----------
+// Déconnexion ou autre compte : la discussion ouverte repart de zéro (clé) ; connexion : elle reprend celle du compte.
+const chat = ref(null)
+const cleChat = ref(0)
+const arreterSuiviCompte = surChangementCompte(async (nouveau, ancien) => {
+  await changerCompteSupport(nouveau)
+  if (ancien) cleChat.value++
+  else chat.value?.reprendre()
+  verifierReponse()
+})
 
 function gererClavier(event) {
   if (event.key === 'Escape') fermer()
@@ -57,6 +70,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', gererClavier)
   clearInterval(minuterie)
+  arreterSuiviCompte()
   document.body.style.overflow = ''
 })
 </script>
@@ -118,7 +132,7 @@ onBeforeUnmount(() => {
     </div>
   </transition>
 
-  <AssistanceChat v-if="chatOuvert" @fermer="chatOuvert = false" @reponse-vue="marquerVu" />
+  <AssistanceChat v-if="chatOuvert" ref="chat" :key="cleChat" @fermer="chatOuvert = false" @reponse-vue="marquerVu" />
 </template>
 
 <style scoped>

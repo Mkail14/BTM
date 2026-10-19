@@ -238,7 +238,7 @@ async function lever(p) {
       <div v-if="!donnees.profils" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
       <div v-else class="adm-table-cadre">
         <table v-if="listeBannis.length" class="adm-table adm-table-empile">
-          <thead><tr><th>Utilisateur</th><th>Sanction</th><th>Fin</th><th>Motif</th><th>Banni le</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+          <thead><tr><th>Utilisateur</th><th>Sanction</th><th>Fin</th><th>Motif</th><th class="col-secondaire">Banni le</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             <tr v-for="p in listeBannis" :key="p.id">
               <td class="principal">
@@ -253,7 +253,7 @@ async function lever(p) {
                 <template v-else>—</template>
               </td>
               <td data-label="Motif" class="utils-motif">{{ p.banni_motif || '—' }}</td>
-              <td data-label="Banni le">{{ formatDate(p.banni_le) }}<small v-if="p.banni_par" class="utils-lien">par {{ emailDe[p.banni_par] || 'un administrateur' }}</small></td>
+              <td data-label="Banni le" class="col-secondaire">{{ formatDate(p.banni_le) }}<small v-if="p.banni_par" class="utils-lien">par {{ emailDe[p.banni_par] || 'un administrateur' }}</small></td>
               <td class="actions">
                 <button type="button" class="adm-icone-btn" title="Modifier le bannissement" :aria-label="`Modifier le bannissement de ${p.email}`" @click="ouvrirBan(p)"><i class="fa-solid fa-pen"></i></button>
                 <button type="button" class="adm-icone-btn" title="Lever le bannissement" :aria-label="`Lever le bannissement de ${p.email}`" @click="lever(p)"><i class="fa-solid fa-unlock"></i></button>
@@ -269,7 +269,7 @@ async function lever(p) {
       <div v-if="!donnees.profils" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
       <div v-else class="adm-table-cadre">
         <table class="adm-table adm-table-empile">
-          <thead><tr><th>Utilisateur</th><th>Profil</th><th class="num">Projets</th><th>Inscrit le</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
+          <thead><tr><th>Utilisateur</th><th>Profil</th><th class="num">Projets</th><th class="col-secondaire">Inscrit le</th><th><span class="visually-hidden">Actions</span></th></tr></thead>
           <tbody>
             <tr v-for="p in liste" :key="p.id">
               <td class="principal">
@@ -285,7 +285,7 @@ async function lever(p) {
                 <small v-else-if="p.pro_raison_sociale && p.pro_statut && p.role !== 'admin'" class="utils-lien">{{ p.pro_raison_sociale }}</small>
               </td>
               <td data-label="Projets" class="num">{{ projetsPar[p.id] || 0 }}</td>
-              <td data-label="Inscrit le">{{ formatDate(p.cree_le) }}</td>
+              <td data-label="Inscrit le" class="col-secondaire">{{ formatDate(p.cree_le) }}</td>
               <td class="actions">
                 <button type="button" class="adm-icone-btn" title="Modifier" :aria-label="`Modifier ${p.email}`" @click="ouvrir(p)"><i class="fa-solid fa-user-pen"></i></button>
                 <button type="button" class="adm-icone-btn" :disabled="!projetsPar[p.id]" :title="projetsPar[p.id] ? 'Proposer de publier un projet sur l’accueil' : 'Aucun projet enregistré'" :aria-label="`Proposer à ${p.email} de publier un projet`" @click="proposition = p"><i class="fa-solid fa-images"></i></button>
@@ -463,8 +463,19 @@ async function lever(p) {
 .pro-motif { margin: 0; color: var(--adm-baisse); font-size: .86rem; }
 .pro-actions { display: flex; justify-content: flex-end; gap: 8px; }
 @media (max-width: 560px) { .pro-bloc dl { grid-template-columns: 1fr; } }
-/* Ordinateur : page fixe (« ecran-fixe » dans AdminVue), seul le tableau défile et ses en-têtes restent visibles */
-@media (min-width: 1024px) and (min-height: 640px) {
+/* Tablette : le tableau tient en largeur — les dates (inscription, bannissement) s'effacent,
+   les filtres restent sur une ligne qui défile */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .utils { gap: 12px; }
+  .utils .col-secondaire { display: none; }
+  .utils .adm-table th, .utils .adm-table td { padding-inline: 10px; }
+  .utils .adm-table td { padding-block: 10px; }
+  .utils .adm-table .adm-icone-btn { width: 32px; height: 32px; }
+  .utils > .adm-pilules { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+  .utils > .adm-pilules .adm-pilule { flex: none; white-space: nowrap; }
+}
+/* Ordinateur et tablette : page fixe (« ecran-fixe » dans AdminVue), seul le tableau défile et ses en-têtes restent visibles */
+@media (min-width: 768px) and (min-height: 640px) {
   .utils > .adm-alerte, .utils > .adm-pilules, .utils-bannis-entete { flex: none; }
   .utils > .adm-carte { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .utils .adm-table-cadre { min-height: 0; overflow-y: auto; scrollbar-width: thin; }

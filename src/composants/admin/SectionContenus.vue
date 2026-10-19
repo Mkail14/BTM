@@ -173,8 +173,8 @@ async function retablir() {
 .editeur-pied { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 16px 26px; border-top: 1px solid var(--adm-ligne-2); }
 .editeur-etat { flex: 1; text-align: right; font-size: .82rem; color: var(--adm-attention-texte); }
 
-/* Ordinateur : la page tient dans l'écran (voir « ecran-fixe » dans AdminVue), seuls les champs ou les réalisations défilent */
-@media (min-width: 1024px) and (min-height: 640px) {
+/* Ordinateur et tablette : la page tient dans l'écran (voir « ecran-fixe » dans AdminVue), seuls les champs ou les réalisations défilent */
+@media (min-width: 768px) and (min-height: 640px) {
   .contenus { grid-template-rows: auto minmax(0, 1fr); row-gap: 0; }
   .contenus > .adm-alerte { grid-row: 1; margin-bottom: 16px; }
   .contenus-liste, .contenus-editeur, .contenus > .gr { grid-row: 2; min-height: 0; max-height: 100%; }
@@ -184,7 +184,20 @@ async function retablir() {
   .contenus > .gr { align-self: stretch; }
   .editeur-champs { min-height: 0; overflow-y: auto; }
 }
-@media (max-width: 1023px) {
+/* Tablette : la liste des rubriques garde sa colonne, plus étroite (titre seul) ; l'éditeur passe ses champs sur une colonne */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .contenus { grid-template-columns: 196px minmax(0, 1fr); gap: 12px; }
+  .contenus-item { gap: 10px; padding-inline: 10px 22px; border-radius: 14px; }
+  .contenus-icone { width: 34px; height: 34px; border-radius: 10px; }
+  .contenus-item-texte strong { font-size: .86rem; }
+  .contenus-item-texte small { display: none; }
+  .contenus-point { right: 10px; }
+  .editeur-tete { padding: 18px 20px 14px; }
+  .editeur-champs { padding: 18px 20px; }
+  .editeur-pied { padding: 12px 20px; }
+  .editeur-champs :deep(.adm-grille-form) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 767px) {
   .contenus { grid-template-columns: minmax(0, 1fr); }
   .contenus-liste { position: static; flex-direction: row; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
   .contenus-item { flex: none; width: auto; padding: 10px 16px 10px 10px; }

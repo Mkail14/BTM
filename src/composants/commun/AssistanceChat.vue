@@ -243,6 +243,13 @@ onBeforeUnmount(() => {
   canal?.fermer()
 })
 
+/** Connexion pendant que la fenêtre est ouverte : affiche la discussion du compte (sa discussion en cours y est déjà rattachée) */
+async function reprendre() {
+  if (serveur.value.id || !conversationGardee()) return
+  try { integrer(await lireConversation(0)) } catch { /* conversation expirée */ }
+}
+defineExpose({ reprendre })
+
 const AUTEURS = { ia: { nom: 'Awa', badge: 'IA' }, conseiller: { nom: 'Conseiller BTM', badge: 'BTM' } }
 const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '')
 </script>

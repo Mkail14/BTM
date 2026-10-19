@@ -51,6 +51,16 @@ const lienSql = refProjet ? `https://supabase.com/dashboard/project/${refProjet}
 const section = computed(() => sections.find((s) => s.id === route.params.section) || sections[0])
 const menuOuvert = ref(false)
 
+// Sections qui tiennent dans l'écran sans faire défiler la page (ordinateur et tablette).
+// La messagerie garde sa présentation « Gmail » (liste puis lecture plein écran) sous 1024 px : écran fixe sur ordinateur seulement.
+const SECTIONS_FIXES = ['apercu', 'messagerie', 'support', 'contenus', 'utilisateurs', 'calculateur', 'codes', 'fournisseurs', 'avis', 'projets']
+const requeteOrdinateur = typeof window === 'undefined' ? null : window.matchMedia('(min-width: 1024px)')
+const estOrdinateur = ref(requeteOrdinateur?.matches ?? true)
+const suivreLargeur = (e) => { estOrdinateur.value = e.matches }
+onMounted(() => requeteOrdinateur?.addEventListener('change', suivreLargeur))
+onBeforeUnmount(() => requeteOrdinateur?.removeEventListener('change', suivreLargeur))
+const ecranFixe = computed(() => SECTIONS_FIXES.includes(section.value.id) && (section.value.id !== 'messagerie' || estOrdinateur.value))
+
 watch(() => section.value.id, () => { recherche.value = ''; menuOuvert.value = false })
 watch(section, (s) => { document.title = `${s.titre} — Administration BTM` }, { immediate: true })
 
@@ -64,7 +74,7 @@ async function seDeconnecter() {
 </script>
 
 <template>
-  <div class="adm adm-cadre" :class="{ 'adm-sombre': sombre, 'ecran-fixe': ['apercu', 'messagerie', 'support', 'contenus', 'utilisateurs', 'calculateur'].includes(section.id) }">
+  <div class="adm adm-cadre" :class="{ 'adm-sombre': sombre, 'ecran-fixe': ecranFixe, 'fixe-mobile': section.id === 'apercu' }">
     <!-- Barre latérale -->
     <aside class="adm-lat" :class="{ ouvert: menuOuvert }" aria-label="Navigation de l’administration">
       <router-link to="/admin" class="adm-lat-logo" aria-label="Tableau de bord">
@@ -75,7 +85,7 @@ async function seDeconnecter() {
       <nav class="adm-lat-nav">
         <router-link
           v-for="s in sections" :key="s.id" :to="s.id === 'apercu' ? '/admin' : `/admin/${s.id}`"
-          class="adm-lat-lien" :class="{ actif: section.id === s.id }" :aria-current="section.id === s.id ? 'page' : undefined"
+          class="adm-lat-lien" :class="{ actif: section.id === s.id }" :title="s.label" :aria-current="section.id === s.id ? 'page' : undefined"
         >
           <i :class="s.icone" aria-hidden="true"></i><span>{{ s.label }}</span>
           <strong v-if="s.id === 'messagerie' && nonLus" class="adm-lat-pastille" :aria-label="`${nonLus} non lus`">{{ nonLus }}</strong>
@@ -84,7 +94,7 @@ async function seDeconnecter() {
       </nav>
 
       <div class="adm-lat-bas">
-        <button type="button" class="adm-lat-lien" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Déconnexion</span></button>
+        <button type="button" class="adm-lat-lien" title="Déconnexion" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Déconnexion</span></button>
       </div>
     </aside>
     <div v-if="menuOuvert" class="adm-lat-voile" @click="menuOuvert = false"></div>
@@ -144,13 +154,22 @@ async function seDeconnecter() {
 </template>
 
 <style scoped>
-/* Tableau de bord : exactement la hauteur de l'écran, sans défilement de la page (ordinateur) */
-@media (min-width: 1024px) and (min-height: 640px) {
+/* Tableau de bord : exactement la hauteur de l'écran, sans défilement de la page (ordinateur et tablette) */
+@media (min-width: 768px) and (min-height: 640px) {
   .adm-cadre.ecran-fixe { height: 100dvh; grid-template-rows: minmax(0, 1fr); }
   .adm-cadre.ecran-fixe .adm-principal { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; }
   .adm-cadre.ecran-fixe .adm-haut { flex: none; margin-bottom: 16px; }
   .adm-cadre.ecran-fixe .adm-migration { flex: none; margin-bottom: 14px; }
-  .adm-cadre.ecran-fixe .adm-principal > .apercu, .adm-cadre.ecran-fixe .adm-principal > .messagerie, .adm-cadre.ecran-fixe .adm-principal > .support, .adm-cadre.ecran-fixe .adm-principal > .contenus, .adm-cadre.ecran-fixe .adm-principal > .utils, .adm-cadre.ecran-fixe .adm-principal > .calc { flex: 1; min-height: 0; padding-bottom: 20px; }
+  .adm-cadre.ecran-fixe .adm-principal > .apercu, .adm-cadre.ecran-fixe .adm-principal > .messagerie, .adm-cadre.ecran-fixe .adm-principal > .support, .adm-cadre.ecran-fixe .adm-principal > .contenus, .adm-cadre.ecran-fixe .adm-principal > .utils, .adm-cadre.ecran-fixe .adm-principal > .calc, .adm-cadre.ecran-fixe .adm-principal > .codes, .adm-cadre.ecran-fixe .adm-principal > .four, .adm-cadre.ecran-fixe .adm-principal > .avis, .adm-cadre.ecran-fixe .adm-principal > .projets { flex: 1; min-height: 0; padding-bottom: 20px; }
+}
+/* Téléphone : le tableau de bord seul tient aussi dans l'écran (assez haut pour ça ; sinon la page défile) */
+@media (max-width: 767px) and (min-height: 560px) {
+  .adm-cadre.fixe-mobile { height: 100dvh; grid-template-rows: minmax(0, 1fr); }
+  .adm-cadre.fixe-mobile .adm-principal { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; }
+  .adm-cadre.fixe-mobile .adm-haut { flex: none; gap: 8px; margin-bottom: 10px; }
+  .adm-cadre.fixe-mobile .adm-haut-titre h1 { font-size: 1.25rem; }
+  .adm-cadre.fixe-mobile .adm-migration { flex: none; margin-bottom: 10px; }
+  .adm-cadre.fixe-mobile .adm-principal > .apercu { flex: 1; min-height: 0; padding-bottom: 6px; }
 }
 @media (min-width: 1024px) and (max-height: 820px) {
   .adm-cadre.ecran-fixe .adm-haut { margin-bottom: 10px; }
@@ -179,6 +198,10 @@ async function seDeconnecter() {
 }
 .adm-lat-pastille-alerte { background: #f59e0b !important; }
 .adm-lat-pastille { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--adm-accent); color: #fff; font-size: .74rem; text-align: center; }
+/* Tablette et petit ordinateur : barre réduite aux icônes, la pastille se pose en coin de l'icône */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .adm-lat-pastille { position: absolute; top: 4px; right: 3px; min-width: 18px; margin: 0; padding: 0 5px; font-size: .64rem; line-height: 18px; box-shadow: 0 0 0 2px var(--adm-lat); }
+}
 .adm-migration { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; margin-bottom: 20px; padding: 20px 22px; box-shadow: inset 0 0 0 1px var(--adm-attention-bord), var(--adm-ombre); background: var(--adm-attention-fond); }
 .adm-migration > div { flex: 1 1 320px; }
 .adm-migration strong { font-size: .98rem; }

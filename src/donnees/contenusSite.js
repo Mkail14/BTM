@@ -28,8 +28,8 @@ export const contenusParDefaut = {
     titre: 'Ils ont préparé leur chantier avec BTM.',
     vide: 'Aucun avis pour le moment. Soyez le premier à donner le vôtre !',
     bouton: 'Donner mon avis',
-    // lien « laisser un avis » de la fiche Google de BTM (colonne centrale de la page d'accueil)
-    lienGoogle: ''
+    // lien « laisser un avis » de la page Trustpilot de BTM (colonne centrale de la page d'accueil)
+    lienTrustpilot: 'https://fr.trustpilot.com/evaluate/btm.yt'
   },
   realisations: {
     surtitre: 'Réalisations',
@@ -95,7 +95,7 @@ export const sectionsContenus = [
       { nom: 'titre', label: 'Titre', max: 90 },
       { nom: 'vide', label: 'Message quand il n’y a aucun avis', type: 'long', max: 160, plein: true },
       { nom: 'bouton', label: 'Bouton', max: 30 },
-      { nom: 'lienGoogle', label: 'Lien « Laisser un avis Google »', aide: 'https://g.page/r/… (fiche Google de BTM → Demander des avis)', max: 300, plein: true }
+      { nom: 'lienTrustpilot', label: 'Lien « Laisser un avis Trustpilot »', aide: 'https://fr.trustpilot.com/evaluate/btm.yt', max: 300, plein: true }
     ]
   },
   {

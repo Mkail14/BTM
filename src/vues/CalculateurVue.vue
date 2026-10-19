@@ -363,6 +363,7 @@ const recapitulatif = computed(() => {
                 <div v-else key="recap" class="assistant-panneau">
                   <h2 class="assistant-question assistant-focus" tabindex="-1">Tout est prêt !</h2>
                   <p class="assistant-aide">Vérifiez vos réponses, puis lancez le calcul.</p>
+                  <p v-if="!connecte" class="assistant-aide"><i class="fa-solid fa-lock" aria-hidden="true"></i> Pour voir le prix, un compte gratuit vous sera demandé (moins d’une minute) : vos réponses sont gardées.</p>
 
                   <ul class="assistant-recap">
                     <li v-for="ligne in recapitulatif" :key="ligne.cle">

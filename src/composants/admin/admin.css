@@ -322,8 +322,32 @@
 .adm-burger { display: none; }
 
 
-/* ---------- Tablette et téléphone : menu en tiroir ---------- */
-@media (max-width: 1023px) {
+/* ---------- Tablette et petit ordinateur (jusqu'à 1279 px) : barre latérale réduite aux icônes, toujours visible ----------
+   La barre complète (252 px) mangeait un quart d'un écran de 1024 px. Les libellés restent lus par les lecteurs d'écran
+   et s'affichent au survol (title) ; la page tient dans l'écran (« ecran-fixe »). */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .adm-cadre { grid-template-columns: 72px minmax(0, 1fr); gap: 16px; padding: 12px; }
+  .adm-lat { top: 12px; height: calc(100dvh - 24px); gap: 16px; padding: 12px 10px; border-radius: 24px; }
+  .adm-lat-logo { justify-content: center; padding: 0; }
+  .adm-lat-logo-icone { width: 46px; height: 46px; border-radius: 15px; }
+  .adm-lat-logo-texte, .adm-lat-lien > span {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+  .adm-lat-lien { position: relative; justify-content: center; gap: 0; min-height: 48px; padding: 0; }
+  .adm-lat-lien i { width: auto; font-size: 1.08rem; }
+  .adm-lat-bas { padding-top: 10px; }
+  .adm-principal { padding: 4px 4px 24px; }
+  .adm-haut-titre p { display: none; } /* la phrase sous le titre prend deux lignes pour rien : le titre suffit */
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+  .adm-haut { gap: 12px 14px; margin-bottom: 18px; }
+  .adm-haut-titre { flex-basis: 220px; }
+  .adm-haut-titre h1 { font-size: 1.55rem; }
+  .adm-haut-recherche { flex: 1 1 100%; order: 5; }
+}
+
+/* ---------- Téléphone : menu en tiroir ---------- */
+@media (max-width: 767px) {
   .adm-cadre { grid-template-columns: minmax(0, 1fr); padding: 12px; }
   .adm-lat {
     position: fixed; top: 12px; left: 12px; bottom: 12px; z-index: 260; width: 264px; height: auto;
@@ -335,9 +359,41 @@
   .adm-principal { padding: 4px 4px 40px; }
   .adm-haut-profil { display: none; }
 }
+/* ---------- Téléphone ----------
+   En-tête façon barre d'application : menu à gauche, outils et profil à droite, puis le titre et la recherche en pleine largeur. */
 @media (max-width: 640px) {
-  .adm-haut { gap: 12px; }
-  .adm-haut-titre { flex-basis: calc(100% - 60px); }
+  .adm-cadre { gap: 0; padding: 10px; }
+  .adm-principal { padding: 2px 2px 32px; }
+  .adm-haut { gap: 12px 8px; margin-bottom: 16px; }
+  .adm-burger { order: 0; width: 46px; height: 46px; }
+  .adm-haut-outils { order: 1; margin-left: auto; }
+  .adm-haut-profil { order: 2; }
+  .adm-haut-titre { order: 3; flex: 1 1 100%; }
+  .adm-haut-titre h1 { font-size: 1.45rem; }
   .adm-haut-titre p { display: none; }
-  .adm-haut-recherche { flex: 1 1 100%; }
+  .adm-haut-recherche { order: 4; flex: 1 1 100%; }
+  .adm-haut-recherche input { height: 44px; }
+
+  /* cartes moins rembourrées : la largeur utile compte sur 360 px */
+  .adm-carte-pad { padding: 16px; }
+  .adm-carte-tete { flex-wrap: wrap; margin-bottom: 14px; }
+  .adm-section-tete { gap: 10px; margin-bottom: 14px; }
+  .adm-section-tete > .adm-btn { flex: 1 1 auto; }
+
+  /* filtres : une seule ligne qui défile au doigt plutôt que trois lignes de pilules */
+  .adm-pilules[role="group"] { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -2px; padding: 2px; }
+  .adm-pilules[role="group"]::-webkit-scrollbar { display: none; }
+  .adm-pilules[role="group"] .adm-pilule { flex: none; white-space: nowrap; }
+  .adm-segments { display: flex; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .adm-segments::-webkit-scrollbar { display: none; }
+  .adm-segments button { flex: none; padding: 0 14px; white-space: nowrap; }
+
+  /* tableaux empilés : la valeur se cale à droite et passe à la ligne au lieu de déborder */
+  .adm-table-empile tr { padding: 12px 0; }
+  .adm-table-empile td { flex-wrap: wrap; justify-content: space-between; padding: 5px 8px; text-align: right; }
+  .adm-table-empile td[data-label]::before { flex: none; text-align: left; }
+  .adm-table-empile td.principal { text-align: left; }
+  .adm-table-empile td.principal .adm-identite { flex: 1; }
+  .adm-table-empile td.actions { padding-top: 8px; }
+  .adm-vide { padding: 36px 16px; }
 }

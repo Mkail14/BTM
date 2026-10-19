@@ -1,7 +1,7 @@
 <script setup>
 /**
  * Avis clients : masquer (réversible) ou supprimer (définitif) ; synthèse des notes publiées.
- * Avis Google : recopiés ici depuis la fiche Google de BTM (nom, note, texte, date, lien) ; ils s'affichent
+ * Avis Trustpilot : recopiés ici depuis la page Trustpilot de BTM (nom, note, texte, date, lien) ; ils s'affichent
  * dans la colonne centrale de la page d'accueil. Les avis du site restent ceux des utilisateurs (qui peuvent les modifier).
  */
 import { computed, onMounted, ref } from 'vue'
@@ -24,12 +24,12 @@ const compte = computed(() => ({
   tous: tous.value.length,
   visibles: publies.value.length,
   masques: tous.value.length - publies.value.length,
-  google: tous.value.filter((a) => a.source === 'google').length,
+  trustpilot: tous.value.filter((a) => a.source === 'trustpilot').length,
   demo: tous.value.filter((a) => a.demo).length
 }))
 const liste = computed(() => tous.value.filter((a) =>
   (filtre.value === 'tous' || (filtre.value === 'visibles' && a.visible) || (filtre.value === 'masques' && !a.visible)
-    || (filtre.value === 'google' && a.source === 'google') || (filtre.value === 'demo' && a.demo))
+    || (filtre.value === 'trustpilot' && a.source === 'trustpilot') || (filtre.value === 'demo' && a.demo))
   && (!note.value || a.note === note.value)
   && correspond(recherche.value, a.nom, a.ville, a.commentaire)))
 
@@ -41,31 +41,31 @@ async function supprimer(a) {
   await executer(async () => { await api.supprimerAvis(a.id); donnees.avis = donnees.avis.filter((x) => x.id !== a.id) }, 'Avis supprimé.')
 }
 
-// ---------- Avis Google (saisie / correction) ----------
+// ---------- Avis Trustpilot (saisie / correction) ----------
 const formulaire = ref(null)
 const formErreur = ref('')
 const enregistrement = ref(false)
 const jour = (d) => (d ? new Date(d).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10))
-function ouvrirGoogle(a) {
+function ouvrirTrustpilot(a) {
   formErreur.value = ''
   formulaire.value = a
     ? { id: a.id, nom: a.nom, note: a.note, commentaire: a.commentaire || '', date: jour(a.cree_le), lien: a.lien || '' }
     : { id: null, nom: '', note: 5, commentaire: '', date: jour(), lien: '' }
 }
-async function enregistrerGoogle() {
+async function enregistrerTrustpilot() {
   const f = formulaire.value
-  if (f.nom.trim().length < 2) { formErreur.value = 'Indiquez le nom affiché sur Google.'; return }
+  if (f.nom.trim().length < 2) { formErreur.value = 'Indiquez le nom affiché sur Trustpilot.'; return }
   if (f.lien.trim() && !/^https:\/\//i.test(f.lien.trim())) { formErreur.value = 'Le lien doit commencer par https://'; return }
   formErreur.value = ''
   enregistrement.value = true
   try {
     await executer(async () => {
-      const ligne = await api.enregistrerAvisGoogle(f)
+      const ligne = await api.enregistrerAvisTrustpilot(f)
       donnees.avis = f.id ? donnees.avis.map((x) => (x.id === ligne.id ? ligne : x)) : [ligne, ...donnees.avis]
       formulaire.value = null
-    }, f.id ? 'Avis Google mis à jour.' : 'Avis Google ajouté : il apparaît au centre du mur d’avis.')
+    }, f.id ? 'Avis Trustpilot mis à jour.' : 'Avis Trustpilot ajouté : il apparaît au centre du mur d’avis.')
   } catch (e) {
-    formErreur.value = /source|0024|column/i.test(e?.message || '') ? 'Appliquez d’abord la migration 0024 (avis Google) sur Supabase.' : (e?.message || 'Enregistrement impossible.')
+    formErreur.value = /source|0028|column|policy/i.test(e?.message || '') ? 'Appliquez d’abord la migration 0028 (avis Trustpilot) sur Supabase.' : (e?.message || 'Enregistrement impossible.')
   } finally {
     enregistrement.value = false
   }
@@ -98,11 +98,11 @@ async function enregistrerGoogle() {
       </section>
 
       <div class="adm-pilules avis-filtres" role="group" aria-label="Filtrer les avis">
-        <button v-for="f in [['tous', 'Tous'], ['visibles', 'Publiés'], ['masques', 'Masqués'], ['google', 'Google'], ['demo', 'Démonstration']]" :key="f[0]" type="button" class="adm-pilule" :class="{ actif: filtre === f[0] }" :aria-pressed="filtre === f[0]" @click="filtre = f[0]">
+        <button v-for="f in [['tous', 'Tous'], ['visibles', 'Publiés'], ['masques', 'Masqués'], ['trustpilot', 'Trustpilot'], ['demo', 'Démonstration']]" :key="f[0]" type="button" class="adm-pilule" :class="{ actif: filtre === f[0] }" :aria-pressed="filtre === f[0]" @click="filtre = f[0]">
           {{ f[1] }} <small>{{ compte[f[0]] }}</small>
         </button>
         <button v-if="note" type="button" class="adm-pilule" @click="note = 0">{{ note }} étoile{{ note > 1 ? 's' : '' }} <i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-        <button type="button" class="adm-btn adm-btn-noir" @click="ouvrirGoogle()"><i class="fa-brands fa-google" aria-hidden="true"></i> Ajouter un avis Google</button>
+        <button type="button" class="adm-btn adm-btn-noir" @click="ouvrirTrustpilot()"><i class="fa-solid fa-star avis-icone-trustpilot" aria-hidden="true"></i> Ajouter un avis Trustpilot</button>
       </div>
     </div>
 
@@ -113,7 +113,7 @@ async function enregistrerGoogle() {
           <span class="adm-etoiles" :aria-label="`${a.note} sur 5`"><i v-for="n in 5" :key="n" class="fa-solid fa-star" :class="{ eteinte: n > a.note }"></i></span>
           <span v-if="!a.visible" class="adm-badge adm-badge-attention">Masqué</span>
           <span v-if="a.demo" class="adm-badge adm-badge-violet">Démo</span>
-          <span v-if="a.source === 'google'" class="adm-badge avis-badge-google"><i class="fa-brands fa-google" aria-hidden="true"></i> Google</span>
+          <span v-if="a.source === 'trustpilot'" class="adm-badge avis-badge-trustpilot"><i class="fa-solid fa-star" aria-hidden="true"></i> Trustpilot</span>
           <span v-if="a.modifie_le" class="adm-badge">Modifié le {{ formatDate(a.modifie_le) }}</span>
           <time>{{ formatDate(a.cree_le) }}</time>
         </div>
@@ -124,8 +124,8 @@ async function enregistrerGoogle() {
             <span><strong>{{ a.nom }}</strong><small>{{ a.ville }}</small></span>
           </span>
           <span class="avis-actions">
-            <a v-if="a.lien" :href="a.lien" target="_blank" rel="noopener noreferrer" class="adm-icone-btn" title="Voir sur Google" :aria-label="`Voir l’avis de ${a.nom} sur Google`"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
-            <button v-if="a.source === 'google'" type="button" class="adm-icone-btn" title="Corriger" :aria-label="`Corriger l’avis Google de ${a.nom}`" @click="ouvrirGoogle(a)"><i class="fa-solid fa-pen"></i></button>
+            <a v-if="a.lien" :href="a.lien" target="_blank" rel="noopener noreferrer" class="adm-icone-btn" title="Voir sur Trustpilot" :aria-label="`Voir l’avis de ${a.nom} sur Trustpilot`"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+            <button v-if="a.source === 'trustpilot'" type="button" class="adm-icone-btn" title="Corriger" :aria-label="`Corriger l’avis Trustpilot de ${a.nom}`" @click="ouvrirTrustpilot(a)"><i class="fa-solid fa-pen"></i></button>
             <button type="button" class="adm-icone-btn" :title="a.visible ? 'Masquer' : 'Publier'" :aria-label="`${a.visible ? 'Masquer' : 'Publier'} l’avis de ${a.nom}`" @click="basculer(a)">
               <i :class="a.visible ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
             </button>
@@ -136,16 +136,16 @@ async function enregistrerGoogle() {
       <li v-if="!liste.length" class="adm-carte adm-vide avis-vide"><i class="fa-regular fa-star"></i><p>Aucun avis ne correspond.</p></li>
     </ul>
 
-    <!-- Saisie d'un avis Google : recopié tel quel depuis la fiche Google de BTM -->
-    <AdminPanneau v-if="formulaire" :titre="formulaire.id ? 'Corriger l’avis Google' : 'Ajouter un avis Google'" sous-titre="Recopiez l’avis tel qu’il apparaît sur la fiche Google de BTM." @fermer="formulaire = null">
-      <form id="form-avis-google" class="google-form" novalidate @submit.prevent="enregistrerGoogle">
+    <!-- Saisie d'un avis Trustpilot : recopié tel quel depuis la page Trustpilot de BTM -->
+    <AdminPanneau v-if="formulaire" :titre="formulaire.id ? 'Corriger l’avis Trustpilot' : 'Ajouter un avis Trustpilot'" sous-titre="Recopiez l’avis tel qu’il apparaît sur la page Trustpilot de BTM." @fermer="formulaire = null">
+      <form id="form-avis-trustpilot" class="trustpilot-form" novalidate @submit.prevent="enregistrerTrustpilot">
         <div class="adm-champ">
-          <label for="g-nom">Nom affiché sur Google</label>
+          <label for="g-nom">Nom affiché sur Trustpilot</label>
           <input id="g-nom" v-model="formulaire.nom" maxlength="60" placeholder="Ex. : Anli M." />
         </div>
         <fieldset class="adm-champ">
           <legend class="adm-champ-label">Note</legend>
-          <div class="google-etoiles">
+          <div class="trustpilot-etoiles">
             <button v-for="n in 5" :key="n" type="button" :class="{ actif: n <= formulaire.note }" :aria-label="`${n} étoile${n > 1 ? 's' : ''}`" :aria-pressed="n === formulaire.note" @click="formulaire.note = n"><i class="fa-solid fa-star" aria-hidden="true"></i></button>
           </div>
         </fieldset>
@@ -159,14 +159,14 @@ async function enregistrerGoogle() {
         </div>
         <div class="adm-champ">
           <label for="g-lien">Lien vers l’avis (facultatif)</label>
-          <input id="g-lien" v-model="formulaire.lien" type="url" maxlength="500" placeholder="https://maps.app.goo.gl/…" />
-          <span class="adm-champ-aide"><span>Sur Google Maps : avis → Partager → Copier le lien.</span></span>
+          <input id="g-lien" v-model="formulaire.lien" type="url" maxlength="500" placeholder="https://fr.trustpilot.com/reviews/…" />
+          <span class="adm-champ-aide"><span>Sur Trustpilot : avis → Partager → Copier le lien.</span></span>
         </div>
       </form>
       <p v-if="formErreur" class="adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ formErreur }}</p>
       <template #pied>
         <button type="button" class="adm-btn adm-btn-clair" @click="formulaire = null">Annuler</button>
-        <button type="submit" form="form-avis-google" class="adm-btn adm-btn-noir" :disabled="enregistrement">
+        <button type="submit" form="form-avis-trustpilot" class="adm-btn adm-btn-noir" :disabled="enregistrement">
           <span v-if="enregistrement" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Enregistrer
         </button>
       </template>
@@ -193,7 +193,7 @@ async function enregistrerGoogle() {
 .avis-barre span { display: block; height: 100%; border-radius: 999px; background: var(--adm-noir); }
 .avis-nombre { text-align: right; font-variant-numeric: tabular-nums; }
 
-.avis-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
+.avis-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
 .avis-carte { display: flex; flex-direction: column; gap: 14px; padding: 20px; transition: opacity var(--transition); }
 .avis-carte.masque { background: var(--adm-survol); box-shadow: inset 0 0 0 1px var(--adm-ligne); }
 .avis-carte.masque .avis-texte { color: var(--adm-muet); }
@@ -204,9 +204,35 @@ async function enregistrerGoogle() {
 .avis-carte-pied .adm-avatar { width: 34px; height: 34px; font-size: .75rem; }
 .avis-actions { display: flex; }
 .avis-vide { grid-column: 1 / -1; }
-.avis-badge-google { background: #e8f0fe; color: #1967d2; }
-.google-form { display: flex; flex-direction: column; gap: 16px; }
-.google-etoiles { display: flex; gap: 4px; }
-.google-etoiles button { padding: 2px; border: 0; background: none; color: var(--adm-ligne); font-size: 1.6rem; cursor: pointer; }
-.google-etoiles button.actif { color: #fbbc04; }
+.avis-badge-trustpilot { background: #e6f8f1; color: #007f55; }
+.avis-icone-trustpilot { color: #00b67a; }
+.trustpilot-form { display: flex; flex-direction: column; gap: 16px; }
+.trustpilot-etoiles { display: flex; gap: 4px; }
+.trustpilot-etoiles button { padding: 2px; border: 0; background: none; color: var(--adm-ligne); font-size: 1.6rem; cursor: pointer; }
+.trustpilot-etoiles button.actif { color: #00b67a; }
+/* Ordinateur et tablette : page fixe (« ecran-fixe » dans AdminVue) — synthèse et filtres en place, seuls les avis défilent */
+@media (min-width: 768px) and (min-height: 640px) {
+  .avis > :not(.avis-grille) { flex: none; }
+  .avis-grille { flex: 1; min-height: 0; grid-auto-rows: max-content; align-content: start; margin: -4px -8px 0; padding: 4px 8px 8px; overflow-y: auto; scrollbar-width: thin; }
+}
+/* Jusqu'à 1279 px : synthèse plus basse, cartes plus étroites (3 colonnes à 1024 px) */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .avis { gap: 12px; }
+  .avis-haut { gap: 12px; }
+  .avis-synthese { flex: 1 1 auto; gap: 14px 28px; padding: 14px 18px; }
+  .avis-moyenne > strong { font-size: 2.4rem; }
+  .avis-repartition { flex: 1 1 220px; min-width: 200px; gap: 0; }
+  .avis-repartition button { padding-block: 2px; }
+  .avis-filtres { flex: 1 1 100%; }
+  .avis-filtres > .adm-btn { margin-left: auto; }
+  .avis-grille { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+  .avis-carte { gap: 10px; padding: 16px; }
+}
+@media (max-width: 640px) {
+  .avis-synthese { width: 100%; gap: 16px; }
+  .avis-repartition { flex: 1 1 100%; min-width: 0; }
+  .avis-repartition button { margin: 0; }
+  .avis-moyenne > strong { font-size: 2.4rem; }
+  .avis-carte { gap: 12px; padding: 16px; }
+}
 </style>

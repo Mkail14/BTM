@@ -318,11 +318,13 @@ function construireCarrelage(d, struct, annot) {
   struct.add(boite(L, chape, l, M.beton, 0, chape / 2, 0))
   // carreaux posés sur les 3/4, le reste montre la colle étalée sur la chape
   const pose = L * .75
-  const mat = new THREE.MeshStandardMaterial({ map: textureMotif(motifCarreauSol, pose / taille, l / taille), roughness: .3 })
+  // teinte du modèle choisi chez un fournisseur (calculateur, carrelage), s'il est vendu dans ce format
+  const teinte = d.carreau?.format === d.format && /^#[0-9a-f]{6}$/i.test(d.carreau?.couleur || '') ? d.carreau.couleur : '#ffffff'
+  const mat = new THREE.MeshStandardMaterial({ map: textureMotif(motifCarreauSol, pose / taille, l / taille), color: teinte, roughness: .3 })
   struct.add(boite(pose, colle + ep, l, mat, -L / 2 + pose / 2, chape + (colle + ep) / 2, 0))
   struct.add(boite(L - pose, colle, l, M.colle, L / 2 - (L - pose) / 2, chape + colle / 2, 0))
   // pile de carreaux prête à poser
-  for (let i = 0; i < 6; i++) struct.add(boite(taille, ep, taille, M.carreau, L / 2 - (L - pose) / 2, chape + colle + ep / 2 + i * (ep + .002), 0))
+  for (let i = 0; i < 6; i++) struct.add(boite(taille, ep, taille, teinte === '#ffffff' ? M.carreau : new THREE.MeshStandardMaterial({ color: teinte, roughness: .3 }), L / 2 - (L - pose) / 2, chape + colle + ep / 2 + i * (ep + .002), 0))
 
   if (!props.compacte) {
     const off = Math.max(.6, Math.min(1.5, Math.max(L, l) * .07))

@@ -20,6 +20,7 @@ import SectionValider from '@/composants/fournisseur/SectionValider.vue'
 import SectionPaiements from '@/composants/fournisseur/SectionPaiements.vue'
 import SectionPromotions from '@/composants/fournisseur/SectionPromotions.vue'
 import SectionMateriaux from '@/composants/fournisseur/SectionMateriaux.vue'
+import SectionCarreaux from '@/composants/fournisseur/SectionCarreaux.vue'
 import SectionMaFiche from '@/composants/fournisseur/SectionMaFiche.vue'
 import SectionMonCompte from '@/composants/fournisseur/SectionMonCompte.vue'
 import '@/composants/admin/admin.css'
@@ -30,6 +31,7 @@ const sections = [
   { id: 'paiements', label: 'Paiements', icone: 'fa-solid fa-receipt', titre: 'Paiements', sousTitre: 'Encaissements, reçus, journal et reversement à BTM.', recherche: 'Rechercher un reçu, un projet, un code…', composant: SectionPaiements },
   { id: 'promotions', label: 'Promotions', icone: 'fa-solid fa-tags', titre: 'Promotions', sousTitre: 'Vos remises et codes promo, appliqués en caisse.', recherche: 'Rechercher une promotion, un code…', composant: SectionPromotions },
   { id: 'materiaux', label: 'Matériaux', icone: 'fa-solid fa-boxes-stacked', titre: 'Matériaux', sousTitre: 'Vos prix et vos stocks, appliqués à chaque encaissement.', recherche: 'Rechercher un matériau…', composant: SectionMateriaux },
+  { id: 'carreaux', label: 'Carreaux', icone: 'fa-solid fa-table-cells', titre: 'Carreaux', sousTitre: 'Vos modèles de carreaux et leur prix à l’unité, proposés dans le calculateur.', recherche: 'Rechercher un modèle…', composant: SectionCarreaux },
   { id: 'compte', label: 'Mon compte', icone: 'fa-solid fa-user-gear', titre: 'Mon compte', sousTitre: 'Votre entreprise dans l’annuaire et vos identifiants de connexion.', fixe: true }
 ]
 

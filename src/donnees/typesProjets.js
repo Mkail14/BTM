@@ -111,7 +111,9 @@ export const typesProjets = reactive([
           { valeur: '45x45', label: '45 × 45 cm' },
           { valeur: '60x60', label: '60 × 60 cm' }
         ]
-      }
+      },
+      // modèle chez un fournisseur (carreaux_fournisseur, migration 0029) ou « standard » (prix moyen du catalogue)
+      { nom: 'carreau', question: 'Quels carreaux voulez-vous ?', label: 'Modèle de carreaux', type: 'carreau', defaut: 'standard' }
     ],
     parametres: {
       margeCarreaux: 1.1, kgColleParM2: 5, kgParSacColle: 25, kgJointParM2: 0.5

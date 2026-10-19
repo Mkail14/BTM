@@ -47,7 +47,7 @@ function validerChamps(champs, valeurs, erreurs, prefixe = '') {
   for (const champ of champs) {
     const cle = prefixe + champ.nom
     const brut = valeurs[champ.nom]
-    if (champ.type === 'select') {
+    if (champ.type === 'select' || champ.type === 'carreau') {
       if (!brut) erreurs[cle] = MESSAGES.obligatoire
       continue
     }
@@ -139,7 +139,7 @@ export function calculerEstimation(typeId, dimensions, options = {}) {
   const resultat = appliquerRemise(Number(options.tauxFrais) > 0 ? ajouterFraisService(brut, options.tauxFrais) : brut, options.remise)
 
   const dims = {}
-  for (const c of type.champs) dims[c.nom] = c.type === 'select' ? (dimensions[c.nom] ?? c.defaut) : nombre(dimensions[c.nom])
+  for (const c of type.champs) dims[c.nom] = c.type === 'select' || c.type === 'carreau' ? (dimensions[c.nom] ?? c.defaut) : nombre(dimensions[c.nom])
   if (typeId === 'mur' && dimensions.autresMurs?.length) {
     dims.autresMurs = dimensions.autresMurs.map((m) => ({
       longueur: nombre(m.longueur), hauteur: nombre(m.hauteur), ouvertures: nombre(m.ouvertures)

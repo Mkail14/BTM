@@ -256,7 +256,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           <h2 id="achats-titre">Ce qu’il faut acheter</h2>
           <ul class="resultats-achats">
             <li v-for="l in resultat.lignes" :key="l.id">
-              <span class="resultats-achat-icone"><i :class="icones[l.id] || 'fa-solid fa-box'" aria-hidden="true"></i></span>
+              <span class="resultats-achat-icone"><i :class="icones[l.id] || (String(l.id).startsWith('carreau:') ? 'fa-solid fa-table-cells' : 'fa-solid fa-box')" aria-hidden="true"></i></span>
               <span class="resultats-achat-texte">
                 <strong>{{ formaterQuantite(l.quantite, l.unite) }}</strong>
                 <small>{{ l.libelle }} · {{ formaterEuros(l.prixUnitaire) }} / {{ l.unite === 'u' ? 'unité' : l.unite }}<template v-if="l.prixComptoir > l.prixUnitaire"> · <s>{{ formaterEuros(l.prixComptoir) }} au comptoir</s></template></small>

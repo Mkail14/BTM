@@ -20,7 +20,6 @@ const { connecte, utilisateur, deconnexion, backendDisponible, fournisseurLie, t
 const libelleTypeCompte = computed(() => ({ verifie: 'Professionnel vérifié', en_attente: 'Professionnel · SIRET en vérification', refuse: 'Pro : demande refusée' })[demandePro.value?.statut] || (fournisseurLie.value || typeProfil.value === 'fournisseur' ? 'Professionnel (fournisseur)' : 'Particulier'))
 const { mettreAJourProfil, supprimerCompte: supprimerCompteAuth } = useAuth()
 const defile = ref(false)
-const menuOuvert = ref(false)
 const profilOuvert = ref(false)
 const telephoneProfilValide = ref(true)
 const telephoneProfilErreur = ref('')
@@ -65,13 +64,17 @@ watch(() => route.path, () => { creditOuvert.value = false; if (afficherCredit.v
 const surScroll = () => { defile.value = window.scrollY > 24 }
 onMounted(() => { surScroll(); window.addEventListener('scroll', surScroll, { passive: true }) })
 onBeforeUnmount(() => window.removeEventListener('scroll', surScroll))
-watch(() => route.path, () => { menuOuvert.value = false; profilOuvert.value = false })
+watch(() => route.path, () => { profilOuvert.value = false })
 const { etat: fenetreAuth } = useFenetreAuth()
-watch([menuOuvert, profilOuvert, () => fenetreAuth.ouverte], ([menu, profil, auth]) => { document.body.style.overflow = menu || profil || auth ? 'hidden' : '' })
+watch([profilOuvert, () => fenetreAuth.ouverte], ([profil, auth]) => { document.body.style.overflow = profil || auth ? 'hidden' : '' })
+
+// Téléphone et tablette : barre d'onglets en bas, comme une application. La classe réserve sa place
+// (style.css : --barre-onglets) et remonte les éléments fixés en bas (aide, cookies, barre du calculateur).
+onMounted(() => document.documentElement.classList.add('avec-onglets'))
+onBeforeUnmount(() => document.documentElement.classList.remove('avec-onglets'))
 
 // Connexion : la fenêtre unique du site (affichée par App.vue), il n'y a pas de page de connexion
 function ouvrirAuth(mode = 'connexion') {
-  menuOuvert.value = false
   ouvrirFenetreAuth(mode)
 }
 
@@ -186,7 +189,7 @@ async function supprimerCompte() {
 </script>
 
 <template>
-  <header id="entete-app" class="entete" :class="{ 'entete-defile': defile || route.path !== '/', 'entete-menu-ouvert': menuOuvert }">
+  <header id="entete-app" class="entete" :class="{ 'entete-defile': defile || route.path !== '/' }">
     <div class="conteneur entete-inner">
       <router-link to="/" class="entete-logo" aria-label="BTM — Accueil">
         <LogoBtm :taille="42" />
@@ -253,34 +256,37 @@ async function supprimerCompte() {
         </div>
       </div>
 
-      <button class="burger" type="button" :aria-expanded="menuOuvert" aria-controls="menu-mobile" :aria-label="menuOuvert ? 'Fermer le menu' : 'Ouvrir le menu'" @click="menuOuvert = !menuOuvert">
-        <span></span><span></span><span></span>
-      </button>
     </div>
-
-    <transition name="glisser">
-      <nav v-if="menuOuvert" id="menu-mobile" class="menu-mobile" aria-label="Menu mobile">
-        <button v-if="connecte" class="menu-mobile-compte" type="button" @click="menuOuvert = false; ouvrirProfil()">
-          <span class="entete-avatar" aria-hidden="true">{{ initiale }}</span>
-          <span class="menu-mobile-compte-texte">
-            <strong>{{ pseudo }}</strong><small>{{ utilisateur?.email }}</small>
-            <small v-if="afficherCredit" class="menu-mobile-credit"><i class="fa-solid fa-coins" aria-hidden="true"></i> Crédit fidélité : {{ formaterEuros(credit.solde) }}</small>
-            <small v-if="afficherCredit" class="menu-mobile-credit-aide">Déduit de votre prochain achat au comptoir · environ {{ formaterEuros(creditPour100) }} gagnés pour 100 € d’achat</small>
-          </span>
-          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
-        </button>
-        <router-link v-for="l in liensVisibles" :key="l.to" :to="l.to" class="menu-mobile-lien" active-class="actif">
-          <i :class="l.icone" aria-hidden="true"></i>{{ l.label }}
-          <b v-if="l.to === '/dashboard' && propositions" class="nav-pastille nav-pastille-menu">{{ propositions }}</b>
-        </router-link>
-        <div class="menu-mobile-actions">
-          <button v-if="!connecte && backendDisponible" type="button" class="btn btn-contour-clair btn-bloc" @click="ouvrirAuth()">Connexion</button>
-          <button v-else-if="connecte" type="button" class="btn btn-contour-clair btn-bloc" @click="deconnexion"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Déconnexion</button>
-          <router-link to="/calculateur" class="btn btn-primaire btn-bloc">Faire mon devis</router-link>
-        </div>
-      </nav>
-    </transition>
   </header>
+
+  <!-- Téléphone et tablette : barre d'onglets, hors de l'en-tête (son flou ancrerait la barre en haut) -->
+  <nav class="onglets" aria-label="Navigation principale">
+    <router-link to="/" class="onglet" active-class="actif">
+      <span class="onglet-icone"><i class="fa-solid fa-house" aria-hidden="true"></i></span><span>Accueil</span>
+    </router-link>
+    <router-link to="/fournisseurs" class="onglet" active-class="actif">
+      <span class="onglet-icone"><i class="fa-solid fa-truck" aria-hidden="true"></i></span><span>Fournisseurs</span>
+    </router-link>
+    <router-link to="/calculateur" class="onglet onglet-estimer" active-class="actif">
+      <span class="onglet-bulle"><i class="fa-solid fa-calculator" aria-hidden="true"></i></span><span>Estimer</span>
+    </router-link>
+    <router-link v-if="fournisseurLie" to="/espace-fournisseur" class="onglet" active-class="actif">
+      <span class="onglet-icone"><i class="fa-solid fa-store" aria-hidden="true"></i></span><span>Mon espace</span>
+    </router-link>
+    <!-- déconnecté : la page demande la connexion puis s'ouvre -->
+    <router-link v-else to="/dashboard" class="onglet" active-class="actif">
+      <span class="onglet-icone">
+        <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
+        <b v-if="propositions" class="onglet-pastille" :aria-label="`${propositions} proposition de BTM à voir`">{{ propositions }}</b>
+      </span><span>Projets</span>
+    </router-link>
+    <button type="button" class="onglet" :class="{ actif: profilOuvert }" @click="connecte ? ouvrirProfil() : ouvrirAuth()">
+      <span class="onglet-icone">
+        <span v-if="connecte" class="onglet-avatar" aria-hidden="true">{{ initiale }}</span>
+        <i v-else class="fa-regular fa-user" aria-hidden="true"></i>
+      </span><span>{{ connecte ? 'Compte' : 'Connexion' }}</span>
+    </button>
+  </nav>
 
   <div v-if="profilOuvert" class="profil-overlay" @click.self="fermerProfil">
     <button class="profil-fermer" type="button" aria-label="Fermer le profil" @click="fermerProfil"><i class="fa-solid fa-xmark"></i></button>
@@ -291,6 +297,7 @@ async function supprimerCompte() {
           <button class="profil-action" :class="{ actif: profilVue === 'type' }" type="button" @click="ouvrirAction('type')"><i class="fa-solid fa-briefcase"></i><span>Type de compte<small>{{ libelleTypeCompte }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
           <button class="profil-action" :class="{ actif: profilVue === 'mot-de-passe' }" type="button" @click="ouvrirAction('mot-de-passe')"><i class="fa-solid fa-lock"></i><span>Modifier le mot de passe<small>Sécuriser mon accès</small></span><i class="fa-solid fa-chevron-right"></i></button>
           <button class="profil-action" type="button" @click="fermerProfil(); router.push('/dashboard')"><i class="fa-solid fa-folder-open"></i><span>Mes archives de projet<small>Retrouver mes devis</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+          <button class="profil-action" type="button" @click="fermerProfil(); deconnexion()"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Se déconnecter<small>{{ utilisateur?.email }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
           <button class="profil-action profil-action-danger" :class="{ actif: profilVue === 'supprimer' }" type="button" @click="ouvrirAction('supprimer')"><i class="fa-solid fa-trash"></i><span>Supprimer mon compte<small>Action définitive</small></span><i class="fa-solid fa-chevron-right"></i></button>
         </nav>
 
@@ -446,8 +453,6 @@ async function supprimerCompte() {
 .credit-action { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--lagon-700); font-size: .86rem; font-weight: 700; }
 .credit-action:hover { text-decoration: underline; text-underline-offset: 3px; }
 .credit-note { margin: 10px 0 0; color: var(--gris-500); font-size: .74rem; }
-.menu-mobile-credit { display: flex; align-items: center; gap: 6px; margin-top: 2px; color: #fde68a !important; font-weight: 600; }
-.menu-mobile-compte-texte .menu-mobile-credit-aide { white-space: normal; line-height: 1.4; }
 .entete-avatar {
   display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%;
   background: linear-gradient(135deg, var(--lagon-400), var(--lagon-700)); color: #fff;
@@ -459,52 +464,53 @@ async function supprimerCompte() {
 }
 .entete-deconnexion:hover { color: var(--corail); background: rgba(251, 113, 133, .12); }
 
-/* Burger */
-.burger {
-  margin-left: auto; width: 44px; height: 44px; flex-shrink: 0; display: flex; flex-direction: column; justify-content: center; gap: 5px;
-  padding: 0 11px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 12px; background: rgba(255, 255, 255, .05); color: #fff;
-  transition: background var(--transition), border-color var(--transition);
-}
-.burger:hover { background: rgba(255, 255, 255, .1); }
-.burger span { display: block; height: 2px; border-radius: 2px; background: currentColor; transition: transform .3s, opacity .3s, width .3s; }
-.burger span:nth-child(2) { width: 70%; margin-left: auto; }
-.entete-menu-ouvert .burger { border-color: rgba(34, 211, 238, .45); color: var(--lagon-200); }
-.entete-menu-ouvert .burger span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-.entete-menu-ouvert .burger span:nth-child(2) { opacity: 0; }
-.entete-menu-ouvert .burger span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+/* ---------- Téléphone et tablette : barre d'onglets en bas, comme une application ---------- */
+.onglets { display: none; }
+@media (max-width: 899px) {
+  /* en haut : le logo, et le crédit fidélité d'un compte connecté ; tout le reste passe dans les onglets */
+  .entete-actions { display: flex; margin-left: auto; }
+  .entete-utilisateur, .entete-deconnexion, .entete-connexion, .entete-cta { display: none; }
+  .credit-detail { right: 0; width: min(330px, calc(100vw - 32px)); }
 
-/* Menu mobile plein écran */
-.menu-mobile {
-  position: fixed; top: var(--hauteur-entete); left: 0; right: 0; height: calc(100dvh - var(--hauteur-entete));
-  display: flex; flex-direction: column; gap: 6px; overflow-y: auto; overscroll-behavior: contain;
-  padding: 20px 20px calc(24px + env(safe-area-inset-bottom));
-  background:
-    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(8, 145, 178, .22), transparent 70%),
-    var(--abysse);
-  color: #fff;
+  .onglets {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 110; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+    height: var(--barre-onglets); padding: 0 6px env(safe-area-inset-bottom);
+    background: rgba(6, 32, 44, .92); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border-top: 1px solid rgba(103, 232, 249, .12); box-shadow: 0 -10px 30px rgba(6, 32, 44, .22);
+  }
+  .onglet {
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; height: 64px;
+    padding: 0; border: 0; background: none; color: rgba(255, 255, 255, .58); font: 600 .68rem/1.1 var(--font-corps); letter-spacing: .01em;
+    -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color var(--transition);
+  }
+  .onglet > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .onglet-icone {
+    position: relative; width: 54px; height: 30px; display: grid; place-items: center; border-radius: 999px; font-size: 1.08rem;
+    transition: background var(--transition), color var(--transition), transform .15s ease;
+  }
+  .onglet.actif { color: #fff; }
+  .onglet.actif .onglet-icone { background: rgba(34, 211, 238, .18); color: var(--lagon-300); }
+  .onglet:active .onglet-icone, .onglet:active .onglet-bulle { transform: scale(.9); }
+  .onglet:focus-visible { outline: none; }
+  .onglet:focus-visible .onglet-icone, .onglet:focus-visible .onglet-bulle { outline: 2px solid var(--lagon-300); outline-offset: 2px; }
+  /* Estimer : l'action principale, en relief au centre */
+  .onglet-bulle {
+    width: 54px; height: 54px; margin-top: -24px; display: grid; place-items: center; border-radius: 18px; font-size: 1.3rem; color: #fff;
+    background: linear-gradient(145deg, var(--lagon-400), var(--lagon-700));
+    box-shadow: 0 10px 24px rgba(8, 145, 178, .45), 0 0 0 5px var(--abysse); transition: transform .15s ease, box-shadow var(--transition);
+  }
+  .onglet-estimer { justify-content: flex-end; padding-bottom: 9px; }
+  .onglet-estimer.actif .onglet-bulle { box-shadow: 0 10px 24px rgba(8, 145, 178, .55), 0 0 0 5px var(--abysse), 0 0 0 7px var(--lagon-400); }
+  .onglet-avatar {
+    width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%;
+    background: linear-gradient(135deg, var(--lagon-400), var(--lagon-700)); color: #fff; font: 700 .8rem/1 var(--font-display);
+  }
+  .onglet.actif .onglet-avatar { box-shadow: 0 0 0 2px var(--lagon-300); }
+  .onglet-pastille {
+    position: absolute; top: -3px; right: 6px; min-width: 17px; height: 17px; padding: 0 4px; display: grid; place-items: center;
+    border-radius: 999px; background: #f59e0b; color: #fff; font: 800 .64rem/1 var(--font-corps); box-shadow: 0 0 0 2px var(--abysse);
+  }
 }
-.menu-mobile-compte {
-  display: flex; align-items: center; gap: 12px; width: 100%; margin-bottom: 12px; padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, .12); border-radius: 14px; background: rgba(255, 255, 255, .05); color: #fff; text-align: left;
-}
-.menu-mobile-compte .entete-avatar { width: 40px; height: 40px; font-size: 1.15rem; }
-.menu-mobile-compte-texte { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.3; }
-.menu-mobile-compte-texte small { color: var(--gris-400); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.menu-mobile-compte > i { color: var(--gris-400); font-size: .8rem; }
-.menu-mobile-lien {
-  position: relative; display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 12px;
-  font-family: var(--font-display); font-size: 1.35rem; font-weight: 600; letter-spacing: .02em; color: rgba(255, 255, 255, .82);
-  transition: background var(--transition), color var(--transition);
-}
-.menu-mobile-lien i {
-  display: grid; place-items: center; width: 38px; height: 38px; border-radius: 10px;
-  background: rgba(255, 255, 255, .06); color: var(--lagon-300); font-size: 1rem;
-}
-.menu-mobile-lien:hover { background: rgba(255, 255, 255, .05); color: #fff; }
-.menu-mobile-lien.actif { background: rgba(34, 211, 238, .12); color: var(--lagon-100); }
-.menu-mobile-lien.actif i { background: var(--lagon-600); color: #fff; }
-.menu-mobile-lien.actif::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 3px; background: var(--lagon-400); }
-.menu-mobile-actions { margin-top: auto; display: flex; flex-direction: column; gap: 10px; padding-top: 24px; }
 
 @media (max-width: 380px) {
   .entete-marque small { display: none; }
@@ -603,7 +609,6 @@ async function supprimerCompte() {
     transition: opacity .18s ease, transform .18s ease;
   }
   .nav-lien:hover::before, .nav-lien:focus-visible::before { opacity: 1; transform: translate(-50%, 0); }
-  .burger, .menu-mobile { display: none; }
 }
 
 /* Desktop large (≥ 1150px) : icônes + libellés */

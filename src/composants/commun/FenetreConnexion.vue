@@ -167,6 +167,22 @@ watch(() => props.mode, (m) => { if (m === 'inscription') apresConfirmation.valu
 if (props.mode === 'inscription' && ['particulier', 'professionnel'].includes(props.profil)) choisirProfil(props.profil)
 watch(connecte, (v) => { if (v && !modeOubli.value) terminerConnexion() })
 
+// Même parcours sur tous les écrans (plein écran sur téléphone, carte centrée ailleurs) : un accueil d'application
+// (logo, titre, Google / Apple / e-mail), puis le formulaire avec « Continuer avec l'e-mail ».
+// Pas d'accueil quand la fenêtre a une raison précise d'aller droit au formulaire.
+const accueil = ref(backendDisponible && !reserve && !modeOubli.value && !props.suspendu && etape.value === 0)
+const viaAccueil = ref(false) // formulaire ouvert depuis l'accueil : flèche de retour, Google / Apple déjà proposés
+function continuerEmail() {
+  accueil.value = false
+  viaAccueil.value = true
+  erreurGlobale.value = ''
+}
+function revenirAccueil() {
+  accueil.value = true
+  erreurs.value = {}; erreurGlobale.value = ''; succes.value = ''
+  etape.value = 0
+}
+
 const retirerErreur = (cle) => { const { [cle]: _, ...reste } = erreurs.value; erreurs.value = reste }
 const poserErreur = (cle, m) => { erreurs.value = { ...erreurs.value, [cle]: m } }
 
@@ -337,7 +353,7 @@ const googleSecours = ref(!backendDisponible)
 watch([zoneGoogle, estInscription], async ([zone]) => {
   if (!zone || googleSecours.value) return
   try {
-    await afficherBoutonGoogle(zone, { texte: estInscription.value ? 'signup_with' : 'continue_with', surJeton: avecJetonGoogle })
+    await afficherBoutonGoogle(zone, { texte: estInscription.value ? 'signup_with' : 'continue_with', pilule: accueil.value, surJeton: avecJetonGoogle })
   } catch {
     googleSecours.value = true
   }
@@ -370,34 +386,57 @@ function traduire(m = '') {
 
 <template>
   <div id="fenetre-auth" class="auth" role="dialog" aria-modal="true" aria-labelledby="auth-titre" @click.self="emit('fermer')">
-    <button class="auth-fermer" type="button" aria-label="Fermer la fenêtre" @click="emit('fermer')">
-      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-    </button>
     <div class="auth-grille">
-      <aside class="auth-visuel" :class="{ pro: estInscription && typeCompte === 'professionnel' && etape > 0 }" aria-hidden="true">
-        <LogoBtm :taille="72" />
-        <template v-if="estInscription && typeCompte === 'professionnel' && etape > 0">
-          <h2>BTM Pro</h2>
-          <p>Chiffrez des chantiers entiers, pas seulement un mur.</p>
-          <ul>
-            <li><i class="fa-solid fa-city"></i> Plusieurs ouvrages dans un même devis : murs, dalles, fondations, terrasses, carrelage</li>
-            <li><i class="fa-solid fa-cart-shopping"></i> Ouvrages mesurés et achats directs réunis</li>
-            <li><i class="fa-solid fa-file-pdf"></i> Un seul devis PDF avec code de retrait</li>
-          </ul>
-        </template>
-        <template v-else>
-          <h2>{{ estInscription ? 'Rejoignez BTM' : 'Bon retour !' }}</h2>
-          <p>Synchronisez vos devis entre vos appareils et retrouvez vos projets où que vous soyez sur l’île.</p>
-          <ul>
-            <li><i class="fa-solid fa-cloud"></i> Sauvegarde cloud sécurisée</li>
-            <li><i class="fa-solid fa-mobile-screen"></i> Accès depuis mobile, tablette et PC</li>
-            <li><i class="fa-solid fa-ticket"></i> Code de retrait chez votre fournisseur</li>
-          </ul>
-        </template>
-      </aside>
+      <section class="carte auth-carte" :class="{ 'auth-carte-accueil': accueil }">
+        <button class="auth-fermer" type="button" aria-label="Fermer la fenêtre" @click="emit('fermer')">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+        <!-- Accueil d'application (Google, Apple, e-mail), le formulaire vient ensuite -->
+        <div v-if="accueil" class="auth-accueil">
+          <div class="auth-accueil-haut">
+            <span class="auth-accueil-logo"><LogoBtm :taille="58" /></span>
+            <h2 id="auth-titre" class="auth-accueil-titre">{{ estInscription ? 'Rejoignez' : 'Bienvenue sur' }}<br />BTM</h2>
+          </div>
+          <!-- outils du chantier, tracés à l'ouverture -->
+          <svg class="auth-croquis" viewBox="0 0 360 150" aria-hidden="true" focusable="false">
+            <path d="M22 118V86l27-24 27 24v32z M42 118v-16h14v16" />
+            <path d="M104 34l18 18m0-18l-18 18" />
+            <circle cx="160" cy="46" r="15" />
+            <path d="M96 128q14-22 28 0t28 0" />
+            <path d="M196 96h38v17h-38z M234 96h38v17h-38z M215 113h38v17h-38z" />
+            <path d="M292 30l30 30-17 15z M292 30l-15-15" />
+            <path d="M318 106v28m-14-14h28m-24-10l20 20m0-20l-20 20" />
+            <path d="M64 22l11 19H53z" />
+            <path d="M178 140h64 M200 140a10 10 0 0 1 20 0" />
+          </svg>
+          <p class="auth-accueil-accroche">Estimez vos matériaux.<br />Retirez-les près de chez vous.</p>
+          <p v-if="raison" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ raison }}</p>
 
-      <section class="carte auth-carte">
-        <MotDePasseOublie v-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" :par-lien="parLien" :lien-expire="lienExpire" @retour="quitterOubli" @termine="finOubli" />
+          <div class="auth-accueil-boutons">
+            <div v-if="!googleSecours" ref="zoneGoogle" class="auth-google auth-google-pilule" :class="{ occupe: externe === 'google' }"></div>
+            <button v-else type="button" class="auth-pilule sombre" :disabled="!!externe" @click="continuerAvec('google')">
+              <span v-if="externe === 'google'" class="spinner" aria-hidden="true"></span><i v-else class="fa-brands fa-google" aria-hidden="true"></i>
+              {{ estInscription ? 'S’inscrire avec Google' : 'Continuer avec Google' }}
+            </button>
+            <button type="button" class="auth-pilule sombre" :disabled="!!externe" @click="continuerAvec('apple')">
+              <span v-if="externe === 'apple'" class="spinner" aria-hidden="true"></span><i v-else class="fa-brands fa-apple" aria-hidden="true"></i>
+              {{ estInscription ? 'S’inscrire avec Apple' : 'Continuer avec Apple' }}
+            </button>
+            <button type="button" class="auth-pilule clair" @click="continuerEmail">
+              <i class="fa-regular fa-envelope" aria-hidden="true"></i> {{ estInscription ? 'S’inscrire avec l’e-mail' : 'Continuer avec l’e-mail' }}
+            </button>
+          </div>
+          <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact class="auth-accueil-erreur">{{ erreurGlobale }}</BandeauAvertissement>
+
+          <p class="auth-accueil-bascule">
+            <template v-if="estInscription">Déjà un compte ? <button type="button" @click="emit('changer-mode', 'connexion')">Se connecter</button></template>
+            <template v-else>Pas encore de compte ? <button type="button" @click="emit('changer-mode', 'inscription')">Créer un compte</button></template>
+          </p>
+          <p class="auth-accueil-legal">
+            {{ estInscription ? 'Avec Google ou Apple, vous créez un compte particulier. ' : '' }}En continuant, vous acceptez les <router-link to="/conditions" target="_blank" rel="noopener">conditions d’utilisation</router-link>.
+          </p>
+        </div>
+        <MotDePasseOublie v-else-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" :par-lien="parLien" :lien-expire="lienExpire" @retour="quitterOubli" @termine="finOubli" />
         <!-- Inscription réussie, adresse à confirmer : plus de formulaire, seulement la marche à suivre -->
         <div v-else-if="compteCree" class="auth-cree" role="status">
           <span class="auth-cree-icone" aria-hidden="true"><i class="fa-solid fa-envelope-circle-check"></i></span>
@@ -415,6 +454,9 @@ function traduire(m = '') {
           </div>
         </div>
         <template v-else>
+          <button v-if="viaAccueil && (!estInscription || etape === 0)" type="button" class="auth-retour-accueil" @click="revenirAccueil">
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Autres options
+          </button>
           <h2 id="auth-titre" class="auth-titre">{{ reserve ? 'Espace partenaires' : !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
           <p v-if="raison && (!estInscription || etape === 0)" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ raison }}</p>
           <p v-if="estInscription && etape <= 1" class="champ-aide auth-donnees">Vos informations servent uniquement à votre compte et à vos devis : elles ne sont ni vendues ni cédées à des tiers.</p>
@@ -549,7 +591,7 @@ function traduire(m = '') {
           </form>
 
           <!-- Google / Apple : à la connexion, et au choix du profil de l'inscription (compte particulier) -->
-          <div v-if="!reserve && (!estInscription || etape === 0)" class="auth-externe">
+          <div v-if="!reserve && !viaAccueil && (!estInscription || etape === 0)" class="auth-externe">
             <p class="auth-separateur"><span>{{ estInscription ? 'ou créez votre compte avec' : 'ou continuez avec' }}</span></p>
             <div class="auth-externe-boutons">
               <div v-if="!googleSecours" ref="zoneGoogle" class="auth-google" :class="{ occupe: externe === 'google' }"></div>
@@ -589,18 +631,21 @@ function traduire(m = '') {
 </template>
 
 <style scoped>
-/* Fenêtre superposée au site, fond flouté */
-.auth { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px; background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); overflow-y: auto; animation: auth-fondu .2s ease; }
+/* Un seul écran de connexion sur tous les appareils : carte au format téléphone, centrée sur fond flouté
+   (tablette, ordinateur), plein écran sur téléphone (voir plus bas). Même contenu, mêmes étapes partout. */
+.auth { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px; background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); overflow: hidden; animation: auth-fondu .2s ease; }
 @keyframes auth-fondu { from { opacity: 0; } }
-.auth-grille { display: grid; gap: 32px; grid-template-columns: 1fr 1fr; align-items: stretch; width: min(100%, 1000px); max-height: calc(100dvh - 48px); overflow-y: auto; }
-.auth-visuel { display: block; padding: 40px; border-radius: var(--rayon-lg); color: #fff; background: var(--ardoise); }
-.auth-visuel h2 { font-size: 2.4rem; margin: 22px 0 12px; }
-.auth-visuel p { opacity: .9; line-height: 1.6; }
-.auth-visuel ul { margin-top: 26px; display: flex; flex-direction: column; gap: 12px; }
-.auth-visuel li { display: flex; gap: 12px; align-items: center; font-weight: 500; }
-.auth-visuel li i { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.15); color: var(--sable); }
-.auth-carte { display: flex; flex-direction: column; padding: 36px; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); }
-.auth-titre { font-size: 2.2rem; color: var(--ardoise); }
+.auth-grille {
+  width: min(100%, 460px); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; border-radius: 28px;
+  background: var(--gris-50); box-shadow: 0 30px 80px rgba(6, 32, 44, .45); animation: auth-monter .34s cubic-bezier(.22, .61, .36, 1);
+}
+.auth-carte {
+  position: relative; display: flex; flex-direction: column; min-height: min(780px, calc(100dvh - 48px)); padding: 72px 36px 32px;
+  border: 0; border-radius: 0; background: var(--gris-50); box-shadow: none;
+}
+.auth-carte-accueil { padding-top: 40px; }
+.auth-titre { font-size: 2.1rem; color: var(--ardoise); }
+.auth-carte :deep(.btn) { min-height: 50px; border-radius: 999px; }
 .auth-raison { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: var(--lagon-50, #ecfeff); border: 1px solid var(--gris-200); color: var(--ardoise); font-weight: 600; font-size: .92rem; }
 .auth-raison i { color: var(--primaire); }
 .auth-donnees { margin: 6px 0 0; }
@@ -658,15 +703,12 @@ function traduire(m = '') {
 .auth-lien { border: 0; padding: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
 .auth-lien:disabled { opacity: .6; cursor: wait; }
 .auth-bascule button { border: 0; padding: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
-.auth-fermer { position: fixed; top: 22px; right: 24px; z-index: 2; width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 1.2rem; cursor: pointer; transition: background .2s, transform .2s; }
-.auth-fermer:hover { background: rgba(255,255,255,.25); transform: rotate(90deg); }
-@media (max-width: 899px) { .auth-visuel { display: none; } .auth-grille { grid-template-columns: 1fr; max-width: 520px; } }
-@media (max-width: 560px) { .auth { padding: 14px; } .auth-grille { max-height: calc(100dvh - 28px); } .auth-carte { padding: 26px 22px; } .auth-fermer { top: 10px; right: 12px; } }
-@media (max-width: 480px) { .auth-identite-grille { grid-template-columns: 1fr; gap: 18px; } }
-@media (max-width: 480px) {
-  .auth-carte { padding: 26px 18px; }
-  .auth-titre { font-size: 1.9rem; }
+.auth-fermer {
+  position: absolute; top: 16px; right: 16px; z-index: 2; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: var(--gris-100); color: var(--ardoise); font-size: 1.05rem; cursor: pointer; transition: background .15s;
 }
+.auth-fermer:hover { background: var(--gris-200); }
+@media (max-width: 480px) { .auth-identite-grille { grid-template-columns: 1fr; gap: 18px; } }
 .auth-suggestion button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--lagon-700, var(--lagon-600)); text-decoration: underline; cursor: pointer; }
 
 /* Choix du profil (étape 0) */
@@ -684,8 +726,6 @@ function traduire(m = '') {
 .auth-profil.pro .auth-profil-icone { background: var(--ardoise); color: #fcd34d; }
 .auth-profil-suite { margin-top: auto; padding-top: 8px; color: var(--lagon-700); font-size: .88rem; font-weight: 700; }
 .auth-profil-badge { position: absolute; top: 14px; right: 14px; padding: 2px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.auth-visuel.pro { background: linear-gradient(150deg, var(--ardoise) 0%, #0b3a4d 100%); }
-.auth-visuel.pro li i { color: #fcd34d; }
 
 /* Civilité */
 .auth-civilite { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
@@ -703,7 +743,16 @@ function traduire(m = '') {
 .auth-entreprise-carte small { color: #047857; font-size: .82rem; }
 .auth-entreprise-carte.inactive { background: #fffbeb; color: #92400e; }
 .auth-entreprise-carte.inactive small { color: #b45309; }
-@media (max-width: 520px) { .auth-profils { grid-template-columns: 1fr; } }
+/* Un profil par ligne (icône, texte, flèche), sur tous les écrans : la carte a la largeur d'un téléphone */
+.auth-profils { grid-template-columns: 1fr; gap: 10px; }
+.auth-profil { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 14px; row-gap: 2px; align-items: center; padding: 14px 16px; }
+.auth-profil:hover { transform: none; }
+.auth-profil-icone { grid-row: 1 / 3; width: 44px; height: 44px; font-size: 1.05rem; }
+.auth-profil strong { grid-column: 2; align-self: end; font-size: 1.02rem; }
+.auth-profil small { grid-column: 2; align-self: start; font-size: .82rem; line-height: 1.35; }
+.auth-profil-suite { grid-column: 3; grid-row: 1 / 3; margin: 0; padding: 0; font-size: 0; }
+.auth-profil-suite i { font-size: 1rem; }
+.auth-profil-badge { top: 8px; right: 10px; padding: 1px 8px; font-size: .64rem; }
 
 /* Type de compte (inscription) */
 .auth-type { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; padding: 0; border: 0; }
@@ -727,4 +776,59 @@ function traduire(m = '') {
 .auth-entreprise.inactive { color: #b45309; }
 .auth-pro .champ-aide .spinner { width: 12px; height: 12px; border-width: 2px; vertical-align: -2px; }
 @media (max-width: 420px) { .auth-type { grid-template-columns: 1fr; } }
+
+/* ---------- Accueil d'application (tous les écrans) ---------- */
+.auth-retour-accueil {
+  position: absolute; top: 16px; left: 16px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 12px;
+  border: 0; border-radius: 999px; background: var(--gris-100); color: var(--ardoise); font: 600 .9rem var(--font-corps); cursor: pointer;
+}
+.auth-accueil { display: flex; flex-direction: column; align-items: center; min-height: 100%; text-align: center; }
+.auth-accueil-haut { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: clamp(8px, 6vh, 56px); }
+.auth-accueil-logo { width: 78px; height: 78px; display: grid; place-items: center; border-radius: 24px; background: var(--abysse); box-shadow: 0 14px 30px rgba(6, 32, 44, .25); }
+.auth-accueil-titre { margin: 0; font-family: var(--font-display); font-size: clamp(2.7rem, 13vw, 3.3rem); font-weight: 700; line-height: .95; letter-spacing: -.005em; color: var(--ardoise); }
+.auth-croquis { width: 100%; max-width: 380px; margin: 22px 0 6px; fill: none; stroke: var(--gris-200); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.auth-croquis > * { stroke-dasharray: 260; stroke-dashoffset: 260; animation: auth-trace 1.3s cubic-bezier(.22, .61, .36, 1) forwards; }
+.auth-croquis > :nth-child(2) { animation-delay: .08s; } .auth-croquis > :nth-child(3) { animation-delay: .16s; }
+.auth-croquis > :nth-child(4) { animation-delay: .24s; } .auth-croquis > :nth-child(5) { animation-delay: .32s; }
+.auth-croquis > :nth-child(6) { animation-delay: .4s; } .auth-croquis > :nth-child(7) { animation-delay: .48s; }
+.auth-croquis > :nth-child(8) { animation-delay: .56s; } .auth-croquis > :nth-child(9) { animation-delay: .64s; }
+@keyframes auth-trace { to { stroke-dashoffset: 0; } }
+.auth-accueil-accroche { margin: 0; color: var(--gris-700); font-size: 1.02rem; line-height: 1.75; }
+.auth-accueil .auth-raison { margin-top: 16px; text-align: left; }
+.auth-accueil-boutons { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; margin-top: auto; padding-top: 30px; }
+.auth-accueil-boutons > * { width: 100%; max-width: 400px; }
+.auth-accueil-erreur { width: 100%; max-width: 400px; margin-top: 12px; text-align: left; }
+.auth-google-pilule { min-height: 40px; }
+/* même hauteur et même noir que le bouton officiel de Google (40 px) */
+.auth-pilule {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 40px; padding: 0 18px; border: 0; border-radius: 999px;
+  font: 500 .92rem var(--font-corps); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background .15s ease;
+}
+.auth-pilule:active:not(:disabled) { transform: scale(.98); }
+.auth-pilule:disabled { opacity: .6; cursor: default; }
+.auth-pilule.sombre { background: #1f1f1f; color: #fff; }
+.auth-pilule.sombre:hover:not(:disabled) { background: #333; }
+.auth-pilule.sombre .fa-apple { font-size: 1.1rem; }
+.auth-pilule.clair { background: var(--lagon-100); color: var(--ocean); }
+.auth-pilule.clair:hover { background: var(--lagon-200); }
+.auth-accueil-bascule { margin: 22px 0 0; color: var(--texte-secondaire); font-size: .92rem; }
+.auth-accueil-bascule button { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
+.auth-accueil-legal { max-width: 320px; margin: 10px 0 0; color: var(--gris-500); font-size: .75rem; line-height: 1.5; }
+.auth-accueil-legal a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Téléphone : la même carte, en plein écran */
+@media (max-width: 639px) {
+  .auth { padding: 0; place-items: stretch; background: var(--gris-50); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .auth-grille { width: 100%; height: 100dvh; max-height: none; border-radius: 0; box-shadow: none; }
+  .auth-carte { min-height: 100%; padding: calc(64px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom)); }
+  .auth-carte-accueil { padding-top: calc(28px + env(safe-area-inset-top)); }
+  .auth-fermer { top: calc(12px + env(safe-area-inset-top)); right: 14px; }
+  .auth-retour-accueil { top: calc(12px + env(safe-area-inset-top)); left: 14px; }
+}
+@keyframes auth-monter { from { transform: translateY(28px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .auth, .auth-grille { animation: none; }
+  .auth-croquis > * { animation: none; stroke-dashoffset: 0; }
+}
 </style>

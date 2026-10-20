@@ -28,9 +28,9 @@ async function sha256(texte) {
 /**
  * Affiche le bouton Google dans `element`. `surJeton(jeton, nonce)` reçoit le jeton d'identité et le nonce
  * en clair (Google en a reçu l'empreinte : Supabase vérifie que les deux correspondent).
- * `texte` : 'continue_with' | 'signup_with' | 'signin_with'.
+ * `texte` : 'continue_with' | 'signup_with' | 'signin_with' ; `pilule` : bouton noir arrondi (accueil de la connexion sur téléphone).
  */
-export async function afficherBoutonGoogle(element, { texte = 'continue_with', surJeton }) {
+export async function afficherBoutonGoogle(element, { texte = 'continue_with', pilule = false, surJeton }) {
   await chargerScript()
   if (!element.isConnected) return
   const nonce = crypto.randomUUID()
@@ -43,7 +43,7 @@ export async function afficherBoutonGoogle(element, { texte = 'continue_with', s
   })
   element.replaceChildren()
   window.google.accounts.id.renderButton(element, {
-    type: 'standard', theme: 'outline', size: 'large', shape: 'rectangular', text: texte, logo_alignment: 'center',
+    type: 'standard', theme: pilule ? 'filled_black' : 'outline', size: 'large', shape: pilule ? 'pill' : 'rectangular', text: texte, logo_alignment: 'center',
     width: Math.max(200, Math.min(400, Math.round(element.getBoundingClientRect().width))), locale: 'fr'
   })
 }

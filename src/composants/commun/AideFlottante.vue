@@ -137,7 +137,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .aide-bouton {
-  position: fixed; right: 28px; bottom: 24px; z-index: 180; width: 54px; height: 54px;
+  position: fixed; right: 28px; bottom: calc(24px + var(--barre-onglets, 0px)); z-index: 180; width: 54px; height: 54px;
   display: grid; place-items: center; border: 1px solid rgba(255,255,255,.28); border-radius: 50%;
   background: var(--lagon-600); color: #fff; box-shadow: 0 10px 26px rgba(0,0,0,.28);
   font-size: 1.25rem; cursor: pointer; transition: transform .2s, background .2s, box-shadow .2s;
@@ -218,13 +218,13 @@ onBeforeUnmount(() => {
   .aide-pages { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  .aide-bouton { right: 18px; bottom: 18px; }
+  .aide-bouton { right: 18px; bottom: calc(18px + var(--barre-onglets, 0px)); }
   .aide-overlay { padding: 14px; }
   .aide-dialogue { padding: 14px 0; }
   .aide-page { min-height: 0; padding: 20px; }
   .aide-page-actions { grid-template-columns: 1fr; }
 }
 @media (max-width: 400px) {
-  .aide-bouton { right: 12px; bottom: 12px; width: 46px; height: 46px; font-size: .95rem; }
+  .aide-bouton { right: 12px; bottom: calc(12px + var(--barre-onglets, 0px)); width: 46px; height: 46px; font-size: .95rem; }
 }
 </style>

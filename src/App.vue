@@ -108,7 +108,7 @@ watch(() => route.query, (q) => {
 }
 .lien-evitement:focus { top: 12px; }
 .visite-fournisseur {
-  position: fixed; left: 50%; bottom: 18px; z-index: 300; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
+  position: fixed; left: 50%; bottom: calc(18px + var(--barre-onglets, 0px)); z-index: 300; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
   max-width: calc(100vw - 32px); padding: 8px 8px 8px 18px; border-radius: 999px; background: #0f172a; color: #fff; font-size: .88rem;
   box-shadow: 0 16px 40px rgba(15, 23, 42, .35);
 }

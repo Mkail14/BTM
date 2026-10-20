@@ -80,6 +80,12 @@
   --largeur-max: 1720px;
   --largeur-conteneur: calc(var(--largeur-max) + 2 * var(--gouttiere));
   --hauteur-entete: 72px;
+  /* barre d'onglets du bas (téléphone et tablette, voir EnteteApp) : 0 ailleurs */
+  --barre-onglets: 0px;
+}
+@media (max-width: 899px) {
+  html.avec-onglets { --barre-onglets: calc(64px + env(safe-area-inset-bottom)); }
+  html.avec-onglets body { padding-bottom: var(--barre-onglets); }
 }
 
 /* ---------- Reset ---------- */

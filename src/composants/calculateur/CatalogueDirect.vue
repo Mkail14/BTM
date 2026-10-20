@@ -111,7 +111,7 @@ const valider = () => { if (choisis.value.length) emit('valider', choisis.value)
 .cd-quantite input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 3px rgba(6, 182, 212, .15); }
 .cd-unite { position: absolute; right: 44px; font-size: .72rem; color: var(--gris-500); pointer-events: none; }
 .cd-pied {
-  position: sticky; bottom: 16px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  position: sticky; bottom: calc(16px + var(--barre-onglets, 0px)); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
   padding: 14px 18px; border-radius: var(--rayon-lg); background: #fff; box-shadow: 0 12px 40px rgba(15, 23, 42, .15);
 }
 .cd-pied.actif { background: var(--ardoise); color: #fff; }

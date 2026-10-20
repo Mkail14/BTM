@@ -90,6 +90,7 @@ watch(() => route.query, (q) => {
   <FenetreConnexion
     v-if="fenetreAuth.ouverte"
     :mode="fenetreAuth.mode" :redirect="fenetreAuth.redirect" :suspendu="fenetreAuth.suspendu" :profil="fenetreAuth.profil" :oubli="fenetreAuth.oubli" :par-lien="fenetreAuth.parLien" :lien-expire="fenetreAuth.lienExpire" :message="fenetreAuth.message"
+    :partenaires-seuls="pageAttente"
     @fermer="fermerAuth" @changer-mode="fenetreAuth.mode = $event"
   />
   <!-- Repère de version (develop, locale) : jamais sur btm.yt -->

@@ -38,21 +38,35 @@ const props = defineProps({
   oubli: Boolean,                             // ouverte directement sur « Mot de passe oublié » (depuis le profil)
   parLien: Boolean,                           // arrivée par le lien de l'e-mail : choix du nouveau mot de passe seulement
   lienExpire: Boolean,                        // lien de l'e-mail expiré : « Mot de passe oublié » avec un message
-  message: { type: String, default: null }    // raison de l'ouverture, affichée sous le titre (ex. « obtenir votre devis »)
+  message: { type: String, default: null },   // raison de l'ouverture, affichée sous le titre (ex. « obtenir votre devis »)
+  partenairesSeuls: Boolean                   // ouverte sur la page d'attente : connexion réservée aux admins et fournisseurs
 })
 const emit = defineEmits(['fermer', 'changer-mode'])
 const router = useRouter()
 const calc = useCalculateur()
 const redirectionDemandee = () => props.redirect
+// lu à l'ouverture : la page d'attente disparaît dès que l'admin ou le fournisseur est reconnu
+const reserve = props.partenairesSeuls
+const MESSAGE_RESERVE = 'Le site n’est pas encore ouvert : cet espace est réservé aux fournisseurs partenaires et à l’équipe BTM.'
+const estPartenaire = ({ role, fournisseur_id: fid } = {}) => role === 'admin' || (role === 'fournisseur' && !!fid)
+// Avant l'ouverture : un compte client qui se connecte est aussitôt déconnecté, la fenêtre reste ouverte avec un message
+async function refuserSiClient(compte) {
+  if (!reserve || estPartenaire(compte)) return false
+  await deconnexion()
+  erreurGlobale.value = MESSAGE_RESERVE
+  return true
+}
 // Connecté : on rejoint la destination demandée (ou l'espace d'un admin / fournisseur), puis la fenêtre se ferme
 // une fois la page prête : l'admin arrive directement sur son tableau de bord. Sans destination, on reste sur la page.
 // Une seule fois : le clic et l'écouteur d'auth partagent la même navigation.
 let connexionEnCours = null
 function terminerConnexion() {
   connexionEnCours ||= (async () => {
-    const demandee = redirectionDemandee()
+    const demandee = reserve ? null : redirectionDemandee()
     // rôle lu par le routeur et gardé en cache : sa garde ne refait pas la requête
-    const { role, fournisseur_id: fid } = demandee ? {} : (await roleSession()) || {}
+    const compte = demandee ? {} : (await roleSession()) || {}
+    if (await refuserSiClient(compte)) { connexionEnCours = null; return }
+    const { role, fournisseur_id: fid } = compte
     const cible = demandee || (role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : null)
     try {
       if (cible) await router.push(cible)
@@ -62,7 +76,7 @@ function terminerConnexion() {
   })()
   return connexionEnCours
 }
-const { connexion, inscription, backendDisponible, connecte, utilisateur } = useAuth()
+const { connexion, inscription, deconnexion, backendDisponible, connecte, utilisateur } = useAuth()
 
 // Mot de passe oublié : le lien de l'e-mail connecte le compte avant qu'il ait choisi son mot de passe,
 // la fenêtre ne doit donc pas se fermer à la connexion tant que ce parcours est ouvert
@@ -74,7 +88,9 @@ const quitterOubli = () => { if (dejaConnecte) emit('fermer'); else modeOubli.va
 async function finOubli() {
   try {
     const { data } = await supabase.auth.getUser()
-    const { role, fournisseur_id: fid } = data.user ? await lireRoleCompte(data.user.id) : {}
+    const compte = data.user ? await lireRoleCompte(data.user.id) : {}
+    if (await refuserSiClient(compte)) return
+    const { role, fournisseur_id: fid } = compte
     const cible = props.redirect || (role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : null)
     if (cible && router.currentRoute.value.path !== cible) await router.push(cible)
   } catch { /* rôle illisible (réseau) : on reste sur la page en cours */ } finally {
@@ -135,7 +151,7 @@ const raison = computed(() => (apresConfirmation.value && !estInscription.value
   ? 'Compte créé : connectez-vous pour retrouver votre estimation.'
   : props.message))
 const chargement = ref(false)
-const estInscription = computed(() => props.mode === 'inscription')
+const estInscription = computed(() => !reserve && props.mode === 'inscription')
 // Étape 0 : choix du profil ; ensuite les étapes propres au profil
 const etape = ref(0)
 const ETAPES = computed(() => (typeCompte.value === 'professionnel' ? ['Entreprise', 'Contact', 'Sécurité', 'Validation'] : ['Identité', 'Sécurité', 'Validation']))
@@ -402,10 +418,10 @@ function traduire(m = '') {
           </div>
         </div>
         <template v-else>
-          <h2 id="auth-titre" class="auth-titre">{{ !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
+          <h2 id="auth-titre" class="auth-titre">{{ reserve ? 'Espace partenaires' : !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
           <p v-if="raison && (!estInscription || etape === 0)" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ raison }}</p>
           <p v-if="estInscription && etape <= 1" class="champ-aide auth-donnees">Vos informations servent uniquement à votre compte et à vos estimations : elles ne sont ni vendues ni cédées à des tiers.</p>
-          <p class="texte-secondaire auth-intro">{{!estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit : 3 courtes étapes, puis une confirmation par e-mail.' }}</p>
+          <p class="texte-secondaire auth-intro">{{ reserve ? 'Réservé aux fournisseurs partenaires et à l’équipe BTM.' : !estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit : 3 courtes étapes, puis une confirmation par e-mail.' }}</p>
 
           <BandeauAvertissement v-if="!backendDisponible" type="info" compact class="auth-note">
             Authentification prévue avec Supabase — renseignez <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> pour l’activer.
@@ -537,7 +553,7 @@ function traduire(m = '') {
           </form>
 
           <!-- Google / Apple : à la connexion, et au choix du profil de l'inscription (compte particulier) -->
-          <div v-if="!estInscription || etape === 0" class="auth-externe">
+          <div v-if="!reserve && (!estInscription || etape === 0)" class="auth-externe">
             <p class="auth-separateur"><span>{{ estInscription ? 'ou créez votre compte avec' : 'ou continuez avec' }}</span></p>
             <div class="auth-externe-boutons">
               <div v-if="!googleSecours" ref="zoneGoogle" class="auth-google" :class="{ occupe: externe === 'google' }"></div>
@@ -560,7 +576,7 @@ function traduire(m = '') {
             <p v-if="estInscription" class="champ-aide auth-externe-note">Compte particulier. Professionnel ? Choisissez « Professionnel » ci-dessus pour faire vérifier votre SIRET.</p>
           </div>
 
-          <p class="auth-bascule">
+          <p v-if="!reserve" class="auth-bascule">
             <template v-if="estInscription">
               Déjà un compte ?
               <button type="button" @click="emit('changer-mode', 'connexion')">Se connecter</button>

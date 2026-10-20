@@ -243,6 +243,34 @@ onBeforeUnmount(() => {
   canal?.fermer()
 })
 
+// ---------- Téléphone : plein écran, comme une messagerie ----------
+// La discussion occupe la zone visible (visualViewport) : clavier ouvert, la saisie reste juste au-dessus de lui.
+// La page derrière ne défile pas tant que la discussion est ouverte en grand.
+const racine = ref(null)
+const requeteTelephone = window.matchMedia('(max-width: 640px)')
+const telephone = ref(requeteTelephone.matches)
+const surTaille = (e) => { telephone.value = e.matches }
+function suivreZone() {
+  const vv = window.visualViewport
+  if (!vv || !racine.value) return
+  racine.value.style.setProperty('--zone-visible', `${Math.round(vv.height)}px`)
+  racine.value.style.setProperty('--zone-haut', `${Math.round(vv.offsetTop)}px`)
+  if (telephone.value && !minimise.value) defiler()
+}
+watch([telephone, minimise], ([tel, mini]) => document.documentElement.classList.toggle('ac-plein-ecran', tel && !mini), { immediate: true })
+onMounted(() => {
+  requeteTelephone.addEventListener('change', surTaille)
+  window.visualViewport?.addEventListener('resize', suivreZone)
+  window.visualViewport?.addEventListener('scroll', suivreZone)
+  suivreZone()
+})
+onBeforeUnmount(() => {
+  requeteTelephone.removeEventListener('change', surTaille)
+  window.visualViewport?.removeEventListener('resize', suivreZone)
+  window.visualViewport?.removeEventListener('scroll', suivreZone)
+  document.documentElement.classList.remove('ac-plein-ecran')
+})
+
 /** Connexion pendant que la fenêtre est ouverte : affiche la discussion du compte (sa discussion en cours y est déjà rattachée) */
 async function reprendre() {
   if (serveur.value.id || !conversationGardee()) return
@@ -255,7 +283,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 </script>
 
 <template>
-  <aside class="ac" :class="{ minimise }" aria-label="Discussion avec l’assistance BTM">
+  <aside ref="racine" class="ac" :class="{ minimise }" aria-label="Discussion avec l’assistance BTM">
     <header class="ac-barre" :class="`ac-barre-${interlocuteur}`">
       <!-- profil de la conversation : un clic sur l'avatar ouvre ses options -->
       <div ref="menu" class="ac-profil">
@@ -379,7 +407,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 }
 .ac.minimise { width: min(320px, calc(100vw - 32px)); }
 .ac-barre { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; background: var(--lagon-600); color: #fff; }
-.ac-barre-awa { background: #c026d3; }
+.ac-barre-awa { background: linear-gradient(120deg, var(--lagon-800), var(--lagon-600)); }
 .ac-barre-conseiller { background: var(--ardoise); }
 .ac-profil { position: relative; flex: none; }
 .ac-barre .ac-avatar { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); transition: background .15s, box-shadow .15s; }
@@ -441,5 +469,31 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-lien-bouton:hover { text-decoration: underline; text-underline-offset: 3px; }
 @keyframes ac-apparaitre { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ac-points { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
-@media (max-width: 640px) { .ac { right: 12px; bottom: calc(12px + var(--barre-onglets, 0px)); width: calc(100vw - 24px); max-height: calc(100dvh - 24px - var(--barre-onglets, 0px)); } }
+/* ---------- Téléphone : plein écran, comme une messagerie ----------
+   La discussion recouvre tout (en-tête et onglets compris) et suit la zone visible : le clavier ne cache jamais la saisie. */
+@media (max-width: 640px) {
+  .ac {
+    top: var(--zone-haut, 0px); right: 0; bottom: auto; left: 0; width: 100%; height: var(--zone-visible, 100dvh); max-height: none;
+    border: 0; border-radius: 0; box-shadow: none; animation: ac-monter .28s cubic-bezier(.22, 1, .36, 1) both;
+  }
+  .ac-barre { gap: 12px; padding: calc(10px + env(safe-area-inset-top)) 8px 10px 14px; }
+  .ac-barre .ac-avatar { width: 40px; height: 40px; }
+  .ac-titre strong { font-size: 1rem; }
+  .ac-barre button { width: 40px; height: 40px; border-radius: 50%; font-size: 1.05rem; }
+  .ac-messages { gap: 12px; min-height: 0; padding: 18px 14px 12px; overscroll-behavior: contain; }
+  .ac-ligne { max-width: 84%; }
+  .ac-bulle { padding: 11px 14px; border-radius: 18px 18px 18px 6px; font-size: .95rem; }
+  .ac-ligne.client .ac-bulle { border-radius: 18px 18px 6px 18px; }
+  .ac-choix { gap: 8px; }
+  .ac-choix button, .ac-choix a { min-height: 40px; padding: 9px 14px; font-size: .88rem; }
+  .ac-saisie { gap: 10px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  /* 16 px : sous cette taille, l'iPhone zoome toute la page quand on touche le champ */
+  .ac-saisie input { min-height: 46px; padding: 0 16px; background: var(--gris-50); font-size: 1rem; }
+  .ac-saisie button { width: 46px; height: 46px; }
+  .ac-coord input { min-height: 44px; font-size: 1rem; }
+  /* réduite : une barre au-dessus des onglets, la page reste utilisable */
+  .ac.minimise { top: auto; right: 12px; bottom: calc(12px + var(--barre-onglets, 0px)); left: 12px; width: auto; height: auto; border-radius: 18px; box-shadow: 0 12px 30px rgba(0, 0, 0, .3); }
+  .ac.minimise .ac-barre { padding-top: 10px; }
+}
+@keyframes ac-monter { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 </style>

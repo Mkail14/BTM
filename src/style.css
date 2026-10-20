@@ -294,4 +294,7 @@ ul { margin: 0; padding: 0; list-style: none; }
   html.calc-app-actif, html.calc-app-actif body { overflow: hidden; overscroll-behavior: none; }
   html.calc-app-actif .aide-bouton { display: none; }
   html.clavier-ouvert .onglets { display: none; }
+  /* Discussion avec Awa en plein écran (AssistanceChat) : la page derrière ne défile pas */
+  html.ac-plein-ecran, html.ac-plein-ecran body { overflow: hidden; overscroll-behavior: none; }
+  html.ac-plein-ecran .repere-version { display: none; }
 }

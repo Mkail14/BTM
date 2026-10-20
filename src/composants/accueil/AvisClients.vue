@@ -82,23 +82,27 @@ const rangeeMobile = computed(() => {
   for (let i = 0; i < Math.max(s.length, g.length); i++) { if (s[i]) r.push(s[i]); if (g[i]) r.push(g[i]) }
   return r
 })
-// mobile : la rangée passe seule à l'avis suivant toutes les 4 s (retour au premier à la fin).
-// Un doigt posé sur la rangée met en pause 8 s ; rien ne bouge si l'utilisateur limite les animations.
+// mobile : la rangée passe seule à l'avis suivant toutes les 2,8 s, en boucle (retour au premier après le dernier).
+// Un doigt posé sur la rangée met en pause 8 s ; si l'utilisateur limite les animations, le passage se fait sans glissé.
 const rangee = ref(null)
 let minuterieRangee = null
 let repriseRangee = null
 function avisSuivant() {
   const el = rangee.value
   if (!el || !el.offsetParent || document.hidden) return // rangée masquée (ordinateur) ou onglet en arrière-plan
-  const cartes = el.querySelectorAll('.avis-carte')
+  const cartes = [...el.querySelectorAll('.avis-carte')]
   if (cartes.length < 2) return
-  const pas = cartes[1].offsetLeft - cartes[0].offsetLeft
+  // carte affichée = la plus proche du début de la rangée ; on vise la suivante d'après sa position réelle
+  const positions = cartes.map((c) => c.offsetLeft - cartes[0].offsetLeft)
+  const actuelle = positions.reduce((meilleure, p, i) => (Math.abs(p - el.scrollLeft) < Math.abs(positions[meilleure] - el.scrollLeft) ? i : meilleure), 0)
   const fin = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4
-  el.scrollTo({ left: fin ? 0 : el.scrollLeft + pas, behavior: 'smooth' })
+  const suivante = fin ? 0 : (actuelle + 1) % cartes.length
+  const doux = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollTo({ left: positions[suivante], behavior: doux ? 'smooth' : 'auto' })
 }
 function demarrerDefilement() {
-  if (minuterieRangee || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-  minuterieRangee = setInterval(avisSuivant, 4000)
+  if (minuterieRangee) return
+  minuterieRangee = setInterval(avisSuivant, 2800)
 }
 function arreterDefilement() { clearInterval(minuterieRangee); minuterieRangee = null; clearTimeout(repriseRangee) }
 function pauseDefilement() {

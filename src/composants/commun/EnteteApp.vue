@@ -65,8 +65,22 @@ const creditPour100 = computed(() => (100 * contenu.frais.taux / 100) * (contenu
 onMounted(() => { if (afficherCredit.value) chargerCredit() })
 watch(() => route.path, () => { creditOuvert.value = false; if (afficherCredit.value) chargerCredit() })
 
-const surScroll = () => { defile.value = window.scrollY > 24 }
-onMounted(() => { surScroll(); window.addEventListener('scroll', surScroll, { passive: true }) })
+// barre d'onglets : se cache quand on descend (plus de place pour lire), revient dès qu'on remonte ou en bas de page
+const ongletsCaches = ref(false)
+let dernierY = 0
+const surScroll = () => {
+  const y = window.scrollY
+  defile.value = y > 24
+  const bas = y + window.innerHeight >= document.documentElement.scrollHeight - 4
+  // saut brusque (ouverture de page, retour arrière, ancre) : ce n'est pas l'utilisateur qui fait défiler, la barre reste
+  if (Math.abs(y - dernierY) > 160) { dernierY = y; return }
+  if (y < 80 || bas) ongletsCaches.value = false
+  else if (y - dernierY > 6) ongletsCaches.value = true
+  else if (dernierY - y > 6) ongletsCaches.value = false
+  if (Math.abs(y - dernierY) > 6 || y < 80) dernierY = y
+}
+watch(() => route.fullPath, () => { ongletsCaches.value = false; dernierY = window.scrollY })
+onMounted(() => { dernierY = window.scrollY; surScroll(); window.addEventListener('scroll', surScroll, { passive: true }) })
 onBeforeUnmount(() => window.removeEventListener('scroll', surScroll))
 watch(() => route.path, () => { profilOuvert.value = false })
 const { etat: fenetreAuth } = useFenetreAuth()
@@ -290,22 +304,18 @@ async function supprimerCompte() {
   </header>
 
   <!-- Téléphone et tablette : barre d'onglets, hors de l'en-tête (son flou ancrerait la barre en haut) -->
-  <nav class="onglets" :class="{ 'onglets-compte': profilOuvert }" aria-label="Navigation principale" @click="surOnglet">
-    <!-- fond en trois morceaux : l'encoche du milieu garde sa forme quelle que soit la largeur -->
-    <span class="onglets-verre" aria-hidden="true"></span>
-    <span class="onglets-fond" aria-hidden="true">
-      <span></span>
-      <svg viewBox="0 0 104 60" preserveAspectRatio="none"><path d="M0 0h6c12 0 16 4 21 13 7 15 14 27 25 27s18-12 25-27c5-9 9-13 21-13h6v60H0z" /></svg>
-      <span></span>
-    </span>
+  <nav
+    class="onglets" :class="{ 'onglets-compte': profilOuvert, 'onglets-caches': ongletsCaches && !profilOuvert && !avisOuvert }"
+    aria-label="Navigation principale" @click="surOnglet"
+  >
     <router-link to="/" class="onglet" active-class="actif" exact-active-class="actif">
       <span class="onglet-icone"><i class="fa-solid fa-house" aria-hidden="true"></i></span><span class="onglet-libelle">Accueil</span>
     </router-link>
     <router-link to="/fournisseurs" class="onglet" active-class="actif">
       <span class="onglet-icone"><i class="fa-solid fa-truck" aria-hidden="true"></i></span><span class="onglet-libelle">Fournisseurs</span>
     </router-link>
-    <router-link to="/calculateur" class="onglet-central" active-class="actif" aria-label="Estimer">
-      <i class="fa-solid fa-calculator" aria-hidden="true"></i>
+    <router-link to="/calculateur" class="onglet onglet-central" active-class="actif">
+      <span class="onglet-icone"><i class="fa-solid fa-calculator" aria-hidden="true"></i></span><span class="onglet-libelle">Estimer</span>
     </router-link>
     <!-- Projets (ou l'espace d'un fournisseur) : seulement pour un compte connecté -->
     <router-link v-if="connecte && fournisseurLie" to="/espace-fournisseur" class="onglet" active-class="actif">
@@ -315,8 +325,8 @@ async function supprimerCompte() {
       <span class="onglet-icone"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><b v-if="propositions" class="onglet-pastille" :aria-label="`${propositions} proposition de BTM à voir`">{{ propositions }}</b></span><span class="onglet-libelle">Projets</span>
     </router-link>
     <!-- visiteur : « Laisser un avis » prend la place de « Projets », la barre garde ses 5 onglets -->
-    <button v-else type="button" class="onglet" :class="{ actif: avisOuvert }" @click="ouvrirAvis">
-      <span class="onglet-icone"><i class="fa-solid fa-star" aria-hidden="true"></i></span><span class="onglet-libelle">Laisser un avis</span>
+    <button v-else type="button" class="onglet" :class="{ actif: avisOuvert }" aria-label="Laisser un avis" @click="ouvrirAvis">
+      <span class="onglet-icone"><i class="fa-solid fa-star" aria-hidden="true"></i></span><span class="onglet-libelle" aria-hidden="true">Avis</span>
     </button>
     <button type="button" class="onglet onglet-profil" :class="{ actif: profilOuvert }" @click="connecte ? ouvrirProfil() : ouvrirAuth()">
       <span class="onglet-icone"><i :class="connecte ? 'fa-solid fa-circle-user' : 'fa-solid fa-right-to-bracket'" aria-hidden="true"></i></span><span class="onglet-libelle">{{ connecte ? 'Compte' : 'Connexion' }}</span>
@@ -546,43 +556,34 @@ async function supprimerCompte() {
   .entete-utilisateur, .entete-deconnexion, .entete-connexion, .entete-cta { display: none; }
   .credit-detail { right: 0; width: min(330px, calc(100vw - 32px)); }
 
-  /* barre blanche flottante, encoche douce au centre pour le bouton Estimer (fixe) ; icônes seules,
-     l'onglet actif passe en foncé */
+  /* barre d'application, comme YouTube : toute la largeur du bas, sans bordure, verre fumé flouté ;
+     icône + petit libellé ; elle glisse hors de l'écran quand on descend et revient quand on remonte */
   .onglets {
-    position: fixed; left: max(14px, calc(50% - 260px)); right: max(14px, calc(50% - 260px)); bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 110;
-    display: grid; grid-template-columns: 1fr 1fr 104px 1fr 1fr; height: 60px;
-    /* pas de filter ici : il empêcherait le flou de voir la page derrière la barre */
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 110;
+    /* hauteur écrite ici (même valeur que --barre-onglets dans style.css) : la barre ne dépend pas de cette variable pour exister */
+    display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: calc(58px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(6, 32, 44, .72); backdrop-filter: blur(20px) saturate(170%); -webkit-backdrop-filter: blur(20px) saturate(170%);
+    transition: transform .42s cubic-bezier(.22, 1, .36, 1), opacity .3s ease;
+    animation: onglets-entree .5s cubic-bezier(.22, 1, .36, 1) backwards; /* backwards : une fois entrée, la classe « cachée » reprend la main */
   }
-  /* verre fumé : flou de la page derrière, découpé à la forme de la barre (deux pans + l'encoche du milieu) */
-  .onglets-verre {
-    position: absolute; inset: 0; z-index: -2; border-radius: 24px;
-    backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
-    --encoche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 104 60' preserveAspectRatio='none'%3E%3Cpath d='M0 0h6c12 0 16 4 21 13 7 15 14 27 25 27s18-12 25-27c5-9 9-13 21-13h6v60H0z'/%3E%3C/svg%3E");
-    -webkit-mask: linear-gradient(#000 0 0) left / calc(50% - 51px) 100% no-repeat, var(--encoche) center / 104px 100% no-repeat, linear-gradient(#000 0 0) right / calc(50% - 51px) 100% no-repeat;
-    mask: linear-gradient(#000 0 0) left / calc(50% - 51px) 100% no-repeat, var(--encoche) center / 104px 100% no-repeat, linear-gradient(#000 0 0) right / calc(50% - 51px) 100% no-repeat;
-  }
-  /* teinte lagon sombre posée sur le verre (couleurs de l'en-tête) + ombre douce */
-  .onglets-fond { position: absolute; inset: 0; z-index: -1; display: flex; filter: drop-shadow(0 10px 24px rgba(6, 32, 44, .28)); }
-  .onglets-fond > span { flex: 1; background: rgba(6, 32, 44, .66); }
-  .onglets-fond > span:first-child { border-radius: 24px 0 0 24px; }
-  .onglets-fond > span:last-child { border-radius: 0 24px 24px 0; }
-  .onglets-fond svg { width: 104px; height: 100%; flex: none; fill: rgba(6, 32, 44, .66); margin: 0 -.5px; }
+  /* sortie : la barre glisse vers le bas en s'effaçant ; elle remonte de la même façon */
+  .onglets-caches { transform: translateY(110%); opacity: 0; pointer-events: none; transition-duration: .32s, .24s; }
+  @keyframes onglets-entree { from { transform: translateY(100%); } }
   .onglet {
-    display: grid; place-items: center; min-width: 0; padding: 0; border: 0; background: none;
-    color: rgba(255, 255, 255, .55); text-decoration: none; -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color .15s ease;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; padding: 0 2px; border: 0; background: none;
+    color: rgba(255, 255, 255, .6); font: inherit; text-decoration: none; -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color .15s ease;
   }
-  .onglet-icone { position: relative; display: grid; place-items: center; font-size: 1.2rem; }
-  /* libellé gardé pour les lecteurs d'écran, masqué à l'écran */
-  .onglet-libelle { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .onglet-icone { position: relative; display: grid; place-items: center; height: 26px; font-size: 1.15rem; }
+  .onglet-libelle { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .66rem; font-weight: 500; letter-spacing: .01em; line-height: 1; }
   .onglet.actif { color: #fff; }
+  .onglet.actif .onglet-libelle { font-weight: 700; }
+  .onglet:active .onglet-icone { transform: scale(.9); }
   .onglet:focus-visible { outline: none; }
-  .onglet:focus-visible .onglet-icone, .onglet-central:focus-visible { outline: 2px solid var(--lagon-500); outline-offset: 4px; border-radius: 50%; }
-  .onglet-central {
-    justify-self: center; align-self: start; width: 54px; height: 54px; margin-top: -18px; display: grid; place-items: center;
-    border-radius: 50%; background: var(--lagon-600); color: #fff; font-size: 1.15rem;
-    box-shadow: 0 8px 20px rgba(8, 145, 178, .45), inset 0 1px 0 rgba(255, 255, 255, .25); -webkit-tap-highlight-color: transparent; transition: background .15s ease;
-  }
-  .onglet-central.actif { background: var(--lagon-500); }
+  .onglet:focus-visible .onglet-icone { outline: 2px solid var(--lagon-400); outline-offset: 3px; border-radius: 8px; }
+  /* Estimer : l'action principale, icône dans une pastille lagon (sans encoche ni bouton qui dépasse) */
+  .onglet-central .onglet-icone { width: 46px; border-radius: 999px; background: var(--lagon-600); color: #fff; font-size: 1rem; transition: background .15s ease, transform .15s ease; }
+  .onglet-central.actif .onglet-icone { background: var(--lagon-500); }
+  .onglet-central { color: rgba(255, 255, 255, .85); }
   .onglet-pastille {
     position: absolute; top: -6px; right: -10px; min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center;
     border-radius: 999px; background: #f59e0b; color: #fff; font: 700 .62rem/1 var(--font-corps); box-shadow: 0 0 0 2px rgba(6, 32, 44, .9);
@@ -718,7 +719,7 @@ async function supprimerCompte() {
   /* compte ouvert : la barre d'onglets reste au-dessus, seul « Compte » est actif */
   .onglets-compte { z-index: 270; }
   .onglets-compte .onglet.actif:not(.onglet-profil) { color: rgba(255, 255, 255, .55); }
-  .onglets-compte .onglet-central.actif { background: var(--lagon-600); }
+  .onglets-compte .onglet-central.actif .onglet-icone { background: var(--lagon-600); }
 }
 
 /* ---------- Téléphone : écran d'application (liste des rubriques, puis rubrique en sous-écran) ---------- */

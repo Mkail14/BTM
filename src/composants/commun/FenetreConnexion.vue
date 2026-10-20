@@ -875,7 +875,7 @@ function traduire(m = '') {
   }
   .auth-carte::-webkit-scrollbar { display: none; }
   .auth-carte:not(.auth-carte-accueil) { justify-content: center; justify-content: safe center; }
-  .auth-carte-accueil { overflow: hidden; padding-top: calc(clamp(14px, 3.5vh, 30px) + env(safe-area-inset-top)); padding-bottom: calc(clamp(12px, 2.5vh, 22px) + env(safe-area-inset-bottom)); }
+  .auth-carte-accueil { padding-top: calc(clamp(14px, 3.5vh, 30px) + env(safe-area-inset-top)); padding-bottom: calc(clamp(12px, 2.5vh, 22px) + env(safe-area-inset-bottom)); }
   .auth-accueil { min-height: 0; }
   .auth-accueil-haut { gap: clamp(8px, 2vh, 18px); margin-top: clamp(0px, 3vh, 32px); }
   .auth-accueil-logo { width: clamp(52px, 8.5vh, 72px); height: clamp(52px, 8.5vh, 72px); border-radius: clamp(15px, 2.4vh, 22px); }

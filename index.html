@@ -53,7 +53,6 @@
       /* pas de barre de défilement derrière l'écran de chargement */
       html.chargement, html.chargement body { overflow: hidden; scrollbar-width: none; }
       html.chargement::-webkit-scrollbar, html.chargement body::-webkit-scrollbar { display: none; }
-      @media (max-width: 639px) { html:has(#ecran-chargement:not(.fini)) { overflow: hidden; scrollbar-width: none; } }
       /* une phrase = une ligne, quelle que soit la largeur de l'écran */
       #ecran-chargement .phrases { position: relative; width: 100%; height: 1.25em; font-size: clamp(1.3rem, 5.4vw, 3.6rem); font-weight: 700; letter-spacing: -.04em; text-align: center; white-space: nowrap; transition: filter .8s; }
       #ecran-chargement .phrases span {
@@ -88,71 +87,7 @@
       </div>
       <div class="ligne" aria-hidden="true"><b></b></div>
     </div>
-    <script>
-      // Première visite de la session : on laisse le temps de lire « Bienvenue » ; ensuite (rechargements),
-      // l'écran disparaît dès que le site est prêt.
-      (function () {
-        var ecran = document.getElementById('ecran-chargement')
-        try {
-        if (!window.matchMedia('(max-width: 639px)').matches) {
-          ecran.remove()
-          window.__btmPret = window.__btmProgres = function () {}
-          return
-        }
-        document.documentElement.classList.add('chargement')
-        var phrases = ecran.querySelectorAll('.phrases span')
-        var premiereVisite = true
-        try { premiereVisite = !sessionStorage.getItem('btm-accueilli'); sessionStorage.setItem('btm-accueilli', '1') } catch (e) {}
-        var dureeMin = premiereVisite ? 1800 : 0
-        var debut = Date.now(), dernierChangement = debut, i = 0
-        var minuterie = setInterval(function () {
-          var sortante = phrases[i]
-          sortante.className = 'sortie'
-          setTimeout(function () { sortante.className = '' }, 900)
-          i = (i + 1) % phrases.length
-          phrases[i].className = 'active'
-          dernierChangement = Date.now()
-        }, 1600)
-        // Ligne de chargement : chaque étape réelle (script, page, polices, 3D) fixe un palier ; entre deux paliers
-        // la ligne avance doucement sans jamais l'atteindre, pour ne pas sembler figée.
-        var barre = ecran.querySelector('.ligne b')
-        var progres = 0, palier = 0.15
-        function dessiner() { barre.style.transform = 'scaleX(' + progres + ')' }
-        var glissement = setInterval(function () { progres += (palier - progres) * 0.08; dessiner() }, 120)
-        window.__btmProgres = function (v) {
-          if (v <= palier) return
-          progres = Math.max(progres, palier * 0.98)
-          palier = v
-          dessiner()
-        }
-        var retire = false
-        window.__btmPret = function () {
-          if (retire) return
-          retire = true
-          clearInterval(glissement)
-          progres = 1
-          dessiner()
-          setTimeout(function () {
-            // une phrase qui vient d'apparaître reste lisible avant le fondu (jamais coupée en pleine entrée)
-            clearInterval(minuterie)
-            setTimeout(function () {
-              ecran.classList.add('fini')
-              // la barre de défilement revient pendant le fondu : le léger décalage reste masqué par l'écran
-              document.documentElement.classList.remove('chargement')
-              setTimeout(function () { ecran.remove() }, 1000)
-            }, i === 0 ? 0 : Math.max(0, 900 - (Date.now() - dernierChangement)))
-          }, Math.max(500, dureeMin - (Date.now() - debut))) // la ligne a le temps d'arriver au bout
-        }
-        // filet de sécurité : jamais bloqué derrière l'écran si le site plante au démarrage
-        setTimeout(window.__btmPret, 8000)
-        } catch (e) {
-          // jamais bloqué derrière l'écran : au moindre problème, il disparaît et le site s'affiche
-          ecran.remove()
-          document.documentElement.classList.remove('chargement')
-          window.__btmPret = window.__btmProgres = function () {}
-        }
-      })()
-    </script>
+    <script src="/ecran-chargement.js"></script>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

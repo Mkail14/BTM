@@ -15,6 +15,7 @@ import AdminCompte from '@/composants/admin/AdminCompte.vue'
 import { useMessagerie } from '@/composables/useMessagerie.js'
 import { useSupport } from '@/composables/useSupport.js'
 import { useThemeAdmin } from '@/composables/useThemeAdmin.js'
+import { useOuverture, verifierOuverture, siteOuvert } from '@/composables/useOuverture.js'
 import '@/composants/admin/admin.css'
 
 const sections = [
@@ -66,6 +67,15 @@ watch(section, (s) => { document.title = `${s.titre} — Administration BTM` }, 
 
 const infos = computed(() => utilisateur.value?.user_metadata || {})
 const nomAdmin = computed(() => [infos.value.prenom, infos.value.nom].filter(Boolean).join(' ') || infos.value.pseudo || utilisateur.value?.email?.split('@')[0] || 'Admin')
+
+// État de btm.yt pour le public : pastille discrète sur l'avatar ; le réglage est dans Compte BTM → Mise en ligne
+const { mode: modeOuverture, partenaires } = useOuverture()
+onMounted(verifierOuverture)
+const etatSite = computed(() => {
+  if (partenaires.value === null) return null
+  if (modeOuverture.value === 'maintenance') return { classe: 'maintenance', texte: 'Site en maintenance' }
+  return siteOuvert(modeOuverture.value, partenaires.value) ? { classe: 'ouvert', texte: 'Site en ligne' } : { classe: 'attente', texte: 'Site en attente de partenaires' }
+})
 
 async function seDeconnecter() {
   await deconnexion()
@@ -126,8 +136,8 @@ async function seDeconnecter() {
             <strong v-if="nonLus" class="adm-haut-outil-pastille">{{ nonLus > 99 ? '99+' : nonLus }}</strong>
           </router-link>
         </div>
-        <button type="button" class="adm-haut-profil" aria-haspopup="dialog" title="Compte BTM : reversements, RIB et administrateurs" @click="compteOuvert = true">
-          <span class="adm-avatar rond">{{ initiales(nomAdmin) }}</span>
+        <button type="button" class="adm-haut-profil" aria-haspopup="dialog" :title="`Compte BTM : reversements, RIB, administrateurs et mise en ligne${etatSite ? ` · ${etatSite.texte}` : ''}`" @click="compteOuvert = true">
+          <span class="adm-avatar rond profil-avatar">{{ initiales(nomAdmin) }}<span v-if="etatSite" class="profil-site" :class="etatSite.classe" role="img" :aria-label="etatSite.texte"></span></span>
           <span><strong>{{ nomAdmin }}</strong><small>Administrateur</small></span>
           <i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
         </button>
@@ -196,6 +206,11 @@ async function seDeconnecter() {
   .adm-haut-profil { display: flex; flex: none; padding: 5px; }
   .adm-haut-profil > span:nth-child(2), .adm-haut-profil > i { display: none; }
 }
+/* État du site public, en coin de l'avatar : vert en ligne, orange en attente, rouge en maintenance */
+.profil-avatar { position: relative; }
+.profil-site { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border: 2px solid var(--adm-carte); border-radius: 50%; background: #f59e0b; }
+.profil-site.ouvert { background: #22c55e; }
+.profil-site.maintenance { background: #ef4444; }
 .adm-lat-pastille-alerte { background: #f59e0b !important; }
 .adm-lat-pastille { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--adm-accent); color: #fff; font-size: .74rem; text-align: center; }
 /* Tablette et petit ordinateur : barre réduite aux icônes, la pastille se pose en coin de l'icône */

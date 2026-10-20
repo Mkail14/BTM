@@ -22,7 +22,7 @@ import { SEUIL_FOURNISSEURS } from '@/composables/useOuverture.js'
 import { demanderConseiller } from '@/services/supabase/serviceSupport.js'
 import { erreurEmail } from '@/services/validation.js'
 
-const props = defineProps({ partenaires: { type: Number, default: 0 } })
+const props = defineProps({ partenaires: { type: Number, default: 0 }, maintenance: Boolean })
 const { ouvrirAuth } = useFenetreAuth()
 
 const prets = computed(() => Math.min(props.partenaires, SEUIL_FOURNISSEURS))
@@ -89,13 +89,22 @@ async function envoyer() {
     <main class="conteneur bientot-corps">
       <div class="bientot-texte">
         <p class="bientot-surtitre">Estimation de matériaux BTP · Mayotte</p>
-        <h1 class="bientot-titre">Le site ouvre bientôt.</h1>
-        <p class="bientot-desc">
-          Budget, quantités et fournisseurs pour vos travaux, au même endroit.
-          BTM ouvre dès que {{ SEUIL_FOURNISSEURS }} fournisseurs partenaires l’ont rejoint.
-        </p>
+        <!-- maintenance choisie par l'admin : pas de compteur de partenaires -->
+        <template v-if="maintenance">
+          <h1 class="bientot-titre">Site en maintenance.</h1>
+          <p class="bientot-desc">
+            Nous améliorons BTM : budget, quantités et fournisseurs pour vos travaux reviennent très vite.
+          </p>
+        </template>
+        <template v-else>
+          <h1 class="bientot-titre">Le site ouvre bientôt.</h1>
+          <p class="bientot-desc">
+            Budget, quantités et fournisseurs pour vos travaux, au même endroit.
+            BTM ouvre dès que {{ SEUIL_FOURNISSEURS }} fournisseurs partenaires l’ont rejoint.
+          </p>
+        </template>
 
-        <div class="bientot-avancement" role="progressbar" :aria-valuenow="prets" aria-valuemin="0" :aria-valuemax="SEUIL_FOURNISSEURS" :aria-label="`${prets} fournisseur partenaire sur ${SEUIL_FOURNISSEURS}`">
+        <div v-if="!maintenance" class="bientot-avancement" role="progressbar" :aria-valuenow="prets" aria-valuemin="0" :aria-valuemax="SEUIL_FOURNISSEURS" :aria-label="`${prets} fournisseur partenaire sur ${SEUIL_FOURNISSEURS}`">
           <span v-for="n in SEUIL_FOURNISSEURS" :key="n" :class="{ fait: n <= prets }"></span>
           <small>{{ prets }} / {{ SEUIL_FOURNISSEURS }} fournisseurs partenaires</small>
         </div>

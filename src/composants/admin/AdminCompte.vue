@@ -8,8 +8,11 @@
  *  - RIB de BTM : communiqué aux fournisseurs pour leurs reversements (IBAN contrôlé par sa clé).
  *  - Profils : donner un profil (utilisateur, professionnel, fournisseur, administrateur) à un compte à partir de son
  *    e-mail, ou retirer ses droits à un administrateur. Le changement passe par api.definirRoleCompte ; le serveur revérifie le rôle de l'appelant.
+ *  - Mise en ligne : ouvrir btm.yt au public, le mettre en maintenance, ou le laisser s'ouvrir seul dès
+ *    SEUIL_FOURNISSEURS partenaires (useOuverture). Chaque changement est confirmé : il s'applique tout de suite au site.
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { SEUIL_FOURNISSEURS, CLE_OUVERTURE, siteOuvert, lireModeOuverture, compterPartenaires, appliquerModeOuverture } from '@/composables/useOuverture.js'
 import { useAdmin, formatDate, initiales } from '@/composables/useAdmin.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
@@ -171,10 +174,57 @@ async function retirer(p) {
   // il redevient ce qu'il était par ailleurs : professionnel vérifié ou particulier
   await changerRole(p, api.roleCompte({ ...p, role: 'user' }), null, `${nomDe(p)} n’est plus administrateur.`)
 }
+
+// ---------- Mise en ligne ----------
+const MODES = {
+  auto: { label: 'Automatique', icone: 'fa-solid fa-wand-magic-sparkles', aide: `Page d’attente tant qu’il y a moins de ${SEUIL_FOURNISSEURS} fournisseurs partenaires, puis ouverture toute seule.` },
+  'en-ligne': { label: 'En ligne', icone: 'fa-solid fa-globe', aide: 'Le site est ouvert à tout le monde, quel que soit le nombre de partenaires.' },
+  maintenance: { label: 'Maintenance', icone: 'fa-solid fa-screwdriver-wrench', aide: 'Page « Site en maintenance » pour le public. Admins et fournisseurs gardent leur espace.' }
+}
+const ouverture = ref(null) // { mode, partenaires } une fois lu
+const erreurOuverture = ref('')
+const changementMode = ref('')
+async function lireOuverture() {
+  erreurOuverture.value = ''
+  try {
+    const [mode, partenaires] = await Promise.all([lireModeOuverture(), compterPartenaires()])
+    ouverture.value = { mode, partenaires }
+  } catch (e) {
+    erreurOuverture.value = e?.message || 'État du site illisible.'
+  }
+}
+watch(onglet, (o) => { if (o === 'site') lireOuverture() }, { immediate: true })
+const publicOuvert = computed(() => ouverture.value && siteOuvert(ouverture.value.mode, ouverture.value.partenaires))
+const etatPublic = computed(() => {
+  const o = ouverture.value
+  if (!o) return ''
+  if (o.mode === 'maintenance') return 'En maintenance'
+  return publicOuvert.value ? 'En ligne' : `En attente · ${o.partenaires} / ${SEUIL_FOURNISSEURS} fournisseurs`
+})
+
+async function changerMode(mode) {
+  const o = ouverture.value
+  if (!o || mode === o.mode || changementMode.value) return
+  const ouvrira = siteOuvert(mode, o.partenaires)
+  const textes = {
+    'en-ligne': { titre: 'Mettre le site en ligne ?', libelle: 'Mettre en ligne', texte: 'Tout le monde pourra utiliser btm.yt tout de suite : calculateur, inscription et devis.' },
+    maintenance: { titre: 'Mettre le site en maintenance ?', libelle: 'Mettre en maintenance', danger: true, texte: 'Les visiteurs et les clients verront la page « Site en maintenance » tout de suite. Les admins et les fournisseurs gardent leur espace.' },
+    auto: { titre: 'Repasser en automatique ?', libelle: 'Passer en automatique', texte: ouvrira ? `Il y a déjà ${o.partenaires} fournisseurs partenaires : le site sera en ligne.` : `Avec ${o.partenaires} fournisseur${o.partenaires > 1 ? 's' : ''} partenaire${o.partenaires > 1 ? 's' : ''} sur ${SEUIL_FOURNISSEURS}, le public verra la page d’attente jusqu’au ${SEUIL_FOURNISSEURS}e.` }
+  }
+  if (!(await confirmer(textes[mode]))) return
+  changementMode.value = mode
+  const ok = await executer(async () => {
+    await api.enregistrerContenu(CLE_OUVERTURE, { mode }, utilisateur.value?.id)
+    ouverture.value = { ...o, mode }
+    appliquerModeOuverture(mode, o.partenaires)
+  }, ouvrira ? 'Le site est en ligne.' : mode === 'maintenance' ? 'Le site est en maintenance.' : 'Mode automatique : le public voit la page d’attente.')
+  changementMode.value = ''
+  if (!ok) lireOuverture()
+}
 </script>
 
 <template>
-  <AdminPanneau titre="Compte BTM" sous-titre="Reversements des fournisseurs, RIB et profils des comptes." large @fermer="emit('fermer')">
+  <AdminPanneau titre="Compte BTM" sous-titre="Reversements des fournisseurs, RIB, profils des comptes et mise en ligne du site." large @fermer="emit('fermer')">
     <div class="compte">
       <div class="adm-segments compte-onglets" role="tablist" aria-label="Compte et reversements">
         <button type="button" role="tab" :aria-selected="onglet === 'reversements'" @click="onglet = 'reversements'">
@@ -182,9 +232,31 @@ async function retirer(p) {
         </button>
         <button type="button" role="tab" :aria-selected="onglet === 'rib'" @click="onglet = 'rib'"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> RIB de BTM</button>
         <button type="button" role="tab" :aria-selected="onglet === 'admins'" @click="onglet = 'admins'"><i class="fa-solid fa-id-badge" aria-hidden="true"></i> Profils</button>
+        <button type="button" role="tab" :aria-selected="onglet === 'site'" @click="onglet = 'site'"><i class="fa-solid fa-power-off" aria-hidden="true"></i> Mise en ligne</button>
       </div>
 
-      <p v-if="onglet === 'admins' ? erreurs.profils : erreurs.versement || erreurs.reversements || erreurs.paiements" class="adm-alerte" role="alert">
+      <!-- ===================== Mise en ligne ===================== -->
+      <template v-if="onglet === 'site'">
+        <p v-if="erreurOuverture" class="adm-alerte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurOuverture }}</p>
+        <div v-else-if="!ouverture" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
+        <template v-else>
+          <div class="solde site-etat">
+            <span class="solde-label">btm.yt pour le public</span>
+            <strong class="solde-montant"><span class="site-voyant" :class="ouverture.mode === 'maintenance' ? 'maintenance' : publicOuvert ? 'ouvert' : 'attente'" aria-hidden="true"></span>{{ etatPublic }}</strong>
+            <span class="solde-detail">Les admins et les fournisseurs gardent toujours leur espace.</span>
+          </div>
+          <div class="site-modes" role="radiogroup" aria-label="État du site">
+            <button v-for="(m, cle) in MODES" :key="cle" type="button" class="site-mode" :class="{ actif: ouverture.mode === cle }" role="radio" :aria-checked="ouverture.mode === cle" :disabled="!!changementMode" @click="changerMode(cle)">
+              <span class="site-mode-icone"><span v-if="changementMode === cle" class="spinner" aria-hidden="true"></span><i v-else :class="m.icone" aria-hidden="true"></i></span>
+              <span class="site-mode-texte"><strong>{{ m.label }}</strong><small>{{ m.aide }}</small></span>
+              <i v-if="ouverture.mode === cle" class="fa-solid fa-circle-check site-mode-coche" aria-hidden="true"></i>
+            </button>
+          </div>
+          <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Le changement s’applique tout de suite, sans redéploiement. Les visiteurs déjà sur le site le voient à leur prochain chargement de page.</p>
+        </template>
+      </template>
+
+      <p v-else-if="onglet === 'admins' ? erreurs.profils : erreurs.versement || erreurs.reversements || erreurs.paiements" class="adm-alerte" role="alert">
         <i class="fa-solid fa-circle-exclamation"></i> {{ onglet === 'admins' ? erreurs.profils : erreurs.versement || erreurs.reversements || erreurs.paiements }}
       </p>
 
@@ -324,7 +396,7 @@ async function retirer(p) {
       </template>
 
       <!-- ===================== RIB ===================== -->
-      <template v-else>
+      <template v-else-if="onglet === 'rib'">
         <div v-if="ribRenseigne && !modeRib" class="rib-carte">
           <span class="rib-banque"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> {{ parametres.banque || 'Compte de BTM' }}</span>
           <strong class="rib-iban adm-mono">{{ masquerIban(parametres.iban) }}</strong>
@@ -413,6 +485,27 @@ async function retirer(p) {
 .rib-ligne { display: flex; justify-content: space-between; gap: 12px; font-size: .9rem; }
 .rib-carte small { color: rgba(255, 255, 255, .55); font-size: .78rem; }
 .rib-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+.site-etat .solde-montant { display: flex; align-items: center; gap: 12px; font-size: 1.6rem; }
+.site-voyant { width: 12px; height: 12px; flex: none; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 5px rgba(245, 158, 11, .2); }
+.site-voyant.ouvert { background: #22c55e; box-shadow: 0 0 0 5px rgba(34, 197, 94, .2); }
+.site-voyant.maintenance { background: #ef4444; box-shadow: 0 0 0 5px rgba(239, 68, 68, .2); }
+.site-modes { display: flex; flex-direction: column; gap: 8px; }
+.site-mode {
+  display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 0; border-radius: 16px; text-align: left;
+  background: var(--adm-ligne-2); color: var(--adm-encre); font: inherit; cursor: pointer; transition: box-shadow var(--transition), background var(--transition);
+}
+.site-mode:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.site-mode.actif { background: var(--adm-carte); box-shadow: inset 0 0 0 2px var(--adm-noir); }
+.site-mode:disabled { cursor: progress; }
+.site-mode:focus-visible { outline: 2px solid var(--adm-accent); outline-offset: 2px; }
+.site-mode-icone { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-carte); color: var(--adm-encre-2); }
+.site-mode.actif .site-mode-icone { background: var(--adm-noir); color: #fff; }
+.site-mode-texte { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.site-mode-texte small { color: var(--adm-muet); font-size: .82rem; line-height: 1.45; }
+.site-mode-coche { color: var(--adm-noir); font-size: 1.1rem; }
+.adm-sombre .site-mode.actif { box-shadow: inset 0 0 0 2px var(--adm-accent); }
+.adm-sombre .site-mode-coche { color: var(--adm-accent); }
 
 .admins-ajout { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: var(--adm-ligne-2); }
 .admins-saisie { display: flex; flex-wrap: wrap; gap: 8px; }

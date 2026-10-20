@@ -106,7 +106,15 @@ async function confirmerSuppression() {
   <div id="page-dashboard" class="page">
     <div class="conteneur tdb">
       <!-- Bandeau : titre, résumé en pastilles, nouveau devis -->
-      <BandeauPage surtitre="Espace personnel" titre="Mes projets" texte="Vos estimations enregistrées apparaîtront ici." :pastilles="pastilles">
+      <!-- Téléphone : en-tête d'application (titre, résumé en une ligne, bouton +) à la place du bandeau -->
+      <header class="tdb-tete">
+        <div>
+          <h1>Mes projets</h1>
+          <p v-if="!vide">{{ projets.length }} estimation{{ projets.length > 1 ? 's' : '' }} · <span class="prix">{{ formaterEuros(totalCumule) }}</span> au total</p>
+        </div>
+        <router-link to="/calculateur" class="tdb-nouveau" aria-label="Nouvelle estimation"><i class="fa-solid fa-plus" aria-hidden="true"></i></router-link>
+      </header>
+      <BandeauPage class="tdb-bandeau" surtitre="Espace personnel" titre="Mes projets" texte="Vos estimations enregistrées apparaîtront ici." :pastilles="pastilles">
         <template #action>
           <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle estimation</router-link>
         </template>
@@ -253,5 +261,51 @@ async function confirmerSuppression() {
 @media (max-width: 760px) {
   .tdb-outils { flex-direction: column; align-items: stretch; }
   .tdb-recherche { flex-basis: auto; }
+}
+
+/* ---------- Téléphone : écran d'application ---------- */
+.tdb-tete { display: none; }
+@media (max-width: 639px) {
+  #page-dashboard.page { padding-top: calc(var(--hauteur-entete) + 14px); padding-bottom: 24px; }
+  .tdb-bandeau { display: none; }
+  .tdb-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .tdb-tete h1 { margin: 0; color: var(--ardoise); font-size: 2rem; line-height: 1.1; }
+  .tdb-tete p { margin: 4px 0 0; color: var(--gris-500); font-size: .88rem; }
+  .tdb-tete .prix { color: var(--ardoise); font-weight: 700; }
+  .tdb-nouveau {
+    width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 50%;
+    background: var(--lagon-600); color: #fff; font-size: 1.1rem; box-shadow: 0 6px 16px -6px rgba(8, 145, 178, .6);
+  }
+  .tdb-nouveau:active { transform: scale(.95); }
+
+  /* recherche + tri sur une ligne, puis les types en ruban qui glisse */
+  .tdb-outils { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; margin-bottom: 16px; padding: 0; border: 0; background: none; box-shadow: none; }
+  .tdb-recherche input { min-height: 44px; border: 1px solid var(--gris-200); background: #fff; font-size: 16px; }
+  .tdb-tri { width: 44px; height: 44px; justify-content: center; border: 1px solid var(--gris-200); border-radius: 12px; background: #fff; }
+  .tdb-tri i { position: static; color: var(--ardoise); }
+  .tdb-tri select { position: absolute; inset: 0; width: 100%; min-height: 0; padding: 0; opacity: 0; } /* liste native du téléphone */
+  .tdb-puces {
+    grid-column: 1 / -1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gouttiere, 16px));
+    padding: 0 var(--gouttiere, 16px); -webkit-overflow-scrolling: touch;
+  }
+  .tdb-puces::-webkit-scrollbar { display: none; }
+  .tdb-puces button { flex: none; min-height: 36px; white-space: nowrap; }
+
+  /* une liste de cartes compactes */
+  .tdb-grille { grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0; }
+  .tdb-aucun { padding: 32px 16px; }
+
+  /* aucun projet : les ouvrages en liste */
+  .tdb-vide { padding: 32px 16px; border-style: solid; border-color: var(--gris-200); background: #fff; }
+  .tdb-vide h2 { font-size: 1.4rem; }
+  .tdb-raccourcis { flex-direction: column; width: 100%; gap: 8px; margin-top: 8px; }
+  .tdb-raccourcis a { width: 100%; min-height: 54px; }
+  .tdb-raccourcis a:hover { transform: none; }
+
+  /* suppression : feuille qui monte du bas, gros boutons */
+  .modale-fond { place-items: end stretch; padding: 0; }
+  .modale { max-width: none; padding: 24px 20px calc(20px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; }
+  .modale-actions { flex-direction: column-reverse; gap: 8px; }
+  .modale-actions :deep(.btn) { width: 100%; min-height: 50px; justify-content: center; border-radius: 999px; }
 }
 </style>

@@ -792,7 +792,8 @@ async function supprimerCompte() {
 .feuille p { max-width: 360px; margin: 6px 0 20px; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.5; }
 .feuille-options { width: 100%; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; text-align: left; }
 .feuille-option {
-  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 66px; padding: 10px 16px;
+  /* text-align explicite : un <button> centre son texte par défaut (« Sur BTM »), un <a> non (« Sur Trustpilot ») */
+  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 66px; padding: 10px 16px; text-align: left;
   border: 0; background: #fff; color: var(--ardoise); font: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .feuille-option + .feuille-option { border-top: 1px solid var(--gris-100); }

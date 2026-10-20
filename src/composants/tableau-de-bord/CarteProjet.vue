@@ -41,6 +41,8 @@ const cout = computed(() => props.projet.cout_total ?? props.projet.resultat?.to
 
 // Code à présenter au fournisseur pour retirer et payer (projets enregistrés en ligne uniquement)
 const copie = ref(false)
+const TELEPHONE = window.matchMedia('(max-width: 639px)')
+function surCarte() { if (TELEPHONE.matches) emit('voir', props.projet) }
 async function copierCode() {
   try {
     await navigator.clipboard.writeText(props.projet.code_retrait)
@@ -51,10 +53,11 @@ async function copierCode() {
 </script>
 
 <template>
-  <li class="cp" :style="{ '--haut': palette[0], '--bas': palette[1], '--teinte': palette[2] }">
+  <!-- téléphone : toute la carte ouvre l'estimation (les petits boutons gardent leur propre action) -->
+  <li class="cp" :style="{ '--haut': palette[0], '--bas': palette[1], '--teinte': palette[2] }" @click="surCarte">
     <span class="cp-actions">
-      <button type="button" :aria-label="`Dupliquer ${projet.nom}`" title="Dupliquer" @click="emit('dupliquer', projet)"><i class="fa-regular fa-copy"></i></button>
-      <button type="button" class="cp-suppr" :aria-label="`Supprimer ${projet.nom}`" title="Supprimer" @click="emit('supprimer', projet)"><i class="fa-regular fa-trash-can"></i></button>
+      <button type="button" :aria-label="`Dupliquer ${projet.nom}`" title="Dupliquer" @click.stop="emit('dupliquer', projet)"><i class="fa-regular fa-copy"></i></button>
+      <button type="button" class="cp-suppr" :aria-label="`Supprimer ${projet.nom}`" title="Supprimer" @click.stop="emit('supprimer', projet)"><i class="fa-regular fa-trash-can"></i></button>
     </span>
     <span v-if="numero" class="cp-numero">{{ String(numero).padStart(2, '0') }}</span>
 
@@ -66,13 +69,13 @@ async function copierCode() {
     </p>
     <strong class="cp-prix prix">{{ formaterEuros(cout) }}</strong>
 
-    <button v-if="projet.code_retrait" type="button" class="cp-code" :title="copie ? 'Copié' : 'Copier le code de retrait'" @click="copierCode">
+    <button v-if="projet.code_retrait" type="button" class="cp-code" :title="copie ? 'Copié' : 'Copier le code de retrait'" @click.stop="copierCode">
       <i :class="copie ? 'fa-solid fa-check' : 'fa-solid fa-ticket'" aria-hidden="true"></i>
       {{ copie ? 'Code copié' : projet.code_retrait }}
     </button>
     <span v-else class="cp-code cp-code-local"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i> Sur cet appareil</span>
 
-    <button type="button" class="cp-voir" @click="emit('voir', projet)">Voir l’estimation</button>
+    <button type="button" class="cp-voir" @click.stop="emit('voir', projet)">Voir l’estimation</button>
   </li>
 </template>
 
@@ -121,5 +124,31 @@ async function copierCode() {
 .cp-voir:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -10px rgba(11, 58, 77, .55); }
 .cp-voir:focus-visible { outline: 3px solid var(--lagon-400); outline-offset: 2px; }
 @media (hover: none) { .cp-actions { opacity: 1; } }
+
+/* Téléphone : carte compacte d'une liste d'application
+   [icône] Nom                     prix
+           Mur · 8 × 3 m · date
+   [code de retrait]         [⧉] [🗑]                       */
+@media (max-width: 639px) {
+  .cp {
+    display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; grid-template-areas: "icone nom prix" "icone texte texte" "code code actions";
+    align-items: center; column-gap: 12px; row-gap: 2px; min-height: 0; padding: 14px 14px 12px; text-align: left; cursor: pointer;
+    border: 1px solid var(--gris-200); border-radius: 18px; background: #fff; box-shadow: none;
+  }
+  .cp:hover { transform: none; box-shadow: none; }
+  .cp:active { background: var(--gris-50); }
+  .cp-numero { display: none; }
+  .cp-icone { grid-area: icone; align-self: start; width: 46px; height: 46px; margin: 0; border-radius: 14px; background: var(--haut); box-shadow: inset 0 0 0 1px var(--bas); font-size: 1.1rem; }
+  .cp-nom { grid-area: nom; overflow: hidden; font-size: 1.05rem; white-space: nowrap; text-overflow: ellipsis; }
+  .cp-prix { grid-area: prix; margin: 0; padding: 0; font-size: 1rem; white-space: nowrap; }
+  .cp-texte { grid-area: texte; max-width: none; margin: 0; font-size: .8rem; line-height: 1.4; }
+  .cp-texte br { display: none; }
+  .cp-texte span { display: block; font-size: .78rem; }
+  .cp-code { grid-area: code; justify-self: start; margin-top: 10px; background: var(--haut); }
+  .cp-actions { position: static; grid-area: actions; justify-self: end; margin-top: 10px; gap: 4px; opacity: 1; }
+  .cp-actions button { width: 36px; height: 36px; background: var(--gris-100); color: var(--gris-600); }
+  /* « Voir » : toute la carte s'ouvre au toucher ; le bouton reste pour le clavier et les lecteurs d'écran */
+  .cp-voir { position: absolute; width: 1px; height: 1px; min-height: 0; margin: 0; padding: 0; overflow: hidden; clip: rect(0 0 0 0); }
+}
 @media (prefers-reduced-motion: reduce) { .cp, .cp:hover { transform: none; } }
 </style>

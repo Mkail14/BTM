@@ -142,6 +142,31 @@ onBeforeUnmount(() => {
         <i class="fa-solid fa-xmark" aria-hidden="true"></i>
       </button>
 
+      <!-- Téléphone : feuille qui monte du bas, les trois moyens de contact en liste -->
+      <section class="aide-feuille" role="dialog" aria-modal="true" aria-labelledby="aide-feuille-titre">
+        <span class="aide-feuille-poignee" aria-hidden="true"></span>
+        <h2 id="aide-feuille-titre">Besoin d’aide ?</h2>
+        <p>Awa, l’assistante BTM, répond tout de suite. Un conseiller prend le relais si besoin.</p>
+        <div class="aide-feuille-liste">
+          <button type="button" class="aide-feuille-ligne" @click="ouvrirAssistant">
+            <span class="aide-feuille-icone"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>
+            <span><strong>Discuter avec Awa</strong><small>Réponse immédiate, sur le site</small></span>
+            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+          </button>
+          <a class="aide-feuille-ligne" :href="`https://wa.me/${numeroWhatsApp}?text=${messageWhatsApp}`" target="_blank" rel="noopener noreferrer" @click="fermer">
+            <span class="aide-feuille-icone aide-feuille-whatsapp"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></span>
+            <span><strong>WhatsApp</strong><small>Écrire à l’équipe BTM</small></span>
+            <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+          </a>
+          <a class="aide-feuille-ligne" :href="`mailto:${contenu.contact.email}?subject=${encodeURIComponent('Aide BTM')}`" @click="fermer">
+            <span class="aide-feuille-icone aide-feuille-email"><i class="fa-regular fa-envelope" aria-hidden="true"></i></span>
+            <span><strong>E-mail</strong><small>{{ contenu.contact.email }}</small></span>
+            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+          </a>
+        </div>
+        <button type="button" class="aide-feuille-fermer" @click="fermer">Fermer</button>
+      </section>
+
       <section class="aide-dialogue" role="dialog" aria-modal="true" aria-label="Aide BTM">
         <div class="aide-pages">
           <article class="aide-page aide-page-assistant">
@@ -289,4 +314,37 @@ onBeforeUnmount(() => {
 @media (max-width: 400px) {
   .aide-bouton { --aide-marge: 12px; --aide-bas: 12px; width: 46px; height: 46px; font-size: .95rem; }
 }
+
+/* ---------- Téléphone : feuille du bas à la place des deux grandes cartes ---------- */
+.aide-feuille { display: none; }
+@media (max-width: 639px) {
+  .aide-overlay { display: flex; align-items: flex-end; padding: 0; overflow: hidden; backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(6, 32, 44, .5); }
+  .aide-dialogue, .aide-fermer { display: none; }
+  .aide-feuille {
+    display: flex; flex-direction: column; align-items: center; width: 100%; max-height: 92dvh; overflow-y: auto;
+    padding: 10px 20px calc(16px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; background: #fff; text-align: center;
+    animation: aide-monte .28s cubic-bezier(.22, .61, .36, 1);
+  }
+  .aide-feuille-poignee { width: 38px; height: 5px; margin-bottom: 18px; border-radius: 999px; background: var(--gris-200); }
+  .aide-feuille h2 { margin: 0; color: var(--ardoise); font-size: 1.45rem; }
+  .aide-feuille > p { max-width: 340px; margin: 6px 0 18px; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.5; }
+  .aide-feuille-liste { width: 100%; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; text-align: left; }
+  .aide-feuille-ligne {
+    display: flex; align-items: center; gap: 14px; width: 100%; min-height: 66px; padding: 10px 16px;
+    border: 0; background: #fff; color: var(--ardoise); font: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .aide-feuille-ligne + .aide-feuille-ligne { border-top: 1px solid var(--gris-100); }
+  .aide-feuille-ligne:active { background: var(--gris-50); }
+  .aide-feuille-ligne > span:nth-child(2) { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+  .aide-feuille-ligne strong { font-size: .98rem; }
+  .aide-feuille-ligne small { overflow: hidden; color: var(--gris-500); font-size: .8rem; white-space: nowrap; text-overflow: ellipsis; }
+  .aide-feuille-ligne > i { flex: none; color: var(--gris-400); font-size: .8rem; }
+  .aide-feuille-icone { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--lagon-100); color: var(--lagon-700); font-size: 1.05rem; }
+  .aide-feuille-whatsapp { background: #dcfce7; color: #16a34a; font-size: 1.25rem; }
+  .aide-feuille-email { background: var(--gris-100); color: var(--ardoise); }
+  .aide-feuille-fermer { width: 100%; min-height: 48px; margin-top: 10px; border: 0; border-radius: 999px; background: none; color: var(--gris-600); font: 600 .95rem var(--font-corps); cursor: pointer; }
+  .aide-feuille-fermer:active { background: var(--gris-100); }
+}
+@keyframes aide-monte { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .aide-feuille { animation: none; } }
 </style>

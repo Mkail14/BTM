@@ -23,6 +23,7 @@ const dessus = ref(false)
 const legende = ref('')
 let renderer, scene, camera, modele, frame, observer, observateurTaille
 let visible = true
+let aDessiner = true // une image à produire (modèle refait, cadre redimensionné) : sinon, scène immobile = aucun rendu
 let glisse = null
 let rotationCible = -0.55
 let textures = []
@@ -413,6 +414,7 @@ function reconstruire() {
   modele.rotation.y = dessus.value ? 0 : rotation
   scene.add(modele)
   cadrer(cadre)
+  aDessiner = true
 }
 
 function cadrer(boiteStruct) {
@@ -455,12 +457,17 @@ function initialiser() {
     // rotation lente uniquement sur les cartes de choix ; sur le calculateur on garde une vue stable pour lire les cotes
     if (props.compacte && !glisse && !reduireAnimations) rotationCible += .004
     const cible = dessus.value ? 0 : rotationCible
-    modele.rotation.y += (cible - modele.rotation.y) * .12
+    const ecart = cible - modele.rotation.y
+    const enMouvement = Math.abs(ecart) > 1e-4
+    if (enMouvement) modele.rotation.y += ecart * .12
+    // rendu à la demande : une maquette immobile ne recalcule pas 60 images par seconde
+    if (!enMouvement && !aDessiner) return
+    aDessiner = false
     renderer.render(scene, camera)
   }
   boucle()
 
-  observer = new IntersectionObserver(([e]) => { visible = e.isIntersecting })
+  observer = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible) aDessiner = true })
   observer.observe(el)
   // suit la taille du cadre, pas seulement de la fenêtre : sur téléphone il rétrécit quand le clavier s'ouvre
   observateurTaille = new ResizeObserver(redimensionner)
@@ -473,6 +480,7 @@ function redimensionner() {
   renderer.setSize(el.clientWidth, el.clientHeight)
   camera.aspect = el.clientWidth / el.clientHeight
   camera.updateProjectionMatrix()
+  aDessiner = true
 }
 
 function debutGlisse(e) {

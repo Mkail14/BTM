@@ -6,6 +6,7 @@ import { typesProjets } from '@/donnees/typesProjets.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 const Scene3DChantier = defineAsyncComponent(() => import('./Scene3DChantier.vue'))
 import HeroPaysage from './HeroPaysage.vue'
+import { retenirEcranChargement } from '@/composables/useEcranChargement.js'
 
 const { utilisateur, estPro, demandePro } = useAuth()
 const contenu = useContenuSite()
@@ -48,6 +49,8 @@ const requete = typeof window !== 'undefined' ? window.matchMedia('(max-width: 6
 const telephone = ref(!!requete?.matches)
 const surTaille = (e) => { telephone.value = e.matches }
 onMounted(() => requete?.addEventListener('change', surTaille))
+// Ordinateur : l'écran de chargement attend la maquette 3D, l'accueil apparaît complet
+const libererEcran = telephone.value ? () => {} : retenirEcranChargement()
 onBeforeUnmount(() => requete?.removeEventListener('change', surTaille))
 
 // Cadre au défilement : en descendant, des bords blancs apparaissent sur les côtés du héros et son bas s'arrondit
@@ -116,7 +119,7 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
       </div>
 
       <div v-if="!telephone" class="hero-visuel">
-        <Scene3DChantier />
+        <Scene3DChantier @pret="libererEcran" />
       </div>
 
       <!-- Téléphone : un seul geste, toucher l'ouvrage à chiffrer -->

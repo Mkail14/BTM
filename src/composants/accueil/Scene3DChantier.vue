@@ -3,6 +3,8 @@ import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
+// « pret » : maquette affichée (ou en échec) — l'écran de chargement du site peut partir
+const emit = defineEmits(['pret'])
 const sceneElement = ref(null)
 let renderer = null
 let scene = null
@@ -109,11 +111,13 @@ function setup3DScene() {
         if (!scene || maGeneration !== generation) return
         model = loadedModel
         scene.add(model)
+        emit('pret')
       })
     },
     undefined,
     (error) => {
       console.error('Erreur de chargement du modèle 3D :', error)
+      emit('pret')
     }
   )
 

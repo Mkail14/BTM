@@ -1,7 +1,7 @@
 <script setup>
 /**
  * Comparateur des fournisseurs (résultats) : pour chaque fournisseur de l'annuaire, le prix exact du devis
- * à SES prix BTM (avec le code de retrait), le prix au comptoir sans code, l'économie, et ce qu'il a en stock.
+ * à SES prix BTM (avec le code de retrait) et ce qu'il a en stock.
  * Choisir un fournisseur applique ses prix au devis (PDF, enregistrement) et l'ajoute au PDF.
  */
 import { computed, onMounted, ref } from 'vue'
@@ -54,7 +54,7 @@ function choisir(f) {
     <div class="cf-tete">
       <div>
         <h2 id="cf-titre"><i class="fa-solid fa-store" aria-hidden="true"></i> Où acheter ?</h2>
-        <p>Comparez les prix exacts. Avec votre code de retrait, vous payez le <strong>prix BTM</strong>, plus bas qu’au comptoir, <strong>sans aucun frais</strong>.</p>
+        <p>Prix BTM avec votre code de retrait, sans frais.</p>
       </div>
     </div>
 
@@ -65,17 +65,15 @@ function choisir(f) {
         <button type="button" class="cf-carte" :class="{ actif: modelValue === f.fiche.id }" :aria-pressed="modelValue === f.fiche.id" @click="choisir(f)">
           <span class="cf-choix" aria-hidden="true"><i v-if="modelValue === f.fiche.id" class="fa-solid fa-check"></i></span>
           <span class="cf-identite">
-            <strong>{{ f.fiche.nom }}<em v-if="meilleur && meilleur.fiche.id === f.fiche.id" class="cf-meilleur">Meilleur prix</em><em v-if="f.fiche.demonstration" class="cf-demo" title="Fournisseur fictif : prix d’exemple">Exemple · prix fictifs</em></strong>
-            <small>{{ f.fiche.categorie }} · {{ f.fiche.commune }}<template v-if="f.fiche.livraison"> · livraison</template></small>
-            <small class="cf-dispo" :class="{ complet: f.complet }">
-              <i :class="f.complet ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-half-stroke'" aria-hidden="true"></i>
-              {{ f.complet ? 'Tout est disponible' : `${f.chiffrage.disponibles} / ${quantites.length} matériaux disponibles` }}
+            <strong>{{ f.fiche.nom }}<em v-if="meilleur && meilleur.fiche.id === f.fiche.id" class="cf-meilleur">Meilleur prix</em></strong>
+            <small>{{ f.fiche.commune }}<template v-if="f.fiche.livraison"> · livraison</template></small>
+            <!-- seulement quand il manque quelque chose : « tout est disponible » est le cas normal -->
+            <small v-if="!f.complet" class="cf-dispo">
+              <i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i> {{ f.chiffrage.disponibles }} / {{ quantites.length }} matériaux disponibles
             </small>
           </span>
           <span v-if="f.chiffrage && f.chiffrage.disponibles" class="cf-prix">
             <strong>{{ formaterEuros(f.chiffrage.total) }}</strong>
-            <s v-if="f.chiffrage.economie > 0">{{ formaterEuros(f.chiffrage.totalComptoir) }} au comptoir</s>
-            <em v-if="f.chiffrage.economie > 0" class="cf-economie">−{{ formaterEuros(f.chiffrage.economie) }} avec votre code</em>
           </span>
         </button>
       </li>
@@ -83,8 +81,6 @@ function choisir(f) {
     <button v-if="liste.length > 4" type="button" class="cf-plus" @click="tousVisibles = !tousVisibles">
       {{ tousVisibles ? 'Voir moins' : `Voir les ${liste.length} fournisseurs` }}
     </button>
-    <p v-if="!chargement && liste.some((f) => f.fiche.demonstration)" class="cf-note cf-note-demo"><i class="fa-solid fa-flask" aria-hidden="true"></i> Les fournisseurs marqués « Exemple » sont fictifs : leurs prix servent seulement à montrer le fonctionnement du site.</p>
-    <p class="cf-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Le prix BTM s’applique chez le fournisseur sur présentation du code de retrait de votre estimation enregistrée. Chaque achat vous rapporte aussi du crédit fidélité.</p>
   </section>
 </template>
 
@@ -110,18 +106,10 @@ function choisir(f) {
 .cf-identite strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ardoise); }
 .cf-identite small { color: var(--texte-secondaire); font-size: .8rem; }
 .cf-meilleur { padding: 1px 8px; border-radius: 999px; background: #dcfce7; color: #166534; font-style: normal; font-size: .7rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
-.cf-demo { padding: 1px 8px; border-radius: 999px; background: #fef3c7; color: #92400e; font-style: normal; font-size: .7rem; font-weight: 700; }
-.cf-note-demo { padding: 10px 12px; border-radius: 10px; background: #fffbeb; color: #92400e; }
-.cf-note-demo i { color: #b45309 !important; }
 .cf-dispo { font-weight: 600; color: #b45309 !important; }
-.cf-dispo.complet { color: #047857 !important; }
 .cf-prix { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; text-align: right; }
 .cf-prix strong { font-size: 1.15rem; color: var(--ardoise); font-variant-numeric: tabular-nums; }
-.cf-prix s { color: var(--gris-500); font-size: .78rem; }
-.cf-economie { color: #047857; font-style: normal; font-size: .78rem; font-weight: 700; }
 .cf-plus { align-self: center; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
-.cf-note { display: flex; gap: 8px; margin: 0; color: var(--texte-secondaire); font-size: .82rem; line-height: 1.5; }
-.cf-note i { margin-top: 3px; color: var(--lagon-600); }
 @media (max-width: 560px) {
   .cf-carte { flex-wrap: wrap; }
   .cf-prix { width: 100%; flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 8px; }

@@ -364,8 +364,12 @@ function rendre() {
   if (renderer) renderer.render(scene, camera)
 }
 
+// balancement lent : 30 images par seconde suffisent, et les cinq vitrines de l'accueil coûtent deux fois moins
+let derniereImage = 0
 function boucle(temps) {
   rafId = requestAnimationFrame(boucle)
+  if (temps - derniereImage < 32) return
+  derniereImage = temps
   pivotSurvol += ((props.actif ? 0.6 : 0) - pivotSurvol) * 0.06
   pivot.rotation.y = Math.sin(temps * 0.00035) * 0.18 + pivotSurvol
   rendre()

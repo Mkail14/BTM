@@ -1,5 +1,5 @@
 <script setup>
-import { computed, defineAsyncComponent, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import EnteteApp from '@/composants/commun/EnteteApp.vue'
@@ -9,6 +9,7 @@ import BandeauAnnonce from '@/composants/commun/BandeauAnnonce.vue'
 import BandeauCookies from '@/composants/commun/BandeauCookies.vue'
 import ApercuPdf from '@/composants/commun/ApercuPdf.vue'
 import { useAuth } from '@/composables/useAuth.js'
+import { retirerEcranChargement } from '@/composables/useEcranChargement.js'
 import { PAGES_ESPACE } from '@/routeur/index.js'
 import { modeSite, quitterModeSite } from '@/composables/useModeSite.js'
 import { useOuverture, PAGES_LIBRES, LIBELLES_ENVIRONNEMENT } from '@/composables/useOuverture.js'
@@ -50,6 +51,16 @@ function retourEspace() {
 const { environnement, partenaires, mode: modeOuverture, enAttente } = useOuverture()
 const pageAttente = computed(() => enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value && !fournisseurLie.value)
 
+// Écran de chargement (index.html) : retiré quand la première page est affichée — routeur prêt et, en ligne,
+// ouverture vérifiée. Le pied de page n'apparaît qu'avec une page : plus de pied collé sous l'en-tête au rechargement.
+const pageChargee = computed(() => route.matched.length > 0)
+const stopPret = watch([pageChargee, () => pageAttente.value && enAttente.value === null], async ([chargee, verification]) => {
+  if (!chargee || verification) return
+  stopPret()
+  await nextTick()
+  retirerEcranChargement()
+}, { flush: 'post' })
+
 // Connexion / inscription : une fenêtre superposée au site (il n'y a pas de page de connexion).
 // Disponible partout, y compris dans les espaces admin et fournisseur (qui n'ont pas l'en-tête du site).
 const chargerFenetreConnexion = () => import('@/composants/commun/FenetreConnexion.vue')
@@ -87,7 +98,7 @@ watch(() => route.query, (q) => {
     </router-view>
   </main>
   <template v-if="!pleinEcran">
-    <PiedDePage :class="{ 'pied-ordinateur': !piedSurTelephone }" />
+    <PiedDePage v-if="pageChargee" :class="{ 'pied-ordinateur': !piedSurTelephone }" />
     <AideFlottante />
     <BandeauAnnonce />
     <BandeauCookies />
@@ -109,6 +120,8 @@ watch(() => route.query, (q) => {
 </template>
 
 <style>
+/* Pendant le fondu entre deux pages, le contenu est vide un instant : le pied reste sous l'écran */
+#contenu-principal { min-height: 100vh; }
 .lien-evitement {
   position: absolute; left: 16px; top: -60px; z-index: 1000; padding: 10px 16px;
   background: var(--ardoise); color: #fff; border-radius: 8px; transition: top .2s;

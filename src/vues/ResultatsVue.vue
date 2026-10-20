@@ -162,8 +162,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           </p>
           <h1 id="resultats-titre" class="resultats-titre">{{ titre }}</h1>
           <p class="resultats-total prix">{{ formaterEuros(resultat.total) }}</p>
-          <!-- toujours visible : ce que couvre le montant (le détail du calcul reste dans « Comment est fait le calcul ? ») -->
-          <p class="resultats-portee">{{ resultat.fraisService?.montant > 0 ? 'Matériaux et frais de service BTM' : 'Estimation indicative des matériaux' }}, prix TTC. Main-d’œuvre, livraison, coffrage et terrassement non compris : faites valider les quantités par un professionnel avant d’acheter.</p>
+          <!-- l'essentiel en une ligne ; ce qui n'est pas compris est détaillé dans « Comment est fait le calcul ? » -->
 
           <!-- sans code promo, le détail répéterait le total -->
           <ul v-if="remise" class="resultats-repartition">
@@ -172,10 +171,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <strong class="prix">{{ formaterEuros(p.valeur) }}</strong>
             </li>
           </ul>
-          <p v-if="resultat.prixFournisseur?.economie > 0" class="resultats-economie">
-            <i class="fa-solid fa-piggy-bank" aria-hidden="true"></i>
-            <span>Prix BTM chez <strong>{{ resultat.prixFournisseur.nom }}</strong> : vous économisez <strong>{{ formaterEuros(resultat.prixFournisseur.economie) }}</strong> par rapport au comptoir ({{ formaterEuros(resultat.prixFournisseur.totalComptoir) }}).</span>
-          </p>
 
           <!-- Code promo : réduction appliquée, ou lien discret pour en saisir un -->
           <p v-if="remise" class="resultats-remise">
@@ -187,19 +182,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           </p>
           <p v-if="calc.messageCode.value" class="resultats-code-info" role="status"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> {{ calc.messageCode.value }}</p>
 
-          <template v-if="!remise">
-            <button v-if="!champCodeOuvert" type="button" class="resultats-code-lien" @click="ouvrirChampCode"><i class="fa-solid fa-ticket" aria-hidden="true"></i> J’ai un code promo</button>
-            <form v-else class="resultats-code" novalidate @submit.prevent="appliquerCode">
-              <label for="code-promo" class="visually-hidden">Code promo</label>
-              <input
-                id="code-promo" v-model="saisieCode" type="text" placeholder="Votre code promo" autocomplete="off" autocapitalize="characters" spellcheck="false"
-                maxlength="30" :aria-invalid="!!erreurCode || undefined" :aria-describedby="erreurCode ? 'code-erreur' : undefined" @keydown.esc="champCodeOuvert = false"
-              />
-              <BoutonBase type="submit" variante="secondaire" taille="sm" :chargement="verificationCode || calc.chargement.value" :disabled="!saisieCode.trim()">Appliquer</BoutonBase>
-              <p v-if="erreurCode" id="code-erreur" class="resultats-code-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ erreurCode }}</p>
-            </form>
-          </template>
-
           <!-- Bas du bloc (ordinateur : calé au-dessus du pied, l'espace libre reste sous le prix) -->
           <div class="resultats-bas">
           <!-- Code de retrait : projet enregistré en ligne -->
@@ -207,13 +189,11 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
             <i class="fa-solid fa-ticket" aria-hidden="true"></i>
             <span>Code de retrait <strong class="mono">{{ codeRetrait }}</strong><small>Présentez-le au fournisseur (il figure aussi sur le PDF) : il retrouve votre estimation et vous remet un reçu.</small></span>
           </p>
-          <p v-else-if="connecte" class="resultats-retrait-aide"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <span>Votre <strong>code de retrait</strong> vous donne le prix BTM chez le fournisseur : obtenez-le en enregistrant cette estimation.</span></p>
-          <p v-else-if="backendDisponible" class="resultats-retrait-aide"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <span>Pour avoir le prix BTM chez le fournisseur, il vous faut un <strong>code de retrait</strong> : il s’obtient en enregistrant cette estimation (compte gratuit).</span></p>
 
           <!-- Sans code de retrait, l'action utile est de l'obtenir (enregistrer) : bouton principal, le PDF passe en second.
                Avec le code : voir le PDF (large), puis le télécharger et réenregistrer (boutons carrés). -->
           <div v-if="!codeRetrait && backendDisponible" class="resultats-actions" role="group" aria-label="Actions de l’estimation">
-            <BoutonBase class="resultats-action-principale" icone="fa-solid fa-ticket" @click="ouvrirDialogue">Obtenir mon code</BoutonBase>
+            <BoutonBase class="resultats-action-principale" icone="fa-solid fa-ticket" @click="ouvrirDialogue">Obtenir le prix BTM</BoutonBase>
             <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" aria-label="Visualiser le PDF" title="Visualiser le PDF" @click="pdf('visualiser')" />
             <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
           </div>
@@ -222,6 +202,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
             <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
             <BoutonBase v-if="backendDisponible" class="resultats-action-icone" variante="secondaire" icone="fa-regular fa-bookmark" aria-label="Enregistrer l’estimation" title="Enregistrer l’estimation" @click="ouvrirDialogue" />
           </div>
+          <p v-if="!codeRetrait && backendDisponible" class="resultats-action-aide">Gratuit · vous recevez un code à présenter au fournisseur</p>
 
           <transition name="glisser">
             <BandeauAvertissement v-if="messageSucces" type="succes" compact>
@@ -231,12 +212,20 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           </div>
 
           <div class="resultats-pied">
-            <details class="resultats-calcul">
-              <summary>Comment est fait le calcul ?</summary>
-              <p>{{ type.hypotheses }}</p>
-              <p>Estimation indicative, non contractuelle : ce n’est pas un devis. Prix TTC des matériaux seuls, hors main-d’œuvre, livraison, coffrage, terrassement (creusement et préparation du terrain) et études. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
-            </details>
-            <button type="button" class="resultats-lien" @click="nouvelleEstimation"><i class="fa-solid fa-plus" aria-hidden="true"></i> Faire une nouvelle estimation</button>
+            <!-- liens secondaires, sur une ligne -->
+            <p class="resultats-liens">
+              <button type="button" class="resultats-lien" @click="nouvelleEstimation"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle estimation</button>
+              <button v-if="!remise && !champCodeOuvert" type="button" class="resultats-lien resultats-lien-doux" @click="ouvrirChampCode">J’ai un code promo</button>
+            </p>
+            <form v-if="!remise && champCodeOuvert" class="resultats-code" novalidate @submit.prevent="appliquerCode">
+              <label for="code-promo" class="visually-hidden">Code promo</label>
+              <input
+                id="code-promo" v-model="saisieCode" type="text" placeholder="Votre code promo" autocomplete="off" autocapitalize="characters" spellcheck="false"
+                maxlength="30" :aria-invalid="!!erreurCode || undefined" :aria-describedby="erreurCode ? 'code-erreur' : undefined" @keydown.esc="champCodeOuvert = false"
+              />
+              <BoutonBase type="submit" variante="secondaire" taille="sm" :chargement="verificationCode || calc.chargement.value" :disabled="!saisieCode.trim()">Appliquer</BoutonBase>
+              <p v-if="erreurCode" id="code-erreur" class="resultats-code-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ erreurCode }}</p>
+            </form>
           </div>
         </section>
 
@@ -266,7 +255,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <span class="resultats-achat-icone"><i :class="icones[l.id] || (String(l.id).startsWith('carreau:') ? 'fa-solid fa-table-cells' : 'fa-solid fa-box')" aria-hidden="true"></i></span>
               <span class="resultats-achat-texte">
                 <strong>{{ formaterQuantite(l.quantite, l.unite) }}</strong>
-                <small>{{ l.libelle }} · {{ formaterEuros(l.prixUnitaire) }} / {{ l.unite === 'u' ? 'unité' : l.unite }}<template v-if="l.prixComptoir > l.prixUnitaire"> · <s>{{ formaterEuros(l.prixComptoir) }} au comptoir</s></template></small>
+                <small>{{ l.libelle }} · {{ formaterEuros(l.prixUnitaire) }} / {{ l.unite === 'u' ? 'unité' : l.unite }}</small>
                 <small v-if="l.indisponible" class="resultats-indispo"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Non disponible chez {{ resultat.prixFournisseur?.nom }} (prix de référence)</small>
               </span>
               <span class="prix">{{ formaterEuros(l.sousTotal) }}</span>
@@ -279,6 +268,13 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         <!-- 3. Où acheter : prix exacts chez chaque fournisseur -->
         <ComparateurFournisseurs class="resultats-ou" :lignes="calc.devis.value.lignes" :model-value="calc.fournisseurId.value" @update:model-value="calc.choisirFournisseur" @fournisseur="choixFournisseur = $event" />
         </div>
+
+        <!-- Mentions et méthode : en bas de page, hors du chemin -->
+        <details class="resultats-calcul">
+          <summary>Estimation indicative, non contractuelle · comment est fait le calcul ?</summary>
+          <p>{{ type.hypotheses }}</p>
+          <p>Ce n’est pas un devis. Prix TTC des matériaux seuls, hors main-d’œuvre, livraison, coffrage, terrassement (creusement et préparation du terrain) et études : faites valider les quantités par un professionnel avant d’acheter. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
+        </details>
 
         <!-- Compte requis pour enregistrer -->
         <transition name="fondu">
@@ -343,13 +339,16 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 <style scoped>
 .resultats { display: flex; flex-direction: column; gap: 20px; max-width: 760px; }
 .resultats-grille, .resultats-colonne { display: flex; flex-direction: column; gap: 20px; }
-.resultats-pied { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--gris-200); }
+.resultats-pied { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 16px; }
 
 .resultats-prix { padding: 30px; border-radius: var(--rayon-lg); text-align: center; }
 .resultats-resume { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; color: var(--texte-secondaire); font-size: .92rem; }
 .resultats-resume i { color: var(--lagon-600); margin-right: 4px; }
 .resultats-titre { margin-top: 18px; color: var(--ardoise); font-size: clamp(1.5rem, 3.4vw, 2rem); }
-.resultats-portee { margin: -14px auto 20px; max-width: 34ch; color: var(--texte-secondaire); font-size: .86rem; line-height: 1.45; }
+.resultats-action-aide { margin: 8px 0 0; color: var(--gris-500); font-size: .8rem; }
+.resultats-liens { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 20px; margin: 0; font-size: .9rem; }
+.resultats-lien-doux { color: var(--gris-500); font-weight: 600; }
+.resultats-pied .resultats-code { align-self: stretch; margin-top: 0; }
 .resultats-total { margin: 4px 0 22px; color: var(--lagon-700); font-size: clamp(2.8rem, 9vw, 4.2rem); font-weight: 700; line-height: 1.05; letter-spacing: -.02em; }
 
 .resultats-repartition { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 0; padding: 0; list-style: none; }
@@ -369,12 +368,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-remise-retirer { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #047857; }
 .resultats-remise-retirer:hover:not(:disabled) { background: #d1fae5; }
 .resultats-code-info { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; color: #b45309; font-size: .85rem; text-align: left; }
-.resultats-code-lien {
-  display: inline-flex; align-self: center; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; padding: 7px 16px;
-  border: 1.5px dashed var(--lagon-200); border-radius: 999px; background: none;
-  color: var(--lagon-700); font-size: .86rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s;
-}
-.resultats-code-lien:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
 .resultats-code { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .resultats-code input {
   flex: 1 1 180px; min-height: 42px; padding: 0 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm);
@@ -405,9 +398,11 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-sous-total { display: flex; justify-content: space-between; padding-top: 14px; color: var(--texte-secondaire); font-weight: 600; }
 .resultats-sous-total strong { color: var(--lagon-700); font-size: 1.15rem; }
 
-.resultats-calcul { align-self: stretch; color: var(--texte-secondaire); font-size: .88rem; text-align: left; }
-.resultats-calcul summary { color: var(--lagon-800); font-weight: 600; cursor: pointer; }
-.resultats-calcul p { margin: 8px 0 0; line-height: 1.55; }
+.resultats-calcul { color: var(--gris-500); font-size: .8rem; text-align: center; }
+.resultats-calcul summary { list-style: none; cursor: pointer; }
+.resultats-calcul summary::-webkit-details-marker { display: none; }
+.resultats-calcul summary:hover { color: var(--lagon-700); text-decoration: underline; }
+.resultats-calcul p { max-width: 72ch; margin: 8px auto 0; line-height: 1.55; }
 
 .modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(6,32,44,.55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
 .modale { background: #fff; border-radius: var(--rayon-lg); padding: 30px; width: 100%; max-width: 460px; box-shadow: var(--ombre-lg); animation: apparaitre .3s ease; }
@@ -415,13 +410,9 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .modale form { margin-top: 20px; display: flex; flex-direction: column; gap: 20px; }
 .modale-actions { display: flex; justify-content: flex-end; gap: 10px; }
 
-/* Gratuité, économie, devis pro */
-.resultats-economie { display: flex; gap: 10px; margin: 10px 0 0; padding: 12px 14px; border-radius: var(--rayon); background: #ecfdf5; color: #065f46; font-size: .9rem; line-height: 1.5; }
-.resultats-economie i { margin-top: 3px; }
+/* Devis pro */
 .resultats-indispo { color: #b45309 !important; font-weight: 600; }
 .resultats-bas { display: flex; flex-direction: column; }
-.resultats-retrait-aide { display: flex; gap: 12px; margin: 22px 0 0; padding: 12px 14px; border-radius: var(--rayon); background: var(--gris-50); color: var(--texte-secondaire); font-size: .86rem; line-height: 1.5; text-align: left; }
-.resultats-retrait-aide i { margin-top: 3px; color: var(--lagon-600); }
 .resultats-pro { border: 1.5px solid var(--ardoise); }
 .resultats-pro-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .resultats-pro-tete h2 { display: flex; align-items: center; gap: 10px; margin: 0; }
@@ -475,21 +466,19 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
   .resultats-repartition li { flex-direction: row; justify-content: space-between; align-items: center; text-align: left; }
 }
 
-/* Ordinateur : prix | quoi acheter | où acheter, côte à côte et tenant dans l'écran.
-   Une colonne trop remplie (beaucoup de matériaux ou de fournisseurs) défile seule, la page ne bouge pas. */
+/* Ordinateur : deux colonnes — à gauche le prix puis ce qu'il faut acheter, à droite où l'acheter.
+   Pas de grand vide : chaque carte prend la hauteur de son contenu, la liste des fournisseurs défile seule. */
 @media (min-width: 1100px) {
-  .resultats { max-width: var(--largeur-conteneur); }
+  .resultats { max-width: 1240px; }
   .resultats-grille {
-    display: grid; grid-template-columns: minmax(330px, .95fr) minmax(0, 1.05fr) minmax(0, 1.05fr); align-items: stretch; gap: 18px;
-    height: calc(100svh - var(--hauteur-entete) - 56px); min-height: 460px;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: start; gap: 18px;
   }
-  .resultats-grille > * { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-  .resultats-colonne { gap: 18px; }
-  .resultats-prix { display: flex; flex-direction: column; padding: 24px; }
-  .resultats-titre { margin-top: 12px; font-size: 1.6rem; }
+  .resultats-prix { grid-column: 1; grid-row: 1; padding: 24px; }
+  .resultats-colonne { grid-column: 1; grid-row: 2; gap: 18px; }
+  .resultats-ou { grid-column: 2; grid-row: 1 / span 2; }
+  .resultats-ou { position: sticky; top: calc(var(--hauteur-entete) + 24px); max-height: calc(100svh - var(--hauteur-entete) - 48px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .resultats-titre { margin-top: 10px; font-size: 1.5rem; }
   .resultats-total { margin-bottom: 16px; font-size: clamp(2.6rem, 3.6vw, 3.4rem); }
-  .resultats-bas { margin-top: auto; } /* prix en haut, actions en bas : plus de grand vide entre les boutons et le pied */
-  .resultats-colonne > .resultats-bloc:last-child { flex: 1; } /* même hauteur que les deux autres colonnes */
   .resultats-bloc { padding: 22px 24px; }
   .resultats-bloc h2 { font-size: 1.25rem; }
   .resultats-achats li { padding: 10px 0; }
@@ -501,6 +490,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
   .resultats-titre { margin-top: 6px; font-size: 1.35rem; }
   .resultats-total { margin-bottom: 10px; font-size: 2.5rem; }
   .resultats-actions { margin-top: 12px; gap: 8px; }
-  .resultats-pied { gap: 8px; padding-top: 10px; }
+  .resultats-pied { gap: 8px; }
 }
 </style>

@@ -289,4 +289,9 @@ ul { margin: 0; padding: 0; list-style: none; }
 /* Téléphone : bouton « Continuer » du calculateur fixé en bas de l'écran */
 @media (max-width: 639px) {
   body:has(.assistant-actions:not(.assistant-actions-vide)) { --decalage-aide: 72px; }
+  /* Calculateur en écran d'application (CalculateurVue) : la page ne défile pas, la bulle d'aide ne couvre pas
+     le champ ; clavier ouvert, la barre d'onglets s'efface pour laisser la place à la saisie */
+  html.calc-app-actif, html.calc-app-actif body { overflow: hidden; overscroll-behavior: none; }
+  html.calc-app-actif .aide-bouton { display: none; }
+  html.clavier-ouvert .onglets { display: none; }
 }

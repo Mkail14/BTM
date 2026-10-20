@@ -187,6 +187,40 @@ function focaliser() {
 }
 watch(etape, focaliser)
 
+// ---------- Téléphone : écran d'application ----------
+// Une question = un écran fixe qui ne défile pas : projet et avancement en haut, maquette 3D au milieu (elle se
+// redessine à chaque chiffre tapé), question, champ et « Continuer » en bas. Clavier ouvert, l'écran suit la zone
+// visible : la maquette rétrécit, la barre d'onglets s'efface, le champ ne passe jamais sous le clavier.
+const requeteTelephone = window.matchMedia('(max-width: 639px)')
+const ecranTelephone = ref(requeteTelephone.matches)
+const surTailleEcran = (e) => { ecranTelephone.value = e.matches }
+const modeApp = computed(() => ecranTelephone.value && mode.value === 'mesures' && !!question.value && question.value.champ?.type !== 'carreau')
+const clavierOuvert = ref(false)
+const zoneVisible = ref(null) // { hauteur, haut } de la zone visible (visualViewport), en px
+const styleApp = computed(() => (modeApp.value && zoneVisible.value
+  ? { '--zone-visible': `${zoneVisible.value.hauteur}px`, '--zone-haut': `${zoneVisible.value.haut}px` }
+  : null))
+function suivreZoneVisible() {
+  const vv = window.visualViewport
+  zoneVisible.value = vv ? { hauteur: Math.round(vv.height), haut: Math.round(vv.offsetTop) } : null
+}
+// la page ne défile pas, la barre d'onglets et la bulle d'aide laissent la place au clavier
+watch([modeApp, clavierOuvert], ([app, clavier]) => {
+  document.documentElement.classList.toggle('calc-app-actif', app)
+  document.documentElement.classList.toggle('clavier-ouvert', app && clavier)
+  if (app) window.scrollTo(0, 0)
+}, { immediate: true })
+
+// Boutons − / + : régler une mesure au pouce, sans ouvrir le clavier
+const pasRapide = (champ) => ((champ.unite === 'm' || champ.unite === 'm²') && champ.pas < 0.5 && champ.max > 10 ? 0.5 : champ.pas)
+function ajuster(q, sens) {
+  const p = pasRapide(q.champ)
+  const actuelle = Number(String(lireValeur(q)).replace(',', '.'))
+  const depart = lireValeur(q) === '' || Number.isNaN(actuelle) ? Number(q.champ.placeholder) : Math.round((actuelle + sens * p) / p) * p
+  ecrireValeur(q, String(+Math.min(q.champ.max, Math.max(q.champ.min, depart)).toFixed(2)))
+  if (calc.erreurs[q.cle]) calc.validerChamp(q.cle)
+}
+
 // ---------- Téléphone : la maquette 3D reste visible pendant la saisie ----------
 // Sous 900 px, la maquette est collée sous l'entête (CSS). Quand le clavier s'ouvre, la zone visible rétrécit :
 // la maquette se fait plus petite et le champ en cours de saisie est ramené juste en dessous d'elle.
@@ -196,7 +230,7 @@ let hauteurVisibleMax = 0
 const styleMaquette = computed(() => (hauteurMaquette.value ? { '--hauteur-maquette': hauteurMaquette.value } : null))
 
 function ramenerSousMaquette(el = document.activeElement) {
-  if (!el?.closest?.('.assistant-contenu') || !window.matchMedia(TELEPHONE).matches) return
+  if (modeApp.value || !el?.closest?.('.assistant-contenu') || !window.matchMedia(TELEPHONE).matches) return
   requestAnimationFrame(() => {
     // la question et son champ ensemble quand ils tiennent sous la maquette, sinon au moins le champ
     // (scroll-margin-top, en CSS, tient compte de l'entête et de la maquette collées en haut)
@@ -214,6 +248,7 @@ function surZoneVisible() {
   if (!vv || !window.matchMedia(TELEPHONE).matches) { hauteurMaquette.value = ''; return }
   hauteurVisibleMax = Math.max(hauteurVisibleMax, vv.height)
   const clavierOuvert = vv.height < hauteurVisibleMax * 0.78
+  clavierVisible(clavierOuvert)
   const etaitOuvert = !!hauteurMaquette.value
   hauteurMaquette.value = clavierOuvert ? `${Math.round(Math.min(200, Math.max(120, vv.height * 0.3)))}px` : ''
   if (clavierOuvert) ramenerSousMaquette()
@@ -222,15 +257,26 @@ function surZoneVisible() {
 }
 const surRotation = () => { hauteurVisibleMax = 0; surZoneVisible() }
 
+function clavierVisible(ouvert) {
+  clavierOuvert.value = ouvert
+  suivreZoneVisible()
+}
+
 onMounted(() => {
   // hauteur de référence, clavier fermé : sans elle, le premier rétrécissement (ouverture du clavier) passerait inaperçu
   hauteurVisibleMax = Math.max(window.visualViewport?.height || 0, window.innerHeight)
+  suivreZoneVisible()
   window.visualViewport?.addEventListener('resize', surZoneVisible)
+  window.visualViewport?.addEventListener('scroll', suivreZoneVisible) // iOS : la zone visible glisse au lieu de rétrécir
   window.addEventListener('orientationchange', surRotation)
+  requeteTelephone.addEventListener('change', surTailleEcran)
 })
 onBeforeUnmount(() => {
   window.visualViewport?.removeEventListener('resize', surZoneVisible)
+  window.visualViewport?.removeEventListener('scroll', suivreZoneVisible)
   window.removeEventListener('orientationchange', surRotation)
+  requeteTelephone.removeEventListener('change', surTailleEcran)
+  document.documentElement.classList.remove('calc-app-actif', 'clavier-ouvert')
 })
 
 // Carrelage : nombre de carreaux entiers à commander (même calcul que le devis), pour afficher le coût du modèle choisi
@@ -272,7 +318,7 @@ const recapitulatif = computed(() => {
 </script>
 
 <template>
-  <div id="page-calculateur" class="page">
+  <div id="page-calculateur" class="page" :class="{ 'calc-app': modeApp, 'calc-clavier': modeApp && clavierOuvert }" :style="styleApp">
     <div class="conteneur">
       <h1 class="visually-hidden">L’estimation de votre projet</h1>
 
@@ -361,14 +407,17 @@ const recapitulatif = computed(() => {
                     <label :for="`champ-${question.cle}`" class="assistant-question">{{ question.champ.question }}</label>
                     <p class="assistant-aide">{{ question.champ.aide || aideUnite(question.champ.unite) }}</p>
                     <div class="assistant-saisie" :class="{ erreur: calc.erreurs[question.cle] }">
+                      <!-- téléphone : − / + au pouce ; pointerdown.prevent garde le clavier tel quel (ouvert ou fermé) -->
+                      <button type="button" class="assistant-pas" :aria-label="`Moins ${pasRapide(question.champ)} ${question.champ.unite}`" @pointerdown.prevent @click="ajuster(question, -1)"><i class="fa-solid fa-minus" aria-hidden="true"></i></button>
                       <input
-                        :id="`champ-${question.cle}`" class="assistant-focus" type="number" inputmode="decimal"
+                        :id="`champ-${question.cle}`" class="assistant-focus" type="number" inputmode="decimal" enterkeyhint="next"
                         :min="question.champ.min" :max="question.champ.max" :step="question.champ.pas"
                         :placeholder="`ex. ${question.champ.placeholder}`" :value="lireValeur(question)"
                         :aria-invalid="!!calc.erreurs[question.cle]" :aria-describedby="calc.erreurs[question.cle] ? 'assistant-erreur' : undefined"
                         @input="ecrireValeur(question, $event.target.value)"
                       />
                       <span>{{ question.champ.unite }}</span>
+                      <button type="button" class="assistant-pas" :aria-label="`Plus ${pasRapide(question.champ)} ${question.champ.unite}`" @pointerdown.prevent @click="ajuster(question, 1)"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                     </div>
                     <p v-if="calc.erreurs[question.cle]" id="assistant-erreur" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ calc.erreurs[question.cle] }}</p>
                     <button v-if="question.champ.nom === 'ouvertures'" type="button" class="assistant-lien assistant-passer" @click="aucuneOuverture(question)">
@@ -415,8 +464,7 @@ const recapitulatif = computed(() => {
             </div>
 
             <div class="assistant-maquette">
-              <Maquette3D :type="calc.typeId.value" :dimensions="calc.dimensions" :mur-actif="murActif" />
-            </div>
+              <Maquette3D :type="calc.typeId.value" :dimensions="calc.dimensions" :mur-actif="murActif" />            </div>
           </section>
         </transition>
       </form>
@@ -584,5 +632,60 @@ const recapitulatif = computed(() => {
   .assistant-actions .btn { flex: 1; min-height: 52px; justify-content: center; border-radius: 999px; font-size: 1rem; }
   /* fondu sans déplacement : un parent transformé décrocherait la barre fixée en bas pendant l'animation */
   .fondu-enter-from, .fondu-leave-to { transform: none; }
+
+  /* ---------- Écran d'application (une question numérique ou à choix) ----------
+     La page ne défile plus : elle occupe exactement la zone visible entre l'entête et les onglets (ou le clavier).
+     Ordre : barre du haut, maquette (prend la place libre), question, champ, « Continuer ». */
+  #page-calculateur.calc-app {
+    position: fixed; left: 0; right: 0; z-index: 1;
+    top: calc(var(--zone-haut, 0px) + var(--hauteur-entete));
+    height: calc(var(--zone-visible, 100dvh) - var(--hauteur-entete) - var(--barre-onglets, 0px));
+    display: flex; flex-direction: column; min-height: 0; padding: 8px 0 12px; overflow: hidden; overscroll-behavior: none; touch-action: manipulation;
+  }
+  #page-calculateur.calc-app.calc-clavier { height: calc(var(--zone-visible, 100dvh) - var(--hauteur-entete)); padding-bottom: 8px; }
+  .calc-app > .conteneur { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .calc-app form { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .calc-app .assistant-progression { flex: none; margin-bottom: 10px; }
+  .calc-app .assistant-carte { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: visible; }
+  .calc-app .assistant-contenu { display: contents; } /* ses enfants se rangent autour de la maquette */
+  .calc-app .assistant-contexte { order: -2; flex: none; margin-bottom: 10px; }
+  .calc-app .assistant-maquette {
+    order: -1; position: relative; top: auto; flex: none; min-height: 0; height: clamp(120px, calc(var(--zone-visible, 100dvh) * .36), 320px); margin-bottom: 16px;
+    border: 0; border-radius: 24px; background: radial-gradient(circle at 50% 60%, #fff, var(--lagon-50) 80%);
+    box-shadow: inset 0 0 0 1px rgba(14, 116, 144, .1), 0 14px 30px -18px rgba(14, 116, 144, .45);
+    transition: none;
+  }
+  .calc-app .assistant-panneau { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; } /* très petit écran : seul le bas défile */
+  .calc-app .assistant-actions { margin-top: auto; }
+  .calc-app .assistant-question { font-size: 1.4rem; }
+  .calc-app .assistant-aide { margin: 4px 0 14px; }
+  .calc-app .assistant-actions { position: static; flex: none; padding: 16px 0 0; background: none; }
+  .calc-app .assistant-actions .btn { min-height: 54px; box-shadow: 0 10px 24px -12px rgba(14, 116, 144, .7); }
+  .calc-app .assistant-choix-bouton { padding: 13px 16px; }
+
+  /* champ compact : chiffre centré, − et + discrets de chaque côté */
+  .calc-app .assistant-saisie { height: 50px; border-width: 1.5px; border-radius: 14px; }
+  .calc-app .assistant-saisie input { padding: 0 4px; text-align: center; font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+  .calc-app .assistant-saisie span { padding: 0 2px 0 0; font-size: .95rem; }
+  .calc-app .assistant-pas {
+    display: grid; place-items: center; flex: none; width: 36px; height: 36px; margin: 0 6px; padding: 0;
+    border: 0; border-radius: 10px; background: var(--lagon-50); color: var(--lagon-700); font-size: .85rem; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background .15s ease;
+  }
+  .calc-app .assistant-pas:active { transform: scale(.92); background: var(--lagon-100); }
+  .calc-app .assistant-passer { margin-top: 10px; }
+
+  /* la maquette parle d'elle-même : pas de légende ni d'astuce par-dessus */
+  .calc-app .assistant-maquette :deep(.maquette-legende), .calc-app .assistant-maquette :deep(.maquette-astuce) { display: none; }
+
+  /* clavier ouvert : on garde l'essentiel — maquette réduite, question, champ, bouton */
+  .calc-app.calc-clavier .assistant-aide,
+  .calc-app.calc-clavier .assistant-progression { display: none; }
+  .calc-app.calc-clavier .assistant-contexte { margin-bottom: 8px; }
+  .calc-app.calc-clavier .assistant-maquette { height: clamp(84px, calc(var(--zone-visible, 100dvh) * .26), 170px); margin-bottom: 12px; }
+  .calc-app.calc-clavier .assistant-question { margin-bottom: 10px; font-size: 1.2rem; }
+  .calc-app.calc-clavier .assistant-actions { padding-top: 10px; }
+  .calc-app.calc-clavier .assistant-actions .btn { min-height: 48px; }
 }
+.assistant-pas { display: none; }
 </style>

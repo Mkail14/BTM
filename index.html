@@ -7,8 +7,152 @@
     <meta name="description" content="BTM — Estimez gratuitement les matériaux de votre projet BTP en 2 minutes et comparez les fournisseurs de Mayotte. Calculateur mur, dalle, fondation, terrasse, carrelage et annuaire des fournisseurs locaux." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>BTM — Bâtiment & Travaux Mayotte</title>
+    <!-- Écran de chargement : affiché dès le premier octet, retiré quand la première page est prête (useEcranChargement.js) -->
+    <style>
+      #ecran-chargement {
+        position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; overflow: hidden;
+        /* le ciel du héros de l'accueil (HeroPaysage.vue) : l'écran se fond dans le site au lieu de le contraster */
+        background: linear-gradient(180deg, #070b10 0%, #0c141b 40%, #261c1b 74%, #5a3522 100%);
+        color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        transition: opacity 1s cubic-bezier(.4, 0, .2, 1), visibility 1s;
+      }
+      #ecran-chargement.fini { opacity: 0; visibility: hidden; pointer-events: none; }
+      /* écran réservé au téléphone (même seuil que l'accueil, SectionHero.vue) : ordinateur et tablette ne l'affichent jamais */
+      @media (min-width: 640px) { #ecran-chargement { display: none; } }
+      /* Fond vivant façon Canva : quatre nappes de lumière qui se croisent sur le ciel du héros, et dont la couleur
+         passe sans cesse d'une teinte BTM à l'autre (lagon, turquoise, ambre, orange, corail).
+         Chaque nappe superpose trois couleurs qui s'échangent en fondu : uniquement opacity et transform,
+         animés par la carte graphique — fluide même pendant que le site se charge. */
+      #ecran-chargement .fond { position: absolute; inset: 0; }
+      #ecran-chargement .fond i { position: absolute; width: 62vmax; height: 62vmax; border-radius: 50%; }
+      #ecran-chargement .fond b { position: absolute; inset: 0; border-radius: 50%; opacity: 0; animation: teinte 12s linear infinite; }
+      #ecran-chargement .fond b:nth-child(2) { animation-delay: -4s; }
+      #ecran-chargement .fond b:nth-child(3) { animation-delay: -8s; }
+      /* les trois couleurs d'une nappe se relaient : toujours une teinte pleine, jamais de trou */
+      @keyframes teinte { 0% { opacity: 0; } 12%, 38% { opacity: 1; } 50%, 100% { opacity: 0; } }
+
+      #ecran-chargement .fond i:nth-child(1) { left: -18vmax; top: -22vmax; animation: nappe-a 14s ease-in-out infinite alternate; }
+      #ecran-chargement .fond i:nth-child(2) { right: -20vmax; top: -12vmax; animation: nappe-b 17s ease-in-out infinite alternate; }
+      #ecran-chargement .fond i:nth-child(3) { left: -10vmax; bottom: -26vmax; animation: nappe-c 15s ease-in-out infinite alternate; }
+      #ecran-chargement .fond i:nth-child(4) { right: -14vmax; bottom: -24vmax; animation: nappe-a 18s ease-in-out infinite alternate-reverse; }
+      #ecran-chargement .fond i:nth-child(1) b:nth-child(1) { background: radial-gradient(circle, rgb(6 182 212 / .8), rgb(6 182 212 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(1) b:nth-child(2) { background: radial-gradient(circle, rgb(245 158 11 / .7), rgb(245 158 11 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(1) b:nth-child(3) { background: radial-gradient(circle, rgb(14 116 144 / .9), rgb(14 116 144 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(2) b:nth-child(1) { background: radial-gradient(circle, rgb(251 146 60 / .7), rgb(251 146 60 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(2) b:nth-child(2) { background: radial-gradient(circle, rgb(34 211 238 / .7), rgb(34 211 238 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(2) b:nth-child(3) { background: radial-gradient(circle, rgb(252 211 77 / .6), rgb(252 211 77 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(3) b:nth-child(1) { background: radial-gradient(circle, rgb(14 116 144 / .9), rgb(14 116 144 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(3) b:nth-child(2) { background: radial-gradient(circle, rgb(251 113 133 / .6), rgb(251 113 133 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(3) b:nth-child(3) { background: radial-gradient(circle, rgb(6 182 212 / .75), rgb(6 182 212 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(4) b:nth-child(1) { background: radial-gradient(circle, rgb(252 211 77 / .65), rgb(252 211 77 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(4) b:nth-child(2) { background: radial-gradient(circle, rgb(8 145 178 / .85), rgb(8 145 178 / 0) 65%); }
+      #ecran-chargement .fond i:nth-child(4) b:nth-child(3) { background: radial-gradient(circle, rgb(249 115 22 / .7), rgb(249 115 22 / 0) 65%); }
+      /* trajectoires amples et différentes : les nappes se croisent et se mélangent au centre */
+      @keyframes nappe-a { 33% { transform: translate(22vw, 14vh) scale(1.15); } 66% { transform: translate(8vw, 30vh) scale(.9); } 100% { transform: translate(30vw, 6vh) scale(1.1); } }
+      @keyframes nappe-b { 33% { transform: translate(-24vw, 20vh) scale(.9); } 66% { transform: translate(-10vw, 34vh) scale(1.2); } 100% { transform: translate(-30vw, 10vh) scale(1); } }
+      @keyframes nappe-c { 33% { transform: translate(20vw, -18vh) scale(1.2); } 66% { transform: translate(34vw, -6vh) scale(.95); } 100% { transform: translate(12vw, -26vh) scale(1.1); } }
+      /* voile au centre : les phrases restent lisibles quelle que soit la couleur qui passe derrière */
+      #ecran-chargement .voile { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 40% at center, rgb(7 11 16 / .45), rgb(7 11 16 / 0) 70%); }
+      /* grain fin : la matière d'un dégradé Canva plutôt qu'un aplat numérique */
+      #ecran-chargement .grain { position: absolute; inset: 0; opacity: .06; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+      /* pas de barre de défilement derrière l'écran de chargement */
+      html.chargement, html.chargement body { overflow: hidden; }
+      /* une phrase = une ligne, quelle que soit la largeur de l'écran */
+      #ecran-chargement .phrases { position: relative; width: 100%; height: 1.25em; font-size: clamp(1.3rem, 5.4vw, 3.6rem); font-weight: 700; letter-spacing: -.04em; text-align: center; white-space: nowrap; transition: filter .8s; }
+      #ecran-chargement .phrases span {
+        position: absolute; inset: 0; opacity: 0; filter: blur(12px); transform: translateY(14px);
+        transition: opacity 1s ease, filter 1s ease, transform 1.1s cubic-bezier(.16, 1, .3, 1);
+      }
+      #ecran-chargement .phrases span.active { opacity: 1; filter: blur(0); transform: none; }
+      #ecran-chargement .phrases span.sortie { opacity: 0; filter: blur(12px); transform: translateY(-14px); }
+      /* même dégradé ambre que les mots animés du titre de l'accueil */
+      #ecran-chargement .phrases em { font-style: normal; padding-bottom: .14em; background: linear-gradient(100deg, #fcd34d, #f59e0b 60%, #fb923c); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      #ecran-chargement.fini .phrases { filter: blur(10px); }
+      /* Ligne de chargement : elle avance avec le chargement réel du site, sans chiffre et sans boucle */
+      #ecran-chargement .ligne { position: relative; width: 88px; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+      #ecran-chargement .ligne b { position: absolute; inset: 0; border-radius: 2px; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #fcd34d, #f59e0b 60%, #fb923c); box-shadow: 0 0 14px rgba(245, 158, 11, .7); transition: transform .45s cubic-bezier(.22, 1, .36, 1); }
+      @media (prefers-reduced-motion: reduce) {
+        #ecran-chargement .fond i { animation: none; }
+        #ecran-chargement .fond b:nth-child(1) { animation: none; opacity: 1; }
+        #ecran-chargement .fond b:nth-child(n+2) { animation: none; }
+        #ecran-chargement .phrases span { transition: opacity .3s; filter: none; transform: none; }
+      }
+    </style>
   </head>
   <body>
+    <div id="ecran-chargement" role="status" aria-live="polite">
+      <div class="fond" aria-hidden="true">
+        <i><b></b><b></b><b></b></i><i><b></b><b></b><b></b></i><i><b></b><b></b><b></b></i><i><b></b><b></b><b></b></i>
+      </div>
+      <div class="voile" aria-hidden="true"></div>
+      <div class="grain" aria-hidden="true"></div>
+      <div class="phrases">
+        <span class="active">Bienvenue sur <em>BTM</em>.</span>
+        <span>Vos devis, <em>gratuitement</em>.</span>
+        <span>Vos fournisseurs, <em>à Mayotte</em>.</span>
+        <span>Vos matériaux, <em>au bon prix</em>.</span>
+      </div>
+      <div class="ligne" aria-hidden="true"><b></b></div>
+    </div>
+    <script>
+      // Première visite de la session : on laisse le temps de lire « Bienvenue » ; ensuite (rechargements),
+      // l'écran disparaît dès que le site est prêt.
+      (function () {
+        var ecran = document.getElementById('ecran-chargement')
+        if (!window.matchMedia('(max-width: 639px)').matches) {
+          ecran.remove()
+          window.__btmPret = window.__btmProgres = function () {}
+          return
+        }
+        document.documentElement.classList.add('chargement')
+        var phrases = ecran.querySelectorAll('.phrases span')
+        var premiereVisite = true
+        try { premiereVisite = !sessionStorage.getItem('btm-accueilli'); sessionStorage.setItem('btm-accueilli', '1') } catch (e) {}
+        var dureeMin = premiereVisite ? 1800 : 0
+        var debut = Date.now(), dernierChangement = debut, i = 0
+        var minuterie = setInterval(function () {
+          var sortante = phrases[i]
+          sortante.className = 'sortie'
+          setTimeout(function () { sortante.className = '' }, 900)
+          i = (i + 1) % phrases.length
+          phrases[i].className = 'active'
+          dernierChangement = Date.now()
+        }, 1600)
+        // Ligne de chargement : chaque étape réelle (script, page, polices, 3D) fixe un palier ; entre deux paliers
+        // la ligne avance doucement sans jamais l'atteindre, pour ne pas sembler figée.
+        var barre = ecran.querySelector('.ligne b')
+        var progres = 0, palier = 0.15
+        function dessiner() { barre.style.transform = 'scaleX(' + progres + ')' }
+        var glissement = setInterval(function () { progres += (palier - progres) * 0.08; dessiner() }, 120)
+        window.__btmProgres = function (v) {
+          if (v <= palier) return
+          progres = Math.max(progres, palier * 0.98)
+          palier = v
+          dessiner()
+        }
+        var retire = false
+        window.__btmPret = function () {
+          if (retire) return
+          retire = true
+          clearInterval(glissement)
+          progres = 1
+          dessiner()
+          setTimeout(function () {
+            // une phrase qui vient d'apparaître reste lisible avant le fondu (jamais coupée en pleine entrée)
+            clearInterval(minuterie)
+            setTimeout(function () {
+              ecran.classList.add('fini')
+              // la barre de défilement revient pendant le fondu : le léger décalage reste masqué par l'écran
+              document.documentElement.classList.remove('chargement')
+              setTimeout(function () { ecran.remove() }, 1000)
+            }, i === 0 ? 0 : Math.max(0, 900 - (Date.now() - dernierChangement)))
+          }, Math.max(500, dureeMin - (Date.now() - debut))) // la ligne a le temps d'arriver au bout
+        }
+        // filet de sécurité : jamais bloqué derrière l'écran si le site plante au démarrage
+        setTimeout(window.__btmPret, 10000)
+      })()
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

@@ -9,7 +9,7 @@
  * Le pseudo (nom affiché) est déduit du prénom et du nom.
  * « Mot de passe oublié ? » remplace le formulaire par MotDePasseOublie (code reçu par e-mail).
  */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
 import { useCalculateur } from '@/composables/useCalculateur.js'
@@ -168,10 +168,10 @@ if (props.mode === 'inscription' && ['particulier', 'professionnel'].includes(pr
 watch(connecte, (v) => { if (v && !modeOubli.value) terminerConnexion() })
 
 // Même parcours sur tous les écrans (plein écran sur téléphone, carte centrée ailleurs) : un accueil d'application
-// (logo, titre, Google / Apple / e-mail), puis le formulaire avec « Continuer avec l'e-mail ».
+// (logo, titre, Google / e-mail), puis le formulaire avec « Continuer avec l'e-mail ».
 // Pas d'accueil quand la fenêtre a une raison précise d'aller droit au formulaire.
 const accueil = ref(backendDisponible && !reserve && !modeOubli.value && !props.suspendu && etape.value === 0)
-const viaAccueil = ref(false) // formulaire ouvert depuis l'accueil : flèche de retour, Google / Apple déjà proposés
+const viaAccueil = ref(false) // formulaire ouvert depuis l'accueil : flèche de retour, Google déjà proposé
 function continuerEmail() {
   accueil.value = false
   viaAccueil.value = true
@@ -326,7 +326,7 @@ async function renvoyer() {
   }
 }
 
-// Google / Apple : connexion, ou création d'un compte particulier s'il n'existe pas encore (même bouton).
+// Google (redirection, si le bouton officiel ne se charge pas) : connexion, ou création d'un compte particulier s'il n'existe pas encore (même bouton).
 // La page quitte le site le temps de l'identification : le devis en cours est mis de côté, comme à l'inscription.
 const externe = ref('') // fournisseur en cours de redirection
 async function continuerAvec(fournisseur) {
@@ -341,7 +341,7 @@ async function continuerAvec(fournisseur) {
   } catch (err) {
     externe.value = ''
     erreurGlobale.value = /provider is not enabled|unsupported provider/i.test(err?.message || '')
-      ? `La connexion avec ${fournisseur === 'google' ? 'Google' : 'Apple'} n’est pas encore disponible.`
+      ? 'La connexion avec Google n’est pas encore disponible.'
       : traduire(err?.message)
   }
 }
@@ -350,14 +350,31 @@ async function continuerAvec(fournisseur) {
 // le bouton maison ci-dessus prend le relais (redirection par Supabase)
 const zoneGoogle = ref(null)
 const googleSecours = ref(!backendDisponible)
-watch([zoneGoogle, estInscription], async ([zone]) => {
-  if (!zone || googleSecours.value) return
+async function dessinerGoogle(zone) {
   try {
     await afficherBoutonGoogle(zone, { texte: estInscription.value ? 'signup_with' : 'continue_with', pilule: accueil.value, surJeton: avecJetonGoogle })
   } catch {
     googleSecours.value = true
   }
+}
+// Google fixe la largeur de son bouton au moment du dessin : si la carte n'a pas encore sa largeur finale
+// (ouverture animée, rotation de l'écran), il est redessiné pour garder la largeur du bouton e-mail
+let suiviLargeur = null
+let largeurDessinee = 0
+watch([zoneGoogle, estInscription], ([zone]) => {
+  suiviLargeur?.disconnect()
+  if (!zone || googleSecours.value) return
+  largeurDessinee = Math.round(zone.getBoundingClientRect().width)
+  dessinerGoogle(zone)
+  suiviLargeur = new ResizeObserver(([e]) => {
+    const largeur = Math.round(e.contentRect.width)
+    if (Math.abs(largeur - largeurDessinee) < 4) return
+    largeurDessinee = largeur
+    dessinerGoogle(zone)
+  })
+  suiviLargeur.observe(zone)
 }, { flush: 'post' })
+onBeforeUnmount(() => suiviLargeur?.disconnect())
 async function avecJetonGoogle(jeton, nonce) {
   erreurGlobale.value = ''; succes.value = ''
   externe.value = 'google'
@@ -391,7 +408,7 @@ function traduire(m = '') {
         <button class="auth-fermer" type="button" aria-label="Fermer la fenêtre" @click="emit('fermer')">
           <i class="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
-        <!-- Accueil d'application (Google, Apple, e-mail), le formulaire vient ensuite -->
+        <!-- Accueil d'application (Google, e-mail), le formulaire vient ensuite -->
         <div v-if="accueil" class="auth-accueil">
           <div class="auth-accueil-haut">
             <span class="auth-accueil-logo"><LogoBtm :taille="58" /></span>
@@ -418,10 +435,6 @@ function traduire(m = '') {
               <span v-if="externe === 'google'" class="spinner" aria-hidden="true"></span><i v-else class="fa-brands fa-google" aria-hidden="true"></i>
               {{ estInscription ? 'S’inscrire avec Google' : 'Continuer avec Google' }}
             </button>
-            <button type="button" class="auth-pilule sombre" :disabled="!!externe" @click="continuerAvec('apple')">
-              <span v-if="externe === 'apple'" class="spinner" aria-hidden="true"></span><i v-else class="fa-brands fa-apple" aria-hidden="true"></i>
-              {{ estInscription ? 'S’inscrire avec Apple' : 'Continuer avec Apple' }}
-            </button>
             <button type="button" class="auth-pilule clair" @click="continuerEmail">
               <i class="fa-regular fa-envelope" aria-hidden="true"></i> {{ estInscription ? 'S’inscrire avec l’e-mail' : 'Continuer avec l’e-mail' }}
             </button>
@@ -433,7 +446,7 @@ function traduire(m = '') {
             <template v-else>Pas encore de compte ? <button type="button" @click="emit('changer-mode', 'inscription')">Créer un compte</button></template>
           </p>
           <p class="auth-accueil-legal">
-            {{ estInscription ? 'Avec Google ou Apple, vous créez un compte particulier. ' : '' }}En continuant, vous acceptez les <router-link to="/conditions" target="_blank" rel="noopener">conditions d’utilisation</router-link>.
+            {{ estInscription ? 'Avec Google, vous créez un compte particulier. ' : '' }}En continuant, vous acceptez les <router-link to="/conditions" target="_blank" rel="noopener">conditions d’utilisation</router-link>.
           </p>
         </div>
         <MotDePasseOublie v-else-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" :par-lien="parLien" :lien-expire="lienExpire" @retour="quitterOubli" @termine="finOubli" />
@@ -590,7 +603,7 @@ function traduire(m = '') {
             </div>
           </form>
 
-          <!-- Google / Apple : à la connexion, et au choix du profil de l'inscription (compte particulier) -->
+          <!-- Google : à la connexion, et au choix du profil de l'inscription (compte particulier) -->
           <div v-if="!reserve && !viaAccueil && (!estInscription || etape === 0)" class="auth-externe">
             <p class="auth-separateur"><span>{{ estInscription ? 'ou créez votre compte avec' : 'ou continuez avec' }}</span></p>
             <div class="auth-externe-boutons">
@@ -604,11 +617,6 @@ function traduire(m = '') {
                   <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
                 </svg>
                 Google
-              </button>
-              <button type="button" class="auth-externe-bouton apple" :disabled="!!externe" @click="continuerAvec('apple')">
-                <span v-if="externe === 'apple'" class="spinner" aria-hidden="true"></span>
-                <i v-else class="fa-brands fa-apple" aria-hidden="true"></i>
-                Apple
               </button>
             </div>
             <p v-if="estInscription" class="champ-aide auth-externe-note">Compte particulier. Professionnel ? Choisissez « Professionnel » ci-dessus pour faire vérifier votre SIRET.</p>
@@ -673,7 +681,7 @@ function traduire(m = '') {
 .auth-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .auth-oubli { padding: 0; border: 0; background: transparent; color: var(--lagon-700); font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; }
 .auth-oubli:hover { text-decoration: underline; text-underline-offset: 3px; }
-/* Google / Apple */
+/* Google */
 .auth-externe { margin-top: 20px; }
 .auth-separateur { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; color: var(--texte-secondaire); font-size: .82rem; }
 .auth-separateur::before, .auth-separateur::after { content: ''; flex: 1; height: 1px; background: var(--gris-200); }
@@ -689,9 +697,6 @@ function traduire(m = '') {
 }
 .auth-externe-bouton:hover:not(:disabled) { border-color: var(--gris-400); background: var(--gris-50); }
 .auth-externe-bouton:disabled { opacity: .6; cursor: default; }
-.auth-externe-bouton.apple { border-color: #000; background: #000; color: #fff; }
-.auth-externe-bouton.apple:hover:not(:disabled) { background: #1f1f1f; }
-.auth-externe-bouton.apple i { font-size: 1.15rem; }
 .auth-externe-note { margin: 10px 0 0; text-align: center; }
 .auth-bascule { margin-top: 22px; text-align: center; font-size: .95rem; color: var(--texte-secondaire); }
 .auth-bascule a { color: var(--lagon-700); font-weight: 700; }
@@ -783,7 +788,7 @@ function traduire(m = '') {
   display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 12px;
   border: 0; border-radius: 999px; background: var(--gris-100); color: var(--ardoise); font: 600 .9rem var(--font-corps); cursor: pointer;
 }
-.auth-accueil { display: flex; flex-direction: column; align-items: center; min-height: 100%; text-align: center; }
+.auth-accueil { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
 .auth-accueil-haut { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: clamp(8px, 6vh, 56px); }
 .auth-accueil-logo { width: 78px; height: 78px; display: grid; place-items: center; border-radius: 24px; background: var(--abysse); box-shadow: 0 14px 30px rgba(6, 32, 44, .25); }
 .auth-accueil-titre { margin: 0; font-family: var(--font-display); font-size: clamp(2.7rem, 13vw, 3.3rem); font-weight: 700; line-height: .95; letter-spacing: -.005em; color: var(--ardoise); }
@@ -809,7 +814,6 @@ function traduire(m = '') {
 .auth-pilule:disabled { opacity: .6; cursor: default; }
 .auth-pilule.sombre { background: #1f1f1f; color: #fff; }
 .auth-pilule.sombre:hover:not(:disabled) { background: #333; }
-.auth-pilule.sombre .fa-apple { font-size: 1.1rem; }
 .auth-pilule.clair { background: var(--lagon-100); color: var(--ocean); }
 .auth-pilule.clair:hover { background: var(--lagon-200); }
 .auth-accueil-bascule { margin: 22px 0 0; color: var(--texte-secondaire); font-size: .92rem; }

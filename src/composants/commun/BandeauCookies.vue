@@ -26,7 +26,7 @@ const { bandeauVisible, confirmer } = useCookies()
 
 <style scoped>
 .cookies {
-  position: fixed; left: 16px; bottom: 16px; z-index: 150; width: min(420px, calc(100vw - 32px));
+  position: fixed; left: 16px; bottom: calc(16px + var(--barre-onglets, 0px)); z-index: 150; width: min(420px, calc(100vw - 32px));
   padding: 18px 20px; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; box-shadow: var(--ombre-lg);
 }
 .cookies-titre { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--ardoise); font-weight: 700; }
@@ -39,5 +39,5 @@ const { bandeauVisible, confirmer } = useCookies()
 .cookies-enter-active, .cookies-leave-active { transition: opacity .25s ease, transform .25s ease; }
 .cookies-enter-from, .cookies-leave-to { opacity: 0; transform: translateY(12px); }
 /* téléphone : en bas de l'écran, sans masquer le bouton d'aide (à droite) */
-@media (max-width: 560px) { .cookies { left: 12px; bottom: 12px; width: calc(100vw - 96px); padding: 14px 16px; } }
+@media (max-width: 560px) { .cookies { left: 12px; bottom: calc(12px + var(--barre-onglets, 0px) + 22px); width: calc(100vw - 96px); padding: 14px 16px; } }
 </style>

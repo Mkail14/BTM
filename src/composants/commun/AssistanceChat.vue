@@ -373,7 +373,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 
 <style scoped>
 .ac {
-  position: fixed; right: 24px; bottom: 24px; z-index: 220; display: flex; flex-direction: column; width: min(390px, calc(100vw - 32px));
+  position: fixed; right: 24px; bottom: calc(24px + var(--barre-onglets, 0px)); z-index: 220; display: flex; flex-direction: column; width: min(390px, calc(100vw - 32px));
   max-height: min(640px, calc(100dvh - 48px)); overflow: hidden; border: 1px solid rgba(15, 23, 42, .12); border-radius: 18px;
   background: #fff; box-shadow: 0 18px 42px rgba(0,0,0,.28); animation: ac-apparaitre .24s ease both;
 }
@@ -441,5 +441,5 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-lien-bouton:hover { text-decoration: underline; text-underline-offset: 3px; }
 @keyframes ac-apparaitre { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ac-points { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
-@media (max-width: 640px) { .ac { right: 12px; bottom: 12px; width: calc(100vw - 24px); max-height: calc(100dvh - 24px); } }
+@media (max-width: 640px) { .ac { right: 12px; bottom: calc(12px + var(--barre-onglets, 0px)); width: calc(100vw - 24px); max-height: calc(100dvh - 24px - var(--barre-onglets, 0px)); } }
 </style>

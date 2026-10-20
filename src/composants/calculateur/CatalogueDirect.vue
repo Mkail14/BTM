@@ -111,7 +111,7 @@ const valider = () => { if (choisis.value.length) emit('valider', choisis.value)
 .cd-quantite input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 3px rgba(6, 182, 212, .15); }
 .cd-unite { position: absolute; right: 44px; font-size: .72rem; color: var(--gris-500); pointer-events: none; }
 .cd-pied {
-  position: sticky; bottom: 16px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  position: sticky; bottom: calc(16px + var(--barre-onglets, 0px)); z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
   padding: 14px 18px; border-radius: var(--rayon-lg); background: #fff; box-shadow: 0 12px 40px rgba(15, 23, 42, .15);
 }
 .cd-pied.actif { background: var(--ardoise); color: #fff; }
@@ -128,7 +128,7 @@ const valider = () => { if (choisis.value.length) emit('valider', choisis.value)
   .cd-quantite button { width: 44px; height: 44px; font-size: 1rem; }
   .cd-quantite input { flex: 1; max-width: 140px; min-height: 44px; font-size: 1rem; }
   .cd-unite { right: 58px; }
-  .cd-pied { bottom: 0; margin: 0 calc(-1 * var(--gouttiere, 16px)); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-radius: 0; box-shadow: 0 -6px 24px rgba(15, 23, 42, .14); flex-wrap: nowrap; }
+  .cd-pied { bottom: var(--barre-onglets, 0px); margin: 0 calc(-1 * var(--gouttiere, 16px)); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-radius: 0; box-shadow: 0 -6px 24px rgba(15, 23, 42, .14); flex-wrap: nowrap; }
   .cd-pied > span { flex: 1; min-width: 0; }
   .cd-pied small { font-size: .78rem; }
   .cd-pied .btn { flex: none; padding-left: 16px; padding-right: 16px; }

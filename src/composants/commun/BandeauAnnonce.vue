@@ -40,7 +40,7 @@ function fermer() {
 
 <style scoped>
 .annonce {
-  position: fixed; left: 24px; bottom: 24px; z-index: 170; display: flex; align-items: center; gap: 12px;
+  position: fixed; left: 24px; bottom: calc(24px + var(--barre-onglets, 0px)); z-index: 170; display: flex; align-items: center; gap: 12px;
   max-width: min(520px, calc(100vw - 110px)); padding: 12px 10px 12px 16px; border-radius: 16px;
   background: rgba(15, 23, 42, .92); color: #fff; box-shadow: 0 18px 40px rgba(6, 32, 44, .28);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: .9rem; line-height: 1.45;
@@ -53,7 +53,7 @@ function fermer() {
 .annonce a { margin-left: 6px; font-weight: 600; color: #fff; text-decoration: underline; text-underline-offset: 3px; }
 .annonce button { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 10px; background: transparent; color: rgba(255, 255, 255, .6); }
 .annonce button:hover { background: rgba(255, 255, 255, .1); color: #fff; }
-@media (max-width: 639px) { .annonce { left: 12px; bottom: 12px; max-width: calc(100vw - 88px); font-size: .85rem; } }
+@media (max-width: 639px) { .annonce { left: 12px; bottom: calc(12px + var(--barre-onglets, 0px) + 22px); max-width: calc(100vw - 88px); font-size: .85rem; } }
 
 .glisser-bas-enter-active, .glisser-bas-leave-active { transition: opacity .3s ease, transform .3s ease; }
 .glisser-bas-enter-from, .glisser-bas-leave-to { opacity: 0; transform: translateY(12px); }

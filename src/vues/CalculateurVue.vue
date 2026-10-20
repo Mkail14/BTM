@@ -479,7 +479,7 @@ const recapitulatif = computed(() => {
   .etape-carreau .assistant-aide { margin-bottom: 14px; font-size: .92rem; }
   /* … et « Continuer » reste à portée du pouce en bas de l'écran */
   .etape-carreau .assistant-actions {
-    position: sticky; bottom: 0; z-index: 2; margin: 0 -32px -32px; padding: 12px 32px calc(12px + env(safe-area-inset-bottom));
+    position: sticky; bottom: var(--barre-onglets, 0px); z-index: 2; margin: 0 -32px -32px; padding: 12px 32px calc(12px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--gris-200); background: #fff; box-shadow: 0 -8px 18px -14px rgba(11, 18, 32, .3);
   }
   /* Récapitulatif : rien à saisir, la maquette défile avec la page */

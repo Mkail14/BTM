@@ -276,7 +276,7 @@ const recapitulatif = computed(() => {
     <div class="conteneur">
       <h1 class="visually-hidden">L’estimation de votre projet</h1>
 
-      <div v-if="mode === 'mesures'" class="assistant-progression" role="progressbar" :aria-valuenow="position" aria-valuemin="1" :aria-valuemax="total" :aria-label="`Étape ${position} sur ${total}`">
+      <div v-if="mode === 'mesures'" class="assistant-progression" :class="{ 'assistant-progression-debut': etape === 'type' }" role="progressbar" :aria-valuenow="position" aria-valuemin="1" :aria-valuemax="total" :aria-label="`Étape ${position} sur ${total}`">
         <span :style="{ width: `${(position / total) * 100}%` }"></span>
       </div>
 
@@ -290,10 +290,10 @@ const recapitulatif = computed(() => {
       <!-- Deux façons de faire son devis -->
       <div v-if="mode === 'direct' || etape === 'type'" class="calc-modes" role="tablist" aria-label="Façon de faire mon estimation">
         <button type="button" role="tab" :aria-selected="mode === 'mesures'" @click="changerMode('mesures')">
-          <i class="fa-solid fa-ruler-combined" aria-hidden="true"></i><span><strong>Selon mes mesures</strong><small>Je donne les dimensions, BTM calcule les quantités</small></span>
+          <i class="fa-solid fa-ruler-combined" aria-hidden="true"></i><span><strong>Selon mes mesures</strong><b class="calc-mode-court">Mes mesures</b><small>Je donne les dimensions, BTM calcule les quantités</small></span>
         </button>
         <button type="button" role="tab" :aria-selected="mode === 'direct'" @click="changerMode('direct')">
-          <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span><strong>Je sais ce qu’il me faut</strong><small>Je choisis mes matériaux et mes quantités</small></span>
+          <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i><span><strong>Je sais ce qu’il me faut</strong><b class="calc-mode-court">Ma liste</b><small>Je choisis mes matériaux et mes quantités</small></span>
         </button>
       </div>
 
@@ -315,10 +315,13 @@ const recapitulatif = computed(() => {
           <section v-else key="assistant" class="carte assistant-carte" :class="{ 'etape-carreau': question?.champ?.type === 'carreau', 'etape-recap': etape === 'recap' }" :style="styleMaquette" @focusin="ramenerSousMaquette($event.target)">
             <div class="assistant-contenu">
               <p class="assistant-contexte">
+                <!-- téléphone : retour en haut à gauche, comme dans une application -->
+                <button type="button" class="assistant-retour-haut" aria-label="Retour" @click="precedent"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
                 <span class="assistant-puce">
                   <i :class="calc.type.value?.icone" aria-hidden="true"></i> {{ calc.type.value?.libelle }}<template v-if="question?.mur && calc.dimensions.autresMurs?.length"> {{ question.mur }}</template>
                 </span>
-                <button type="button" class="assistant-lien" @click="etape = 'type'">Changer de projet</button>
+                <span v-if="question" class="assistant-compteur" aria-hidden="true">{{ etape + 1 }}/{{ questions.length }}</span>
+                <button type="button" class="assistant-lien assistant-changer" @click="etape = 'type'">Changer de projet</button>
               </p>
 
               <transition name="fondu" mode="out-in">
@@ -374,7 +377,7 @@ const recapitulatif = computed(() => {
                   </template>
                   </div>
 
-                  <div class="assistant-actions">
+                  <div class="assistant-actions" :class="{ 'assistant-actions-vide': question.special || question.champ.type === 'select' }">
                     <BoutonBase variante="ghost" type="button" icone="fa-solid fa-arrow-left" @click="precedent">Retour</BoutonBase>
                     <BoutonBase v-if="!question.special && question.champ.type !== 'select'" type="submit" icone-droite="fa-solid fa-arrow-right">Continuer</BoutonBase>
                   </div>
@@ -517,5 +520,69 @@ const recapitulatif = computed(() => {
   .assistant-saisie { max-width: none; }
   .assistant-actions .btn:last-child { flex: 1; }
   .etape-carreau .assistant-actions { margin: 0 -18px -22px; padding-left: 18px; padding-right: 18px; }
+}
+
+/* ---------- Téléphone : écran d'application ---------- */
+.assistant-retour-haut, .assistant-compteur, .calc-mode-court { display: none; }
+@media (max-width: 639px) {
+  #page-calculateur.page { padding-top: calc(var(--hauteur-entete) + 14px); padding-bottom: 24px; }
+
+  /* deux façons de faire : sélecteur à deux segments */
+  .calc-modes { gap: 0; margin: 0 0 20px; padding: 4px; border-radius: 999px; background: rgba(15, 23, 42, .06); }
+  .calc-modes button { flex-direction: row; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: var(--gris-600); }
+  .calc-modes button[aria-selected="true"] { background: #fff; color: var(--ardoise); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+  .calc-modes i, .calc-modes button[aria-selected="true"] i { width: auto; height: auto; border-radius: 0; background: none; color: inherit; font-size: .88rem; }
+  .calc-modes button[aria-selected="true"] i { color: var(--lagon-700); }
+  .calc-modes strong, .calc-modes small { display: none; }
+  .calc-mode-court { display: inline; font-size: .9rem; font-weight: 600; }
+
+  .assistant-progression { height: 4px; max-width: none; margin: 0 0 16px; }
+  .assistant-progression-debut { display: none; }
+
+  /* titres alignés à gauche, plus compacts */
+  .assistant-etape { text-align: left; }
+  .assistant-question { font-size: 1.55rem; line-height: 1.2; }
+  .assistant-aide { margin: 6px 0 18px; font-size: .92rem; }
+
+  /* question : plus de cadre autour, la maquette devient une carte arrondie collée sous l'entête */
+  .assistant-carte { border: 0; border-radius: 0; background: none; box-shadow: none; }
+  .assistant-maquette {
+    top: calc(var(--hauteur-entete) + 6px); height: var(--hauteur-maquette, 200px); margin-bottom: 18px; overflow: hidden;
+    border: 1px solid var(--gris-200); border-radius: 20px; box-shadow: 0 8px 20px -12px rgba(11, 18, 32, .3);
+  }
+  .etape-carreau { --hauteur-maquette: 140px; }
+  .etape-recap .assistant-maquette { height: 160px; }
+  .assistant-contenu :is(input, .assistant-focus, .assistant-question) { scroll-margin-top: calc(var(--hauteur-entete) + var(--hauteur-maquette, 200px) + 30px); }
+  .assistant-contenu { padding: 0 0 84px; }
+
+  /* barre du haut : retour, projet, avancement */
+  .assistant-contexte { justify-content: flex-start; gap: 10px; margin-bottom: 16px; }
+  .assistant-retour-haut {
+    display: grid; place-items: center; flex: none; width: 38px; height: 38px; padding: 0;
+    border: 1px solid var(--gris-200); border-radius: 50%; background: #fff; color: var(--ardoise); font-size: .9rem; cursor: pointer;
+  }
+  .assistant-retour-haut:active { background: var(--gris-100); }
+  .assistant-compteur { display: inline; margin-left: auto; color: var(--gris-500); font-size: .85rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .assistant-changer, .assistant-numero { display: none; }
+  .assistant-corps { justify-content: flex-start; padding: 0; }
+
+  /* réponses */
+  .assistant-saisie { border-radius: 16px; }
+  .assistant-saisie input { padding: 14px 16px; font-size: 1.5rem; }
+  .assistant-choix { grid-template-columns: 1fr; gap: 10px; margin-top: 4px; }
+  .assistant-choix-bouton { align-items: flex-start; padding: 15px 18px; border-radius: 16px; text-align: left; font-size: 1rem; }
+  .assistant-choix-bouton:hover, .assistant-choix-bouton.actif { transform: none; }
+  .assistant-recap { padding: 0 16px; border: 1px solid var(--gris-200); border-radius: 16px; background: #fff; }
+  .assistant-recap li:last-child { border-bottom: 0; }
+
+  /* un seul gros bouton, fixé en bas au-dessus des onglets ; le retour est en haut */
+  .assistant-actions, .etape-carreau .assistant-actions {
+    position: fixed; left: 0; right: 0; bottom: var(--barre-onglets, 0px); z-index: 20; margin: 0; padding: 12px 16px;
+    border: 0; background: linear-gradient(to top, var(--fond) 72%, transparent); box-shadow: none;
+  }
+  .assistant-actions .btn-ghost, .assistant-actions-vide { display: none; }
+  .assistant-actions .btn { flex: 1; min-height: 52px; justify-content: center; border-radius: 999px; font-size: 1rem; }
+  /* fondu sans déplacement : un parent transformé décrocherait la barre fixée en bas pendant l'animation */
+  .fondu-enter-from, .fondu-leave-to { transform: none; }
 }
 </style>

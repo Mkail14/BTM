@@ -75,4 +75,6 @@ const survol = ref(null)
   .ouvrages { grid-template-columns: 1fr; }
   .ouvrage-scene { aspect-ratio: 4 / 3; }
 }
+/* Téléphone : les ouvrages sont déjà listés dans le héros, on ne les répète pas */
+@media (max-width: 639px) { .vitrine { display: none; } }
 </style>

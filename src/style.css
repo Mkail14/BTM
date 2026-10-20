@@ -84,7 +84,7 @@
   --barre-onglets: 0px;
 }
 @media (max-width: 899px) {
-  html.avec-onglets { --barre-onglets: calc(82px + env(safe-area-inset-bottom)); }
+  html.avec-onglets { --barre-onglets: calc(80px + env(safe-area-inset-bottom)); }
   html.avec-onglets body { padding-bottom: var(--barre-onglets); }
 }
 
@@ -281,4 +281,12 @@ ul { margin: 0; padding: 0; list-style: none; }
 @media (max-width: 899px) {
   body:has(.etape-carreau) { --decalage-aide: 76px; }
   body:has(.cd-pied) { --decalage-aide: 72px; }
+}
+/* Téléphone et tablette : pied de page seulement sur l'accueil et les pages légales (App.vue) */
+@media (max-width: 899px) {
+  .pied-ordinateur { display: none; }
+}
+/* Téléphone : bouton « Continuer » du calculateur fixé en bas de l'écran */
+@media (max-width: 639px) {
+  body:has(.assistant-actions:not(.assistant-actions-vide)) { --decalage-aide: 72px; }
 }

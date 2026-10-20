@@ -58,6 +58,57 @@ const arreterSuiviCompte = surChangementCompte(async (nouveau, ancien) => {
   verifierReponse()
 })
 
+// ---------- Bouton déplaçable ----------
+// On le glisse où il ne gêne pas : au lâcher il se range contre le bord le plus proche (gauche ou droite),
+// à la hauteur choisie. La position est gardée sur l'appareil. Un simple toucher l'ouvre toujours.
+const CLE_POSITION = 'btm:aide-position'
+const bouton = ref(null)
+const cote = ref('droite')
+const hauteur = ref(0) // px au-dessus de la position d'origine
+const glisse = ref(false)
+const decalage = ref({ x: 0, y: 0 })
+let depart = null
+let vientDeGlisser = false
+const hauteurMax = () => Math.max(0, window.innerHeight - 220) // reste sous l'en-tête
+try {
+  const p = JSON.parse(localStorage.getItem(CLE_POSITION) || 'null')
+  if (p) { cote.value = p.cote === 'gauche' ? 'gauche' : 'droite'; hauteur.value = Math.min(Math.max(Number(p.hauteur) || 0, 0), hauteurMax()) }
+} catch { /* stockage bloqué : position d'origine */ }
+const styleBouton = computed(() => ({
+  '--aide-hauteur': `${hauteur.value}px`,
+  transform: glisse.value ? `translate(${decalage.value.x}px, ${decalage.value.y}px) scale(1.08)` : undefined
+}))
+function debutGlisser(e) {
+  if (e.button > 0) return
+  depart = { x: e.clientX, y: e.clientY }
+  bouton.value?.setPointerCapture?.(e.pointerId)
+}
+function pendantGlisser(e) {
+  if (!depart) return
+  const x = e.clientX - depart.x, y = e.clientY - depart.y
+  if (!glisse.value && Math.hypot(x, y) < 8) return // en dessous : c'est un toucher, pas un glisser
+  glisse.value = true
+  decalage.value = { x, y }
+}
+function finGlisser(e) {
+  if (!depart) return
+  depart = null
+  if (!glisse.value) return
+  const r = bouton.value.getBoundingClientRect()
+  cote.value = r.left + r.width / 2 < window.innerWidth / 2 ? 'gauche' : 'droite'
+  hauteur.value = Math.round(Math.min(Math.max(hauteur.value - decalage.value.y, 0), hauteurMax()))
+  glisse.value = false
+  decalage.value = { x: 0, y: 0 }
+  vientDeGlisser = true // le clic qui suit le lâcher ne doit pas ouvrir l'aide
+  setTimeout(() => { vientDeGlisser = false }, 0)
+  try { localStorage.setItem(CLE_POSITION, JSON.stringify({ cote: cote.value, hauteur: hauteur.value })) } catch { /* stockage bloqué */ }
+}
+function surClicBouton() {
+  if (vientDeGlisser) return
+  if (reponseNonVue.value) ouvrirAssistant()
+  else ouvrir()
+}
+
 function gererClavier(event) {
   if (event.key === 'Escape') fermer()
 }
@@ -76,7 +127,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <button v-if="!chatOuvert" class="aide-bouton" type="button" :aria-label="reponseNonVue ? 'Ouvrir l’aide : un conseiller vous a répondu' : 'Ouvrir l’aide'" @click="reponseNonVue ? ouvrirAssistant() : ouvrir()">
+  <button
+    v-if="!chatOuvert" ref="bouton" class="aide-bouton" :class="{ 'aide-gauche': cote === 'gauche', 'aide-glisse': glisse }" :style="styleBouton" type="button"
+    :aria-label="reponseNonVue ? 'Ouvrir l’aide : un conseiller vous a répondu' : 'Ouvrir l’aide'" title="Glissez pour déplacer"
+    @pointerdown="debutGlisser" @pointermove="pendantGlisser" @pointerup="finGlisser" @pointercancel="finGlisser" @click="surClicBouton"
+  >
     <i class="fa-solid fa-headset" aria-hidden="true"></i>
     <span v-if="reponseNonVue" class="aide-pastille" aria-hidden="true"></span>
   </button>
@@ -138,11 +193,17 @@ onBeforeUnmount(() => {
 <style scoped>
 .aide-bouton {
   /* --decalage-aide : hauteur d'une barre d'actions collée en bas de l'écran (style.css), que le bouton ne doit pas cacher */
-  position: fixed; right: 28px; bottom: calc(24px + var(--decalage-aide, 0px) + var(--barre-onglets, 0px)); z-index: 180; width: 54px; height: 54px;
+  /* --aide-hauteur : hauteur choisie en glissant le bouton */
+  --aide-marge: 28px; --aide-bas: 24px;
+  position: fixed; right: var(--aide-marge); bottom: calc(var(--aide-bas) + var(--aide-hauteur, 0px) + var(--decalage-aide, 0px) + var(--barre-onglets, 0px));
+  z-index: 180; width: 54px; height: 54px;
   display: grid; place-items: center; border: 1px solid rgba(255,255,255,.28); border-radius: 50%;
   background: var(--lagon-600); color: #fff; box-shadow: 0 10px 26px rgba(0,0,0,.28);
   font-size: 1.25rem; cursor: pointer; transition: transform .2s, background .2s, box-shadow .2s;
+  touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
+.aide-gauche { right: auto; left: var(--aide-marge); }
+.aide-glisse, .aide-glisse:hover { transition: none; cursor: grabbing; box-shadow: 0 18px 40px rgba(0,0,0,.4); }
 .aide-pastille { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; border: 2px solid #fff; border-radius: 50%; background: #ef4444; }
 .aide-bouton:hover, .aide-bouton:focus-visible { transform: translateY(-3px); background: var(--lagon-500); box-shadow: 0 14px 30px rgba(0,0,0,.34); }
 .aide-overlay {
@@ -219,13 +280,13 @@ onBeforeUnmount(() => {
   .aide-pages { grid-template-columns: 1fr; }
 }
 @media (max-width: 640px) {
-  .aide-bouton { right: 18px; bottom: calc(18px + var(--decalage-aide, 0px) + var(--barre-onglets, 0px)); }
+  .aide-bouton { --aide-marge: 18px; --aide-bas: 18px; }
   .aide-overlay { padding: 14px; }
   .aide-dialogue { padding: 14px 0; }
   .aide-page { min-height: 0; padding: 20px; }
   .aide-page-actions { grid-template-columns: 1fr; }
 }
 @media (max-width: 400px) {
-  .aide-bouton { right: 12px; bottom: calc(12px + var(--decalage-aide, 0px) + var(--barre-onglets, 0px)); width: 46px; height: 46px; font-size: .95rem; }
+  .aide-bouton { --aide-marge: 12px; --aide-bas: 12px; width: 46px; height: 46px; font-size: .95rem; }
 }
 </style>

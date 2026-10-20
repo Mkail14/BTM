@@ -91,7 +91,7 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
           </span>
         </p>
         <p v-else class="hero-surtitre">{{ contenu.hero.surtitre }}</p>
-        <h1 id="hero-titre" class="hero-titre">
+        <h1 id="hero-titre" class="hero-titre" :class="{ 'hero-titre-ligne': !salutation }">
           <template v-if="salutation">{{ salutation }}</template>
           <template v-else>
             {{ contenu.hero.titreDebut }}
@@ -108,7 +108,8 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
         <p class="hero-desc">
           {{ contenu.hero.description }}
         </p>
-        <div class="hero-actions">
+        <!-- Téléphone : pas de boutons, « Estimer » et « Fournisseurs » sont déjà dans la barre d'onglets -->
+        <div v-if="!telephone" class="hero-actions">
           <BoutonBase to="/calculateur" variante="primaire" icone-droite="fa-solid fa-arrow-right">{{ contenu.hero.boutonPrincipal }}</BoutonBase>
           <BoutonBase to="/fournisseurs" variante="contour-clair">{{ contenu.hero.boutonSecondaire }}</BoutonBase>
         </div>
@@ -118,7 +119,7 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
         <Scene3DChantier />
       </div>
 
-      <!-- Téléphone : accès direct à chaque type de devis -->
+      <!-- Téléphone : un seul geste, toucher l'ouvrage à chiffrer -->
       <nav v-else class="hero-raccourcis" aria-label="Commencer une estimation">
         <p class="hero-raccourcis-titre">{{ contenu.hero.raccourcisTitre }}</p>
         <ul>
@@ -126,6 +127,7 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
             <router-link :to="{ path: '/calculateur', query: { type: t.id } }">
               <i :class="t.icone" aria-hidden="true"></i>
               <span>{{ t.libelle }}</span>
+              <i class="fa-solid fa-chevron-right hero-raccourci-fleche" aria-hidden="true"></i>
             </router-link>
           </li>
         </ul>
@@ -228,42 +230,41 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
   transform: translateY(18px);
   animation: apparaitre .9s .2s ease both;
 }
-/* Téléphone : hero centré, boutons larges, raccourcis à la place de la maquette 3D */
+/* Téléphone : un écran d'application. Titre sur une ligne, puis la liste des ouvrages : un seul geste pour commencer.
+   Pas de description ni de boutons (la barre d'onglets porte déjà « Estimer » et « Fournisseurs »). */
 @media (max-width: 639px) {
-  .hero { padding-top: calc(var(--hauteur-entete) + 20px); justify-content: flex-start; }
-  .hero-grille { grid-template-columns: minmax(0, 1fr); gap: 26px; padding: 8px var(--gouttiere) 96px; align-content: center; }
+  .hero { min-height: calc(100svh - var(--barre-onglets, 0px)); padding-top: calc(var(--hauteur-entete) + 16px); justify-content: flex-start; }
+  .hero-grille { grid-template-columns: minmax(0, 1fr); gap: 28px; padding: 8px var(--gouttiere) 32px; align-content: center; }
   .hero-grille > * { min-width: 0; }
   .hero-texte { max-width: none; }
-  .hero-surtitre { font-size: .7rem; letter-spacing: .12em; margin-bottom: 14px; }
-  .hero-titre { font-size: clamp(1.9rem, 10.5vw, 3rem); overflow-wrap: break-word; hyphens: auto; }
-  .hero-desc { margin-top: 14px; font-size: 1.02rem; line-height: 1.55; }
-  .hero-actions { flex-direction: column; align-items: stretch; gap: 10px; margin-top: 24px; }
-  .hero-actions :deep(.btn), .hero-actions :deep(a) { width: 100%; justify-content: center; min-height: 50px; }
+  .hero-surtitre { font-size: .68rem; letter-spacing: .12em; margin-bottom: 12px; }
+  .hero-titre { font-size: clamp(1.9rem, 10.5vw, 3rem); overflow-wrap: break-word; }
+  /* « Chiffrez votre fondation » tient sur une ligne même avec le mot le plus long */
+  .hero-titre-ligne { white-space: nowrap; font-size: min(8vw, 2.6rem); }
+  .hero-desc { display: none; }
   .hero-defiler { display: none; }
 }
-/* Petits téléphones (≤ 360 px) */
 @media (max-width: 360px) {
-  .hero-grille { gap: 22px; }
-  .hero-surtitre { font-size: .62rem; letter-spacing: .08em; gap: 8px; }
+  .hero-surtitre { font-size: .6rem; letter-spacing: .08em; gap: 8px; }
   .hero-surtitre::before { width: 18px; }
-  .hero-desc { font-size: .95rem; }
-  .hero-raccourcis ul { gap: 8px; }
-  .hero-raccourcis a { gap: 8px; padding: 0 10px; min-height: 54px; font-size: .92rem; }
-  .hero-raccourcis i { width: 28px; height: 28px; font-size: .82rem; }
 }
 
-/* Raccourcis (téléphone uniquement) */
-.hero-raccourcis { width: 100%; animation: apparaitre .8s .3s ease both; }
-.hero-raccourcis-titre { margin: 0 0 10px; font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
-.hero-raccourcis ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.hero-raccourcis li:last-child:nth-child(odd) { grid-column: 1 / -1; } /* 5 ouvrages : le dernier prend toute la ligne */
-.hero-raccourcis a {
-  display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 0 14px; border-radius: 14px; color: #fff; font-weight: 600;
-  background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .14); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  transition: background var(--transition), transform var(--transition);
+/* Raccourcis (téléphone uniquement) : une liste groupée, comme les réglages d'un téléphone */
+.hero-raccourcis { width: 100%; animation: apparaitre .8s .2s ease both; }
+.hero-raccourcis-titre { margin: 0 0 10px 4px; font-size: .72rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: rgba(255, 255, 255, .6); }
+.hero-raccourcis ul {
+  list-style: none; margin: 0; padding: 0; overflow: hidden; border-radius: 18px;
+  background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
 }
-.hero-raccourcis a:active { background: rgba(6, 182, 212, .22); transform: scale(.98); }
-.hero-raccourcis i { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: rgba(6, 182, 212, .2); color: #67e8f9; font-size: .95rem; }
+.hero-raccourcis li + li a { border-top: 1px solid rgba(255, 255, 255, .1); }
+.hero-raccourcis a {
+  display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 0 16px; color: #fff; font-size: 1.02rem; font-weight: 600;
+  transition: background var(--transition);
+}
+.hero-raccourcis a:active { background: rgba(6, 182, 212, .2); }
+.hero-raccourcis a span { flex: 1; }
+.hero-raccourcis i:first-child { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 10px; background: rgba(6, 182, 212, .2); color: #67e8f9; font-size: .95rem; }
+.hero-raccourci-fleche { color: rgba(255, 255, 255, .4); font-size: .8rem; }
 @media (min-width: 900px) { .hero-texte { justify-self: start; } .hero-visuel { justify-self: end; transform: translateY(26px); } }
 @media (min-width: 1800px) {
   .hero-grille { grid-template-columns: minmax(0, 1fr) minmax(720px, 1fr); }

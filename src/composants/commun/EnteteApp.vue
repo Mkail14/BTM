@@ -30,6 +30,9 @@ const profilChargement = ref(false)
 const correctionIdentite = ref(false)
 const pieceIdentite = ref(null)
 const profilVue = ref('infos')
+// Téléphone : le compte s'affiche comme un écran d'application (liste des rubriques, puis la rubrique en sous-écran)
+const detailOuvert = ref(false)
+const TITRES_PROFIL = { infos: 'Infos du compte', modifier: 'Modifier mes informations', type: 'Type de compte', 'mot-de-passe': 'Mot de passe', supprimer: 'Supprimer mon compte' }
 const ancienMotDePasse = ref('')
 const nouveauMotDePasse = ref('')
 const confirmationMotDePasse = ref('')
@@ -92,12 +95,24 @@ function ouvrirProfil() {
   profilErreur.value = ''
   correctionIdentite.value = false
   profilVue.value = 'infos'
+  detailOuvert.value = false
   suppressionConfirmee.value = false
   profilOuvert.value = true
 }
 
 function fermerProfil() {
   profilOuvert.value = false
+}
+
+// un onglet de page touché pendant que le compte est ouvert le referme (même si c'est la page en cours)
+function surOnglet(event) {
+  if (event.target.closest('a')) fermerProfil()
+}
+
+// retour du sous-écran (téléphone) : « Modifier » revient aux infos, le reste à la liste des rubriques
+function retourProfil() {
+  if (profilVue.value === 'modifier') { profilVue.value = 'infos'; return }
+  detailOuvert.value = false
 }
 
 async function enregistrerProfil() {
@@ -132,6 +147,7 @@ function envoyerDemandeIdentite() {
 
 function ouvrirAction(action) {
   profilVue.value = action
+  detailOuvert.value = true
   ancienMotDePasse.value = ''
   nouveauMotDePasse.value = ''
   confirmationMotDePasse.value = ''
@@ -260,52 +276,71 @@ async function supprimerCompte() {
   </header>
 
   <!-- Téléphone et tablette : barre d'onglets, hors de l'en-tête (son flou ancrerait la barre en haut) -->
-  <nav class="onglets" aria-label="Navigation principale">
-    <!-- fond blanc en trois morceaux : le creux du milieu garde sa forme quelle que soit la largeur -->
+  <nav class="onglets" :class="{ 'onglets-compte': profilOuvert }" aria-label="Navigation principale" @click="surOnglet">
+    <!-- fond blanc en trois morceaux : l'encoche du milieu garde sa forme quelle que soit la largeur -->
     <span class="onglets-fond" aria-hidden="true">
       <span></span>
-      <svg viewBox="0 0 120 64" preserveAspectRatio="none"><path d="M0 0h8c14 0 19 6 25 16 8 14 16 22 27 22s19-8 27-22c6-10 11-16 25-16h8v64H0z" /></svg>
+      <svg viewBox="0 0 104 60" preserveAspectRatio="none"><path d="M0 0h6c12 0 16 4 21 13 7 15 14 27 25 27s18-12 25-27c5-9 9-13 21-13h6v60H0z" /></svg>
       <span></span>
     </span>
-    <router-link to="/" class="onglet" active-class="actif">
-      <i class="fa-solid fa-house" aria-hidden="true"></i><span>Accueil</span>
+    <router-link to="/" class="onglet" active-class="actif" exact-active-class="actif">
+      <span class="onglet-icone"><i class="fa-solid fa-house" aria-hidden="true"></i></span><span class="onglet-libelle">Accueil</span>
     </router-link>
     <router-link to="/fournisseurs" class="onglet" active-class="actif">
-      <i class="fa-solid fa-truck" aria-hidden="true"></i><span>Fournisseurs</span>
+      <span class="onglet-icone"><i class="fa-solid fa-truck" aria-hidden="true"></i></span><span class="onglet-libelle">Fournisseurs</span>
     </router-link>
     <router-link to="/calculateur" class="onglet-central" active-class="actif" aria-label="Estimer">
       <i class="fa-solid fa-calculator" aria-hidden="true"></i>
     </router-link>
-    <router-link v-if="fournisseurLie" to="/espace-fournisseur" class="onglet" active-class="actif">
-      <i class="fa-solid fa-store" aria-hidden="true"></i><span>Mon espace</span>
+    <!-- Projets (ou l'espace d'un fournisseur) : seulement pour un compte connecté -->
+    <router-link v-if="connecte && fournisseurLie" to="/espace-fournisseur" class="onglet" active-class="actif">
+      <span class="onglet-icone"><i class="fa-solid fa-store" aria-hidden="true"></i></span><span class="onglet-libelle">Mon espace</span>
     </router-link>
-    <!-- déconnecté : la page demande la connexion puis s'ouvre -->
-    <router-link v-else to="/dashboard" class="onglet" active-class="actif">
-      <i class="fa-solid fa-folder-open" aria-hidden="true"></i><span>Projets</span>
-      <b v-if="propositions" class="onglet-pastille" :aria-label="`${propositions} proposition de BTM à voir`">{{ propositions }}</b>
+    <router-link v-else-if="connecte" to="/dashboard" class="onglet" active-class="actif">
+      <span class="onglet-icone"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><b v-if="propositions" class="onglet-pastille" :aria-label="`${propositions} proposition de BTM à voir`">{{ propositions }}</b></span><span class="onglet-libelle">Projets</span>
     </router-link>
-    <button type="button" class="onglet" :class="{ actif: profilOuvert }" @click="connecte ? ouvrirProfil() : ouvrirAuth()">
-      <i class="fa-solid fa-circle-user" aria-hidden="true"></i><span>{{ connecte ? 'Compte' : 'Connexion' }}</span>
+    <!-- visiteur : « Laisser un avis » prend la place de « Projets », la barre garde ses 5 onglets -->
+    <router-link v-else :to="{ path: '/', hash: '#avis', query: { avis: '1' } }" class="onglet">
+      <span class="onglet-icone"><i class="fa-solid fa-star" aria-hidden="true"></i></span><span class="onglet-libelle">Laisser un avis</span>
+    </router-link>
+    <button type="button" class="onglet onglet-profil" :class="{ actif: profilOuvert }" @click="connecte ? ouvrirProfil() : ouvrirAuth()">
+      <span class="onglet-icone"><i :class="connecte ? 'fa-solid fa-circle-user' : 'fa-solid fa-right-to-bracket'" aria-hidden="true"></i></span><span class="onglet-libelle">{{ connecte ? 'Compte' : 'Connexion' }}</span>
     </button>
   </nav>
 
-  <div v-if="profilOuvert" class="profil-overlay" @click.self="fermerProfil">
+  <div v-if="profilOuvert" class="profil-overlay" :class="{ 'profil-detail': detailOuvert }" @click.self="fermerProfil">
     <button class="profil-fermer" type="button" aria-label="Fermer le profil" @click="fermerProfil"><i class="fa-solid fa-xmark"></i></button>
     <section class="profil-dialogue" role="dialog" aria-modal="true" aria-labelledby="profil-titre">
+      <!-- Téléphone : barre de titre d'application (grand titre sur la liste, retour + titre dans une rubrique) -->
+      <header class="profil-barre">
+        <button v-if="detailOuvert" type="button" class="profil-barre-retour" aria-label="Retour" @click="retourProfil"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+        <h2 id="profil-titre" :class="{ 'profil-barre-grand': !detailOuvert }">{{ detailOuvert ? TITRES_PROFIL[profilVue] : 'Compte' }}</h2>
+      </header>
       <div class="profil-blocs">
         <nav class="profil-actions" aria-label="Actions du compte">
-          <button class="profil-action" :class="{ actif: profilVue === 'infos' }" type="button" @click="ouvrirAction('infos')"><i class="fa-solid fa-user"></i><span>Infos du compte<small>Voir mes informations</small></span><i class="fa-solid fa-chevron-right"></i></button>
-          <button class="profil-action" :class="{ actif: profilVue === 'type' }" type="button" @click="ouvrirAction('type')"><i class="fa-solid fa-briefcase"></i><span>Type de compte<small>{{ libelleTypeCompte }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
-          <button class="profil-action" :class="{ actif: profilVue === 'mot-de-passe' }" type="button" @click="ouvrirAction('mot-de-passe')"><i class="fa-solid fa-lock"></i><span>Modifier le mot de passe<small>Sécuriser mon accès</small></span><i class="fa-solid fa-chevron-right"></i></button>
-          <button class="profil-action" type="button" @click="fermerProfil(); router.push('/dashboard')"><i class="fa-solid fa-folder-open"></i><span>Mes archives de projet<small>Retrouver mes estimations</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
-          <button class="profil-action" type="button" @click="fermerProfil(); deconnexion()"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Se déconnecter<small>{{ utilisateur?.email }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
-          <button class="profil-action profil-action-danger" :class="{ actif: profilVue === 'supprimer' }" type="button" @click="ouvrirAction('supprimer')"><i class="fa-solid fa-trash"></i><span>Supprimer mon compte<small>Action définitive</small></span><i class="fa-solid fa-chevron-right"></i></button>
+          <div class="profil-carte">
+            <span class="profil-carte-avatar" aria-hidden="true">{{ initiale }}</span>
+            <span class="profil-carte-texte"><strong>{{ pseudo }}</strong><small>{{ utilisateur?.email }}</small></span>
+            <span v-if="afficherCredit" class="profil-carte-credit"><i class="fa-solid fa-coins" aria-hidden="true"></i> {{ formaterEuros(credit.solde) }}</span>
+          </div>
+          <div class="profil-groupe">
+            <button class="profil-action" :class="{ actif: profilVue === 'infos' || profilVue === 'modifier' }" type="button" @click="ouvrirAction('infos')"><i class="fa-solid fa-user"></i><span>Infos du compte<small>Voir mes informations</small></span><i class="fa-solid fa-chevron-right"></i></button>
+            <button class="profil-action" :class="{ actif: profilVue === 'type' }" type="button" @click="ouvrirAction('type')"><i class="fa-solid fa-briefcase"></i><span>Type de compte<small>{{ libelleTypeCompte }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
+            <button class="profil-action" :class="{ actif: profilVue === 'mot-de-passe' }" type="button" @click="ouvrirAction('mot-de-passe')"><i class="fa-solid fa-lock"></i><span>Modifier le mot de passe<small>Sécuriser mon accès</small></span><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+          <div class="profil-groupe">
+            <button class="profil-action" type="button" @click="fermerProfil(); router.push('/dashboard')"><i class="fa-solid fa-folder-open"></i><span>Mes archives de projet<small>Retrouver mes estimations</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+          </div>
+          <div class="profil-groupe">
+            <button class="profil-action" type="button" @click="fermerProfil(); deconnexion()"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Se déconnecter<small>{{ utilisateur?.email }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
+            <button class="profil-action profil-action-danger" :class="{ actif: profilVue === 'supprimer' }" type="button" @click="ouvrirAction('supprimer')"><i class="fa-solid fa-trash"></i><span>Supprimer mon compte<small>Action définitive</small></span><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
         </nav>
 
-        <section class="profil-contenu">
+        <section :key="profilVue" class="profil-contenu">
           <template v-if="profilVue === 'infos'">
             <h3>Infos du compte</h3>
-            <p class="profil-contenu-intro">Vos informations sont affichées ici. Utilisez le bouton de modification uniquement si nécessaire.</p>
+            <p class="profil-contenu-intro profil-intro-infos">Vos informations sont affichées ici. Utilisez le bouton de modification uniquement si nécessaire.</p>
             <div class="profil-infos-liste">
               <div><span>Pseudo</span><strong>{{ utilisateur?.user_metadata?.pseudo || utilisateur?.email?.split('@')[0] }}</strong></div>
               <div><span>E-mail</span><strong>{{ utilisateur?.email }}</strong></div>
@@ -473,36 +508,36 @@ async function supprimerCompte() {
   .entete-utilisateur, .entete-deconnexion, .entete-connexion, .entete-cta { display: none; }
   .credit-detail { right: 0; width: min(330px, calc(100vw - 32px)); }
 
-  /* barre blanche flottante, creux au centre pour le bouton Estimer */
+  /* barre blanche flottante, encoche douce au centre pour le bouton Estimer (fixe) ; icônes seules,
+     l'onglet actif passe en foncé */
   .onglets {
-    position: fixed; left: max(12px, calc(50% - 280px)); right: max(12px, calc(50% - 280px)); bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 110;
-    display: grid; grid-template-columns: 1fr 1fr 112px 1fr 1fr; height: 64px;
-    filter: drop-shadow(0 10px 24px rgba(15, 23, 42, .14)) drop-shadow(0 1px 2px rgba(15, 23, 42, .08));
+    position: fixed; left: max(14px, calc(50% - 260px)); right: max(14px, calc(50% - 260px)); bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 110;
+    display: grid; grid-template-columns: 1fr 1fr 104px 1fr 1fr; height: 60px;
+    filter: drop-shadow(0 12px 28px rgba(15, 23, 42, .1)) drop-shadow(0 1px 3px rgba(15, 23, 42, .06));
   }
   .onglets-fond { position: absolute; inset: 0; z-index: -1; display: flex; }
   .onglets-fond > span { flex: 1; background: #fff; }
-  .onglets-fond > span:first-child { border-radius: 22px 0 0 22px; }
-  .onglets-fond > span:last-child { border-radius: 0 22px 22px 0; }
-  .onglets-fond svg { width: 112px; height: 100%; flex: none; fill: #fff; }
+  .onglets-fond > span:first-child { border-radius: 24px 0 0 24px; }
+  .onglets-fond > span:last-child { border-radius: 0 24px 24px 0; }
+  .onglets-fond svg { width: 104px; height: 100%; flex: none; fill: #fff; margin: 0 -.5px; }
   .onglet {
-    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0;
-    padding: 0; border: 0; background: none; color: var(--gris-400); font: 500 .7rem/1 var(--font-corps);
-    -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color .15s ease;
+    display: grid; place-items: center; min-width: 0; padding: 0; border: 0; background: none;
+    color: var(--gris-400); text-decoration: none; -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color .15s ease;
   }
-  .onglet i { font-size: 1.15rem; }
-  .onglet > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .onglet.actif { color: var(--ardoise); font-weight: 700; }
-  .onglet:active i { transform: scale(.92); }
-  .onglet:focus-visible, .onglet-central:focus-visible { outline: 2px solid var(--lagon-500); outline-offset: 2px; border-radius: 12px; }
+  .onglet-icone { position: relative; display: grid; place-items: center; font-size: 1.2rem; }
+  /* libellé gardé pour les lecteurs d'écran, masqué à l'écran */
+  .onglet-libelle { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .onglet.actif { color: var(--ardoise); }
+  .onglet:focus-visible { outline: none; }
+  .onglet:focus-visible .onglet-icone, .onglet-central:focus-visible { outline: 2px solid var(--lagon-500); outline-offset: 4px; border-radius: 50%; }
   .onglet-central {
-    justify-self: center; align-self: start; width: 56px; height: 56px; margin-top: -24px; display: grid; place-items: center;
-    border-radius: 50%; background: var(--ardoise); color: #fff; font-size: 1.2rem;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, .28); -webkit-tap-highlight-color: transparent; transition: transform .15s ease, background .15s ease;
+    justify-self: center; align-self: start; width: 54px; height: 54px; margin-top: -18px; display: grid; place-items: center;
+    border-radius: 50%; background: var(--ardoise); color: #fff; font-size: 1.15rem;
+    box-shadow: 0 6px 14px rgba(15, 23, 42, .22); -webkit-tap-highlight-color: transparent; transition: background .15s ease;
   }
   .onglet-central.actif { background: var(--lagon-700); }
-  .onglet-central:active { transform: scale(.94); }
   .onglet-pastille {
-    position: absolute; top: 9px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center;
+    position: absolute; top: -6px; right: -10px; min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center;
     border-radius: 999px; background: #f59e0b; color: #fff; font: 700 .62rem/1 var(--font-corps); box-shadow: 0 0 0 2px #fff;
   }
 }
@@ -628,4 +663,71 @@ async function supprimerCompte() {
   .profil-blocs { grid-template-columns: 1fr; }
   .profil-contenu { min-height: 0; padding: 20px; }
 }
+
+/* Barre de titre, carte du compte et groupes : propres à l'écran téléphone ci-dessous */
+.profil-barre, .profil-carte { display: none; }
+.profil-groupe { display: contents; }
+@media (max-width: 899px) {
+  /* compte ouvert : la barre d'onglets reste au-dessus, seul « Compte » est actif */
+  .onglets-compte { z-index: 270; }
+  .onglets-compte .onglet.actif:not(.onglet-profil) { color: var(--gris-400); }
+  .onglets-compte .onglet-central.actif { background: var(--ardoise); }
+}
+
+/* ---------- Téléphone : écran d'application (liste des rubriques, puis rubrique en sous-écran) ---------- */
+@media (max-width: 639px) {
+  .profil-overlay { display: block; padding: 0; overflow: hidden; background: var(--gris-50); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .profil-fermer { display: none; }
+  .profil-dialogue { display: flex; flex-direction: column; width: 100%; height: 100dvh; max-height: none; margin: 0; padding: 0; animation: none; }
+
+  .profil-barre {
+    position: relative; display: flex; align-items: center; flex: none; min-height: calc(56px + env(safe-area-inset-top));
+    padding: calc(8px + env(safe-area-inset-top)) 20px 6px; background: var(--gris-50);
+  }
+  .profil-barre h2 { margin: 0; overflow: hidden; color: var(--ardoise); font: 700 1.05rem var(--font-corps); white-space: nowrap; text-overflow: ellipsis; }
+  .profil-barre .profil-barre-grand { margin-top: 10px; font-family: var(--font-display); font-size: 2.1rem; }
+  .profil-detail .profil-barre { justify-content: center; border-bottom: 1px solid var(--gris-200); background: rgba(255, 255, 255, .94); }
+  .profil-detail .profil-barre h2 { padding: 0 44px; }
+  .profil-barre-retour {
+    position: absolute; left: 8px; bottom: 8px; width: 40px; height: 40px; display: grid; place-items: center;
+    border: 0; border-radius: 50%; background: transparent; color: var(--lagon-700); font-size: 1.15rem; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .profil-barre-retour:active { background: var(--gris-100); }
+
+  .profil-blocs { display: block; flex: 1; min-height: 0; margin: 0; padding: 10px 16px calc(var(--barre-onglets, 0px) + 24px); overflow-y: auto; overscroll-behavior: contain; }
+  .profil-detail .profil-actions, .profil-overlay:not(.profil-detail) .profil-contenu { display: none; }
+
+  /* liste des rubriques */
+  .profil-actions { gap: 22px; padding: 0; border: 0; background: none; }
+  .profil-carte { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--gris-200); border-radius: 18px; background: #fff; }
+  .profil-carte-avatar {
+    width: 54px; height: 54px; flex: none; display: grid; place-items: center; border-radius: 50%;
+    background: linear-gradient(135deg, var(--lagon-400), var(--lagon-700)); color: #fff; font: 700 1.45rem var(--font-display);
+  }
+  .profil-carte-texte { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+  .profil-carte-texte strong, .profil-carte-texte small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .profil-carte-texte strong { color: var(--ardoise); font-size: 1.08rem; }
+  .profil-carte-texte small { color: var(--gris-500); font-size: .82rem; }
+  .profil-carte-credit { flex: none; padding: 5px 10px; border-radius: 999px; background: #fef3c7; color: #b45309; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .profil-groupe { display: block; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 16px; background: #fff; }
+  .profil-groupe .profil-action { min-height: 62px; padding: 10px 16px; border: 0; border-radius: 0; background: #fff; -webkit-tap-highlight-color: transparent; }
+  .profil-groupe .profil-action + .profil-action { border-top: 1px solid var(--gris-100); }
+  .profil-groupe .profil-action:active { background: var(--gris-100); }
+  .profil-action > i:first-child { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--lagon-50); font-size: .95rem; }
+  .profil-action-danger > i:first-child { background: var(--erreur-clair); }
+  .profil-action span { font-size: .95rem; font-weight: 600; }
+  .profil-action small { font-size: .78rem; }
+
+  /* rubrique ouverte */
+  .profil-contenu { padding: 6px 0 0; border: 0; background: none; animation: profil-glisse .24s cubic-bezier(.22, .61, .36, 1); }
+  .profil-contenu h3, .profil-contenu :deep(h3), .profil-retour-lien, .profil-intro-infos { display: none; }
+  .profil-contenu-intro, .profil-suppression > p { margin: 0 4px 16px; font-size: .9rem; }
+  .profil-infos-liste { margin-bottom: 22px; padding: 0 16px; border: 1px solid var(--gris-200); border-radius: 16px; background: #fff; }
+  .profil-infos-liste div { padding: 15px 0; border-color: var(--gris-100); }
+  .profil-infos-liste div:last-child { border-bottom: 0; }
+  .profil-contenu .btn { width: 100%; min-height: 50px; justify-content: center; border-radius: 999px; }
+  .profil-formulaire .btn { align-self: stretch; }
+}
+@keyframes profil-glisse { from { transform: translateX(28px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .profil-contenu { animation: none; } }
 </style>

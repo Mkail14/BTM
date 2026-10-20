@@ -27,7 +27,7 @@ import { supabase } from '@/services/supabase/client.js'
 import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
 import { fermerAuth } from '@/composables/useFenetreAuth.js'
 import { lireSuspension, connexionExterne, connexionGoogleJeton, renvoyerConfirmation } from '@/services/supabase/serviceAuth.js'
-import { afficherBoutonGoogle } from '@/services/googleIdentite.js'
+import { afficherBoutonGoogle, prechargerGoogle } from '@/services/googleIdentite.js'
 import { memoriserSuspension } from '@/services/suspension.js'
 
 const props = defineProps({
@@ -353,9 +353,13 @@ async function continuerAvec(fournisseur) {
 // le bouton maison ci-dessus prend le relais (redirection par Supabase)
 const zoneGoogle = ref(null)
 const googleSecours = ref(!backendDisponible)
+// Le bouton de Google met un moment à apparaître : un bouton identique est affiché à sa place jusque-là
+const googlePret = ref(false)
+if (backendDisponible) prechargerGoogle()
 async function dessinerGoogle(zone) {
   try {
     await afficherBoutonGoogle(zone, { texte: estInscription.value ? 'signup_with' : 'continue_with', pilule: accueil.value, surJeton: avecJetonGoogle })
+    googlePret.value = true
   } catch {
     googleSecours.value = true
   }
@@ -366,6 +370,7 @@ let suiviLargeur = null
 let largeurDessinee = 0
 watch([zoneGoogle, estInscription], ([zone]) => {
   suiviLargeur?.disconnect()
+  googlePret.value = false
   if (!zone || googleSecours.value) return
   largeurDessinee = Math.round(zone.getBoundingClientRect().width)
   dessinerGoogle(zone)
@@ -373,6 +378,7 @@ watch([zoneGoogle, estInscription], ([zone]) => {
     const largeur = Math.round(e.contentRect.width)
     if (Math.abs(largeur - largeurDessinee) < 4) return
     largeurDessinee = largeur
+    googlePret.value = false
     dessinerGoogle(zone)
   })
   suiviLargeur.observe(zone)
@@ -406,7 +412,7 @@ function traduire(m = '') {
 
 <template>
   <div id="fenetre-auth" class="auth" role="dialog" aria-modal="true" aria-labelledby="auth-titre" @click.self="emit('fermer')">
-    <div class="auth-grille">
+    <div class="auth-grille" :class="{ 'auth-grille-accueil': accueil }">
       <section class="carte auth-carte" :class="{ 'auth-carte-accueil': accueil }">
         <button class="auth-fermer" type="button" aria-label="Fermer la fenêtre" @click="emit('fermer')">
           <i class="fa-solid fa-xmark" aria-hidden="true"></i>
@@ -433,7 +439,14 @@ function traduire(m = '') {
           <p v-if="raison" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ raison }}</p>
 
           <div class="auth-accueil-boutons">
-            <div v-if="!googleSecours" ref="zoneGoogle" class="auth-google auth-google-pilule" :class="{ occupe: externe === 'google' }"></div>
+            <div v-if="!googleSecours" class="auth-google-bloc">
+              <div ref="zoneGoogle" class="auth-google auth-google-pilule" :class="{ occupe: externe === 'google', cache: !googlePret }"></div>
+              <!-- affiché tout de suite, à l'identique, le temps que le bouton de Google arrive -->
+              <span v-if="!googlePret" class="auth-pilule sombre auth-google-attente" aria-hidden="true">
+                <span class="auth-google-g"><svg viewBox="0 0 48 48" width="18" height="18"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" /><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" /><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" /></svg></span>
+                {{ estInscription ? 'S’inscrire avec Google' : 'Continuer avec Google' }}
+              </span>
+            </div>
             <button v-else type="button" class="auth-pilule sombre" :disabled="!!externe" @click="continuerAvec('google')">
               <span v-if="externe === 'google'" class="spinner" aria-hidden="true"></span><i v-else class="fa-brands fa-google" aria-hidden="true"></i>
               {{ estInscription ? 'S’inscrire avec Google' : 'Continuer avec Google' }}
@@ -664,7 +677,7 @@ function traduire(m = '') {
 .auth-intro { margin: 4px 0 20px; }
 .auth-note { margin-bottom: 20px; }
 .auth-note code { font-family: var(--font-mono); font-size: .8rem; background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 4px; }
-.auth-form { display: flex; flex: 1; flex-direction: column; gap: 18px; }
+.auth-form { display: flex; flex-direction: column; gap: 18px; }
 .auth-etapes { display: flex; gap: 8px; margin: 0 0 22px; padding: 0; list-style: none; }
 .auth-etapes li { display: flex; flex: 1; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 3px solid var(--gris-200); color: var(--gris-500); font-size: .8rem; font-weight: 600; transition: border-color .2s, color .2s; }
 .auth-etapes .auth-etape-active { border-color: var(--lagon-600); color: var(--ardoise); }
@@ -676,7 +689,8 @@ function traduire(m = '') {
 .auth-recap div { display: flex; justify-content: space-between; gap: 16px; }
 .auth-recap dt { color: var(--texte-secondaire); font-size: .88rem; }
 .auth-recap dd { margin: 0; color: var(--ardoise); font-weight: 600; text-align: right; overflow-wrap: anywhere; }
-.auth-actions { display: flex; gap: 12px; margin-top: auto; }
+/* Le bouton suit directement les champs, sans vide, sur tous les écrans. */
+.auth-actions { display: flex; gap: 12px; margin-top: 6px; }
 .auth-actions .btn-bloc { flex: 1; }
 .auth-identite-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .auth-case { display: flex; gap: 10px; align-items: center; font-size: .92rem; color: var(--gris-700); cursor: pointer; }
@@ -704,7 +718,7 @@ function traduire(m = '') {
 .auth-externe-note { margin: 10px 0 0; text-align: center; }
 .auth-bascule { margin-top: 22px; text-align: center; font-size: .95rem; color: var(--texte-secondaire); }
 .auth-bascule a { color: var(--lagon-700); font-weight: 700; }
-.auth-cree { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.auth-cree { display: flex; flex-direction: column; gap: 14px; }
 .auth-cree p { margin: 0; line-height: 1.6; color: var(--texte-secondaire); }
 .auth-cree strong { color: var(--ardoise); word-break: break-all; }
 .auth-cree-icone { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-size: 1.6rem; background: var(--lagon-50, #ecfeff); color: var(--primaire); }
@@ -809,6 +823,10 @@ function traduire(m = '') {
 .auth-accueil-boutons > * { width: 100%; max-width: 400px; }
 .auth-accueil-erreur { width: 100%; max-width: 400px; margin-top: 12px; text-align: left; }
 .auth-google-pilule { min-height: 40px; }
+.auth-google-bloc { position: relative; }
+.auth-google.cache { visibility: hidden; }
+.auth-google-attente { position: absolute; inset: 0; cursor: default; }
+.auth-google-g { width: 30px; height: 30px; margin-left: -10px; display: grid; place-items: center; flex: none; border-radius: 50%; background: #fff; }
 /* même hauteur et même noir que le bouton officiel de Google (40 px) */
 .auth-pilule {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 40px; padding: 0 18px; border: 0; border-radius: 999px;
@@ -825,11 +843,13 @@ function traduire(m = '') {
 .auth-accueil-legal { max-width: 320px; margin: 10px 0 0; color: var(--gris-500); font-size: .75rem; line-height: 1.5; }
 .auth-accueil-legal a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
-/* Tablette et ordinateur : carte de hauteur fixe, sans barre de défilement. L'accueil s'adapte à la hauteur
-   de l'écran : les croquis prennent la place qui reste (jusqu'à disparaître), titre et logo rapetissent. */
+/* Tablette et ordinateur : sans barre de défilement. L'accueil a une hauteur fixe et s'adapte à celle de l'écran :
+   les croquis prennent la place qui reste (jusqu'à disparaître), titre et logo rapetissent.
+   Les formulaires prennent la hauteur de leur contenu : le bouton suit directement les champs, sans vide. */
 @media (min-width: 640px) {
-  .auth-grille { height: min(780px, calc(100dvh - 48px)); overflow: hidden; }
-  .auth-carte { height: 100%; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  .auth-grille { display: flex; flex-direction: column; max-height: min(780px, calc(100dvh - 48px)); overflow: hidden; }
+  .auth-grille-accueil { height: min(780px, calc(100dvh - 48px)); }
+  .auth-carte { flex: 1 1 auto; min-height: 0; padding-bottom: 28px; overflow-y: auto; scrollbar-width: none; }
   .auth-carte::-webkit-scrollbar { display: none; }
   .auth-carte-accueil { padding-top: clamp(20px, 4vh, 40px); padding-bottom: clamp(18px, 3.5vh, 32px); }
   .auth-accueil { flex: 1; min-height: 0; }
@@ -842,12 +862,32 @@ function traduire(m = '') {
   .auth-accueil-bascule { margin-top: clamp(12px, 2.4vh, 22px); }
 }
 
-/* Téléphone : la même carte, en plein écran */
+/* Téléphone : la même carte, en plein écran, à la hauteur exacte de l'écran et sans défilement.
+   L'accueil s'adapte à la hauteur disponible (croquis qui rétrécissent jusqu'à disparaître, logo et titre plus petits).
+   Les formulaires forment un seul bloc (titre, champs, bouton) centré verticalement ; une étape d'inscription
+   plus haute que l'écran reste lisible en glissant, sans barre visible. */
 @media (max-width: 639px) {
   .auth { padding: 0; place-items: stretch; background: var(--gris-50); backdrop-filter: none; -webkit-backdrop-filter: none; }
-  .auth-grille { width: 100%; height: 100dvh; max-height: none; border-radius: 0; box-shadow: none; }
-  .auth-carte { min-height: 100%; padding: calc(64px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom)); }
-  .auth-carte-accueil { padding-top: calc(28px + env(safe-area-inset-top)); }
+  .auth-grille { display: flex; flex-direction: column; width: 100%; height: 100dvh; max-height: none; overflow: hidden; border-radius: 0; box-shadow: none; }
+  .auth-carte {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    padding: calc(60px + env(safe-area-inset-top)) 22px calc(20px + env(safe-area-inset-bottom));
+  }
+  .auth-carte::-webkit-scrollbar { display: none; }
+  .auth-carte:not(.auth-carte-accueil) { justify-content: center; justify-content: safe center; }
+  .auth-carte-accueil { overflow: hidden; padding-top: calc(clamp(14px, 3.5vh, 30px) + env(safe-area-inset-top)); padding-bottom: calc(clamp(12px, 2.5vh, 22px) + env(safe-area-inset-bottom)); }
+  .auth-accueil { min-height: 0; }
+  .auth-accueil-haut { gap: clamp(8px, 2vh, 18px); margin-top: clamp(0px, 3vh, 32px); }
+  .auth-accueil-logo { width: clamp(52px, 8.5vh, 72px); height: clamp(52px, 8.5vh, 72px); border-radius: clamp(15px, 2.4vh, 22px); }
+  .auth-accueil-logo :deep(svg) { width: 72%; height: 72%; }
+  .auth-accueil-titre { font-size: clamp(2.1rem, 6vh, 3rem); }
+  .auth-croquis { flex: 1 1 0; min-height: 0; max-height: 140px; height: auto; margin: clamp(4px, 1.8vh, 18px) 0 clamp(2px, 1vh, 6px); }
+  .auth-accueil-accroche { font-size: .98rem; line-height: 1.55; }
+  .auth-accueil .auth-raison { margin-top: clamp(8px, 1.6vh, 14px); }
+  .auth-accueil-boutons { padding-top: clamp(12px, 2.4vh, 26px); }
+  .auth-accueil-bascule { margin-top: clamp(10px, 2vh, 20px); }
+  .auth-accueil-legal { margin-top: 8px; }
+  .auth-titre { font-size: 1.9rem; }
   .auth-fermer { top: calc(12px + env(safe-area-inset-top)); right: 14px; }
   .auth-retour-accueil { top: calc(12px + env(safe-area-inset-top)); left: 14px; }
 }

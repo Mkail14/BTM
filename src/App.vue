@@ -18,6 +18,10 @@ import BientotVue from '@/vues/BientotVue.vue'
 const route = useRoute()
 const router = useRouter()
 const pleinEcran = computed(() => !!route.meta.pleinEcran)
+// Téléphone et tablette (barre d'onglets) : comme dans une application, pas de pied de page sur les écrans d'usage.
+// Il reste sur l'accueil (contact, réseaux, liens légaux) et sur les pages légales.
+const PAGES_AVEC_PIED = ['accueil', 'conditions', 'confidentialite']
+const piedSurTelephone = computed(() => PAGES_AVEC_PIED.includes(route.name))
 
 // Les comptes admin et fournisseur n'utilisent pas le site public : si le compte le devient sur une page
 // publique (connexion dans un autre onglet…), il rejoint son espace.
@@ -48,7 +52,10 @@ const pageAttente = computed(() => enAttente.value !== false && !PAGES_LIBRES.in
 
 // Connexion / inscription : une fenêtre superposée au site (il n'y a pas de page de connexion).
 // Disponible partout, y compris dans les espaces admin et fournisseur (qui n'ont pas l'en-tête du site).
-const FenetreConnexion = defineAsyncComponent(() => import('@/composants/commun/FenetreConnexion.vue'))
+const chargerFenetreConnexion = () => import('@/composants/commun/FenetreConnexion.vue')
+const FenetreConnexion = defineAsyncComponent(chargerFenetreConnexion)
+// préchargée quand le navigateur n'a rien d'autre à faire : au premier clic sur « Connexion », elle s'ouvre aussitôt
+if (typeof window !== 'undefined') (window.requestIdleCallback || ((f) => setTimeout(f, 2000)))(() => chargerFenetreConnexion())
 const { etat: fenetreAuth, ouvrirAuth, fermerAuth } = useFenetreAuth()
 watch(() => fenetreAuth.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
 // lien « ?connexion » ou « ?inscription » (assistance, compte suspendu…) : ouvre la fenêtre sur la page en cours
@@ -80,7 +87,7 @@ watch(() => route.query, (q) => {
     </router-view>
   </main>
   <template v-if="!pleinEcran">
-    <PiedDePage />
+    <PiedDePage :class="{ 'pied-ordinateur': !piedSurTelephone }" />
     <AideFlottante />
     <BandeauAnnonce />
     <BandeauCookies />

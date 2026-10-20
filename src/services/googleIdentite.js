@@ -25,10 +25,17 @@ async function sha256(texte) {
   return [...new Uint8Array(octets)].map((o) => o.toString(16).padStart(2, '0')).join('')
 }
 
+/** Charge le script de Google à l'avance (ouverture de la fenêtre de connexion) ; une erreur sera revue au dessin */
+export function prechargerGoogle() {
+  chargerScript().catch(() => {})
+}
+
 /**
  * Affiche le bouton Google dans `element`. `surJeton(jeton, nonce)` reçoit le jeton d'identité et le nonce
  * en clair (Google en a reçu l'empreinte : Supabase vérifie que les deux correspondent).
- * `texte` : 'continue_with' | 'signup_with' | 'signin_with' ; `pilule` : bouton noir arrondi (accueil de la connexion sur téléphone).
+ * `texte` : 'continue_with' | 'signup_with' | 'signin_with' ; `pilule` : bouton noir arrondi (accueil de la connexion).
+ * La promesse se résout quand le bouton est réellement visible (cadre de Google chargé, 3 s au plus) :
+ * jusque-là, la fenêtre affiche un bouton identique à sa place.
  */
 export async function afficherBoutonGoogle(element, { texte = 'continue_with', pilule = false, surJeton }) {
   await chargerScript()
@@ -46,4 +53,6 @@ export async function afficherBoutonGoogle(element, { texte = 'continue_with', p
     type: 'standard', theme: pilule ? 'filled_black' : 'outline', size: 'large', shape: pilule ? 'pill' : 'rectangular', text: texte, logo_alignment: 'center',
     width: Math.max(200, Math.min(400, Math.round(element.getBoundingClientRect().width))), locale: 'fr'
   })
+  const cadre = element.querySelector('iframe')
+  if (cadre) await new Promise((fini) => { cadre.addEventListener('load', fini, { once: true }); setTimeout(fini, 3000) })
 }

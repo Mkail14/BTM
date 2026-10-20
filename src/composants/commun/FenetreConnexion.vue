@@ -43,6 +43,41 @@ const props = defineProps({
 })
 const emit = defineEmits(['fermer', 'changer-mode'])
 const router = useRouter()
+
+// ---------- Téléphone : feuille qui monte du bas, se ferme en redescendant, se tire au doigt ----------
+const enFeuille = () => window.matchMedia('(max-width: 639px)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const fermeture = ref(false)
+function fermer() {
+  if (fermeture.value) return
+  if (!enFeuille()) { emit('fermer'); return }
+  fermeture.value = true
+  glisse.value = null
+  setTimeout(() => emit('fermer'), 320) // durée de la descente (CSS .auth-sortie)
+}
+// Glisser la poignée vers le bas : la feuille suit le doigt (avec résistance), le flou s'estompe.
+// Relâchée après 120 px, ou d'un geste rapide vers le bas, elle se ferme ; sinon elle revient en place.
+const glisse = ref(null) // décalage en px pendant le geste, null au repos
+let depart = null
+function debutGlisse(e) {
+  if (!enFeuille() || fermeture.value) return
+  depart = { y: e.clientY, t: performance.now() }
+  e.currentTarget.setPointerCapture(e.pointerId)
+}
+function suiteGlisse(e) {
+  if (!depart) return
+  const dy = e.clientY - depart.y
+  glisse.value = dy > 0 ? dy : -Math.sqrt(-dy) * 2 // vers le haut : légère résistance
+}
+function finGlisse(e) {
+  if (!depart) return
+  const dy = e.clientY - depart.y
+  const vitesse = dy / Math.max(1, performance.now() - depart.t)
+  depart = null
+  if (dy > 120 || (dy > 30 && vitesse > 0.6)) fermer()
+  else glisse.value = null
+}
+const styleFeuille = computed(() => (glisse.value === null ? null : { transform: `translateY(${glisse.value}px)`, transition: 'none' }))
+const styleFond = computed(() => (glisse.value === null ? null : { opacity: Math.max(0, 1 - glisse.value / 420), transition: 'none' }))
 const calc = useCalculateur()
 const redirectionDemandee = () => props.redirect
 // lu à l'ouverture : la page d'attente disparaît dès que l'admin ou le fournisseur est reconnu
@@ -411,10 +446,13 @@ function traduire(m = '') {
 </script>
 
 <template>
-  <div id="fenetre-auth" class="auth" role="dialog" aria-modal="true" aria-labelledby="auth-titre" @click.self="emit('fermer')">
-    <div class="auth-grille" :class="{ 'auth-grille-accueil': accueil }">
+  <div id="fenetre-auth" class="auth" :class="{ 'auth-sortie': fermeture }" role="dialog" aria-modal="true" aria-labelledby="auth-titre" @click.self="fermer">
+    <!-- téléphone : le site flouté reste visible au-dessus de la feuille ; un appui dessus ferme -->
+    <span class="auth-fond" :style="styleFond" aria-hidden="true" @click="fermer"></span>
+    <div class="auth-grille" :class="{ 'auth-grille-accueil': accueil }" :style="styleFeuille">
+      <span class="auth-poignee" aria-hidden="true" @pointerdown="debutGlisse" @pointermove="suiteGlisse" @pointerup="finGlisse" @pointercancel="finGlisse"><span></span></span>
       <section class="carte auth-carte" :class="{ 'auth-carte-accueil': accueil }">
-        <button class="auth-fermer" type="button" aria-label="Fermer la fenêtre" @click="emit('fermer')">
+        <button class="auth-fermer" type="button" aria-label="Fermer la fenêtre" @click="fermer">
           <i class="fa-solid fa-xmark" aria-hidden="true"></i>
         </button>
         <!-- Accueil d'application (Google, e-mail), le formulaire vient ensuite -->
@@ -478,7 +516,7 @@ function traduire(m = '') {
           </p>
           <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
           <div class="auth-actions">
-            <BoutonBase type="button" variante="secondaire" @click="emit('fermer')">Fermer</BoutonBase>
+            <BoutonBase type="button" variante="secondaire" @click="fermer">Fermer</BoutonBase>
             <BoutonBase type="button" bloc icone="fa-solid fa-right-to-bracket" @click="apresConfirmation = true; emit('changer-mode', 'connexion')">J’ai confirmé, me connecter</BoutonBase>
           </div>
         </div>
@@ -867,15 +905,31 @@ function traduire(m = '') {
    Les formulaires forment un seul bloc (titre, champs, bouton) centré verticalement ; une étape d'inscription
    plus haute que l'écran reste lisible en glissant, sans barre visible. */
 @media (max-width: 639px) {
-  .auth { padding: 0; place-items: stretch; background: var(--gris-50); backdrop-filter: none; -webkit-backdrop-filter: none; }
-  .auth-grille { display: flex; flex-direction: column; width: 100%; height: 100dvh; max-height: none; overflow: hidden; border-radius: 0; box-shadow: none; }
+  /* Feuille d'application : elle monte du bas (ressort), laisse voir le site flouté au-dessus,
+     se tire vers le bas par sa poignée et redescend à la fermeture */
+  .auth { --haut-libre: calc(env(safe-area-inset-top) + 44px); padding: var(--haut-libre) 0 0; place-items: end stretch; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; animation: none; }
+  .auth-fond {
+    display: block; position: absolute; inset: 0; background: rgba(6, 32, 44, .42);
+    backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+    animation: auth-fondu .45s ease backwards; transition: opacity .32s ease;
+  }
+  .auth-grille {
+    position: relative; display: flex; flex-direction: column; width: 100%; height: calc(100dvh - var(--haut-libre)); max-height: none; overflow: hidden;
+    border-radius: 26px 26px 0 0; box-shadow: 0 -14px 40px rgba(6, 32, 44, .28);
+    animation: auth-feuille .56s cubic-bezier(.32, .72, 0, 1) backwards; transition: transform .42s cubic-bezier(.32, .72, 0, 1); will-change: transform;
+  }
+  .auth-sortie .auth-fond { opacity: 0; }
+  .auth-sortie .auth-grille { transform: translateY(100%); transition: transform .32s cubic-bezier(.4, 0, 1, 1); }
+  /* poignée : zone tactile large, barre discrète */
+  .auth-poignee { position: absolute; top: 0; left: 50%; z-index: 3; width: 120px; height: 26px; display: grid; place-items: center; transform: translateX(-50%); touch-action: none; cursor: grab; }
+  .auth-poignee span { width: 38px; height: 5px; border-radius: 999px; background: var(--gris-300); }
   .auth-carte {
     flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
-    padding: calc(60px + env(safe-area-inset-top)) 22px calc(20px + env(safe-area-inset-bottom));
+    padding: 64px 22px calc(20px + env(safe-area-inset-bottom));
   }
   .auth-carte::-webkit-scrollbar { display: none; }
   .auth-carte:not(.auth-carte-accueil) { justify-content: center; justify-content: safe center; }
-  .auth-carte-accueil { padding-top: calc(clamp(14px, 3.5vh, 30px) + env(safe-area-inset-top)); padding-bottom: calc(clamp(12px, 2.5vh, 22px) + env(safe-area-inset-bottom)); }
+  .auth-carte-accueil { padding-top: clamp(26px, 4vh, 36px); padding-bottom: calc(clamp(12px, 2.5vh, 22px) + env(safe-area-inset-bottom)); }
   .auth-accueil { min-height: 0; }
   .auth-accueil-haut { gap: clamp(8px, 2vh, 18px); margin-top: clamp(0px, 3vh, 32px); }
   .auth-accueil-logo { width: clamp(52px, 8.5vh, 72px); height: clamp(52px, 8.5vh, 72px); border-radius: clamp(15px, 2.4vh, 22px); }
@@ -888,12 +942,15 @@ function traduire(m = '') {
   .auth-accueil-bascule { margin-top: clamp(10px, 2vh, 20px); }
   .auth-accueil-legal { margin-top: 8px; }
   .auth-titre { font-size: 1.9rem; }
-  .auth-fermer { top: calc(12px + env(safe-area-inset-top)); right: 14px; }
-  .auth-retour-accueil { top: calc(12px + env(safe-area-inset-top)); left: 14px; }
+  .auth-fermer { top: 16px; right: 14px; }
+  .auth-retour-accueil { top: 16px; left: 14px; }
 }
+.auth-fond, .auth-poignee { display: none; }
+@media (max-width: 639px) { .auth-fond { display: block; } .auth-poignee { display: grid; } }
 @keyframes auth-monter { from { transform: translateY(28px); opacity: 0; } }
+@keyframes auth-feuille { from { transform: translateY(100%); } }
 @media (prefers-reduced-motion: reduce) {
-  .auth, .auth-grille { animation: none; }
+  .auth, .auth-grille, .auth-fond { animation: none; }
   .auth-croquis > * { animation: none; stroke-dashoffset: 0; }
 }
 </style>

@@ -29,8 +29,7 @@ const itineraire = computed(() => {
           <!-- badge « Livraison » à côté du nom : la ligne d'infos reste sur une seule ligne, même en carte étroite -->
           <span class="fr-nom">
             <strong>{{ fournisseur.nom }}</strong>
-            <span v-if="fournisseur.livraison" class="fr-badge"><i class="fa-solid fa-truck" aria-hidden="true"></i>Livraison</span>
-            <span v-if="fournisseur.demonstration" class="fr-badge fr-demo" title="Fiche fictive : ce fournisseur n’existe pas, ses prix servent à montrer le fonctionnement du site."><i class="fa-solid fa-flask" aria-hidden="true"></i>Exemple</span>
+            <span v-if="fournisseur.livraison" class="fr-badge" title="Livraison sur chantier"><i class="fa-solid fa-truck" aria-hidden="true"></i><span class="fr-badge-texte">Livraison</span></span>
           </span>
           <span class="fr-infos">
             <span>{{ fournisseur.categorie }}</span>
@@ -98,8 +97,6 @@ const itineraire = computed(() => {
 .fr-appel:hover i { color: #fff; }
 
 .fr-details { padding: 4px 16px 22px 84px; background: var(--gris-50); animation: apparaitre .2s ease; }
-.fr-demo { background: #fef3c7; color: #92400e; }
-.fr-demo i { color: #b45309; }
 .fr-avertissement { display: flex; gap: 8px; margin: 0 0 14px; max-width: 580px; padding: 10px 12px; border-radius: 10px; background: #fffbeb; color: #92400e; font-size: .86rem; line-height: 1.5; }
 .fr-avertissement i { margin-top: 3px; }
 .fr-description { margin: 0 0 16px; max-width: 580px; color: var(--gris-600); font-size: .92rem; line-height: 1.6; }
@@ -127,6 +124,8 @@ const itineraire = computed(() => {
   .fr-principal:active { opacity: .7; }
   .fr-logo { width: 46px; height: 46px; border-radius: 13px; }
   .fr-nom strong { font-size: 1rem; }
+  .fr-badge-texte { display: none; } /* téléphone : le camion seul, le nom garde la place */
+  .fr-nom .fr-badge { gap: 0; }
   .fr-infos { font-size: .8rem; }
   .fr-chevron { display: none; }
   .fr-appel { width: 44px; padding: 0; justify-content: center; border: 0; background: var(--lagon-600); box-shadow: 0 6px 14px -6px rgba(8, 145, 178, .7); }

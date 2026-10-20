@@ -23,5 +23,10 @@ import './style.css'
 chargerContenus()
 chargerTypesProjets()
 
+// Rechargement : la page repart du haut au lieu de reprendre la position du défilement
+// (le routeur garde, lui, la position des retours en arrière : scrollBehavior dans routeur/index.js)
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual'
+window.scrollTo(0, 0)
+
 avancerChargement(0.35) // scripts du site chargés : la ligne de l'écran de chargement avance
 createApp(App).use(routeur).mount('#app')

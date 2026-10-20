@@ -20,44 +20,40 @@
       #ecran-chargement.fini { opacity: 0; visibility: hidden; pointer-events: none; }
       /* écran réservé au téléphone (même seuil que l'accueil, SectionHero.vue) : ordinateur et tablette ne l'affichent jamais */
       @media (min-width: 640px) { #ecran-chargement { display: none; } }
-      /* Fond vivant façon Canva : quatre nappes de lumière qui se croisent sur le ciel du héros, et dont la couleur
-         passe sans cesse d'une teinte BTM à l'autre (lagon, turquoise, ambre, orange, corail).
-         Chaque nappe superpose trois couleurs qui s'échangent en fondu : uniquement opacity et transform,
-         animés par la carte graphique — fluide même pendant que le site se charge. */
+      /* Fond vivant façon Canva : des nappes de lumière aux couleurs BTM (lagon, turquoise, ambre, orange, corail)
+         qui dérivent et changent de teinte. Deux calques seulement, chacun peint une fois avec plusieurs dégradés,
+         puis seulement déplacés et fondus (transform, opacity) : léger pour la mémoire graphique d'un téléphone. */
       #ecran-chargement .fond { position: absolute; inset: 0; }
-      #ecran-chargement .fond i { position: absolute; width: 62vmax; height: 62vmax; border-radius: 50%; }
-      #ecran-chargement .fond b { position: absolute; inset: 0; border-radius: 50%; opacity: 0; animation: teinte 12s linear infinite; }
-      #ecran-chargement .fond b:nth-child(2) { animation-delay: -4s; }
-      #ecran-chargement .fond b:nth-child(3) { animation-delay: -8s; }
-      /* les trois couleurs d'une nappe se relaient : toujours une teinte pleine, jamais de trou */
-      @keyframes teinte { 0% { opacity: 0; } 12%, 38% { opacity: 1; } 50%, 100% { opacity: 0; } }
-
-      #ecran-chargement .fond i:nth-child(1) { left: -18vmax; top: -22vmax; animation: nappe-a 14s ease-in-out infinite alternate; }
-      #ecran-chargement .fond i:nth-child(2) { right: -20vmax; top: -12vmax; animation: nappe-b 17s ease-in-out infinite alternate; }
-      #ecran-chargement .fond i:nth-child(3) { left: -10vmax; bottom: -26vmax; animation: nappe-c 15s ease-in-out infinite alternate; }
-      #ecran-chargement .fond i:nth-child(4) { right: -14vmax; bottom: -24vmax; animation: nappe-a 18s ease-in-out infinite alternate-reverse; }
-      #ecran-chargement .fond i:nth-child(1) b:nth-child(1) { background: radial-gradient(circle, rgb(6 182 212 / .8), rgb(6 182 212 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(1) b:nth-child(2) { background: radial-gradient(circle, rgb(245 158 11 / .7), rgb(245 158 11 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(1) b:nth-child(3) { background: radial-gradient(circle, rgb(14 116 144 / .9), rgb(14 116 144 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(2) b:nth-child(1) { background: radial-gradient(circle, rgb(251 146 60 / .7), rgb(251 146 60 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(2) b:nth-child(2) { background: radial-gradient(circle, rgb(34 211 238 / .7), rgb(34 211 238 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(2) b:nth-child(3) { background: radial-gradient(circle, rgb(252 211 77 / .6), rgb(252 211 77 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(3) b:nth-child(1) { background: radial-gradient(circle, rgb(14 116 144 / .9), rgb(14 116 144 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(3) b:nth-child(2) { background: radial-gradient(circle, rgb(251 113 133 / .6), rgb(251 113 133 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(3) b:nth-child(3) { background: radial-gradient(circle, rgb(6 182 212 / .75), rgb(6 182 212 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(4) b:nth-child(1) { background: radial-gradient(circle, rgb(252 211 77 / .65), rgb(252 211 77 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(4) b:nth-child(2) { background: radial-gradient(circle, rgb(8 145 178 / .85), rgb(8 145 178 / 0) 65%); }
-      #ecran-chargement .fond i:nth-child(4) b:nth-child(3) { background: radial-gradient(circle, rgb(249 115 22 / .7), rgb(249 115 22 / 0) 65%); }
-      /* trajectoires amples et différentes : les nappes se croisent et se mélangent au centre */
-      @keyframes nappe-a { 33% { transform: translate(22vw, 14vh) scale(1.15); } 66% { transform: translate(8vw, 30vh) scale(.9); } 100% { transform: translate(30vw, 6vh) scale(1.1); } }
-      @keyframes nappe-b { 33% { transform: translate(-24vw, 20vh) scale(.9); } 66% { transform: translate(-10vw, 34vh) scale(1.2); } 100% { transform: translate(-30vw, 10vh) scale(1); } }
-      @keyframes nappe-c { 33% { transform: translate(20vw, -18vh) scale(1.2); } 66% { transform: translate(34vw, -6vh) scale(.95); } 100% { transform: translate(12vw, -26vh) scale(1.1); } }
+      #ecran-chargement .fond i { position: absolute; inset: -20%; }
+      #ecran-chargement .fond i:nth-child(1) {
+        background:
+          radial-gradient(38% 30% at 25% 22%, rgb(6 182 212 / .75), rgb(6 182 212 / 0) 70%),
+          radial-gradient(34% 28% at 78% 30%, rgb(245 158 11 / .6), rgb(245 158 11 / 0) 70%),
+          radial-gradient(40% 30% at 30% 80%, rgb(251 113 133 / .45), rgb(251 113 133 / 0) 70%),
+          radial-gradient(36% 30% at 80% 78%, rgb(8 145 178 / .8), rgb(8 145 178 / 0) 70%);
+        animation: nappe-a 16s ease-in-out infinite alternate;
+      }
+      #ecran-chargement .fond i:nth-child(2) {
+        background:
+          radial-gradient(36% 30% at 28% 25%, rgb(252 211 77 / .6), rgb(252 211 77 / 0) 70%),
+          radial-gradient(38% 30% at 75% 28%, rgb(34 211 238 / .65), rgb(34 211 238 / 0) 70%),
+          radial-gradient(40% 32% at 25% 78%, rgb(14 116 144 / .85), rgb(14 116 144 / 0) 70%),
+          radial-gradient(34% 28% at 78% 80%, rgb(249 115 22 / .6), rgb(249 115 22 / 0) 70%);
+        animation: nappe-b 19s ease-in-out infinite alternate, teinte 9s ease-in-out infinite alternate;
+      }
+      /* le second calque apparaît et s'efface : les couleurs passent de l'un à l'autre */
+      @keyframes teinte { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes nappe-a { 50% { transform: translate(8%, 6%) scale(1.08) rotate(6deg); } 100% { transform: translate(-6%, 9%) scale(.96) rotate(-4deg); } }
+      @keyframes nappe-b { 50% { transform: translate(-9%, -5%) scale(1.1) rotate(-7deg); } 100% { transform: translate(7%, -8%) scale(1) rotate(5deg); } }
+      /* Sécurité : quoi qu'il arrive au script, l'écran s'efface seul au bout de 9 s */
+      #ecran-chargement { animation: ecran-secours .6s 9s forwards; }
+      @keyframes ecran-secours { to { opacity: 0; visibility: hidden; } }
       /* voile au centre : les phrases restent lisibles quelle que soit la couleur qui passe derrière */
       #ecran-chargement .voile { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 40% at center, rgb(7 11 16 / .45), rgb(7 11 16 / 0) 70%); }
-      /* grain fin : la matière d'un dégradé Canva plutôt qu'un aplat numérique */
-      #ecran-chargement .grain { position: absolute; inset: 0; opacity: .06; mix-blend-mode: overlay; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
       /* pas de barre de défilement derrière l'écran de chargement */
-      html.chargement, html.chargement body { overflow: hidden; }
+      html.chargement, html.chargement body { overflow: hidden; scrollbar-width: none; }
+      html.chargement::-webkit-scrollbar, html.chargement body::-webkit-scrollbar { display: none; }
+      @media (max-width: 639px) { html:has(#ecran-chargement:not(.fini)) { overflow: hidden; scrollbar-width: none; } }
       /* une phrase = une ligne, quelle que soit la largeur de l'écran */
       #ecran-chargement .phrases { position: relative; width: 100%; height: 1.25em; font-size: clamp(1.3rem, 5.4vw, 3.6rem); font-weight: 700; letter-spacing: -.04em; text-align: center; white-space: nowrap; transition: filter .8s; }
       #ecran-chargement .phrases span {
@@ -74,8 +70,6 @@
       #ecran-chargement .ligne b { position: absolute; inset: 0; border-radius: 2px; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #fcd34d, #f59e0b 60%, #fb923c); box-shadow: 0 0 14px rgba(245, 158, 11, .7); transition: transform .45s cubic-bezier(.22, 1, .36, 1); }
       @media (prefers-reduced-motion: reduce) {
         #ecran-chargement .fond i { animation: none; }
-        #ecran-chargement .fond b:nth-child(1) { animation: none; opacity: 1; }
-        #ecran-chargement .fond b:nth-child(n+2) { animation: none; }
         #ecran-chargement .phrases span { transition: opacity .3s; filter: none; transform: none; }
       }
     </style>
@@ -83,10 +77,9 @@
   <body>
     <div id="ecran-chargement" role="status" aria-live="polite">
       <div class="fond" aria-hidden="true">
-        <i><b></b><b></b><b></b></i><i><b></b><b></b><b></b></i><i><b></b><b></b><b></b></i><i><b></b><b></b><b></b></i>
+        <i></i><i></i>
       </div>
       <div class="voile" aria-hidden="true"></div>
-      <div class="grain" aria-hidden="true"></div>
       <div class="phrases">
         <span class="active">Bienvenue sur <em>BTM</em>.</span>
         <span>Vos devis, <em>gratuitement</em>.</span>
@@ -100,6 +93,7 @@
       // l'écran disparaît dès que le site est prêt.
       (function () {
         var ecran = document.getElementById('ecran-chargement')
+        try {
         if (!window.matchMedia('(max-width: 639px)').matches) {
           ecran.remove()
           window.__btmPret = window.__btmProgres = function () {}
@@ -150,7 +144,13 @@
           }, Math.max(500, dureeMin - (Date.now() - debut))) // la ligne a le temps d'arriver au bout
         }
         // filet de sécurité : jamais bloqué derrière l'écran si le site plante au démarrage
-        setTimeout(window.__btmPret, 10000)
+        setTimeout(window.__btmPret, 8000)
+        } catch (e) {
+          // jamais bloqué derrière l'écran : au moindre problème, il disparaît et le site s'affiche
+          ecran.remove()
+          document.documentElement.classList.remove('chargement')
+          window.__btmPret = window.__btmProgres = function () {}
+        }
       })()
     </script>
     <div id="app"></div>

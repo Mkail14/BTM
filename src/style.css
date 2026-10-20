@@ -84,7 +84,7 @@
   --barre-onglets: 0px;
 }
 @media (max-width: 899px) {
-  html.avec-onglets { --barre-onglets: calc(64px + env(safe-area-inset-bottom)); }
+  html.avec-onglets { --barre-onglets: calc(82px + env(safe-area-inset-bottom)); }
   html.avec-onglets body { padding-bottom: var(--barre-onglets); }
 }
 

@@ -261,30 +261,31 @@ async function supprimerCompte() {
 
   <!-- Téléphone et tablette : barre d'onglets, hors de l'en-tête (son flou ancrerait la barre en haut) -->
   <nav class="onglets" aria-label="Navigation principale">
+    <!-- fond blanc en trois morceaux : le creux du milieu garde sa forme quelle que soit la largeur -->
+    <span class="onglets-fond" aria-hidden="true">
+      <span></span>
+      <svg viewBox="0 0 120 64" preserveAspectRatio="none"><path d="M0 0h8c14 0 19 6 25 16 8 14 16 22 27 22s19-8 27-22c6-10 11-16 25-16h8v64H0z" /></svg>
+      <span></span>
+    </span>
     <router-link to="/" class="onglet" active-class="actif">
-      <span class="onglet-icone"><i class="fa-solid fa-house" aria-hidden="true"></i></span><span>Accueil</span>
+      <i class="fa-solid fa-house" aria-hidden="true"></i><span>Accueil</span>
     </router-link>
     <router-link to="/fournisseurs" class="onglet" active-class="actif">
-      <span class="onglet-icone"><i class="fa-solid fa-truck" aria-hidden="true"></i></span><span>Fournisseurs</span>
+      <i class="fa-solid fa-truck" aria-hidden="true"></i><span>Fournisseurs</span>
     </router-link>
-    <router-link to="/calculateur" class="onglet onglet-estimer" active-class="actif">
-      <span class="onglet-bulle"><i class="fa-solid fa-calculator" aria-hidden="true"></i></span><span>Estimer</span>
+    <router-link to="/calculateur" class="onglet-central" active-class="actif" aria-label="Estimer">
+      <i class="fa-solid fa-calculator" aria-hidden="true"></i>
     </router-link>
     <router-link v-if="fournisseurLie" to="/espace-fournisseur" class="onglet" active-class="actif">
-      <span class="onglet-icone"><i class="fa-solid fa-store" aria-hidden="true"></i></span><span>Mon espace</span>
+      <i class="fa-solid fa-store" aria-hidden="true"></i><span>Mon espace</span>
     </router-link>
     <!-- déconnecté : la page demande la connexion puis s'ouvre -->
     <router-link v-else to="/dashboard" class="onglet" active-class="actif">
-      <span class="onglet-icone">
-        <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
-        <b v-if="propositions" class="onglet-pastille" :aria-label="`${propositions} proposition de BTM à voir`">{{ propositions }}</b>
-      </span><span>Projets</span>
+      <i class="fa-solid fa-folder-open" aria-hidden="true"></i><span>Projets</span>
+      <b v-if="propositions" class="onglet-pastille" :aria-label="`${propositions} proposition de BTM à voir`">{{ propositions }}</b>
     </router-link>
     <button type="button" class="onglet" :class="{ actif: profilOuvert }" @click="connecte ? ouvrirProfil() : ouvrirAuth()">
-      <span class="onglet-icone">
-        <span v-if="connecte" class="onglet-avatar" aria-hidden="true">{{ initiale }}</span>
-        <i v-else class="fa-regular fa-user" aria-hidden="true"></i>
-      </span><span>{{ connecte ? 'Compte' : 'Connexion' }}</span>
+      <i class="fa-solid fa-circle-user" aria-hidden="true"></i><span>{{ connecte ? 'Compte' : 'Connexion' }}</span>
     </button>
   </nav>
 
@@ -472,43 +473,37 @@ async function supprimerCompte() {
   .entete-utilisateur, .entete-deconnexion, .entete-connexion, .entete-cta { display: none; }
   .credit-detail { right: 0; width: min(330px, calc(100vw - 32px)); }
 
+  /* barre blanche flottante, creux au centre pour le bouton Estimer */
   .onglets {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 110; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
-    height: var(--barre-onglets); padding: 0 6px env(safe-area-inset-bottom);
-    background: rgba(6, 32, 44, .92); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
-    border-top: 1px solid rgba(103, 232, 249, .12); box-shadow: 0 -10px 30px rgba(6, 32, 44, .22);
+    position: fixed; left: max(12px, calc(50% - 280px)); right: max(12px, calc(50% - 280px)); bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 110;
+    display: grid; grid-template-columns: 1fr 1fr 112px 1fr 1fr; height: 64px;
+    filter: drop-shadow(0 10px 24px rgba(15, 23, 42, .14)) drop-shadow(0 1px 2px rgba(15, 23, 42, .08));
   }
+  .onglets-fond { position: absolute; inset: 0; z-index: -1; display: flex; }
+  .onglets-fond > span { flex: 1; background: #fff; }
+  .onglets-fond > span:first-child { border-radius: 22px 0 0 22px; }
+  .onglets-fond > span:last-child { border-radius: 0 22px 22px 0; }
+  .onglets-fond svg { width: 112px; height: 100%; flex: none; fill: #fff; }
   .onglet {
-    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; height: 64px;
-    padding: 0; border: 0; background: none; color: rgba(255, 255, 255, .58); font: 600 .68rem/1.1 var(--font-corps); letter-spacing: .01em;
-    -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color var(--transition);
+    position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-width: 0;
+    padding: 0; border: 0; background: none; color: var(--gris-400); font: 500 .7rem/1 var(--font-corps);
+    -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color .15s ease;
   }
-  .onglet > span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .onglet-icone {
-    position: relative; width: 54px; height: 30px; display: grid; place-items: center; border-radius: 999px; font-size: 1.08rem;
-    transition: background var(--transition), color var(--transition), transform .15s ease;
+  .onglet i { font-size: 1.15rem; }
+  .onglet > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .onglet.actif { color: var(--ardoise); font-weight: 700; }
+  .onglet:active i { transform: scale(.92); }
+  .onglet:focus-visible, .onglet-central:focus-visible { outline: 2px solid var(--lagon-500); outline-offset: 2px; border-radius: 12px; }
+  .onglet-central {
+    justify-self: center; align-self: start; width: 56px; height: 56px; margin-top: -24px; display: grid; place-items: center;
+    border-radius: 50%; background: var(--ardoise); color: #fff; font-size: 1.2rem;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .28); -webkit-tap-highlight-color: transparent; transition: transform .15s ease, background .15s ease;
   }
-  .onglet.actif { color: #fff; }
-  .onglet.actif .onglet-icone { background: rgba(34, 211, 238, .18); color: var(--lagon-300); }
-  .onglet:active .onglet-icone, .onglet:active .onglet-bulle { transform: scale(.9); }
-  .onglet:focus-visible { outline: none; }
-  .onglet:focus-visible .onglet-icone, .onglet:focus-visible .onglet-bulle { outline: 2px solid var(--lagon-300); outline-offset: 2px; }
-  /* Estimer : l'action principale, en relief au centre */
-  .onglet-bulle {
-    width: 54px; height: 54px; margin-top: -24px; display: grid; place-items: center; border-radius: 18px; font-size: 1.3rem; color: #fff;
-    background: linear-gradient(145deg, var(--lagon-400), var(--lagon-700));
-    box-shadow: 0 10px 24px rgba(8, 145, 178, .45), 0 0 0 5px var(--abysse); transition: transform .15s ease, box-shadow var(--transition);
-  }
-  .onglet-estimer { justify-content: flex-end; padding-bottom: 9px; }
-  .onglet-estimer.actif .onglet-bulle { box-shadow: 0 10px 24px rgba(8, 145, 178, .55), 0 0 0 5px var(--abysse), 0 0 0 7px var(--lagon-400); }
-  .onglet-avatar {
-    width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%;
-    background: linear-gradient(135deg, var(--lagon-400), var(--lagon-700)); color: #fff; font: 700 .8rem/1 var(--font-display);
-  }
-  .onglet.actif .onglet-avatar { box-shadow: 0 0 0 2px var(--lagon-300); }
+  .onglet-central.actif { background: var(--lagon-700); }
+  .onglet-central:active { transform: scale(.94); }
   .onglet-pastille {
-    position: absolute; top: -3px; right: 6px; min-width: 17px; height: 17px; padding: 0 4px; display: grid; place-items: center;
-    border-radius: 999px; background: #f59e0b; color: #fff; font: 800 .64rem/1 var(--font-corps); box-shadow: 0 0 0 2px var(--abysse);
+    position: absolute; top: 9px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center;
+    border-radius: 999px; background: #f59e0b; color: #fff; font: 700 .62rem/1 var(--font-corps); box-shadow: 0 0 0 2px #fff;
   }
 }
 

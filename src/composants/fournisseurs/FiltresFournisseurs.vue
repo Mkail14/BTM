@@ -84,13 +84,20 @@ const emit = defineEmits(['update:recherche', 'update:categorie', 'update:livrai
 .filtres-livraison.actif { border-color: var(--lagon-600); background: var(--lagon-50); color: var(--lagon-800); }
 .filtres-livraison:has(input:focus-visible) { outline: 2px solid var(--lagon-600); outline-offset: 2px; }
 
+/* Téléphone : recherche et filtres collés sous l'en-tête pendant qu'on fait défiler (fond flouté),
+   une seule ligne de puces qui défile au doigt : « Livraison » en premier, puis les catégories. */
 @media (max-width: 600px) {
-  .filtres-recherche input { font-size: 16px; } /* pas de zoom automatique sur iPhone */
-  .filtres { flex-direction: column; align-items: stretch; }
+  .filtres {
+    position: sticky; top: var(--hauteur-entete); z-index: 20; flex-direction: column; align-items: stretch; gap: 10px;
+    margin-inline: calc(-1 * var(--gouttiere)); padding: 10px var(--gouttiere); border: 0; border-radius: 0; box-shadow: none;
+    background: rgba(248, 250, 252, .9);
+    background: color-mix(in srgb, var(--fond, #fff) 82%, transparent); backdrop-filter: blur(14px) saturate(160%); -webkit-backdrop-filter: blur(14px) saturate(160%);
+  }
   .filtres-recherche, .filtres-ligne { flex-basis: auto; width: 100%; min-width: 0; }
-  .filtres-puces { width: 100%; }
-  .filtres-ligne { flex-direction: column; align-items: stretch; gap: 10px; }
-  .filtres-livraison { align-self: flex-start; }
-  .filtres-puces { margin: 0; padding: 2px; }
+  .filtres-recherche input { min-height: 46px; border-color: var(--gris-200); background: #fff; font-size: 16px; } /* 16 px : pas de zoom automatique sur iPhone */
+  .filtres-ligne { gap: 8px; margin-inline: calc(-1 * var(--gouttiere)); padding-left: var(--gouttiere); }
+  .filtres-livraison { order: -1; min-height: 36px; padding: 0 12px; font-size: .84rem; }
+  .filtres-puces { gap: 6px; padding: 2px var(--gouttiere) 2px 2px; }
+  .filtres-puces button { min-height: 36px; padding: 0 12px; font-size: .84rem; }
 }
 </style>

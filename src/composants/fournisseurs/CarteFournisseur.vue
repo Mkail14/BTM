@@ -55,7 +55,7 @@ const itineraire = computed(() => {
         <a :href="itineraire" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-route" aria-hidden="true"></i>Itinéraire</a>
         <a v-if="fournisseur.email" :href="`mailto:${fournisseur.email}`"><i class="fa-solid fa-envelope" aria-hidden="true"></i>E-mail</a>
         <a v-if="fournisseur.site_web" :href="lienSite(fournisseur.site_web)" target="_blank" rel="noopener noreferrer">
-          <i class="fa-solid fa-globe" aria-hidden="true"></i>{{ domaine(fournisseur.site_web) }}
+          <i class="fa-solid fa-globe" aria-hidden="true"></i><span class="fr-action-texte">{{ domaine(fournisseur.site_web) }}</span>
         </a>
       </div>
     </div>
@@ -116,15 +116,33 @@ const itineraire = computed(() => {
 .fr-actions a:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
 .fr-actions a i { font-size: .8rem; color: var(--lagon-600); }
 
+/* Téléphone : carte arrondie (voir l'annuaire), appel en bouton rond plein, détails en liste claire
+   et actions en grandes touches égales */
 @media (max-width: 600px) {
-  .fr-ligne { gap: 8px; padding: 0 12px; }
+  .fr, .fr:last-child { border-bottom: 0; }
+  .fr-ligne { gap: 10px; padding: 0 12px 0 14px; }
+  .fr-ligne:hover { background: none; }
+  .fr.ouvert .fr-ligne { background: none; }
   .fr-principal { gap: 12px; padding: 14px 0; }
-  .fr-logo { width: 44px; height: 44px; border-radius: 12px; }
+  .fr-principal:active { opacity: .7; }
+  .fr-logo { width: 46px; height: 46px; border-radius: 13px; }
+  .fr-nom strong { font-size: 1rem; }
+  .fr-infos { font-size: .8rem; }
   .fr-chevron { display: none; }
-  .fr-appel { width: 44px; padding: 0; justify-content: center; }
+  .fr-appel { width: 44px; padding: 0; justify-content: center; border: 0; background: var(--lagon-600); box-shadow: 0 6px 14px -6px rgba(8, 145, 178, .7); }
+  .fr-appel i { color: #fff; font-size: .9rem; }
   .fr-appel span { display: none; }
-  .fr-details { padding: 4px 12px 18px; }
+  .fr-appel:active { background: var(--lagon-700); }
+
+  .fr-details { margin: 0 12px 12px; padding: 14px; border-radius: 14px; background: var(--gris-50); }
+  .fr-description { font-size: .9rem; }
   .fr-details dl > div { grid-template-columns: 1fr; gap: 2px; }
-  .fr-actions a { flex: 1 1 auto; justify-content: center; }
+  .fr-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+  .fr-actions a {
+    flex-direction: column; justify-content: center; gap: 4px; min-height: 58px; padding: 6px 4px; border-radius: 14px;
+    font-size: .76rem; text-align: center; overflow: hidden;
+  }
+  .fr-actions a i { font-size: 1rem; }
+  .fr-action-texte { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 </style>

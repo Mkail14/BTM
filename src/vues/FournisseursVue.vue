@@ -73,7 +73,13 @@ function reinitialiser() { recherche.value = ''; categorie.value = ''; livraison
   <div id="page-fournisseurs" class="page">
     <div class="conteneur annuaire">
       <!-- même bandeau que « Mes projets » -->
-      <BandeauPage surtitre="Annuaire" titre="Fournisseurs de Mayotte" texte="Les entreprises de matériaux de l’île, à contacter directement : appel, itinéraire ou e-mail en un geste." :pastilles="pastilles">
+      <!-- Téléphone : grand titre d'application à la place du bandeau (« Estimer » est déjà dans la barre d'onglets) -->
+      <header class="annuaire-tete">
+        <h1>Fournisseurs</h1>
+        <p v-if="liste.length">{{ liste.length }} {{ pluriel(liste.length, 'entreprise') }} de matériaux à Mayotte</p>
+        <p v-else>Les matériaux de l’île, à contacter en un geste</p>
+      </header>
+      <BandeauPage class="annuaire-bandeau" surtitre="Annuaire" titre="Fournisseurs de Mayotte" texte="Les entreprises de matériaux de l’île, à contacter directement : appel, itinéraire ou e-mail en un geste." :pastilles="pastilles">
         <template #action>
           <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Estimer mon projet</router-link>
         </template>
@@ -163,9 +169,28 @@ ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 @media (prefers-reduced-motion: reduce) {
   .annuaire-squelette > span:first-child, .annuaire-squelette > span:last-child span { animation: none; }
 }
+.annuaire-tete { display: none; }
+
+/* Téléphone : une page d'application. Grand titre, recherche et filtres collés en haut pendant qu'on fait défiler,
+   fiches en cartes arrondies avec l'appel à portée du pouce. */
 @media (max-width: 600px) {
-    .annuaire-liste { margin-left: calc(-1 * var(--gouttiere)); margin-right: calc(-1 * var(--gouttiere)); border-width: 1px 0; border-radius: 0; }
-  .annuaire-pied { flex-direction: column; align-items: flex-start; text-align: left; }
-  .annuaire-pied .btn { width: 100%; justify-content: center; }
+  #page-fournisseurs { padding-top: calc(var(--hauteur-entete) + 18px); }
+  .annuaire-bandeau { display: none; }
+  .annuaire-tete { display: block; margin-bottom: 14px; }
+  .annuaire-tete h1 { font-size: 2.3rem; color: var(--ardoise); line-height: 1; }
+  .annuaire-tete p { margin: 6px 0 0; color: var(--gris-500); font-size: .92rem; }
+
+  .annuaire-barre { margin: 16px 2px 8px; }
+  .annuaire-liste { display: flex; flex-direction: column; gap: 10px; overflow: visible; border: 0; border-radius: 0; background: none; }
+  .annuaire-liste > :deep(li) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; background: #fff; box-shadow: 0 4px 14px -10px rgba(11, 58, 77, .25); }
+  ul.annuaire-liste[aria-busy] { margin-top: 16px; }
+  .annuaire-squelette, .annuaire-squelette:last-child { border: 1px solid var(--gris-200); border-radius: 18px; background: #fff; }
+
+  .annuaire-vide { margin-top: 16px; padding: 40px 20px; }
+
+  .annuaire-pied { flex-direction: row; flex-wrap: wrap; gap: 12px; margin-top: 28px; padding: 16px; border-radius: 18px; }
+  .annuaire-pied p { display: none; }
+  .annuaire-pied strong { font-size: 1.1rem; }
+  .annuaire-pied .btn { width: 100%; min-height: 46px; justify-content: center; border-radius: 999px; }
 }
 </style>

@@ -181,7 +181,7 @@ export const formaterEuros = (n) =>
 export const formaterNombre = (n, decimales = 2) =>
   new Intl.NumberFormat('fr-FR', { maximumFractionDigits: decimales }).format(Number(n) || 0)
 
-const UNITES_EN_TOUTES_LETTRES = { u: ['unité', 'unités'], sac: ['sac', 'sacs'], t: ['tonne', 'tonnes'] }
+const UNITES_EN_TOUTES_LETTRES = { u: ['unité', 'unités'], sac: ['sac', 'sacs'], t: ['tonne', 'tonnes'], carreau: ['carreau', 'carreaux'] }
 
 /** « 13 sacs », « 1,5 tonne », « 3,2 m³ » — quantité lisible pour un particulier */
 export function formaterQuantite(quantite, unite) {

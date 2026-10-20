@@ -20,7 +20,7 @@ const sections = computed(() => [
   { id: 'frais', titre: 'Gratuité pour le client, commission et fidélité', texte: [
     'L’inscription, les estimations, l’export PDF et la consultation de l’annuaire sont gratuits.',
     'BTM est une plateforme de mise en relation : il ne vend aucun matériau. L’utilisation de BTM est gratuite pour le client, qui ne paie aucun frais de service.',
-    `Sur présentation du code de retrait d’un devis enregistré, le fournisseur applique son « prix BTM », en principe inférieur à son prix au comptoir. Le fournisseur verse à BTM une commission de ${taux.value} de la vente réalisée.`,
+    `Sur présentation du code de retrait d’une estimation enregistrée, le fournisseur applique son « prix BTM », en principe inférieur à son prix au comptoir. Le fournisseur verse à BTM une commission de ${taux.value} de la vente réalisée.`,
     'Chaque achat réalisé avec un code de retrait rapporte au client un crédit fidélité, utilisable lors d’un prochain retrait chez un fournisseur partenaire. Le crédit n’est ni échangeable ni remboursable en espèces.',
     'BTM peut proposer des codes promo. Un code valable s’applique une seule fois par compte, dans les conditions indiquées (montant ou pourcentage) et jusqu’à sa date d’expiration. Un code n’est ni échangeable ni remboursable.' ] },
   { id: 'compte', titre: 'Création et gestion du compte', texte: [

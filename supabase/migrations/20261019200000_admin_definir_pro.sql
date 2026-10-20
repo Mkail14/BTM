@@ -1,5 +1,5 @@
 -- Rôle « professionnel » donné par un administrateur, sans demande de vérification de l'utilisateur.
--- À exécuter une fois dans Supabase → SQL Editor.
+-- Appliquée le 19/10/2026.
 --
 -- Dans l'admin, le choix « Professionnel » (fiche d'un utilisateur, ou profil → Rôles) passe le compte en professionnel
 -- vérifié ; « Particulier » lui retire ce statut. Sans cette fonction, l'admin passe par la vérification des demandes
@@ -28,5 +28,5 @@ begin
 end
 $$;
 
-revoke all on function public.admin_definir_pro(uuid, boolean) from public;
+revoke all on function public.admin_definir_pro(uuid, boolean) from public, anon;
 grant execute on function public.admin_definir_pro(uuid, boolean) to authenticated;

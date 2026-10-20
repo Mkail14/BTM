@@ -33,6 +33,16 @@ const salutation = computed(() => {
   return `Bonjour ${nomComplet || infos?.pseudo || utilisateur.value.email.split('@')[0]}`
 })
 
+// Titre : « Chiffrez votre » + un mot qui défile de haut en bas (mur, dalle, terrasse…)
+const mots = computed(() => contenu.hero.motsAnimes.split(',').map((m) => m.trim()).filter(Boolean))
+const indexMot = ref(0)
+let minuterieMot = null
+const demarrerMots = () => {
+  if (calme || minuterieMot || mots.value.length < 2) return
+  minuterieMot = setInterval(() => { indexMot.value = (indexMot.value + 1) % mots.value.length }, 2600)
+}
+const arreterMots = () => { clearInterval(minuterieMot); minuterieMot = null }
+
 // Téléphone (< 640 px) : la maquette 3D est remplacée par des raccourcis vers les types de devis
 const requete = typeof window !== 'undefined' ? window.matchMedia('(max-width: 639px)') : null
 const telephone = ref(!!requete?.matches)
@@ -61,10 +71,10 @@ const surScroll = () => { if (!raf) raf = requestAnimationFrame(cadrer) }
 // accueil gardé en mémoire (keep-alive) : le défilement des autres pages ne doit pas recalculer le héros
 const brancherScroll = () => { window.addEventListener('scroll', surScroll, { passive: true }); surScroll() }
 const debrancherScroll = () => { window.removeEventListener('scroll', surScroll); if (raf) cancelAnimationFrame(raf); raf = null }
-onMounted(brancherScroll)
-onActivated(brancherScroll)
-onDeactivated(debrancherScroll)
-onBeforeUnmount(debrancherScroll)
+onMounted(() => { brancherScroll(); demarrerMots() })
+onActivated(() => { brancherScroll(); demarrerMots() })
+onDeactivated(() => { debrancherScroll(); arreterMots() })
+onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
 
 </script>
 
@@ -82,7 +92,18 @@ onBeforeUnmount(debrancherScroll)
         </p>
         <p v-else class="hero-surtitre">{{ contenu.hero.surtitre }}</p>
         <h1 id="hero-titre" class="hero-titre">
-          {{ salutation || contenu.hero.titre }}
+          <template v-if="salutation">{{ salutation }}</template>
+          <template v-else>
+            {{ contenu.hero.titreDebut }}
+            <!-- tous les mots empilés dans la même case : la largeur suit le plus long, rien ne saute -->
+            <span class="hero-mots" aria-hidden="true">
+              <span
+                v-for="(mot, i) in mots" :key="mot" class="hero-mot"
+                :class="{ actif: i === indexMot, parti: i === (indexMot - 1 + mots.length) % mots.length }"
+              >{{ mot }}</span>
+            </span>
+            <span class="visually-hidden">{{ mots.join(', ') }}</span>
+          </template>
         </h1>
         <p class="hero-desc">
           {{ contenu.hero.description }}
@@ -98,7 +119,7 @@ onBeforeUnmount(debrancherScroll)
       </div>
 
       <!-- Téléphone : accès direct à chaque type de devis -->
-      <nav v-else class="hero-raccourcis" aria-label="Commencer un devis">
+      <nav v-else class="hero-raccourcis" aria-label="Commencer une estimation">
         <p class="hero-raccourcis-titre">{{ contenu.hero.raccourcisTitre }}</p>
         <ul>
           <li v-for="t in typesProjets" :key="t.id">
@@ -184,6 +205,22 @@ onBeforeUnmount(debrancherScroll)
   font-size: clamp(2.6rem, 6vw, 4.6rem); font-weight: 700; line-height: 1.02; letter-spacing: -.01em;
   animation: apparaitre .7s .08s ease both;
 }
+/* Mot qui défile : le nouveau tombe du haut, l'ancien file vers le bas, fondus et légèrement flous en mouvement */
+.hero-mots {
+  display: inline-grid; vertical-align: bottom; overflow: hidden;
+  padding: .06em 0 .32em; margin: -.06em 0 -.46em; /* place pour les jambages (g) sans bouger la ligne : le fondu du bas tombe sous le g */
+  -webkit-mask-image: linear-gradient(transparent, #000 10%, #000 90%, transparent);
+  mask-image: linear-gradient(transparent, #000 10%, #000 90%, transparent);
+}
+.hero-mot {
+  grid-area: 1 / 1; white-space: nowrap; text-shadow: none; padding-bottom: .14em; /* le dégradé (background-clip) couvre aussi le jambage du g */
+  background: linear-gradient(100deg, #fcd34d, #f59e0b 60%, #fb923c); -webkit-background-clip: text; background-clip: text; color: transparent;
+  opacity: 0; transform: translateY(-105%); filter: blur(6px);
+}
+.hero-mot.actif, .hero-mot.parti { transition: transform .7s cubic-bezier(.22, 1, .36, 1), opacity .5s ease, filter .5s ease; }
+.hero-mot.actif { opacity: 1; transform: none; filter: none; }
+.hero-mot.parti { transform: translateY(105%); }
+@media (prefers-reduced-motion: reduce) { .hero-mot { transition: none !important; } }
 .hero-desc { margin-top: 24px; font-size: clamp(1rem, 1.4vw, 1.15rem); line-height: 1.65; color: var(--beton); max-width: 560px; animation: apparaitre .7s .18s ease both; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; animation: apparaitre .7s .28s ease both; }
 .hero-visuel {

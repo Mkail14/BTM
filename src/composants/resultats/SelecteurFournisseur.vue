@@ -45,7 +45,7 @@ const lienSite = (url) => (url?.startsWith('http') ? url : `https://${url}`)
     <transition name="glisser">
       <address v-if="selection" class="sf-coordonnees">
         <p><i class="fa-solid fa-location-dot"></i> {{ selection.adresse || selection.commune }}</p>
-        <p><i class="fa-solid fa-phone"></i> <a :href="`tel:${selection.telephone.replace(/\s/g, '')}`" class="mono">{{ selection.telephone }}</a></p>
+        <p v-if="selection.telephone"><i class="fa-solid fa-phone"></i> <a :href="`tel:${selection.telephone.replace(/\s/g, '')}`" class="mono">{{ selection.telephone }}</a></p>
         <p v-if="selection.site_web"><i class="fa-solid fa-globe"></i> <a :href="lienSite(selection.site_web)" target="_blank" rel="noopener noreferrer">{{ selection.site_web.replace(/^https?:\/\//, '') }}</a></p>
         <p v-if="selection.livraison" class="badge badge-vert"><i class="fa-solid fa-truck-fast"></i> Livraison disponible</p>
       </address>

@@ -191,6 +191,8 @@ const vigilance = computed(() => {
   const anciens = (donnees.materiaux || []).filter((m) => Date.now() - new Date(m.mis_a_jour_le).getTime() > 180 * JOUR).length
   // Reversements des fournisseurs : RIB à fournir (action = « Compte & reversements »)
   if (!donnees.versement?.iban) liste.push({ icone: 'fa-solid fa-building-columns', texte: 'Ajoutez le RIB de BTM : les fournisseurs en ont besoin pour reverser vos frais', action: ouvrirCompte })
+  const virements = (donnees.reversements || []).filter((r) => r.statut === 'declare').length
+  if (virements) liste.push({ icone: 'fa-solid fa-money-bill-transfer', texte: `${virements} virement${virements > 1 ? 's' : ''} de fournisseur à vérifier sur le compte de BTM`, action: ouvrirCompte })
   const prosAVerifier = (donnees.profils || []).filter((p) => p.pro_statut === 'en_attente').length
   if (prosAVerifier) liste.push({ icone: 'fa-solid fa-helmet-safety', texte: `${prosAVerifier} compte${prosAVerifier > 1 ? 's' : ''} professionnel${prosAVerifier > 1 ? 's' : ''} à vérifier`, lien: '/admin/utilisateurs' })
   const enAttente = (donnees.projets || []).filter((p) => p.fournisseur_id && !estPaye(p)).length

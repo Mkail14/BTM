@@ -30,7 +30,7 @@ const itineraire = computed(() => {
           <span class="fr-nom">
             <strong>{{ fournisseur.nom }}</strong>
             <span v-if="fournisseur.livraison" class="fr-badge"><i class="fa-solid fa-truck" aria-hidden="true"></i>Livraison</span>
-            <span v-if="fournisseur.demonstration" class="fr-badge fr-demo" title="Fiche d’exemple : cette entreprise n’est pas encore partenaire de BTM, ses prix sur BTM sont fictifs."><i class="fa-solid fa-flask" aria-hidden="true"></i>Exemple</span>
+            <span v-if="fournisseur.demonstration" class="fr-badge fr-demo" title="Fiche fictive : ce fournisseur n’existe pas, ses prix servent à montrer le fonctionnement du site."><i class="fa-solid fa-flask" aria-hidden="true"></i>Exemple</span>
           </span>
           <span class="fr-infos">
             <span>{{ fournisseur.categorie }}</span>
@@ -45,7 +45,7 @@ const itineraire = computed(() => {
     </div>
 
     <div v-show="ouvert" :id="idDetails" class="fr-details">
-      <p v-if="fournisseur.demonstration" class="fr-avertissement"><i class="fa-solid fa-flask" aria-hidden="true"></i> Fiche d’exemple : cette entreprise n’est pas encore partenaire de BTM. Les prix affichés pour elle sur BTM sont fictifs ; contactez-la directement pour ses tarifs.</p>
+      <p v-if="fournisseur.demonstration" class="fr-avertissement"><i class="fa-solid fa-flask" aria-hidden="true"></i> Fiche fictive : ce fournisseur n’existe pas. Ses prix servent seulement à montrer le fonctionnement du site, en attendant nos premiers partenaires.</p>
       <p v-if="fournisseur.description" class="fr-description">{{ fournisseur.description }}</p>
       <dl>
         <div><dt><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Adresse</dt><dd>{{ fournisseur.adresse || fournisseur.commune }}</dd></div>

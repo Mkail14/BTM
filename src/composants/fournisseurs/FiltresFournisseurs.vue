@@ -85,6 +85,7 @@ const emit = defineEmits(['update:recherche', 'update:categorie', 'update:livrai
 .filtres-livraison:has(input:focus-visible) { outline: 2px solid var(--lagon-600); outline-offset: 2px; }
 
 @media (max-width: 600px) {
+  .filtres-recherche input { font-size: 16px; } /* pas de zoom automatique sur iPhone */
   .filtres { flex-direction: column; align-items: stretch; }
   .filtres-recherche, .filtres-ligne { flex-basis: auto; width: 100%; min-width: 0; }
   .filtres-puces { width: 100%; }

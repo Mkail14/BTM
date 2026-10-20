@@ -15,10 +15,10 @@ const miseAJour = '2 octobre 2026'
 // Tout ce que le site enregistre dans le navigateur (aucun cookie publicitaire ni de mesure d'audience)
 const stockage = [
   { nom: 'Session de connexion', ou: 'Stockage local', role: 'Vous garder connecté d’une page à l’autre', duree: 'Jusqu’à la déconnexion' },
-  { nom: 'Devis en cours', ou: 'Stockage de l’onglet', role: 'Retrouver votre estimation pendant votre visite', duree: 'Fermeture de l’onglet' },
-  { nom: 'Devis mis de côté à l’inscription', ou: 'Stockage local', role: 'Retrouver votre devis après la confirmation de votre e-mail', duree: '48 heures' },
+  { nom: 'Estimation en cours', ou: 'Stockage de l’onglet', role: 'Retrouver votre estimation pendant votre visite', duree: 'Fermeture de l’onglet' },
+  { nom: 'Estimation mise de côté à l’inscription', ou: 'Stockage local', role: 'Retrouver votre estimation après la confirmation de votre e-mail', duree: '48 heures' },
   { nom: 'Projets enregistrés sur l’appareil', ou: 'Stockage local', role: 'Garder vos projets si vous n’avez pas de compte', duree: 'Jusqu’à leur suppression' },
-  { nom: 'Préférences d’affichage', ou: 'Stockage de l’onglet', role: 'Annonce fermée, mode de visite, devis pro en cours', duree: 'Fermeture de l’onglet' },
+  { nom: 'Préférences d’affichage', ou: 'Stockage de l’onglet', role: 'Annonce fermée, mode de visite, estimation pro en cours', duree: 'Fermeture de l’onglet' },
   { nom: 'Information cookies', ou: 'Stockage local', role: 'Ne pas réafficher ce bandeau à chaque visite', duree: '13 mois' }
 ]
 
@@ -26,8 +26,8 @@ const sections = computed(() => [
   { id: 'resume', titre: 'En bref', texte: [
     'BTM n’utilise aucun cookie publicitaire, aucun outil de mesure d’audience et ne revend aucune donnée. Les polices et icônes du site sont hébergées par BTM : aucun service tiers ne reçoit votre adresse IP quand vous visitez le site.'] },
   { id: 'donnees', titre: 'Données collectées et finalités', texte: [
-    'Si vous créez un compte : civilité, nom, prénom, adresse e-mail, téléphone et, pour un compte professionnel, raison sociale et SIRET. Ils servent à gérer votre compte, enregistrer vos devis et vous permettre de retirer vos matériaux chez un fournisseur avec votre code de retrait.',
-    'Vos devis enregistrés, vos achats validés au comptoir, votre crédit fidélité et les avis que vous publiez sont conservés tant que votre compte existe.',
+    'Si vous créez un compte : civilité, nom, prénom, adresse e-mail, téléphone et, pour un compte professionnel, raison sociale et SIRET. Ils servent à gérer votre compte, enregistrer vos estimations et vous permettre de retirer vos matériaux chez un fournisseur avec votre code de retrait.',
+    'Vos estimations enregistrées, vos achats validés au comptoir, votre crédit fidélité et les avis que vous publiez sont conservés tant que votre compte existe.',
     'Base légale : l’exécution du service que vous demandez (article 6.1.b du RGPD).'] },
   { id: 'hebergement', titre: 'Hébergement et prestataires', texte: [
     'Base de données et comptes : Supabase, serveurs situés en Irlande (Union européenne). Site web : Vercel. E-mails (confirmation, mot de passe oublié) : OVHcloud, en France.',
@@ -88,7 +88,7 @@ function effacer() {
                 <button type="button" class="btn btn-secondaire btn-sm" @click="effacer"><i class="fa-solid fa-broom" aria-hidden="true"></i> Effacer les données de cet appareil</button>
                 <button type="button" class="btn btn-ghost btn-sm" @click="rouvrir">Revoir le bandeau d’information</button>
               </div>
-              <p v-if="efface" class="conf-ok" role="status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> C’est fait : devis non enregistrés et préférences effacés de cet appareil (votre connexion est conservée).</p>
+              <p v-if="efface" class="conf-ok" role="status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> C’est fait : estimations non enregistrées et préférences effacées de cet appareil (votre connexion est conservée).</p>
             </template>
           </section>
 

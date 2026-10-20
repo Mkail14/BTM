@@ -270,3 +270,9 @@ ul { margin: 0; padding: 0; list-style: none; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
   .reveal { opacity: 1; transform: none; }
 }
+
+/* Bouton d'aide flottant : remonté au-dessus des barres d'actions collées en bas de l'écran (téléphone) */
+@media (max-width: 899px) {
+  body:has(.etape-carreau) { --decalage-aide: 76px; }
+  body:has(.cd-pied) { --decalage-aide: 72px; }
+}

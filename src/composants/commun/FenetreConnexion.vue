@@ -105,6 +105,7 @@ watch(siret, async (valeur) => {
 const nom = ref('')
 const prenom = ref('')
 const telephone = ref('')
+const telephoneValide = ref(true) // vide ou complet
 const motDePasse = ref('')
 const confirmation = ref('')
 const resterConnecte = ref(true)
@@ -131,7 +132,7 @@ const compteCree = ref(null)
 // connexion ouverte par « J'ai confirmé, me connecter » : le compte existe, le texte d'accroche ne doit plus inviter à le créer
 const apresConfirmation = ref(false)
 const raison = computed(() => (apresConfirmation.value && !estInscription.value
-  ? 'Compte créé : connectez-vous pour afficher votre devis.'
+  ? 'Compte créé : connectez-vous pour retrouver votre estimation.'
   : props.message))
 const chargement = ref(false)
 const estInscription = computed(() => props.mode === 'inscription')
@@ -215,7 +216,9 @@ function valider() {
     { const m = erreurNom(prenom.value, 'prénom'); if (m) e.prenom = m }
     validerEmail(e)
   } else if (nomEtape.value === 'Sécurité') {
-    if (!telephone.value) e.telephone = 'Saisissez un numéro de téléphone valide'
+    // facultatif pour un particulier ; obligatoire pour un pro (retraits, suivi de chantier) ; jamais à moitié saisi
+    if (!telephoneValide.value) e.telephone = 'Numéro incomplet : corrigez-le ou laissez le champ vide'
+    else if (!telephone.value && typeCompte.value === 'professionnel') e.telephone = 'Saisissez un numéro de téléphone valide'
     validerMotDePasse(e)
     if (confirmation.value !== motDePasse.value) e.confirmation = 'Les mots de passe ne correspondent pas'
   } else if (!cgu.value) {
@@ -364,14 +367,14 @@ function traduire(m = '') {
           <h2>BTM Pro</h2>
           <p>Chiffrez des chantiers entiers, pas seulement un mur.</p>
           <ul>
-            <li><i class="fa-solid fa-city"></i> Plusieurs ouvrages dans un même devis : murs, dalles, fondations, terrasses, carrelage</li>
+            <li><i class="fa-solid fa-city"></i> Plusieurs ouvrages dans une même estimation : murs, dalles, fondations, terrasses, carrelage</li>
             <li><i class="fa-solid fa-cart-shopping"></i> Ouvrages mesurés et achats directs réunis</li>
-            <li><i class="fa-solid fa-file-pdf"></i> Un seul devis PDF avec code de retrait</li>
+            <li><i class="fa-solid fa-file-pdf"></i> Une seule estimation PDF avec code de retrait</li>
           </ul>
         </template>
         <template v-else>
           <h2>{{ estInscription ? 'Rejoignez BTM' : 'Bon retour !' }}</h2>
-          <p>Synchronisez vos devis entre vos appareils et retrouvez vos projets où que vous soyez sur l’île.</p>
+          <p>Synchronisez vos estimations entre vos appareils et retrouvez vos projets où que vous soyez sur l’île.</p>
           <ul>
             <li><i class="fa-solid fa-cloud"></i> Sauvegarde cloud sécurisée</li>
             <li><i class="fa-solid fa-mobile-screen"></i> Accès depuis mobile, tablette et PC</li>
@@ -387,7 +390,7 @@ function traduire(m = '') {
           <span class="auth-cree-icone" aria-hidden="true"><i class="fa-solid fa-envelope-circle-check"></i></span>
           <h2 id="auth-titre" class="auth-titre">Plus qu’une étape : confirmez votre e-mail</h2>
           <p>Votre compte est créé. Nous venons d’envoyer un lien à <strong>{{ compteCree.email }}</strong> : ouvrez-le pour activer votre compte.</p>
-          <p v-if="compteCree.avecDevis">Vos réponses sont gardées : ce lien vous ramène directement au résultat de votre devis.</p>
+          <p v-if="compteCree.avecDevis">Vos réponses sont gardées : ce lien vous ramène directement à votre estimation.</p>
           <p v-if="compteCree.pro">Vos outils professionnels s’ouvriront dès que notre équipe aura validé votre SIRET.</p>
           <p class="champ-aide">Rien reçu après quelques minutes ? Regardez dans vos courriers indésirables, ou
             <button type="button" class="auth-lien" :disabled="renvoi === 'envoi'" @click="renvoyer">{{ renvoi === 'fait' ? 'e-mail renvoyé ✓' : 'renvoyez l’e-mail' }}</button>.
@@ -401,8 +404,8 @@ function traduire(m = '') {
         <template v-else>
           <h2 id="auth-titre" class="auth-titre">{{ !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
           <p v-if="raison && (!estInscription || etape === 0)" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ raison }}</p>
-          <p v-if="estInscription && etape <= 1" class="champ-aide auth-donnees">Vos informations servent uniquement à votre compte et à vos devis : elles ne sont ni vendues ni cédées à des tiers.</p>
-          <p class="texte-secondaire auth-intro">{{!estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit, en moins d’une minute.' }}</p>
+          <p v-if="estInscription && etape <= 1" class="champ-aide auth-donnees">Vos informations servent uniquement à votre compte et à vos estimations : elles ne sont ni vendues ni cédées à des tiers.</p>
+          <p class="texte-secondaire auth-intro">{{!estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit : 3 courtes étapes, puis une confirmation par e-mail.' }}</p>
 
           <BandeauAvertissement v-if="!backendDisponible" type="info" compact class="auth-note">
             Authentification prévue avec Supabase — renseignez <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> pour l’activer.
@@ -431,7 +434,7 @@ function traduire(m = '') {
                 <span class="auth-profil-badge">Pro</span>
                 <span class="auth-profil-icone"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i></span>
                 <strong>Professionnel</strong>
-                <small>Entreprise du BTP, artisan : plusieurs ouvrages dans un même devis.</small>
+                <small>Entreprise du BTP, artisan : plusieurs ouvrages dans une même estimation.</small>
                 <span class="auth-profil-suite">Continuer <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
               </button>
             </div>
@@ -480,8 +483,9 @@ function traduire(m = '') {
               <p v-else-if="suggestion" class="champ-aide auth-suggestion">Vouliez-vous écrire <button type="button" @click="appliquerSuggestion">{{ suggestion }}</button> ?</p>
             </div>
 
-            <ChampTelephone v-if="estInscription && nomEtape === 'Sécurité'" id="auth-telephone" v-model="telephone" requis :erreur="erreurs.telephone"
-              aide="Il sert à votre retrait de matériaux chez le fournisseur. Jamais vendu ni cédé à des fins commerciales." />
+            <ChampTelephone v-if="estInscription && nomEtape === 'Sécurité'" id="auth-telephone" v-model="telephone" v-model:valide="telephoneValide"
+              :label="typeCompte === 'professionnel' ? 'Numéro de téléphone' : 'Numéro de téléphone (facultatif)'" :requis="typeCompte === 'professionnel'" :erreur="erreurs.telephone"
+              aide="Pour que le fournisseur puisse vous prévenir quand votre matériel est prêt. Jamais vendu ni cédé." />
             <div v-if="!estInscription || nomEtape === 'Sécurité'" class="champ">
               <label for="auth-mdp">Mot de passe</label>
               <SaisieMotDePasse id="auth-mdp" v-model="motDePasse"  :autocomplete="estInscription ? 'new-password' : 'current-password'" placeholder="8 caractères minimum" :aria-invalid="!!erreurs.motDePasse" style="font-family: var(--font-corps)" />
@@ -500,7 +504,7 @@ function traduire(m = '') {
                 <div><dt>Nom complet</dt><dd>{{ civilite === 'Mme' ? 'Madame' : 'Monsieur' }} {{ prenom }} {{ nom }}</dd></div>
                 <div><dt>Nom affiché</dt><dd>{{ pseudoAuto }}</dd></div>
                 <div><dt>E-mail</dt><dd>{{ email }}</dd></div>
-                <div><dt>Téléphone</dt><dd>{{ formaterTelephone(telephone) }}</dd></div>
+                <div><dt>Téléphone</dt><dd>{{ telephone ? formaterTelephone(telephone) : 'Non renseigné' }}</dd></div>
               </dl>
               <div>
                 <label class="auth-case"><input v-model="cgu" type="checkbox" :aria-invalid="!!erreurs.cgu" /> J’accepte les <router-link to="/conditions" target="_blank" rel="noopener">conditions générales d’utilisation</router-link></label>
@@ -687,7 +691,18 @@ function traduire(m = '') {
 .auth-entreprise-carte small { color: #047857; font-size: .82rem; }
 .auth-entreprise-carte.inactive { background: #fffbeb; color: #92400e; }
 .auth-entreprise-carte.inactive small { color: #b45309; }
-@media (max-width: 520px) { .auth-profils { grid-template-columns: 1fr; } }
+/* Téléphone : un profil par ligne (icône, texte, flèche) : les deux choix et les boutons Google / Apple tiennent sur un écran */
+@media (max-width: 520px) {
+  .auth-profils { grid-template-columns: 1fr; gap: 10px; }
+  .auth-profil { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 14px; row-gap: 2px; align-items: center; padding: 14px 16px; }
+  .auth-profil:hover { transform: none; }
+  .auth-profil-icone { grid-row: 1 / 3; width: 44px; height: 44px; font-size: 1.05rem; }
+  .auth-profil strong { grid-column: 2; align-self: end; font-size: 1.02rem; }
+  .auth-profil small { grid-column: 2; align-self: start; font-size: .82rem; line-height: 1.35; }
+  .auth-profil-suite { grid-column: 3; grid-row: 1 / 3; margin: 0; padding: 0; font-size: 0; }
+  .auth-profil-suite i { font-size: 1rem; }
+  .auth-profil-badge { top: 8px; right: 10px; padding: 1px 8px; font-size: .64rem; }
+}
 
 /* Type de compte (inscription) */
 .auth-type { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; padding: 0; border: 0; }

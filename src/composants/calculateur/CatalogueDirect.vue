@@ -83,7 +83,7 @@ const valider = () => { if (choisis.value.length) emit('valider', choisis.value)
         <small v-if="choisis.length">à partir de {{ formaterEuros(estimation) }} · 0 € de frais</small>
         <small v-else>Choisissez au moins un matériau</small>
       </span>
-      <button type="button" class="btn btn-primaire" :disabled="!choisis.length" @click="valider">Comparer les fournisseurs <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+      <button type="button" class="btn btn-primaire" :disabled="!choisis.length" @click="valider">Comparer<span class="cd-long"> les fournisseurs</span> <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
     </div>
   </div>
 </template>
@@ -115,7 +115,23 @@ const valider = () => { if (choisis.value.length) emit('valider', choisis.value)
   padding: 14px 18px; border-radius: var(--rayon-lg); background: #fff; box-shadow: 0 12px 40px rgba(15, 23, 42, .15);
 }
 .cd-pied.actif { background: var(--ardoise); color: #fff; }
-.cd-pied span { display: flex; flex-direction: column; }
+.cd-pied > span { display: flex; flex-direction: column; }
 .cd-pied small { opacity: .75; font-size: .82rem; }
-@media (max-width: 420px) { .cd-liste { grid-template-columns: 1fr; } .cd-materiau { flex-wrap: wrap; } .cd-quantite { margin-left: auto; } }
+/* Téléphone : nom et prix sur toute la largeur, quantité dessous avec de grandes touches ; barre du bas fine */
+@media (max-width: 599px) {
+  .cd-tete { display: block; }
+  .cd-tete .assistant-aide { margin-bottom: 12px; }
+  .cd-recherche input { font-size: 1rem; } /* 16 px : pas de zoom automatique sur iPhone */
+  .cd-liste { grid-template-columns: 1fr; gap: 8px; }
+  .cd-materiau { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 10px 12px; padding: 12px; }
+  .cd-quantite { grid-column: 1 / -1; justify-content: flex-end; gap: 6px; }
+  .cd-quantite button { width: 44px; height: 44px; font-size: 1rem; }
+  .cd-quantite input { flex: 1; max-width: 140px; min-height: 44px; font-size: 1rem; }
+  .cd-unite { right: 58px; }
+  .cd-pied { bottom: 0; margin: 0 calc(-1 * var(--gouttiere, 16px)); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-radius: 0; box-shadow: 0 -6px 24px rgba(15, 23, 42, .14); flex-wrap: nowrap; }
+  .cd-pied > span { flex: 1; min-width: 0; }
+  .cd-pied small { font-size: .78rem; }
+  .cd-pied .btn { flex: none; padding-left: 16px; padding-right: 16px; }
+  .cd-pied .cd-long { display: none; }
+}
 </style>

@@ -72,7 +72,7 @@ async function copierCode() {
     </button>
     <span v-else class="cp-code cp-code-local"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i> Sur cet appareil</span>
 
-    <button type="button" class="cp-voir" @click="emit('voir', projet)">Voir le devis</button>
+    <button type="button" class="cp-voir" @click="emit('voir', projet)">Voir l’estimation</button>
   </li>
 </template>
 

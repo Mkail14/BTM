@@ -117,7 +117,7 @@ const annuler = () => { brouillon.value = depuisFiche(props.fiche); tentative.va
 .mf-apercu { position: sticky; top: 16px; }
 .mf-apercu-liste { margin: 0; padding: 0; list-style: none; }
 @media (max-width: 1100px) {
-  .mf { grid-template-columns: 1fr; }
+  .mf { grid-template-columns: minmax(0, 1fr); } /* minmax : le formulaire ne dépasse jamais l'écran */
   .mf-apercu { position: static; }
 }
 @media (max-width: 640px) {

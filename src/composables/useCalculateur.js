@@ -144,7 +144,7 @@ export function useCalculateur() {
       if (c) { catalogue = c.catalogue; sourcePrix.value = c.source }
       else if (!catalogue) console.warn('Prix Supabase trop longs à charger : prix locaux utilisés pour ce calcul')
       if (codePromo.value && codeVerifie === null) {
-        messageCode.value = `Le code ${codePromo.value.code} n’est plus valable : il a été retiré du devis.`
+        messageCode.value = `Le code ${codePromo.value.code} n’est plus valable : il a été retiré de l’estimation.`
         codePromo.value = null
       } else if (codeVerifie && codeVerifie !== 'injoignable') {
         codePromo.value = codeVerifie // réduction à jour si l'admin l'a modifiée
@@ -181,7 +181,7 @@ export function useCalculateur() {
     if (await codeDejaUtilise(code.code)) return 'Vous avez déjà utilisé ce code : il ne sert qu’une fois par compte.'
     codePromo.value = code
     if (sansFormulaire()) { resultat.value = appliquerCodePromo(resultat.value, code); persister(); return '' }
-    return (await calculer()) ? '' : 'Le devis n’a pas pu être recalculé.'
+    return (await calculer()) ? '' : 'L’estimation n’a pas pu être recalculée.'
   }
 
   async function retirerCode() {

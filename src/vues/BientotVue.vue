@@ -88,7 +88,7 @@ async function envoyer() {
 
     <main class="conteneur bientot-corps">
       <div class="bientot-texte">
-        <p class="bientot-surtitre">Plateforme de devis BTP · Mayotte</p>
+        <p class="bientot-surtitre">Estimation de matériaux BTP · Mayotte</p>
         <h1 class="bientot-titre">Le site ouvre bientôt.</h1>
         <p class="bientot-desc">
           Budget, quantités et fournisseurs pour vos travaux, au même endroit.

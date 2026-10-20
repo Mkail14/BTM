@@ -1,8 +1,9 @@
 <script setup>
 /**
  * Compte & reversements (clic sur le profil admin) :
- *  - Reversements : les fournisseurs encaissent tout et reversent à BTM ses frais de service.
- *    Un virement déclaré par le fournisseur est pris en compte tout de suite : l'admin en garde l'historique.
+ *  - Reversements : les fournisseurs encaissent tout et reversent à BTM sa commission. Un virement déclaré par le
+ *    fournisseur reste « en vérification » : il ne compte qu'une fois que l'admin l'a vu arriver sur le compte de BTM
+ *    (« Reçu »), ou il est refusé avec un motif affiché au fournisseur (« Pas reçu »).
  *    BTM ne déclenche aucun virement ; la rémunération interne est gérée hors du site (RH).
  *  - RIB de BTM : communiqué aux fournisseurs pour leurs reversements (IBAN contrôlé par sa clé).
  *  - Profils : donner un profil (utilisateur, professionnel, fournisseur, administrateur) à un compte à partir de son
@@ -25,15 +26,37 @@ onMounted(() => charger(['versement', 'reversements', 'paiements', 'fournisseurs
 const somme = (liste) => Math.round(liste.reduce((s, x) => s + (Number(x) || 0), 0) * 100) / 100
 const reversements = computed(() => donnees.reversements || [])
 const recus = computed(() => reversements.value.filter((r) => r.statut === 'valide'))
-/** Par fournisseur : frais BTM encaissés, reçus, reste dû */
+const aVerifier = computed(() => reversements.value.filter((r) => r.statut === 'declare'))
+const historique = computed(() => reversements.value.filter((r) => r.statut !== 'declare'))
+/** Par fournisseur : commission encaissée, reçue, reste dû (dont virements en vérification) */
 const parFournisseur = computed(() => {
   const noms = Object.fromEntries((donnees.fournisseurs || []).map((f) => [f.id, f.nom]))
   const lignes = {}
-  const ligne = (id) => (lignes[id] ||= { id, nom: noms[id] || 'Fournisseur supprimé', du: 0, recu: 0 })
+  const ligne = (id) => (lignes[id] ||= { id, nom: noms[id] || 'Fournisseur supprimé', du: 0, recu: 0, attente: 0 })
   for (const p of donnees.paiements || []) if (p.fournisseur_id && p.revenu_btm) ligne(p.fournisseur_id).du += Number(p.revenu_btm)
   for (const r of recus.value) ligne(r.fournisseur_id).recu += r.montant
-  return Object.values(lignes).map((l) => ({ ...l, du: somme([l.du]), recu: somme([l.recu]), reste: Math.max(0, somme([l.du, -l.recu])) })).sort((a, b) => b.reste - a.reste)
+  for (const r of aVerifier.value) ligne(r.fournisseur_id).attente += r.montant
+  return Object.values(lignes).map((l) => ({ ...l, du: somme([l.du]), recu: somme([l.recu]), attente: somme([l.attente]), reste: Math.max(0, somme([l.du, -l.recu])) })).sort((a, b) => b.reste - a.reste)
 })
+
+// Vérification d'un virement déclaré : « Reçu » (vu sur le compte de BTM) ou « Pas reçu » (motif pour le fournisseur)
+const refus = ref(null) // { id, motif }
+const statutEnCours = ref('')
+async function statuer(r, decision) {
+  const motif = decision === 'refuse' ? refus.value?.motif?.trim() : null
+  if (decision === 'refuse' && !motif) { notifier('Indiquez le motif : il est affiché au fournisseur.', 'erreur'); return }
+  if (decision === 'valide' && !(await confirmer({
+    titre: `Virement de ${formaterEuros(r.montant)} bien reçu ?`, libelle: 'Oui, reçu',
+    texte: `Vérifiez sur le compte de BTM qu’un virement de ${r.fournisseur_nom} avec la référence « ${r.reference} » est bien arrivé. Il sera déduit de ce que doit ce fournisseur.`
+  }))) return
+  statutEnCours.value = r.id
+  const ok = await executer(async () => {
+    const maj = await api.statuerReversement(r.id, decision, motif)
+    donnees.reversements = reversements.value.map((x) => (x.id === r.id ? { ...x, ...maj, fournisseur_nom: x.fournisseur_nom } : x))
+  }, decision === 'valide' ? 'Reversement confirmé : il est déduit de ce que doit le fournisseur.' : 'Reversement refusé : le fournisseur voit le motif dans son espace.')
+  statutEnCours.value = ''
+  if (ok) refus.value = null
+}
 const totaux = computed(() => ({
   du: somme(parFournisseur.value.map((l) => l.du)),
   recu: somme(parFournisseur.value.map((l) => l.recu)),
@@ -177,40 +200,66 @@ async function retirer(p) {
         </div>
 
         <dl class="chiffres">
-          <div><dt>Frais BTM encaissés</dt><dd>{{ formaterEuros(totaux.du) }}</dd></div>
-          <div><dt>Déjà reversés</dt><dd>{{ formaterEuros(totaux.recu) }}</dd></div>
-          <div><dt>Reversements</dt><dd>{{ recus.length }}</dd></div>
+          <div><dt>Commission encaissée</dt><dd>{{ formaterEuros(totaux.du) }}</dd></div>
+          <div><dt>Reçue sur le compte</dt><dd>{{ formaterEuros(totaux.recu) }}</dd></div>
+          <div><dt>À vérifier</dt><dd>{{ aVerifier.length }}</dd></div>
         </dl>
+
+        <template v-if="aVerifier.length">
+          <h3 class="compte-titre">À vérifier sur le compte bancaire de BTM</h3>
+          <ul class="historique">
+            <li v-for="r in aVerifier" :key="r.id">
+              <span class="historique-icone attente"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i></span>
+              <span class="historique-texte">
+                <strong>{{ formaterEuros(r.montant) }} · {{ r.fournisseur_nom }}</strong>
+                <small>Déclaré le {{ formatDate(r.declare_le) }} · réf. <span class="adm-mono">{{ r.reference }}</span></small>
+              </span>
+              <span v-if="refus?.id !== r.id" class="verif-actions">
+                <button type="button" class="adm-btn adm-btn-noir adm-btn-sm" :disabled="!!statutEnCours" @click="statuer(r, 'valide')">
+                  <span v-if="statutEnCours === r.id" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Reçu
+                </button>
+                <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="!!statutEnCours" @click="refus = { id: r.id, motif: '' }">Pas reçu</button>
+              </span>
+              <form v-else class="verif-refus" novalidate @submit.prevent="statuer(r, 'refuse')">
+                <label :for="`refus-${r.id}`" class="visually-hidden">Motif du refus</label>
+                <input :id="`refus-${r.id}`" v-model="refus.motif" maxlength="300" placeholder="Motif, ex. : aucun virement reçu avec cette référence" />
+                <button type="submit" class="adm-btn adm-btn-noir adm-btn-sm" :disabled="!!statutEnCours || !refus.motif.trim()">Refuser</button>
+                <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="refus = null">Annuler</button>
+              </form>
+            </li>
+          </ul>
+        </template>
 
 
         <template v-if="parFournisseur.length">
           <h3 class="compte-titre">Par fournisseur</h3>
           <table class="adm-table compte-table">
-            <thead><tr><th>Fournisseur</th><th class="num">Dû</th><th class="num">Reçu</th><th class="num">Reste</th></tr></thead>
+            <thead><tr><th>Fournisseur</th><th class="num">Dû</th><th class="num">Reçu</th><th class="num">En vérification</th><th class="num">Reste</th></tr></thead>
             <tbody>
               <tr v-for="l in parFournisseur" :key="l.id">
                 <td>{{ l.nom }}</td>
                 <td class="num">{{ formaterEuros(l.du) }}</td>
                 <td class="num">{{ formaterEuros(l.recu) }}</td>
+                <td class="num">{{ l.attente ? formaterEuros(l.attente) : '—' }}</td>
                 <td class="num"><strong :class="{ reste: l.reste > 0 }">{{ formaterEuros(l.reste) }}</strong></td>
               </tr>
             </tbody>
           </table>
         </template>
 
-        <h3 class="compte-titre">Reversements reçus</h3>
+        <h3 class="compte-titre">Historique des reversements</h3>
         <div v-if="!donnees.reversements" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
-        <ul v-else-if="recus.length" class="historique">
-          <li v-for="r in recus" :key="r.id">
-            <span class="historique-icone"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
+        <ul v-else-if="historique.length" class="historique">
+          <li v-for="r in historique" :key="r.id">
+            <span class="historique-icone" :class="{ refuse: r.statut === 'refuse' }"><i :class="r.statut === 'refuse' ? 'fa-solid fa-xmark' : 'fa-solid fa-check'" aria-hidden="true"></i></span>
             <span class="historique-texte">
               <strong>{{ formaterEuros(r.montant) }} · {{ r.fournisseur_nom }}</strong>
-              <small>{{ formatDate(r.declare_le) }} · réf. <span class="adm-mono">{{ r.reference }}</span></small>
+              <small>{{ formatDate(r.declare_le) }} · réf. <span class="adm-mono">{{ r.reference }}</span><template v-if="r.statut === 'refuse'"> · refusé : {{ r.motif_refus }}</template></small>
             </span>
           </li>
         </ul>
         <p v-else class="compte-vide"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Aucun reversement pour le moment.</p>
-        <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> BTM ne déclenche aucun virement : les fournisseurs vous reversent vos frais sur ce RIB et les enregistrent dans leur espace.</p>
+        <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> BTM ne déclenche aucun virement : les fournisseurs vous reversent la commission sur ce RIB et le déclarent dans leur espace. Un virement ne compte qu’après votre vérification.</p>
       </template>
 
       <!-- ===================== Administrateurs ===================== -->
@@ -343,6 +392,11 @@ async function retirer(p) {
 .historique li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--adm-ligne-2); }
 .historique li:last-child { border-bottom: 0; }
 .historique-icone { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
+.historique-icone.attente { background: #fef3c7; color: var(--adm-attention-texte); }
+.historique-icone.refuse { background: var(--adm-ligne-2); color: var(--adm-muet); }
+.verif-actions { display: flex; gap: 6px; }
+.verif-refus { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 100%; }
+.verif-refus input { flex: 1 1 220px; width: auto; }
 .historique-texte { flex: 1 1 200px; display: flex; flex-direction: column; min-width: 0; }
 .historique-texte small { color: var(--adm-muet); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

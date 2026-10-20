@@ -21,7 +21,7 @@ const survol = ref(null)
           v-for="(t, i) in typesProjets" :key="t.id"
           :to="{ path: '/calculateur', query: { type: t.id } }"
           class="ouvrage reveal" :data-delai="i + 1"
-          :aria-label="`Faire le devis : ${t.libelle}`"
+          :aria-label="`Estimer : ${t.libelle}`"
           @mouseenter="survol = t.id" @mouseleave="survol = null"
           @focus="survol = t.id" @blur="survol = null"
         >

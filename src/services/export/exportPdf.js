@@ -52,7 +52,7 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   doc.setFontSize(9.5)
   if (code) {
     // Code de retrait : encadré blanc à droite de l'en-tête, lisible d'un coup d'œil au comptoir
-    doc.text(`Bâtiment & Travaux Mayotte · Devis du ${date}`, marge, 21)
+    doc.text(`Bâtiment & Travaux Mayotte · Estimation du ${date}`, marge, 21)
     doc.setFillColor(255, 255, 255)
     doc.roundedRect(largeur - marge - 56, 6, 56, 19, 2.5, 2.5, 'F')
     doc.setTextColor(...GRIS)
@@ -65,7 +65,7 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
     doc.setFont('helvetica', 'normal')
   } else {
     doc.text('Bâtiment & Travaux Mayotte', marge, 21)
-    doc.text(`Devis du ${date}`, largeur - marge, 21, { align: 'right' })
+    doc.text(`Estimation du ${date}`, largeur - marge, 21, { align: 'right' })
   }
 
   // ---- Titre
@@ -73,7 +73,7 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   doc.setTextColor(...OCEAN)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.text(nom || `Devis — ${libelle}`, marge, y)
+  doc.text(nom || `Estimation — ${libelle}`, marge, y)
   const principale = resultat.mesures?.find((m) => m.principale)
   const nbMurs = (resultat.dimensions?.autresMurs?.length || 0) + 1
   y += 6.5
@@ -170,7 +170,8 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9.5)
     doc.text(`${fournisseur.adresse || fournisseur.commune}`, marge + 6, y + 14)
-    doc.text(`Tél. ${fournisseur.telephone}${fournisseur.site_web ? '   •   ' + fournisseur.site_web.replace(/^https?:\/\//, '') : ''}`, marge + 6, y + 19.5)
+    const contact = [fournisseur.telephone && `Tél. ${fournisseur.telephone}`, fournisseur.site_web?.replace(/^https?:\/\//, '')]
+    doc.text(fournisseur.demonstration ? "Fournisseur fictif : prix d'exemple" : contact.filter(Boolean).join('   •   '), marge + 6, y + 19.5)
     y += 34
   }
 
@@ -183,8 +184,8 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   y += 4.5
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...GRIS)
-  const retrait = code ? ` Pour retirer vos matériaux, présentez le code ${code} au fournisseur : il retrouve ce devis et vous remet un reçu numéroté.` : ' Enregistrez ce projet sur BTM pour obtenir un code de retrait à présenter au fournisseur.'
-  doc.text(doc.splitTextToSize(`Prix TTC, hors terrassement et études. ${type?.hypotheses || ''}${retrait}`, utile), marge, y)
+  const retrait = code ? ` Pour retirer vos matériaux, présentez le code ${code} au fournisseur : il retrouve cette estimation et vous remet un reçu numéroté.` : ' Enregistrez ce projet sur BTM pour obtenir un code de retrait à présenter au fournisseur.'
+  doc.text(doc.splitTextToSize(`Estimation indicative et non contractuelle (ce n'est pas un devis) : prix TTC des matériaux seuls, hors main-d'oeuvre, livraison, coffrage, terrassement et études. Faites valider les quantités par un professionnel avant d'acheter. ${type?.hypotheses || ''}${retrait}`, utile), marge, y)
 
   // ---- Pied de page
   const pages = doc.internal.getNumberOfPages()
@@ -192,9 +193,9 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
     doc.setPage(i)
     doc.setFontSize(8)
     doc.setTextColor(...GRIS)
-    doc.text(`BTM — devis — page ${i}/${pages}`, largeur / 2, 290, { align: 'center' })
+    doc.text(`BTM — estimation indicative — page ${i}/${pages}`, largeur / 2, 290, { align: 'center' })
   }
 
-  const fichier = `BTM_Devis_${(nom || libelle || 'projet').replace(/[^a-z0-9àâçéèêëîïôûùüÿñæœ]+/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
+  const fichier = `BTM_Estimation_${(nom || libelle || 'projet').replace(/[^a-z0-9àâçéèêëîïôûùüÿñæœ]+/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
   return livrerPdf(doc, fichier, mode) // téléchargement direct ou aperçu (ApercuPdf)
 }

@@ -52,7 +52,7 @@ const depuisDernier = computed(() => {
 })
 
 const pastilles = computed(() => (vide.value ? [] : [
-  { icone: 'fa-solid fa-folder-open', valeur: projets.value.length, texte: 'devis' },
+  { icone: 'fa-solid fa-folder-open', valeur: projets.value.length, texte: 'estimations' },
   { icone: 'fa-solid fa-coins', valeur: formaterEuros(totalCumule.value), texte: 'au total', prix: true },
   { icone: 'fa-regular fa-clock', avant: 'dernier', valeur: depuisDernier.value }
 ]))
@@ -106,9 +106,9 @@ async function confirmerSuppression() {
   <div id="page-dashboard" class="page">
     <div class="conteneur tdb">
       <!-- Bandeau : titre, résumé en pastilles, nouveau devis -->
-      <BandeauPage surtitre="Espace personnel" titre="Mes projets" texte="Vos devis enregistrés apparaîtront ici." :pastilles="pastilles">
+      <BandeauPage surtitre="Espace personnel" titre="Mes projets" texte="Vos estimations enregistrées apparaîtront ici." :pastilles="pastilles">
         <template #action>
-          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouveau devis</router-link>
+          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle estimation</router-link>
         </template>
       </BandeauPage>
 
@@ -174,7 +174,7 @@ async function confirmerSuppression() {
         <div v-if="aSupprimer" class="modale-fond" @click.self="aSupprimer = null">
           <div class="modale" role="alertdialog" aria-modal="true" aria-labelledby="suppr-titre" aria-describedby="suppr-texte">
             <h2 id="suppr-titre">Supprimer « {{ aSupprimer.nom }} » ?</h2>
-            <p id="suppr-texte">Le devis et son code de retrait ne seront plus utilisables. Cette action est définitive.</p>
+            <p id="suppr-texte">L’estimation et son code de retrait ne seront plus utilisables. Cette action est définitive.</p>
             <div class="modale-actions">
               <BoutonBase variante="ghost" @click="aSupprimer = null">Annuler</BoutonBase>
               <BoutonBase variante="danger" :chargement="suppressionEnCours" @click="confirmerSuppression">Supprimer</BoutonBase>

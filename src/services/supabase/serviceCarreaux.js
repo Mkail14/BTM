@@ -26,22 +26,40 @@ const versCarreau = (c) => ({
 let cache = null
 export function oublierCarreaux() { cache = null }
 
-/** Modèles en ligne (actifs, chez des fournisseurs actifs), avec le nom, la commune et la livraison du fournisseur */
+/**
+ * Popularité : nombre de devis enregistrés qui utilisent chaque modèle (fonction popularite_carreaux,
+ * totaux seulement : les projets restent privés). Fonction absente ou en erreur : tout à 0.
+ */
+async function lirePopularite() {
+  const { data, error } = await supabase.rpc('popularite_carreaux')
+  if (error) { console.warn('Popularité des carreaux indisponible', error); return new Map() }
+  return new Map((data || []).map((l) => [l.carreau_id, l.devis]))
+}
+
+/**
+ * Modèles en ligne (actifs, chez des fournisseurs actifs), avec le nom, la commune et la livraison du fournisseur,
+ * et `devis` : le nombre de devis qui les ont choisis
+ */
 export async function listerCarreauxPublics({ force = false } = {}) {
   if (!supabaseConfigure) return []
   if (cache && !force) return cache
-  const { data, error } = await supabase
-    .from('carreaux_fournisseur')
-    .select(`${COLONNES}, fournisseurs(nom, commune, livraison, actif)`)
-    .eq('actif', true)
-    .order('prix_unitaire')
+  const [{ data, error }, popularite] = await Promise.all([
+    supabase
+      .from('carreaux_fournisseur')
+      .select(`${COLONNES}, fournisseurs(nom, commune, livraison, actif)`)
+      .eq('actif', true)
+      .order('prix_unitaire'),
+    lirePopularite()
+  ])
   if (error) {
     if (!TABLE_ABSENTE.includes(error.code)) console.warn('Carreaux indisponibles', error)
     return []
   }
   cache = (data || [])
     .filter((c) => c.fournisseurs?.actif !== false)
-    .map(({ fournisseurs: f, ...c }) => ({ ...versCarreau(c), fournisseur: f?.nom || '', commune: f?.commune || '', livraison: !!f?.livraison }))
+    .map(({ fournisseurs: f, ...c }) => ({
+      ...versCarreau(c), fournisseur: f?.nom || '', commune: f?.commune || '', livraison: !!f?.livraison, devis: popularite.get(c.id) || 0
+    }))
   return cache
 }
 

@@ -428,6 +428,7 @@ async function supprimerArticle(a) {
 /* ---------- Téléphone ---------- */
 @media (max-width: 767px) {
   .mat { gap: 12px; }
+  .mat-champ input, .mat-table .mat-champ input { font-size: 16px; } /* pas de zoom automatique sur iPhone */
   .mat-barre { gap: 8px; }
   .mat-barre > .adm-segments { flex: 1 1 100%; }
   .mat-barre > .adm-segments button { flex: 1; justify-content: center; padding: 0 10px; }

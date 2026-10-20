@@ -163,7 +163,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           <h1 id="resultats-titre" class="resultats-titre">{{ titre }}</h1>
           <p class="resultats-total prix">{{ formaterEuros(resultat.total) }}</p>
           <!-- toujours visible : ce que couvre le montant (le détail du calcul reste dans « Comment est fait le calcul ? ») -->
-          <p class="resultats-portee">{{ resultat.fraisService?.montant > 0 ? 'Matériaux et frais de service BTM' : 'Matériaux uniquement' }}, prix TTC. Main-d’œuvre, livraison et terrassement (travaux de creusement) non compris.</p>
+          <p class="resultats-portee">{{ resultat.fraisService?.montant > 0 ? 'Matériaux et frais de service BTM' : 'Estimation indicative des matériaux' }}, prix TTC. Main-d’œuvre, livraison, coffrage et terrassement non compris : faites valider les quantités par un professionnel avant d’acheter.</p>
 
           <!-- sans code promo, le détail répéterait le total -->
           <ul v-if="remise" class="resultats-repartition">
@@ -205,15 +205,22 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
           <!-- Code de retrait : projet enregistré en ligne -->
           <p v-if="codeRetrait" class="resultats-retrait">
             <i class="fa-solid fa-ticket" aria-hidden="true"></i>
-            <span>Code de retrait <strong class="mono">{{ codeRetrait }}</strong><small>Présentez-le au fournisseur (il figure aussi sur le PDF) : il retrouve votre devis et vous remet un reçu.</small></span>
+            <span>Code de retrait <strong class="mono">{{ codeRetrait }}</strong><small>Présentez-le au fournisseur (il figure aussi sur le PDF) : il retrouve votre estimation et vous remet un reçu.</small></span>
           </p>
-          <p v-else-if="connecte" class="resultats-retrait-aide"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <span>Enregistrez ce devis pour obtenir votre <strong>code de retrait</strong> : c’est lui qui vous donne le prix BTM chez le fournisseur.</span></p>
+          <p v-else-if="connecte" class="resultats-retrait-aide"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <span>Votre <strong>code de retrait</strong> vous donne le prix BTM chez le fournisseur : obtenez-le en enregistrant cette estimation.</span></p>
+          <p v-else-if="backendDisponible" class="resultats-retrait-aide"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <span>Pour avoir le prix BTM chez le fournisseur, il vous faut un <strong>code de retrait</strong> : il s’obtient en enregistrant cette estimation (compte gratuit).</span></p>
 
-          <!-- Une seule ligne : voir le PDF (large), puis le télécharger et enregistrer le devis (boutons carrés) -->
-          <div class="resultats-actions" role="group" aria-label="Actions du devis">
+          <!-- Sans code de retrait, l'action utile est de l'obtenir (enregistrer) : bouton principal, le PDF passe en second.
+               Avec le code : voir le PDF (large), puis le télécharger et réenregistrer (boutons carrés). -->
+          <div v-if="!codeRetrait && backendDisponible" class="resultats-actions" role="group" aria-label="Actions de l’estimation">
+            <BoutonBase class="resultats-action-principale" icone="fa-solid fa-ticket" @click="ouvrirDialogue">Obtenir mon code</BoutonBase>
+            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" aria-label="Visualiser le PDF" title="Visualiser le PDF" @click="pdf('visualiser')" />
+            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
+          </div>
+          <div v-else class="resultats-actions" role="group" aria-label="Actions de l’estimation">
             <BoutonBase class="resultats-action-principale" icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" @click="pdf('visualiser')">Visualiser le PDF</BoutonBase>
             <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
-            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-regular fa-bookmark" aria-label="Enregistrer le devis" title="Enregistrer le devis" @click="ouvrirDialogue" />
+            <BoutonBase v-if="backendDisponible" class="resultats-action-icone" variante="secondaire" icone="fa-regular fa-bookmark" aria-label="Enregistrer l’estimation" title="Enregistrer l’estimation" @click="ouvrirDialogue" />
           </div>
 
           <transition name="glisser">
@@ -227,9 +234,9 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
             <details class="resultats-calcul">
               <summary>Comment est fait le calcul ?</summary>
               <p>{{ type.hypotheses }}</p>
-              <p>Prix TTC, hors terrassement (creusement et préparation du terrain) et études. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
+              <p>Estimation indicative, non contractuelle : ce n’est pas un devis. Prix TTC des matériaux seuls, hors main-d’œuvre, livraison, coffrage, terrassement (creusement et préparation du terrain) et études. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
             </details>
-            <button type="button" class="resultats-lien" @click="nouvelleEstimation"><i class="fa-solid fa-plus" aria-hidden="true"></i> Faire un nouveau devis</button>
+            <button type="button" class="resultats-lien" @click="nouvelleEstimation"><i class="fa-solid fa-plus" aria-hidden="true"></i> Faire une nouvelle estimation</button>
           </div>
         </section>
 
@@ -238,7 +245,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         <!-- Devis pro : plusieurs ouvrages réunis -->
         <section v-if="estPro" class="carte resultats-bloc resultats-pro" aria-labelledby="pro-titre">
           <div class="resultats-pro-tete">
-            <h2 id="pro-titre"><span class="resultats-pro-badge">Pro</span> Votre devis</h2>
+            <h2 id="pro-titre"><span class="resultats-pro-badge">Pro</span> Votre estimation</h2>
             <button type="button" class="btn btn-secondaire btn-sm" @click="ajouterOuvrage"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter un ouvrage ou des matériaux</button>
           </div>
           <ul class="resultats-pro-liste">
@@ -249,7 +256,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <button v-if="ouvrages.length > 1" type="button" class="resultats-pro-retirer" :aria-label="`Retirer ${libelleOuvrage(o)}`" @click="calc.retirerDuDevis(i)"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </li>
           </ul>
-          <p class="resultats-pro-aide">Réunissez tout votre chantier — murs, dalles, fondations, terrasses, carrelage et achats directs — dans un seul devis et un seul code de retrait.</p>
+          <p class="resultats-pro-aide">Réunissez tout votre chantier — murs, dalles, fondations, terrasses, carrelage et achats directs — dans une seule estimation et un seul code de retrait.</p>
         </section>
 
         <section class="carte resultats-bloc" aria-labelledby="achats-titre">
@@ -280,20 +287,20 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <button type="button" class="compte-fermer" aria-label="Fermer" @click="compteRequis = false"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
 
               <span class="compte-icone" aria-hidden="true"><i class="fa-regular fa-bookmark"></i></span>
-              <h2 id="compte-titre">Gardez ce devis</h2>
-              <p id="compte-texte" class="compte-texte">Créez votre compte gratuit pour l’enregistrer. Votre estimation est conservée pendant l’inscription.</p>
+              <h2 id="compte-titre">Gardez cette estimation</h2>
+              <p id="compte-texte" class="compte-texte">Avec un compte gratuit, vous l’enregistrez et obtenez votre code de retrait. Elle est conservée pendant l’inscription.</p>
 
               <!-- Le devis concerné : on sait exactement ce qu'on enregistre -->
               <div class="compte-devis">
                 <span class="compte-devis-icone"><i :class="type.icone" aria-hidden="true"></i></span>
-                <span class="compte-devis-texte"><strong>{{ type.libelle }}</strong><small>{{ resume.split(' · ').slice(1).join(' · ') || 'Devis en cours' }}</small></span>
+                <span class="compte-devis-texte"><strong>{{ type.libelle }}</strong><small>{{ resume.split(' · ').slice(1).join(' · ') || 'Estimation en cours' }}</small></span>
                 <strong class="compte-devis-prix prix">{{ formaterEuros(resultat.total) }}</strong>
               </div>
 
               <ul class="compte-avantages">
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Retrouvez vos devis sur ordinateur et téléphone</li>
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Modifiez-les ou dupliquez-les quand vous voulez</li>
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Gratuit, en moins d’une minute</li>
+                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Votre code de retrait pour le prix BTM chez le fournisseur</li>
+                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Vos estimations sur ordinateur et téléphone, à modifier quand vous voulez</li>
+                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Gratuit : 3 courtes étapes, puis une confirmation par e-mail</li>
               </ul>
 
               <BoutonBase bloc icone="fa-solid fa-user-plus" @click="ouvrirCompte('inscription')">Créer mon compte gratuit</BoutonBase>
@@ -308,7 +315,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         <transition name="fondu">
           <div v-if="dialogueOuvert" class="modale-fond" @click.self="dialogueOuvert = false">
             <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-titre">
-              <h2 id="modale-titre">Enregistrer le devis</h2>
+              <h2 id="modale-titre">Enregistrer l’estimation</h2>
               <p class="texte-secondaire">Vous le retrouverez dans « Mes projets ».</p>
               <form @submit.prevent="confirmerSauvegarde" novalidate>
                 <div class="champ">
@@ -326,8 +333,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         </transition>
       </template>
 
-      <EtatVide v-else icone="fa-solid fa-calculator" titre="Aucun devis en cours" message="Répondez à quelques questions pour obtenir le devis de votre projet.">
-        <BoutonBase to="/calculateur" icone="fa-solid fa-calculator">Commencer un devis</BoutonBase>
+      <EtatVide v-else icone="fa-solid fa-calculator" titre="Aucune estimation en cours" message="Répondez à quelques questions pour obtenir l’estimation de votre projet.">
+        <BoutonBase to="/calculateur" icone="fa-solid fa-calculator">Commencer une estimation</BoutonBase>
       </EtatVide>
     </div>
   </div>
@@ -379,8 +386,9 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-code-erreur { flex-basis: 100%; margin: 0; color: var(--erreur); font-size: .85rem; text-align: left; }
 
 .resultats-actions { display: flex; gap: 10px; margin-top: 18px; }
-.resultats-actions .resultats-action-principale { flex: 1; min-width: 0; justify-content: center; }
+.resultats-actions .resultats-action-principale { flex: 1; min-width: 0; justify-content: center; white-space: normal; text-align: center; }
 .resultats-actions .resultats-action-icone { flex: none; width: 48px; padding-inline: 0; justify-content: center; }
+@media (max-width: 380px) { .resultats-actions { flex-wrap: wrap; } .resultats-actions .resultats-action-principale { flex-basis: 100%; } .resultats-actions .resultats-action-icone { flex: 1; width: auto; } }
 
 .resultats-lien { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
 .resultats-lien:hover { text-decoration: underline; }

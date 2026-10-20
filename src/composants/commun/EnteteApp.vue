@@ -226,7 +226,7 @@ async function supprimerCompte() {
                     <dt>À quoi ça sert ?</dt>
                     <dd>C’est un bon d’achat offert par BTM : le fournisseur le <strong>déduit de votre prochain retrait</strong> au comptoir.</dd>
                     <dt>Comment en gagner ?</dt>
-                    <dd>Chaque achat payé avec le code de retrait d’un devis enregistré vous rapporte environ <strong>{{ formaterEuros(creditPour100) }} pour 100 €</strong> d’achat.</dd>
+                    <dd>Chaque achat payé avec le code de retrait d’une estimation enregistrée vous rapporte environ <strong>{{ formaterEuros(creditPour100) }} pour 100 €</strong> d’achat.</dd>
                     <dt>Comment l’utiliser ?</dt>
                     <dd>Au comptoir, donnez votre code de retrait et demandez à utiliser votre crédit.</dd>
                   </dl>
@@ -237,7 +237,7 @@ async function supprimerCompte() {
                     </ul>
                   </template>
                   <p v-else class="credit-vide">Aucun mouvement pour l’instant : votre premier achat avec un code de retrait lancera votre cagnotte.</p>
-                  <router-link to="/calculateur" class="credit-action">Faire un devis <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></router-link>
+                  <router-link to="/calculateur" class="credit-action">Faire une estimation <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></router-link>
                   <p class="credit-note">Ni échangeable ni remboursable en espèces.</p>
                 </div>
               </div>
@@ -248,7 +248,7 @@ async function supprimerCompte() {
           </template>
           <template v-else>
             <button v-if="backendDisponible" class="entete-connexion" type="button" @click="ouvrirAuth()">Connexion</button>
-            <router-link to="/calculateur" class="btn btn-primaire btn-sm entete-cta">Devis <i class="fa-solid fa-arrow-right"></i></router-link>
+            <router-link to="/calculateur" class="btn btn-primaire btn-sm entete-cta">Estimer <i class="fa-solid fa-arrow-right"></i></router-link>
           </template>
         </div>
       </div>
@@ -276,7 +276,7 @@ async function supprimerCompte() {
         <div class="menu-mobile-actions">
           <button v-if="!connecte && backendDisponible" type="button" class="btn btn-contour-clair btn-bloc" @click="ouvrirAuth()">Connexion</button>
           <button v-else-if="connecte" type="button" class="btn btn-contour-clair btn-bloc" @click="deconnexion"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Déconnexion</button>
-          <router-link to="/calculateur" class="btn btn-primaire btn-bloc">Faire mon devis</router-link>
+          <router-link to="/calculateur" class="btn btn-primaire btn-bloc">Estimer mon projet</router-link>
         </div>
       </nav>
     </transition>
@@ -290,7 +290,7 @@ async function supprimerCompte() {
           <button class="profil-action" :class="{ actif: profilVue === 'infos' }" type="button" @click="ouvrirAction('infos')"><i class="fa-solid fa-user"></i><span>Infos du compte<small>Voir mes informations</small></span><i class="fa-solid fa-chevron-right"></i></button>
           <button class="profil-action" :class="{ actif: profilVue === 'type' }" type="button" @click="ouvrirAction('type')"><i class="fa-solid fa-briefcase"></i><span>Type de compte<small>{{ libelleTypeCompte }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
           <button class="profil-action" :class="{ actif: profilVue === 'mot-de-passe' }" type="button" @click="ouvrirAction('mot-de-passe')"><i class="fa-solid fa-lock"></i><span>Modifier le mot de passe<small>Sécuriser mon accès</small></span><i class="fa-solid fa-chevron-right"></i></button>
-          <button class="profil-action" type="button" @click="fermerProfil(); router.push('/dashboard')"><i class="fa-solid fa-folder-open"></i><span>Mes archives de projet<small>Retrouver mes devis</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+          <button class="profil-action" type="button" @click="fermerProfil(); router.push('/dashboard')"><i class="fa-solid fa-folder-open"></i><span>Mes archives de projet<small>Retrouver mes estimations</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
           <button class="profil-action profil-action-danger" :class="{ actif: profilVue === 'supprimer' }" type="button" @click="ouvrirAction('supprimer')"><i class="fa-solid fa-trash"></i><span>Supprimer mon compte<small>Action définitive</small></span><i class="fa-solid fa-chevron-right"></i></button>
         </nav>
 

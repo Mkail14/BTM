@@ -1,6 +1,7 @@
 /** Projets cloud (table projets, protégée par RLS) */
 import { supabase, supabaseConfigure } from './client.js'
 import { normaliserResultat } from '@/services/calculs/moteurCalculs.js'
+import { oublierCarreaux } from './serviceCarreaux.js'
 
 const versFront = (l) => ({
   id: l.id,
@@ -41,6 +42,7 @@ export async function creerProjetCloud(utilisateurId, projet) {
     .select()
     .single()
   if (error) throw error
+  if (projet.dimensions?.carreau?.id) oublierCarreaux() // un devis de plus pour ce modèle : popularité à relire
   return versFront(data)
 }
 

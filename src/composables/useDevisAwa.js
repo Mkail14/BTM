@@ -103,7 +103,7 @@ export function useDevisAwa() {
     const type = texte ? ouvrageDans(texte) : null
     if (type) return choisirOuvrage(type, texte)
     etat.value = { etape: 'ouvrage' }
-    dire('Avec plaisir ! Je fais votre devis ici : quelques questions, et il est enregistré dans « Mes projets ». Quel ouvrage voulez-vous chiffrer ?')
+    dire('Avec plaisir ! Je fais votre estimation ici : quelques questions, et elle est enregistrée dans « Mes projets ». Quel ouvrage voulez-vous chiffrer ?')
   }
 
   function choisirOuvrage(type, texte = '') {
@@ -119,7 +119,7 @@ export function useDevisAwa() {
     }
     etat.value = { etape: 'champ', type, valeurs, champ: null }
     const notees = mesuresDe(type, valeurs)
-    suivant(notees ? `C’est noté : ${type.libelle.toLowerCase()}, ${notees}. ` : `Très bien, un devis pour : ${type.libelle.toLowerCase()}. `)
+    suivant(notees ? `C’est noté : ${type.libelle.toLowerCase()}, ${notees}. ` : `Très bien, une estimation pour : ${type.libelle.toLowerCase()}. `)
   }
 
   function suivant(debut = '') {
@@ -176,7 +176,7 @@ export function useDevisAwa() {
 
   function annuler() {
     etat.value = null
-    dire('D’accord, j’arrête ce devis. Dites-moi si vous voulez le reprendre.')
+    dire('D’accord, j’arrête cette estimation. Dites-moi si vous voulez la reprendre.')
   }
 
   async function terminer() {
@@ -203,11 +203,11 @@ export function useDevisAwa() {
       const suite = projet?.cloud
         ? `Je l’ai enregistré dans « Mes projets » sous le nom « ${nom} ».${code ? ` Votre code de retrait : ${code}.` : ''}`
         : 'Il est gardé sur cet appareil : connectez-vous (compte gratuit) pour le retrouver dans « Mes projets » et obtenir votre code de retrait.'
-      const idMessage = dire(`Voilà votre devis — ${type.libelle.toLowerCase()} ${mesures} :\n${lignes}\nTotal des matériaux : ${formaterEuros(resultat.total)}\n\n${suite} Le PDF est prêt.`)
+      const idMessage = dire(`Voilà votre estimation — ${type.libelle.toLowerCase()} ${mesures} :\n${lignes}\nTotal des matériaux : ${formaterEuros(resultat.total)}\n\n${suite} Le PDF est prêt.`)
       dernier.value = { idMessage, nom, resultat, projet, code, dansCompte: !!projet?.cloud }
     } catch (e) {
       console.error(e)
-      dire('Je n’ai pas réussi à calculer ce devis. Réessayez dans un instant, ou passez par le calculateur.')
+      dire('Je n’ai pas réussi à calculer cette estimation. Réessayez dans un instant, ou passez par le calculateur.')
     } finally {
       etat.value = null
     }

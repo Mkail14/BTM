@@ -63,7 +63,7 @@ const referenceConseillee = computed(() => {
   return `BTM-${nom}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
 })
 function ouvrirReversement() {
-  reversement.value = { montant: String(soldeBtm.value.reste).replace('.', ','), reference: referenceConseillee.value, envoi: false, erreur: '' }
+  reversement.value = { montant: String(soldeBtm.value.aDeclarer).replace('.', ','), reference: referenceConseillee.value, envoi: false, erreur: '' }
 }
 async function copierTexte(texte, quoi) {
   try { await navigator.clipboard.writeText(texte); notifier(`${quoi} copié.`, 'info') } catch { notifier('Copie impossible.', 'erreur') }
@@ -72,14 +72,14 @@ async function declarer() {
   const r = reversement.value
   const montant = Number(String(r.montant).replace(/\s/g, '').replace(',', '.'))
   r.erreur = !(montant > 0) ? 'Le montant doit être supérieur à 0.'
-    : montant > soldeBtm.value.reste + 0.001 ? `Vous devez au plus ${formaterEuros(soldeBtm.value.reste)} à BTM.`
+    : montant > soldeBtm.value.aDeclarer + 0.001 ? `Vous pouvez déclarer au plus ${formaterEuros(soldeBtm.value.aDeclarer)}${soldeBtm.value.attente ? ' (virements en vérification déduits)' : ''}.`
     : r.reference.trim().length < 3 ? 'Indiquez la référence de votre virement.' : ''
   if (r.erreur) return
   r.envoi = true
   try {
     const nouveau = await api.declarerReversement(montant, r.reference.trim())
     reversements.value = [nouveau, ...reversements.value]
-    notifier(`Reversement de ${formaterEuros(montant)} enregistré. Merci !`)
+    notifier(`Virement de ${formaterEuros(montant)} déclaré, merci ! Il sera déduit dès que BTM l’aura reçu sur son compte.`)
     reversement.value = null
   } catch (e) {
     r.erreur = e?.message || 'Déclaration impossible.'
@@ -149,10 +149,10 @@ async function confirmerAnnulation() {
       <div class="rev-texte">
         <span>À reverser à BTM</span>
         <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
-        <small>Frais de service BTM encaissés pour BTM<template v-if="soldeBtm.reverse"> · {{ formaterEuros(soldeBtm.reverse) }} déjà reversés</template></small>
+        <small>Frais de service BTM encaissés pour BTM<template v-if="soldeBtm.reverse"> · {{ formaterEuros(soldeBtm.reverse) }} déjà reversés</template><template v-if="soldeBtm.attente"> · {{ formaterEuros(soldeBtm.attente) }} en vérification par BTM</template></small>
       </div>
-      <button type="button" class="adm-btn" :class="soldeBtm.reste > 0 ? 'adm-btn-noir' : 'adm-btn-clair'" @click="ouvrirReversement">
-        <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> {{ soldeBtm.reste > 0 ? 'Reverser à BTM' : 'Voir les reversements' }}
+      <button type="button" class="adm-btn" :class="soldeBtm.aDeclarer > 0 ? 'adm-btn-noir' : 'adm-btn-clair'" @click="ouvrirReversement">
+        <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> {{ soldeBtm.aDeclarer > 0 ? 'Reverser à BTM' : 'Voir les reversements' }}
       </button>
     </section>
 
@@ -271,11 +271,13 @@ async function confirmerAnnulation() {
 
         <dl class="rev-chiffres">
           <div><dt>Dû au total</dt><dd>{{ formaterEuros(soldeBtm.du) }}</dd></div>
-          <div><dt>Déjà reversé</dt><dd>{{ formaterEuros(soldeBtm.reverse) }}</dd></div>
+          <div><dt>Reçu par BTM</dt><dd>{{ formaterEuros(soldeBtm.reverse) }}</dd></div>
+          <div v-if="soldeBtm.attente"><dt>En vérification</dt><dd>{{ formaterEuros(soldeBtm.attente) }}</dd></div>
           <div><dt>Reste à reverser</dt><dd>{{ formaterEuros(soldeBtm.reste) }}</dd></div>
         </dl>
+        <p v-if="soldeBtm.attente" class="rev-aide"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Un virement déclaré est déduit dès que BTM l’a vu arriver sur son compte (en général sous quelques jours ouvrés).</p>
 
-        <form v-if="soldeBtm.reste > 0 && rib" id="form-reversement" class="adm-grille-form" novalidate @submit.prevent="declarer">
+        <form v-if="soldeBtm.aDeclarer > 0 && rib" id="form-reversement" class="adm-grille-form" novalidate @submit.prevent="declarer">
           <div class="adm-champ">
             <label for="rev-montant">Montant viré</label>
             <span class="adm-saisie-unite"><input id="rev-montant" v-model="reversement.montant" inputmode="decimal" /><span>€</span></span>
@@ -291,19 +293,21 @@ async function confirmerAnnulation() {
         <h3 class="rev-titre">Historique</h3>
         <ul v-if="reversements.length" class="rev-historique">
           <li v-for="r in reversements" :key="r.id">
-            <span class="rev-h-icone"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
+            <span class="rev-h-icone"><i :class="{ valide: 'fa-solid fa-check', declare: 'fa-solid fa-hourglass-half', refuse: 'fa-solid fa-xmark' }[r.statut]" aria-hidden="true"></i></span>
             <span class="rev-h-texte">
               <strong>{{ formaterEuros(r.montant) }}</strong>
-              <small>{{ formatHeure(r.declare_le) }} · <span class="adm-mono">{{ r.reference }}</span></small>
+              <small>{{ formatHeure(r.declare_le) }} · <span class="adm-mono">{{ r.reference }}</span><template v-if="r.statut === 'refuse' && r.motif_refus"> · {{ r.motif_refus }}</template></small>
             </span>
-            <span class="adm-badge adm-badge-ok">Reversé</span>
+            <span v-if="r.statut === 'valide'" class="adm-badge adm-badge-ok">Reçu par BTM</span>
+            <span v-else-if="r.statut === 'declare'" class="adm-badge adm-badge-attention">En vérification</span>
+            <span v-else class="adm-badge">Refusé</span>
           </li>
         </ul>
         <p v-else class="rev-vide">Aucun reversement pour le moment.</p>
       </div>
       <template #pied>
         <button type="button" class="adm-btn adm-btn-clair" @click="reversement = null">Fermer</button>
-        <button v-if="soldeBtm.reste > 0 && rib" type="submit" form="form-reversement" class="adm-btn adm-btn-noir" :disabled="reversement.envoi">
+        <button v-if="soldeBtm.aDeclarer > 0 && rib" type="submit" form="form-reversement" class="adm-btn adm-btn-noir" :disabled="reversement.envoi">
           <span v-if="reversement.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> J’ai effectué le virement
         </button>
       </template>
@@ -362,7 +366,7 @@ async function confirmerAnnulation() {
 .rev-ref { position: relative; display: flex; }
 .rev-ref input { flex: 1; padding-right: 48px !important; }
 .rev-ref .rev-copier { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: var(--adm-ligne-2); color: var(--adm-encre); }
-.rev-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.rev-chiffres { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 0; }
 .rev-chiffres div { padding: 12px 14px; border-radius: 14px; background: var(--adm-ligne-2); }
 .rev-chiffres dt { font-size: .76rem; color: var(--adm-muet); }
 .rev-chiffres dd { margin: 4px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }

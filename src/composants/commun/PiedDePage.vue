@@ -31,7 +31,7 @@ const lienTelephone = computed(() => {
       </nav>
 
       <nav class="pied-nav" aria-label="Types de projets">
-        <h4>Devis</h4>
+        <h4>Estimer</h4>
         <router-link v-for="t in typesProjets" :key="t.id" :to="{ path: '/calculateur', query: { type: t.id } }">{{ t.libelle }}</router-link>
       </nav>
 

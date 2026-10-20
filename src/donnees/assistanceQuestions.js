@@ -10,7 +10,7 @@ export const ETAPES = {
   depart: {
     texte: 'Bonjour, je suis Awa, l’assistante de BTM. Sur quoi puis-je vous aider ?',
     choix: [
-      { label: 'Faire un devis', suite: 'devis', icone: 'fa-solid fa-calculator' },
+      { label: 'Faire une estimation', suite: 'devis', icone: 'fa-solid fa-calculator' },
       { label: 'Mon code de retrait ou un achat', suite: 'retrait', icone: 'fa-solid fa-ticket' },
       { label: 'Fournisseurs et prix', suite: 'fournisseurs', icone: 'fa-solid fa-truck' },
       { label: 'Mon compte', suite: 'compte', icone: 'fa-solid fa-user' },
@@ -19,9 +19,9 @@ export const ETAPES = {
     ]
   },
   devis: {
-    texte: 'Je peux faire votre devis ici même : je vous pose quelques questions, je calcule, et le projet est enregistré dans « Mes projets » avec son PDF. Vous préférez le faire vous-même ? Le calculateur donne le même résultat en 2 minutes.',
+    texte: 'Je peux faire votre estimation ici même : je vous pose quelques questions, je calcule, et le projet est enregistré dans « Mes projets » avec son PDF. Vous préférez le faire vous-même ? Le calculateur donne le même résultat en 2 minutes.',
     lien: { label: 'Ouvrir le calculateur', to: '/calculateur' },
-    choix: [{ label: 'Faire mon devis avec Awa', devis: true, icone: 'fa-solid fa-wand-magic-sparkles' }]
+    choix: [{ label: 'Faire mon estimation avec Awa', devis: true, icone: 'fa-solid fa-wand-magic-sparkles' }]
   },
   retrait: {
     texte: 'Quel est le souci avec votre retrait ?',
@@ -36,16 +36,16 @@ export const ETAPES = {
     libre: true
   },
   'retrait-sans': {
-    texte: 'Le code apparaît quand vous enregistrez votre devis (compte gratuit) : ouvrez votre devis et cliquez sur « Enregistrer ». Le code, par exemple K7QM-4XPA, s’affiche alors et figure aussi sur le PDF.',
+    texte: 'Le code apparaît quand vous enregistrez votre estimation (compte gratuit) : ouvrez votre estimation et cliquez sur « Enregistrer ». Le code, par exemple K7QM-4XPA, s’affiche alors et figure aussi sur le PDF.',
     lien: { label: 'Mes projets', to: '/dashboard' },
     resolu: true
   },
   'retrait-introuvable': {
-    texte: 'Vérifiez que votre devis est bien enregistré et que le code est saisi en entier (8 caractères, par exemple K7QM-4XPA). Si vous avez choisi un fournisseur dans votre devis, le code n’est valable que chez lui.',
+    texte: 'Vérifiez que votre estimation est bien enregistrée et que le code est saisi en entier (8 caractères, par exemple K7QM-4XPA). Si vous avez choisi un fournisseur dans votre estimation, le code n’est valable que chez lui.',
     resolu: true
   },
   fournisseurs: {
-    texte: 'L’annuaire présente les fournisseurs partenaires de Mayotte. Dans vos résultats de devis, BTM compare le prix exact chez chacun, ce qu’ils ont en stock et l’économie par rapport au comptoir.',
+    texte: 'L’annuaire présente les fournisseurs partenaires de Mayotte. Dans vos résultats d’estimation, BTM compare le prix exact chez chacun, ce qu’ils ont en stock et l’économie par rapport au comptoir.',
     lien: { label: 'Voir les fournisseurs', to: '/fournisseurs' },
     resolu: true
   },
@@ -77,7 +77,7 @@ export const ETAPES = {
     resolu: true
   },
   fidelite: {
-    texte: 'Chaque achat payé avec un code de retrait vous rapporte du crédit fidélité, affiché à côté de votre nom une fois connecté : le fournisseur le déduit de votre prochain retrait. Un code promo BTM se saisit sur votre devis et ne sert qu’une fois par compte.',
+    texte: 'Chaque achat payé avec un code de retrait vous rapporte du crédit fidélité, affiché à côté de votre nom une fois connecté : le fournisseur le déduit de votre prochain retrait. Un code promo BTM se saisit sur votre estimation et ne sert qu’une fois par compte.',
     resolu: true
   },
   autre: {

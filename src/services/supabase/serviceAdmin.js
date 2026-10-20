@@ -318,12 +318,21 @@ export async function enregistrerParametresVersement(p, auteurId) {
   return { ...ligne, seuil_minimum: Number(ligne.seuil_minimum) }
 }
 // ---------- Reversements des fournisseurs à BTM (migration 0014) ----------
-// Le fournisseur encaisse tout et reverse les frais de service BTM ; pris en compte dès sa déclaration.
+// Le fournisseur encaisse tout et reverse la commission BTM ; son virement déclaré reste « declare » (en vérification)
+// tant que l'admin ne l'a pas vu arriver sur le compte de BTM.
+const versReversement = (r) => ({ ...r, montant: Number(r.montant), fournisseur_nom: r.fournisseurs?.nom || r.fournisseur_nom || 'Fournisseur supprimé' })
 export async function listerReversements() {
   verifier()
   const { data, error } = await supabase.from('reversements').select('*, fournisseurs(nom)').order('declare_le', { ascending: false })
   if (error) throw traduire(error)
-  return data.map((r) => ({ ...r, montant: Number(r.montant), fournisseur_nom: r.fournisseurs?.nom || 'Fournisseur supprimé' }))
+  return data.map(versReversement)
+}
+/** decision : 'valide' (virement reçu) | 'refuse' (motif obligatoire, affiché au fournisseur) */
+export async function statuerReversement(id, decision, motif) {
+  verifier()
+  const { data, error } = await supabase.rpc('statuer_reversement', { p_id: id, p_decision: decision, p_motif: motif || null })
+  if (error) throw traduire(error)
+  return versReversement(data)
 }
 
 

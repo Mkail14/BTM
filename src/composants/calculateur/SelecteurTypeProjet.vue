@@ -1,8 +1,16 @@
 <script setup>
 import { typesProjets } from '@/donnees/typesProjets.js'
+import { onBeforeUnmount, ref } from 'vue'
 import Maquette3D from './Maquette3D.vue'
 defineProps({ modelValue: { type: String, default: '' } })
 const emit = defineEmits(['update:modelValue'])
+
+// Téléphone : une icône à la place des cinq scènes 3D (trop petites pour être lisibles, et lourdes à animer)
+const requete = window.matchMedia('(max-width: 599px)')
+const telephone = ref(requete.matches)
+const suivre = (e) => { telephone.value = e.matches }
+requete.addEventListener('change', suivre)
+onBeforeUnmount(() => requete.removeEventListener('change', suivre))
 </script>
 
 <template>
@@ -14,7 +22,8 @@ const emit = defineEmits(['update:modelValue'])
         class="selecteur-option" :class="{ actif: modelValue === t.id }"
       >
         <input type="radio" name="type-projet" :value="t.id" :checked="modelValue === t.id" class="visually-hidden" @click="emit('update:modelValue', t.id)" />
-        <span class="selecteur-scene"><Maquette3D :type="t.id" compacte /></span>
+        <span v-if="telephone" class="selecteur-icone" :style="{ '--couleur': t.couleur }" aria-hidden="true"><i :class="t.icone"></i></span>
+        <span v-else class="selecteur-scene"><Maquette3D :type="t.id" compacte /></span>
         <span class="selecteur-libelle">{{ t.libelle }}</span>
         <span class="selecteur-desc">{{ t.description }}</span>
         <i class="fa-solid fa-circle-check selecteur-coche" aria-hidden="true"></i>
@@ -39,4 +48,14 @@ const emit = defineEmits(['update:modelValue'])
 .selecteur-desc { font-size: .88rem; color: var(--texte-secondaire); line-height: 1.45; }
 .selecteur-coche { position: absolute; top: 12px; right: 12px; color: var(--lagon-700); font-size: 1.3rem; opacity: 0; transform: scale(.5); transition: all var(--transition); }
 .actif .selecteur-coche { opacity: 1; transform: scale(1); }
+/* Téléphone : un projet par ligne (icône à gauche) : les cinq projets tiennent sur un écran */
+@media (max-width: 599px) {
+  .selecteur-grille { grid-template-columns: 1fr; gap: 10px; }
+  .selecteur-option { display: grid; grid-template-columns: 52px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 14px; row-gap: 2px; align-items: center; min-height: 76px; padding: 12px 40px 12px 12px; text-align: left; }
+  .selecteur-option:hover { transform: none; }
+  .selecteur-icone { grid-row: 1 / 3; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: color-mix(in srgb, var(--couleur) 14%, #fff); color: var(--couleur); font-size: 1.35rem; }
+  .selecteur-libelle { align-self: end; font-size: 1.3rem; line-height: 1.1; }
+  .selecteur-desc { align-self: start; font-size: .82rem; line-height: 1.35; }
+  .selecteur-coche { top: 50%; right: 12px; margin-top: -.65rem; }
+}
 </style>

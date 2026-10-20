@@ -7,7 +7,7 @@ import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 const routes = [
   { path: '/', name: 'accueil', component: () => import('@/vues/AccueilVue.vue'), meta: { titre: 'Accueil' } },
   { path: '/calculateur', name: 'calculateur', component: () => import('@/vues/CalculateurVue.vue'), meta: { titre: 'Calculateur' } },
-  { path: '/resultats', name: 'resultats', component: () => import('@/vues/ResultatsVue.vue'), meta: { titre: 'Résultats', necessiteConnexion: true, fenetre: 'inscription', message: 'Un compte gratuit est nécessaire pour voir votre devis.' } },
+  { path: '/resultats', name: 'resultats', component: () => import('@/vues/ResultatsVue.vue'), meta: { titre: 'Résultats' } }, // prix visible sans compte : le compte sert à enregistrer et au code de retrait
   { path: '/fournisseurs', name: 'fournisseurs', component: () => import('@/vues/FournisseursVue.vue'), meta: { titre: 'Fournisseurs' } },
   { path: '/projet-pro', redirect: '/calculateur' }, // ancienne page 3D retirée : les pros réunissent leurs ouvrages depuis le calculateur
   { path: '/dashboard', name: 'dashboard', component: () => import('@/vues/TableauDeBordVue.vue'), meta: { titre: 'Mes projets', necessiteConnexion: true } },

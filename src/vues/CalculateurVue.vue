@@ -18,17 +18,14 @@ import CatalogueDirect from '@/composants/calculateur/CatalogueDirect.vue'
 import SelecteurCarreau from '@/composants/calculateur/SelecteurCarreau.vue'
 import { modeleCarreau } from '@/services/calculs/formuleCarrelage.js'
 import { useAuth } from '@/composables/useAuth.js'
-import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 
 const route = useRoute()
 const router = useRouter()
 const calc = useCalculateur()
-const { estPro, connecte } = useAuth()
+const { estPro } = useAuth()
 
-// Le devis est réservé aux comptes : sans compte, l'estimation est gardée et la fenêtre « Créer un compte » s'ouvre ;
-// une fois connecté, la personne arrive sur son devis.
+// Le prix est visible sans compte ; le compte ne sert qu'à enregistrer l'estimation et obtenir le code de retrait
 async function allerAuDevis() {
-  if (!connecte.value) return ouvrirAuth('inscription', { redirect: '/resultats', message: 'Un compte gratuit est nécessaire pour voir votre devis.' })
   // push() ne lève pas d'erreur quand la navigation est interrompue : il renvoie l'échec
   const echec = await router.push('/resultats')
   if (echec) throw new Error(echec.message || 'navigation vers les résultats interrompue')
@@ -172,7 +169,7 @@ async function soumettre() {
   } catch (e) {
     // jamais de clic « sans effet » : le problème s'affiche sous le récapitulatif et dans la console
     console.error('Obtenir mon devis :', e)
-    calc.erreurGlobale.value = `Le devis n’a pas pu s’afficher (${e?.message || 'erreur inconnue'})`
+    calc.erreurGlobale.value = `L’estimation n’a pas pu s’afficher (${e?.message || 'erreur inconnue'})`
   }
 }
 
@@ -236,6 +233,15 @@ onBeforeUnmount(() => {
   window.removeEventListener('orientationchange', surRotation)
 })
 
+// Carrelage : nombre de carreaux entiers à commander (même calcul que le devis), pour afficher le coût du modèle choisi
+const COTES = { '30x30': 0.3, '45x45': 0.45, '60x60': 0.6 }
+const nbCarreaux = computed(() => {
+  const d = calc.dimensions, cote = COTES[d.format]
+  const surface = Number(String(d.longueur || 0).replace(',', '.')) * Number(String(d.largeur || 0).replace(',', '.'))
+  const marge = calc.type.value?.parametres?.margeCarreaux || 1.1
+  return cote && surface > 0 ? Math.ceil((surface * marge) / cote ** 2) : 0
+})
+
 // ---------- Récapitulatif ----------
 function formater(champ, valeur) {
   if (champ.type === 'select') return champ.options.find((o) => o.valeur === valeur)?.label.split(' — ')[0] || valeur
@@ -268,7 +274,7 @@ const recapitulatif = computed(() => {
 <template>
   <div id="page-calculateur" class="page">
     <div class="conteneur">
-      <h1 class="visually-hidden">Le devis de votre projet</h1>
+      <h1 class="visually-hidden">L’estimation de votre projet</h1>
 
       <div v-if="mode === 'mesures'" class="assistant-progression" role="progressbar" :aria-valuenow="position" aria-valuemin="1" :aria-valuemax="total" :aria-label="`Étape ${position} sur ${total}`">
         <span :style="{ width: `${(position / total) * 100}%` }"></span>
@@ -277,12 +283,12 @@ const recapitulatif = computed(() => {
       <!-- Devis pro en cours : l'estimation suivante le rejoindra -->
       <p v-if="estPro && calc.cumul.value.length" class="calc-pro">
         <span class="calc-pro-badge">Pro</span>
-        <span>Devis en cours : <strong>{{ calc.cumul.value.length }} élément{{ calc.cumul.value.length > 1 ? 's' : '' }}</strong>. Ce que vous calculez maintenant s’y ajoutera.</span>
-        <router-link to="/resultats">Voir le devis</router-link>
+        <span>Estimation en cours : <strong>{{ calc.cumul.value.length }} élément{{ calc.cumul.value.length > 1 ? 's' : '' }}</strong>. Ce que vous calculez maintenant s’y ajoutera.</span>
+        <router-link to="/resultats">Voir l’estimation</router-link>
       </p>
 
       <!-- Deux façons de faire son devis -->
-      <div v-if="mode === 'direct' || etape === 'type'" class="calc-modes" role="tablist" aria-label="Façon de faire mon devis">
+      <div v-if="mode === 'direct' || etape === 'type'" class="calc-modes" role="tablist" aria-label="Façon de faire mon estimation">
         <button type="button" role="tab" :aria-selected="mode === 'mesures'" @click="changerMode('mesures')">
           <i class="fa-solid fa-ruler-combined" aria-hidden="true"></i><span><strong>Selon mes mesures</strong><small>Je donne les dimensions, BTM calcule les quantités</small></span>
         </button>
@@ -306,7 +312,7 @@ const recapitulatif = computed(() => {
           </section>
 
           <!-- 2. Questions et récapitulatif : la maquette 3D reste en place, seul le texte change -->
-          <section v-else key="assistant" class="carte assistant-carte" :style="styleMaquette" @focusin="ramenerSousMaquette($event.target)">
+          <section v-else key="assistant" class="carte assistant-carte" :class="{ 'etape-carreau': question?.champ?.type === 'carreau', 'etape-recap': etape === 'recap' }" :style="styleMaquette" @focusin="ramenerSousMaquette($event.target)">
             <div class="assistant-contenu">
               <p class="assistant-contexte">
                 <span class="assistant-puce">
@@ -344,8 +350,8 @@ const recapitulatif = computed(() => {
 
                   <template v-else-if="question.champ.type === 'carreau'">
                     <h2 class="assistant-question assistant-focus" tabindex="-1">{{ question.champ.question }}</h2>
-                    <p class="assistant-aide">Faites défiler les modèles des fournisseurs : le prix affiché est celui d’un carreau.</p>
-                    <SelecteurCarreau :format="calc.dimensions.format" :model-value="lireValeur(question)" @choisir="choisirOption(question, $event)" />
+                    <p class="assistant-aide">Touchez un modèle pour le choisir, ou gardez le modèle standard si vous choisirez en magasin.</p>
+                    <SelecteurCarreau :format="calc.dimensions.format" :model-value="lireValeur(question)" :nb-carreaux="nbCarreaux" @choisir="ecrireValeur(question, $event)" />
                   </template>
 
                   <template v-else>
@@ -370,14 +376,13 @@ const recapitulatif = computed(() => {
 
                   <div class="assistant-actions">
                     <BoutonBase variante="ghost" type="button" icone="fa-solid fa-arrow-left" @click="precedent">Retour</BoutonBase>
-                    <BoutonBase v-if="!question.special && !['select', 'carreau'].includes(question.champ.type)" type="submit" icone-droite="fa-solid fa-arrow-right">Continuer</BoutonBase>
+                    <BoutonBase v-if="!question.special && question.champ.type !== 'select'" type="submit" icone-droite="fa-solid fa-arrow-right">Continuer</BoutonBase>
                   </div>
                 </div>
 
                 <div v-else key="recap" class="assistant-panneau">
                   <h2 class="assistant-question assistant-focus" tabindex="-1">Tout est prêt !</h2>
                   <p class="assistant-aide">Vérifiez vos réponses, puis lancez le calcul.</p>
-                  <p v-if="!connecte" class="assistant-aide"><i class="fa-solid fa-lock" aria-hidden="true"></i> Pour voir le prix, un compte gratuit vous sera demandé (3 courtes étapes, puis une confirmation par e-mail) : vos réponses sont gardées.</p>
 
                   <ul class="assistant-recap">
                     <li v-for="ligne in recapitulatif" :key="ligne.cle">
@@ -399,7 +404,7 @@ const recapitulatif = computed(() => {
                   <div class="assistant-actions">
                     <BoutonBase variante="ghost" type="button" icone="fa-solid fa-arrow-left" @click="precedent">Retour</BoutonBase>
                     <BoutonBase type="submit" :chargement="calc.chargement.value" icone="fa-solid fa-wand-magic-sparkles">
-                      {{ calc.chargement.value ? 'Calcul en cours…' : 'Obtenir mon devis' }}
+                      {{ calc.chargement.value ? 'Calcul en cours…' : 'Voir le prix' }}
                     </BoutonBase>
                   </div>
                 </div>
@@ -429,7 +434,14 @@ const recapitulatif = computed(() => {
 .calc-pro { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-radius: var(--rayon); background: var(--ardoise); color: #fff; font-size: .9rem; }
 .calc-pro a { margin-left: auto; color: #fcd34d; font-weight: 700; }
 .calc-pro-badge { padding: 2px 10px; border-radius: 999px; background: #fcd34d; color: var(--ardoise); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-@media (max-width: 560px) { .calc-modes { grid-template-columns: 1fr; } }
+/* Téléphone : deux onglets côte à côte, sans le sous-titre, pour laisser la place au contenu */
+@media (max-width: 560px) {
+  .calc-modes { gap: 8px; margin-bottom: 18px; }
+  .calc-modes button { flex-direction: column; align-items: flex-start; gap: 8px; min-height: 56px; padding: 10px 12px; }
+  .calc-modes i { width: 32px; height: 32px; border-radius: 10px; font-size: .9rem; }
+  .calc-modes strong { font-size: .9rem; line-height: 1.25; }
+  .calc-modes small { display: none; }
+}
 
 .assistant-progression { height: 6px; margin: 8px auto 32px; max-width: 520px; border-radius: 999px; background: var(--gris-200); overflow: hidden; }
 .assistant-progression span { display: block; height: 100%; border-radius: inherit; background: var(--lagon-600); transition: width .4s ease; }
@@ -438,9 +450,10 @@ const recapitulatif = computed(() => {
 .assistant-question { display: block; font-family: var(--font-display); font-size: clamp(1.6rem, 3.4vw, 2.3rem); font-weight: 700; line-height: 1.15; color: var(--ardoise); outline: none; }
 .assistant-aide { margin: 8px 0 24px; color: var(--texte-secondaire); font-size: 1rem; }
 
-.assistant-carte { display: grid; grid-template-columns: 1fr; overflow: hidden; padding: 0; border-radius: var(--rayon-lg); }
-@media (min-width: 900px) { .assistant-carte { grid-template-columns: 1.1fr 1fr; min-height: 440px; } }
-.assistant-contenu { display: flex; flex-direction: column; padding: 32px; }
+/* minmax(0, …) : un contenu large (piste de carreaux) ne doit jamais élargir la carte au-delà de l'écran */
+.assistant-carte { display: grid; grid-template-columns: minmax(0, 1fr); overflow: hidden; padding: 0; border-radius: var(--rayon-lg); }
+@media (min-width: 900px) { .assistant-carte { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); min-height: 440px; } }
+.assistant-contenu { display: flex; flex-direction: column; min-width: 0; padding: 32px; }
 .assistant-panneau { display: flex; flex: 1; flex-direction: column; }
 .assistant-corps { display: flex; flex: 1; flex-direction: column; justify-content: center; padding: 8px 0; }
 .assistant-numero { margin: 0 0 8px; color: var(--lagon-700); font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -453,12 +466,24 @@ const recapitulatif = computed(() => {
   .assistant-carte { overflow: clip; } /* « hidden » empêcherait la maquette de rester collée */
   .assistant-maquette {
     position: sticky; top: var(--hauteur-entete); z-index: 3;
-    height: var(--hauteur-maquette, 260px);
+    height: var(--hauteur-maquette, 220px);
     border-bottom: 1px solid var(--gris-200);
     box-shadow: 0 8px 18px -14px rgba(11, 18, 32, .35);
     transition: height .2s ease;
   }
-  .assistant-contenu :is(input, .assistant-focus, .assistant-question) { scroll-margin-top: calc(var(--hauteur-entete) + var(--hauteur-maquette, 260px) + 12px); }
+  .assistant-contenu :is(input, .assistant-focus, .assistant-question) { scroll-margin-top: calc(var(--hauteur-entete) + var(--hauteur-maquette, 220px) + 12px); }
+  /* Choix du carreau : la maquette (teinte du modèle) reste visible mais petite, la place va aux modèles */
+  .etape-carreau { --hauteur-maquette: 150px; }
+  .etape-carreau .assistant-maquette :deep(.maquette-legende) { display: none; } /* la surface est déjà connue, la scène reste visible */
+  .etape-carreau .assistant-question { font-size: 1.5rem; }
+  .etape-carreau .assistant-aide { margin-bottom: 14px; font-size: .92rem; }
+  /* … et « Continuer » reste à portée du pouce en bas de l'écran */
+  .etape-carreau .assistant-actions {
+    position: sticky; bottom: 0; z-index: 2; margin: 0 -32px -32px; padding: 12px 32px calc(12px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--gris-200); background: #fff; box-shadow: 0 -8px 18px -14px rgba(11, 18, 32, .3);
+  }
+  /* Récapitulatif : rien à saisir, la maquette défile avec la page */
+  .etape-recap .assistant-maquette { position: relative; top: auto; height: 180px; }
 }
 
 .assistant-contexte { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
@@ -491,5 +516,6 @@ const recapitulatif = computed(() => {
   .assistant-contenu { padding: 22px 18px; }
   .assistant-saisie { max-width: none; }
   .assistant-actions .btn:last-child { flex: 1; }
+  .etape-carreau .assistant-actions { margin: 0 -18px -22px; padding-left: 18px; padding-right: 18px; }
 }
 </style>

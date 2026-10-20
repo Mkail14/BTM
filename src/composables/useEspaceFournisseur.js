@@ -38,12 +38,15 @@ const ruptures = computed(() => [
   ...articles.value.filter((a) => a.vendu && (a.rupture || a.stock === 0)).map((a) => a.libelle)
 ])
 
-// Reversements : frais BTM encaissés − virements déjà faits (pris en compte dès leur déclaration)
+// Reversements : commission encaissée − virements reçus par BTM. Un virement déclaré reste « en vérification » tant
+// que BTM ne l'a pas vu arriver : il ne réduit pas encore la dette, mais ne peut pas être déclaré une deuxième fois.
 const somme = (liste, champ) => Math.round(liste.reduce((s, x) => s + (Number(x[champ]) || 0), 0) * 100) / 100
 const soldeBtm = computed(() => {
   const du = somme(paiements.value, 'revenu_btm')
   const reverse = somme(reversements.value.filter((r) => r.statut === 'valide'), 'montant')
-  return { du, reverse, reste: Math.max(0, Math.round((du - reverse) * 100) / 100) }
+  const attente = somme(reversements.value.filter((r) => r.statut === 'declare'), 'montant')
+  const reste = Math.max(0, Math.round((du - reverse) * 100) / 100)
+  return { du, reverse, attente, reste, aDeclarer: Math.max(0, Math.round((reste - attente) * 100) / 100) }
 })
 
 /** Charge une donnée facultative sans bloquer le reste (migration absente, réseau…) */

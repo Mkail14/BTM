@@ -265,7 +265,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         </button>
         <div v-if="menuOuvert" id="ac-options" class="ac-options">
           <p class="ac-options-qui"><strong>{{ titre }}</strong><small>{{ sousTitre }}</small></p>
-          <button v-if="!devisActif && !cloturee" type="button" @click="menuOuvert = false; demarrerDevis()"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire un devis avec Awa</button>
+          <button v-if="!devisActif && !cloturee" type="button" @click="menuOuvert = false; demarrerDevis()"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire une estimation avec Awa</button>
           <button v-if="!chezConseiller && !cloturee" type="button" @click="passerConseiller"><i class="fa-solid fa-headset" aria-hidden="true"></i> Parler à un conseiller</button>
           <button v-if="peutRecommencer" type="button" @click="recommencer"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Nouvelle discussion</button>
           <button type="button" @click="menuOuvert = false; minimise = true"><i class="fa-solid fa-minus" aria-hidden="true"></i> Réduire la fenêtre</button>
@@ -317,10 +317,10 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
             <div v-if="dernierDevis && m.id === dernierDevis.idMessage" class="ac-choix ac-devis-actions">
               <button type="button" @click="pdfDevis('visualiser')"><i class="fa-regular fa-file-pdf" aria-hidden="true"></i>Voir le PDF</button>
               <button type="button" @click="pdfDevis('telecharger')"><i class="fa-solid fa-download" aria-hidden="true"></i>Télécharger</button>
-              <button type="button" @click="ouvrirDevis(); minimise = true"><i class="fa-solid fa-list-check" aria-hidden="true"></i>Devis complet</button>
+              <button type="button" @click="ouvrirDevis(); minimise = true"><i class="fa-solid fa-list-check" aria-hidden="true"></i>Estimation complète</button>
               <router-link v-if="dernierDevis.dansCompte" to="/dashboard" @click="minimise = true"><i class="fa-solid fa-folder-open" aria-hidden="true"></i>Mes projets</router-link>
               <button v-else type="button" @click="ouvrirAuth('connexion', { redirect: '/dashboard' }); minimise = true"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>Me connecter</button>
-              <button type="button" @click="demarrerDevis()"><i class="fa-solid fa-plus" aria-hidden="true"></i>Autre devis</button>
+              <button type="button" @click="demarrerDevis()"><i class="fa-solid fa-plus" aria-hidden="true"></i>Autre estimation</button>
             </div>
           </div>
         </template>
@@ -330,7 +330,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
           <button v-for="c in choixDevis" :key="c.label" type="button" @click="choisirDevis(c)">
             <i v-if="c.icone" :class="c.icone" aria-hidden="true"></i>{{ c.label }}
           </button>
-          <button type="button" class="ac-choix-discret" @click="annulerDevis">Annuler le devis</button>
+          <button type="button" class="ac-choix-discret" @click="annulerDevis">Annuler l’estimation</button>
         </div>
 
         <div v-if="conseillerEcrit && chezConseiller && !envoi" class="ac-ligne conseiller">

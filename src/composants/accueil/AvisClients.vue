@@ -32,7 +32,7 @@ const nomDuCompte = computed(() => {
 
 // Avis de démonstration : uniquement si le back-end n'est PAS configuré (développement sans Supabase)
 const avisInitiaux = [
-  { id: 'initial-1', nom: 'Amina M.', ville: 'Mamoudzou', note: 5, commentaire: 'Un devis clair et rapide pour préparer mon projet.', date: '2026-09-12' },
+  { id: 'initial-1', nom: 'Amina M.', ville: 'Mamoudzou', note: 5, commentaire: 'Une estimation claire et rapide pour préparer mon projet.', date: '2026-09-12' },
   { id: 'initial-2', nom: 'Youssouf B.', ville: 'Koungou', note: 4, commentaire: 'Les quantités sont faciles à comprendre. Très pratique avant de demander un devis.', date: '2026-09-10' },
   { id: 'initial-3', nom: 'Sarah A.', ville: 'Dzaoudzi', note: 5, commentaire: 'Enfin un outil pensé pour les projets de construction à Mayotte.', date: '2026-09-06' },
   { id: 'initial-4', nom: 'Nassim R.', ville: 'Pamandzi', note: 4, commentaire: 'Simple, lisible et utile pour comparer les matériaux.', date: '2026-09-02' }

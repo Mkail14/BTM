@@ -11,58 +11,29 @@ export const categories = [
   { id: 'carrelage-finition', libelle: 'Carrelage & finitions', icone: 'fa-solid fa-border-all' }
 ]
 
+// Fiches FICTIVES (aucune entreprise réelle : ni nom, ni logo, ni téléphone) tant qu'aucun partenaire n'a signé
+const exemple = (lettre, categorie_id, categorie, commune, description, couleur) => ({
+  id: `exemple-${lettre}`,
+  slug: `exemple-${lettre}`,
+  nom: `Fournisseur exemple ${lettre.toUpperCase()}`,
+  categorie_id,
+  categorie,
+  commune,
+  adresse: null,
+  telephone: '',
+  site_web: null,
+  description: `Fiche fictive : ${description}, pour montrer le fonctionnement du site.`,
+  livraison: true,
+  horaires: null,
+  logo: `/logos/exemple-${lettre}.svg`,
+  couleur,
+  demonstration: true
+})
+
 export const fournisseurs = [
-  {
-    id: 'etpc',
-    slug: 'etpc',
-    nom: 'ETPC',
-    categorie_id: 'beton-granulats',
-    categorie: 'Béton & granulats',
-    commune: 'Koungou',
-    adresse: 'ZI de Longoni, 97600 Koungou',
-    telephone: '0269 62 04 82',
-    site_web: 'https://etpc.yt',
-    description: 'Producteur de béton prêt à l’emploi, granulats et sables à Mayotte. Centrale à béton à Longoni, livraison sur toute l’île.',
-    livraison: true,
-    horaires: 'Lun–Ven 6h30–15h30, Sam 6h30–11h30',
-    logo: '/logos/etpc.svg',
-    couleur: '#0e7490',
-    demonstration: true
-  },
-  {
-    id: 'ibs',
-    slug: 'ibs',
-    nom: 'IBS',
-    categorie_id: 'beton-granulats',
-    categorie: 'Béton & granulats',
-    commune: 'Koungou',
-    adresse: 'Route nationale, Kawéni – Koungou, 97600',
-    telephone: '0269 61 15 50',
-    site_web: 'https://ibs-groupe.fr',
-    description: 'Béton, agrégats et matériaux de construction. Livraison par toupie et camion benne sur Grande-Terre.',
-    livraison: true,
-    horaires: 'Lun–Ven 7h00–16h00',
-    logo: '/logos/ibs.svg',
-    couleur: '#0891b2',
-    demonstration: true
-  },
-  {
-    id: 'batimax',
-    slug: 'batimax',
-    nom: 'Batimax',
-    categorie_id: 'materiaux-generaux',
-    categorie: 'Matériaux généraux',
-    commune: 'Mamoudzou',
-    adresse: 'Kawéni, 97600 Mamoudzou',
-    telephone: '0269 61 12 11',
-    site_web: 'https://batimax-mayotte.com',
-    description: 'Négoce de matériaux généraux : parpaings, ciment, fer à béton, carrelage, outillage et quincaillerie du bâtiment.',
-    livraison: true,
-    horaires: 'Lun–Sam 7h30–17h00',
-    logo: '/logos/batimax.svg',
-    couleur: '#f59e0b',
-    demonstration: true
-  }
+  exemple('a', 'beton-granulats', 'Béton & granulats', 'Koungou', 'centrale à béton et granulats', '#0e7490'),
+  exemple('b', 'beton-granulats', 'Béton & granulats', 'Koungou', 'béton et agrégats', '#0891b2'),
+  exemple('c', 'materiaux-generaux', 'Matériaux généraux', 'Mamoudzou', 'négoce de matériaux généraux', '#b45309')
 ]
 
 export const libelleCategorie = (id) => categories.find((c) => c.id === id)?.libelle || id

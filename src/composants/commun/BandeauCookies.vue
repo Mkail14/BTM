@@ -14,7 +14,7 @@ const { bandeauVisible, confirmer } = useCookies()
       <p id="cookies-titre" class="cookies-titre"><i class="fa-solid fa-cookie-bite" aria-hidden="true"></i> Vos données, en toute transparence</p>
       <p class="cookies-texte">
         BTM n’utilise <strong>aucun cookie publicitaire ni de mesure d’audience</strong>. Seul l’indispensable est enregistré sur votre appareil :
-        votre connexion, votre devis en cours et vos préférences.
+        votre connexion, votre estimation en cours et vos préférences.
       </p>
       <div class="cookies-actions">
         <button type="button" class="btn btn-primaire btn-sm" @click="confirmer">J’ai compris</button>

@@ -75,7 +75,7 @@ function reinitialiser() { recherche.value = ''; categorie.value = ''; livraison
       <!-- même bandeau que « Mes projets » -->
       <BandeauPage surtitre="Annuaire" titre="Fournisseurs de Mayotte" texte="Les entreprises de matériaux de l’île, à contacter directement : appel, itinéraire ou e-mail en un geste." :pastilles="pastilles">
         <template #action>
-          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire mon devis</router-link>
+          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Estimer mon projet</router-link>
         </template>
       </BandeauPage>
 

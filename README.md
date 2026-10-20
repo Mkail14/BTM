@@ -32,6 +32,8 @@ Sans ces variables, le site tourne en mode local avec les données de `src/donne
 | Develop | prévisualisation Vercel (branche `develop`) | Le site complet |
 | Locale | `npm run dev` | Le site complet |
 
+Pour publier le code de `develop`, utilisez « Compte BTM → Mise en ligne → Préparer la mise en ligne » dans l’admin. Le bouton prépare une demande de fusion vers `main` sur GitHub ; GitHub bloque la fusion tant que les conflits ne sont pas résolus. Vercel déploie ensuite la branche `main`.
+
 ## Organisation
 
 - `src/services/calculs/` : formules (une par ouvrage) et moteur ; tests dans `__tests__/`.

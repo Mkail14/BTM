@@ -253,6 +253,15 @@ async function changerMode(mode) {
             </button>
           </div>
           <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Le changement s’applique tout de suite, sans redéploiement. Les visiteurs déjà sur le site le voient à leur prochain chargement de page.</p>
+          <section class="site-publication" aria-labelledby="site-publication-titre">
+            <div>
+              <h3 id="site-publication-titre">Publier le code de Develop</h3>
+              <p>Prépare une demande de fusion vers <code>main</code>. GitHub bloque la fusion si des conflits existent : résolvez-les avant de pouvoir mettre le code en ligne. Après la fusion, Vercel déploie la production.</p>
+            </div>
+            <a class="adm-btn adm-btn-noir" href="https://github.com/Mkail14/BTM/compare/main...develop?expand=1" target="_blank" rel="noopener noreferrer">
+              <i class="fa-brands fa-github" aria-hidden="true"></i> Préparer la mise en ligne
+            </a>
+          </section>
         </template>
       </template>
 
@@ -506,6 +515,11 @@ async function changerMode(mode) {
 .site-mode-coche { color: var(--adm-noir); font-size: 1.1rem; }
 .adm-sombre .site-mode.actif { box-shadow: inset 0 0 0 2px var(--adm-accent); }
 .adm-sombre .site-mode-coche { color: var(--adm-accent); }
+.site-publication { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 18px; border: 1px solid var(--adm-ligne); border-radius: 16px; }
+.site-publication h3 { margin: 0 0 4px; font-size: .95rem; }
+.site-publication p { max-width: 470px; margin: 0; color: var(--adm-muet); font-size: .82rem; line-height: 1.5; }
+.site-publication code { font-family: var(--font-mono); font-size: .95em; }
+.site-publication .adm-btn { flex: none; }
 
 .admins-ajout { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: var(--adm-ligne-2); }
 .admins-saisie { display: flex; flex-wrap: wrap; gap: 8px; }

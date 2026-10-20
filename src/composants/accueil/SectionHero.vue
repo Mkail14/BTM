@@ -233,8 +233,10 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
 /* Téléphone : un écran d'application. Titre sur une ligne, puis la liste des ouvrages : un seul geste pour commencer.
    Pas de description ni de boutons (la barre d'onglets porte déjà « Estimer » et « Fournisseurs »). */
 @media (max-width: 639px) {
-  .hero { min-height: calc(100svh - var(--barre-onglets, 0px)); padding-top: calc(var(--hauteur-entete) + 16px); justify-content: flex-start; }
-  .hero-grille { grid-template-columns: minmax(0, 1fr); gap: 28px; padding: 8px var(--gouttiere) 32px; align-content: center; }
+  /* le fond occupe tout l'écran, jusque derrière la barre d'onglets flottante (floutée) : aucune bande blanche ;
+     le contenu garde sa place au-dessus de la barre */
+  .hero { min-height: 100svh; padding-top: calc(var(--hauteur-entete) + 16px); justify-content: flex-start; }
+  .hero-grille { grid-template-columns: minmax(0, 1fr); gap: 28px; padding: 8px var(--gouttiere) calc(24px + var(--barre-onglets, 0px)); align-content: center; }
   .hero-grille > * { min-width: 0; }
   .hero-texte { max-width: none; }
   .hero-surtitre { font-size: .68rem; letter-spacing: .12em; margin-bottom: 12px; }

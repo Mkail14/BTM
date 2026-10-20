@@ -21,6 +21,7 @@ const libelleTypeCompte = computed(() => ({ verifie: 'Professionnel vérifié', 
 const { mettreAJourProfil, supprimerCompte: supprimerCompteAuth } = useAuth()
 const defile = ref(false)
 const profilOuvert = ref(false)
+const avisOuvert = ref(false) // feuille « Laisser un avis » (visiteur, onglet du bas)
 const telephoneProfilValide = ref(true)
 const telephoneProfilErreur = ref('')
 const profilFormulaire = ref({ pseudo: '', email: '', telephone: '' })
@@ -69,7 +70,7 @@ onMounted(() => { surScroll(); window.addEventListener('scroll', surScroll, { pa
 onBeforeUnmount(() => window.removeEventListener('scroll', surScroll))
 watch(() => route.path, () => { profilOuvert.value = false })
 const { etat: fenetreAuth } = useFenetreAuth()
-watch([profilOuvert, () => fenetreAuth.ouverte], ([profil, auth]) => { document.body.style.overflow = profil || auth ? 'hidden' : '' })
+watch([profilOuvert, () => fenetreAuth.ouverte, () => avisOuvert.value], ([profil, auth, avis]) => { document.body.style.overflow = profil || auth || avis ? 'hidden' : '' })
 
 // Téléphone et tablette : barre d'onglets en bas, comme une application. La classe réserve sa place
 // (style.css : --barre-onglets) et remonte les éléments fixés en bas (aide, cookies, barre du calculateur).
@@ -102,6 +103,19 @@ function ouvrirProfil() {
 
 function fermerProfil() {
   profilOuvert.value = false
+}
+
+// « Laisser un avis » (visiteur) : publier sur BTM demande un compte, Trustpilot non.
+// Sans lien Trustpilot réglé dans l'admin, il n'y a qu'un choix : la connexion s'ouvre directement.
+// Une fois connecté, l'accueil ouvre le formulaire d'avis (AvisClients, ?avis=site).
+const lienTrustpilot = computed(() => (/^https:\/\//.test(contenu.avis?.lienTrustpilot || '') ? contenu.avis.lienTrustpilot : ''))
+function ouvrirAvis() {
+  if (lienTrustpilot.value) avisOuvert.value = true
+  else avisSurBtm()
+}
+function avisSurBtm() {
+  avisOuvert.value = false
+  ouvrirFenetreAuth('connexion', { redirect: '/?avis=site#avis', message: 'Connectez-vous pour publier votre avis.' })
 }
 
 // un onglet de page touché pendant que le compte est ouvert le referme (même si c'est la page en cours)
@@ -277,7 +291,8 @@ async function supprimerCompte() {
 
   <!-- Téléphone et tablette : barre d'onglets, hors de l'en-tête (son flou ancrerait la barre en haut) -->
   <nav class="onglets" :class="{ 'onglets-compte': profilOuvert }" aria-label="Navigation principale" @click="surOnglet">
-    <!-- fond blanc en trois morceaux : l'encoche du milieu garde sa forme quelle que soit la largeur -->
+    <!-- fond en trois morceaux : l'encoche du milieu garde sa forme quelle que soit la largeur -->
+    <span class="onglets-verre" aria-hidden="true"></span>
     <span class="onglets-fond" aria-hidden="true">
       <span></span>
       <svg viewBox="0 0 104 60" preserveAspectRatio="none"><path d="M0 0h6c12 0 16 4 21 13 7 15 14 27 25 27s18-12 25-27c5-9 9-13 21-13h6v60H0z" /></svg>
@@ -300,13 +315,36 @@ async function supprimerCompte() {
       <span class="onglet-icone"><i class="fa-solid fa-folder-open" aria-hidden="true"></i><b v-if="propositions" class="onglet-pastille" :aria-label="`${propositions} proposition de BTM à voir`">{{ propositions }}</b></span><span class="onglet-libelle">Projets</span>
     </router-link>
     <!-- visiteur : « Laisser un avis » prend la place de « Projets », la barre garde ses 5 onglets -->
-    <router-link v-else :to="{ path: '/', hash: '#avis', query: { avis: '1' } }" class="onglet">
+    <button v-else type="button" class="onglet" :class="{ actif: avisOuvert }" @click="ouvrirAvis">
       <span class="onglet-icone"><i class="fa-solid fa-star" aria-hidden="true"></i></span><span class="onglet-libelle">Laisser un avis</span>
-    </router-link>
+    </button>
     <button type="button" class="onglet onglet-profil" :class="{ actif: profilOuvert }" @click="connecte ? ouvrirProfil() : ouvrirAuth()">
       <span class="onglet-icone"><i :class="connecte ? 'fa-solid fa-circle-user' : 'fa-solid fa-right-to-bracket'" aria-hidden="true"></i></span><span class="onglet-libelle">{{ connecte ? 'Compte' : 'Connexion' }}</span>
     </button>
   </nav>
+
+  <!-- Laisser un avis (visiteur, onglet du bas) : une feuille qui monte du bas, sans quitter la page -->
+  <div v-if="avisOuvert" class="feuille-fond" @click.self="avisOuvert = false">
+    <section class="feuille" role="dialog" aria-modal="true" aria-labelledby="feuille-avis-titre">
+      <span class="feuille-poignee" aria-hidden="true"></span>
+      <span class="feuille-icone" aria-hidden="true"><i class="fa-solid fa-star"></i></span>
+      <h2 id="feuille-avis-titre">Votre avis compte</h2>
+      <p>Dites-nous ce que vous pensez de BTM : votre avis aide les autres Mahorais à préparer leur chantier.</p>
+      <div class="feuille-options">
+        <button type="button" class="feuille-option" @click="avisSurBtm">
+          <span class="feuille-option-icone"><LogoBtm :taille="22" /></span>
+          <span><strong>Sur BTM</strong><small>Connexion requise · affiché sur l’accueil</small></span>
+          <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+        </button>
+        <a :href="lienTrustpilot" target="_blank" rel="noopener noreferrer" class="feuille-option" @click="avisOuvert = false">
+          <span class="feuille-option-icone feuille-option-trustpilot"><i class="fa-solid fa-star" aria-hidden="true"></i></span>
+          <span><strong>Sur Trustpilot</strong><small>Sans compte BTM · avis public</small></span>
+          <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+        </a>
+      </div>
+      <button type="button" class="feuille-annuler" @click="avisOuvert = false">Plus tard</button>
+    </section>
+  </div>
 
   <div v-if="profilOuvert" class="profil-overlay" :class="{ 'profil-detail': detailOuvert }" @click.self="fermerProfil">
     <button class="profil-fermer" type="button" aria-label="Fermer le profil" @click="fermerProfil"><i class="fa-solid fa-xmark"></i></button>
@@ -513,32 +551,41 @@ async function supprimerCompte() {
   .onglets {
     position: fixed; left: max(14px, calc(50% - 260px)); right: max(14px, calc(50% - 260px)); bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 110;
     display: grid; grid-template-columns: 1fr 1fr 104px 1fr 1fr; height: 60px;
-    filter: drop-shadow(0 12px 28px rgba(15, 23, 42, .1)) drop-shadow(0 1px 3px rgba(15, 23, 42, .06));
+    /* pas de filter ici : il empêcherait le flou de voir la page derrière la barre */
   }
-  .onglets-fond { position: absolute; inset: 0; z-index: -1; display: flex; }
-  .onglets-fond > span { flex: 1; background: #fff; }
+  /* verre fumé : flou de la page derrière, découpé à la forme de la barre (deux pans + l'encoche du milieu) */
+  .onglets-verre {
+    position: absolute; inset: 0; z-index: -2; border-radius: 24px;
+    backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+    --encoche: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 104 60' preserveAspectRatio='none'%3E%3Cpath d='M0 0h6c12 0 16 4 21 13 7 15 14 27 25 27s18-12 25-27c5-9 9-13 21-13h6v60H0z'/%3E%3C/svg%3E");
+    -webkit-mask: linear-gradient(#000 0 0) left / calc(50% - 51px) 100% no-repeat, var(--encoche) center / 104px 100% no-repeat, linear-gradient(#000 0 0) right / calc(50% - 51px) 100% no-repeat;
+    mask: linear-gradient(#000 0 0) left / calc(50% - 51px) 100% no-repeat, var(--encoche) center / 104px 100% no-repeat, linear-gradient(#000 0 0) right / calc(50% - 51px) 100% no-repeat;
+  }
+  /* teinte lagon sombre posée sur le verre (couleurs de l'en-tête) + ombre douce */
+  .onglets-fond { position: absolute; inset: 0; z-index: -1; display: flex; filter: drop-shadow(0 10px 24px rgba(6, 32, 44, .28)); }
+  .onglets-fond > span { flex: 1; background: rgba(6, 32, 44, .66); }
   .onglets-fond > span:first-child { border-radius: 24px 0 0 24px; }
   .onglets-fond > span:last-child { border-radius: 0 24px 24px 0; }
-  .onglets-fond svg { width: 104px; height: 100%; flex: none; fill: #fff; margin: 0 -.5px; }
+  .onglets-fond svg { width: 104px; height: 100%; flex: none; fill: rgba(6, 32, 44, .66); margin: 0 -.5px; }
   .onglet {
     display: grid; place-items: center; min-width: 0; padding: 0; border: 0; background: none;
-    color: var(--gris-400); text-decoration: none; -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color .15s ease;
+    color: rgba(255, 255, 255, .55); text-decoration: none; -webkit-tap-highlight-color: transparent; cursor: pointer; transition: color .15s ease;
   }
   .onglet-icone { position: relative; display: grid; place-items: center; font-size: 1.2rem; }
   /* libellé gardé pour les lecteurs d'écran, masqué à l'écran */
   .onglet-libelle { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .onglet.actif { color: var(--ardoise); }
+  .onglet.actif { color: #fff; }
   .onglet:focus-visible { outline: none; }
   .onglet:focus-visible .onglet-icone, .onglet-central:focus-visible { outline: 2px solid var(--lagon-500); outline-offset: 4px; border-radius: 50%; }
   .onglet-central {
     justify-self: center; align-self: start; width: 54px; height: 54px; margin-top: -18px; display: grid; place-items: center;
-    border-radius: 50%; background: var(--ardoise); color: #fff; font-size: 1.15rem;
-    box-shadow: 0 6px 14px rgba(15, 23, 42, .22); -webkit-tap-highlight-color: transparent; transition: background .15s ease;
+    border-radius: 50%; background: var(--lagon-600); color: #fff; font-size: 1.15rem;
+    box-shadow: 0 8px 20px rgba(8, 145, 178, .45), inset 0 1px 0 rgba(255, 255, 255, .25); -webkit-tap-highlight-color: transparent; transition: background .15s ease;
   }
-  .onglet-central.actif { background: var(--lagon-700); }
+  .onglet-central.actif { background: var(--lagon-500); }
   .onglet-pastille {
     position: absolute; top: -6px; right: -10px; min-width: 16px; height: 16px; padding: 0 4px; display: grid; place-items: center;
-    border-radius: 999px; background: #f59e0b; color: #fff; font: 700 .62rem/1 var(--font-corps); box-shadow: 0 0 0 2px #fff;
+    border-radius: 999px; background: #f59e0b; color: #fff; font: 700 .62rem/1 var(--font-corps); box-shadow: 0 0 0 2px rgba(6, 32, 44, .9);
   }
 }
 
@@ -670,8 +717,8 @@ async function supprimerCompte() {
 @media (max-width: 899px) {
   /* compte ouvert : la barre d'onglets reste au-dessus, seul « Compte » est actif */
   .onglets-compte { z-index: 270; }
-  .onglets-compte .onglet.actif:not(.onglet-profil) { color: var(--gris-400); }
-  .onglets-compte .onglet-central.actif { background: var(--ardoise); }
+  .onglets-compte .onglet.actif:not(.onglet-profil) { color: rgba(255, 255, 255, .55); }
+  .onglets-compte .onglet-central.actif { background: var(--lagon-600); }
 }
 
 /* ---------- Téléphone : écran d'application (liste des rubriques, puis rubrique en sous-écran) ---------- */
@@ -728,6 +775,39 @@ async function supprimerCompte() {
   .profil-contenu .btn { width: 100%; min-height: 50px; justify-content: center; border-radius: 999px; }
   .profil-formulaire .btn { align-self: stretch; }
 }
+/* ---------- Feuille « Laisser un avis » : monte du bas de l'écran, par-dessus la barre d'onglets ---------- */
+.feuille-fond {
+  position: fixed; inset: 0; z-index: 280; display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(6, 32, 44, .5); animation: feuille-fondu .2s ease;
+}
+.feuille {
+  display: flex; flex-direction: column; align-items: center; width: min(100%, 520px);
+  padding: 10px 20px calc(18px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0;
+  background: #fff; text-align: center; animation: feuille-monte .28s cubic-bezier(.22, .61, .36, 1);
+}
+.feuille-poignee { width: 38px; height: 5px; margin-bottom: 18px; border-radius: 999px; background: var(--gris-200); }
+.feuille-icone { width: 52px; height: 52px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 16px; background: #fef3c7; color: #f59e0b; font-size: 1.3rem; }
+.feuille h2 { margin: 0; color: var(--ardoise); font-size: 1.45rem; }
+.feuille p { max-width: 360px; margin: 6px 0 20px; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.5; }
+.feuille-options { width: 100%; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; text-align: left; }
+.feuille-option {
+  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 66px; padding: 10px 16px;
+  border: 0; background: #fff; color: var(--ardoise); font: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.feuille-option + .feuille-option { border-top: 1px solid var(--gris-100); }
+.feuille-option:active { background: var(--gris-50); }
+.feuille-option > span:nth-child(2) { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.feuille-option strong { font-size: .98rem; }
+.feuille-option small { color: var(--gris-500); font-size: .8rem; }
+.feuille-option > i { flex: none; color: var(--gris-400); font-size: .8rem; }
+.feuille-option-icone { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 11px; background: var(--abysse, #06202c); }
+.feuille-option-trustpilot { background: #00b67a; color: #fff; font-size: .95rem; }
+.feuille-annuler { width: 100%; min-height: 48px; margin-top: 10px; border: 0; border-radius: 999px; background: none; color: var(--gris-600); font: 600 .95rem var(--font-corps); cursor: pointer; }
+.feuille-annuler:active { background: var(--gris-100); }
+@keyframes feuille-fondu { from { opacity: 0; } }
+@keyframes feuille-monte { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .feuille, .feuille-fond { animation: none; } }
+
 @keyframes profil-glisse { from { transform: translateX(28px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .profil-contenu { animation: none; } }
 </style>

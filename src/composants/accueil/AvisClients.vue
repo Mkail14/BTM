@@ -135,11 +135,16 @@ function donnerAvis() {
   if (lienTrustpilot.value) choixOuvert.value = true
   else ouvrirModal()
 }
-// onglet « Laisser un avis » de la barre du bas (/?avis=1#avis) : ouvre directement le choix, puis retire le paramètre
+// retour de connexion depuis l'onglet « Laisser un avis » (/?avis=site#avis) : le formulaire s'ouvre directement,
+// puis le paramètre est retiré (?avis=1 : le choix site / Trustpilot)
 watch(() => route.query.avis, (demande) => {
   if (!demande) return
   router.replace({ path: route.path, hash: route.hash })
-  donnerAvis()
+  if (demande !== 'site') return donnerAvis()
+  // arrivée par le lien de confirmation (page rechargée) : la session est relue juste après, on l'attend
+  if (connecte.value || !backendDisponible) return ouvrirModal()
+  const arreter = watch(connecte, (oui) => { if (oui) { arreter(); ouvrirModal() } })
+  setTimeout(arreter, 10000)
 }, { immediate: true })
 function choisirSite() {
   choixOuvert.value = false

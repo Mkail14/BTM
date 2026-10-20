@@ -817,6 +817,23 @@ function traduire(m = '') {
 .auth-accueil-legal { max-width: 320px; margin: 10px 0 0; color: var(--gris-500); font-size: .75rem; line-height: 1.5; }
 .auth-accueil-legal a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 
+/* Tablette et ordinateur : carte de hauteur fixe, sans barre de défilement. L'accueil s'adapte à la hauteur
+   de l'écran : les croquis prennent la place qui reste (jusqu'à disparaître), titre et logo rapetissent. */
+@media (min-width: 640px) {
+  .auth-grille { height: min(780px, calc(100dvh - 48px)); overflow: hidden; }
+  .auth-carte { height: 100%; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  .auth-carte::-webkit-scrollbar { display: none; }
+  .auth-carte-accueil { padding-top: clamp(20px, 4vh, 40px); padding-bottom: clamp(18px, 3.5vh, 32px); }
+  .auth-accueil { flex: 1; min-height: 0; }
+  .auth-accueil-haut { gap: clamp(10px, 2.2vh, 20px); margin-top: clamp(0px, 3vh, 40px); }
+  .auth-accueil-logo { width: clamp(64px, 9vh, 78px); height: clamp(64px, 9vh, 78px); border-radius: clamp(18px, 2.6vh, 24px); }
+  .auth-accueil-titre { font-size: clamp(2.3rem, 6.2vh, 3.3rem); }
+  .auth-croquis { flex: 1 1 0; min-height: 0; max-height: 150px; height: auto; margin: clamp(6px, 2vh, 22px) 0 clamp(4px, 1vh, 6px); }
+  .auth-accueil-accroche { line-height: 1.6; }
+  .auth-accueil-boutons { padding-top: clamp(14px, 3vh, 30px); }
+  .auth-accueil-bascule { margin-top: clamp(12px, 2.4vh, 22px); }
+}
+
 /* Téléphone : la même carte, en plein écran */
 @media (max-width: 639px) {
   .auth { padding: 0; place-items: stretch; background: var(--gris-50); backdrop-filter: none; -webkit-backdrop-filter: none; }

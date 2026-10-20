@@ -31,13 +31,14 @@ onMounted(async () => {
 // Prix de référence (sans fournisseur) : on compare toujours les mêmes quantités
 const quantites = computed(() => props.lignes.map((l) => ({ ...l, prixUnitaire: l.prixReference ?? l.prixUnitaire })))
 
+// Seuls les fournisseurs qui ont au moins un matériau du devis en stock (un devis carrelage ne montre que les vendeurs de ses carreaux)
 const liste = computed(() => annuaire.value.map((fiche) => {
   const groupe = groupes.value.find((g) => g.id === fiche.id) || null
   const chiffrage = groupe ? chiffrerChez(groupe, quantites.value) : null
   return { fiche, groupe, chiffrage, complet: !!chiffrage && chiffrage.disponibles === quantites.value.length }
-}).sort((a, b) => (b.chiffrage ? 1 : 0) - (a.chiffrage ? 1 : 0)
-  || (b.chiffrage?.disponibles || 0) - (a.chiffrage?.disponibles || 0)
-  || (a.chiffrage?.total || 0) - (b.chiffrage?.total || 0)))
+}).filter((f) => f.chiffrage?.disponibles > 0)
+  .sort((a, b) => b.chiffrage.disponibles - a.chiffrage.disponibles
+  || a.chiffrage.total - b.chiffrage.total))
 const meilleur = computed(() => liste.value.find((f) => f.complet) || null)
 const affiches = computed(() => (tousVisibles.value ? liste.value : liste.value.slice(0, 4)))
 
@@ -58,6 +59,7 @@ function choisir(f) {
     </div>
 
     <div v-if="chargement" class="cf-chargement"><span class="spinner spinner-grand"></span></div>
+    <p v-else-if="!liste.length" class="cf-vide"><i class="fa-solid fa-box-open" aria-hidden="true"></i> Aucun fournisseur n’a encore ces matériaux en stock sur BTM.</p>
     <ul v-else class="cf-liste">
       <li v-for="f in affiches" :key="f.fiche.id">
         <button type="button" class="cf-carte" :class="{ actif: modelValue === f.fiche.id }" :aria-pressed="modelValue === f.fiche.id" @click="choisir(f)">
@@ -65,11 +67,10 @@ function choisir(f) {
           <span class="cf-identite">
             <strong>{{ f.fiche.nom }}<em v-if="meilleur && meilleur.fiche.id === f.fiche.id" class="cf-meilleur">Meilleur prix</em><em v-if="f.fiche.demonstration" class="cf-demo" title="Fournisseur fictif : prix d’exemple">Exemple · prix fictifs</em></strong>
             <small>{{ f.fiche.categorie }} · {{ f.fiche.commune }}<template v-if="f.fiche.livraison"> · livraison</template></small>
-            <small v-if="f.chiffrage" class="cf-dispo" :class="{ complet: f.complet }">
+            <small class="cf-dispo" :class="{ complet: f.complet }">
               <i :class="f.complet ? 'fa-solid fa-circle-check' : 'fa-solid fa-circle-half-stroke'" aria-hidden="true"></i>
               {{ f.complet ? 'Tout est disponible' : `${f.chiffrage.disponibles} / ${quantites.length} matériaux disponibles` }}
             </small>
-            <small v-else class="cf-dispo inconnu"><i class="fa-regular fa-circle-question" aria-hidden="true"></i> Prix non communiqués sur BTM</small>
           </span>
           <span v-if="f.chiffrage && f.chiffrage.disponibles" class="cf-prix">
             <strong>{{ formaterEuros(f.chiffrage.total) }}</strong>
@@ -94,6 +95,8 @@ function choisir(f) {
 .cf-tete p { margin: 6px 0 0; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.55; }
 .cf-tete strong { color: var(--ardoise); }
 .cf-chargement { display: grid; place-items: center; min-height: 120px; }
+.cf-vide { display: flex; align-items: center; gap: 10px; margin: 0; padding: 18px 16px; border: 1.5px dashed var(--gris-200); border-radius: var(--rayon); color: var(--texte-secondaire); font-size: .9rem; }
+.cf-vide i { color: var(--gris-400); font-size: 1.1rem; }
 .cf-liste { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .cf-carte {
   display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 1.5px solid var(--gris-200); border-radius: var(--rayon);
@@ -112,7 +115,6 @@ function choisir(f) {
 .cf-note-demo i { color: #b45309 !important; }
 .cf-dispo { font-weight: 600; color: #b45309 !important; }
 .cf-dispo.complet { color: #047857 !important; }
-.cf-dispo.inconnu { color: var(--gris-500) !important; font-weight: 500; }
 .cf-prix { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; text-align: right; }
 .cf-prix strong { font-size: 1.15rem; color: var(--ardoise); font-variant-numeric: tabular-nums; }
 .cf-prix s { color: var(--gris-500); font-size: .78rem; }

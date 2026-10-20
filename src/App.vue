@@ -43,7 +43,7 @@ function retourEspace() {
 
 // Trois versions : en ligne (btm.yt), develop, locale. En ligne, tant que le site n'a pas assez de fournisseurs
 // partenaires, la page d'attente remplace le site public (espaces admin / fournisseur et pages légales exceptés).
-const { environnement, partenaires, enAttente } = useOuverture()
+const { environnement, partenaires, mode: modeOuverture, enAttente } = useOuverture()
 const pageAttente = computed(() => enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value && !fournisseurLie.value)
 
 // Connexion / inscription : une fenêtre superposée au site (il n'y a pas de page de connexion).
@@ -64,7 +64,7 @@ watch(() => route.query, (q) => {
 <template>
   <!-- En ligne, avant l'ouverture : page d'attente (rien pendant la vérification, pour ne pas montrer le site une seconde) -->
   <template v-if="pageAttente">
-    <BientotVue v-if="enAttente" :partenaires="partenaires || 0" />
+    <BientotVue v-if="enAttente" :partenaires="partenaires || 0" :maintenance="modeOuverture === 'maintenance'" />
   </template>
   <template v-else>
   <a class="lien-evitement" href="#contenu-principal">Aller au contenu</a>

@@ -254,16 +254,6 @@ onBeforeUnmount(debrancher)
       <!-- Lagon -->
       <g class="plan plan-eau">
         <rect x="-500" y="330" width="2500" height="70" fill="url(#eau)" />
-        <g class="reflets" stroke-linecap="round">
-          <!-- reflet du soleil ou de la lune : toujours sous l'astre -->
-          <g :key="astre.jour" class="reflets-astre" :style="{ transform: `translateX(${astre.x - 820}px)` }">
-            <line x1="700" y1="342" x2="940" y2="342" stroke="rgba(255,190,90,.45)" stroke-width="2" stroke-dasharray="40 16 10 22" />
-            <line x1="730" y1="354" x2="910" y2="354" stroke="rgba(255,190,90,.3)" stroke-width="2" stroke-dasharray="24 18 8 14" />
-            <line x1="760" y1="366" x2="880" y2="366" stroke="rgba(255,190,90,.2)" stroke-width="2" stroke-dasharray="16 20 6 12" />
-          </g>
-          <line x1="120" y1="350" x2="420" y2="350" stroke="rgba(160,215,225,.12)" stroke-width="1.5" stroke-dasharray="30 40" />
-          <line x1="1040" y1="360" x2="1380" y2="360" stroke="rgba(160,215,225,.1)" stroke-width="1.5" stroke-dasharray="26 34" />
-        </g>
       </g>
     </svg>
 
@@ -293,15 +283,15 @@ onBeforeUnmount(debrancher)
 /* soleil ou lune : la position change chaque minute, le déplacement est fondu */
 /* pas de transition : l'astre avance d'un pixel par minute, une transition repeindrait la scène sans arrêt */
 /* lueurs dessinées par des dégradés (couronne, halo) : un filtre serait recalculé à chaque mouvement de souris */
-/* nuit : lueur de l'horizon refroidie, reflets argentés sur le lagon */
+/* nuit : lueur de l'horizon refroidie, chantier à l'arrêt (la grue ne bouge plus) */
 .paysage.nuit { background: linear-gradient(180deg, #05080d 0%, #0a121a 45%, #111c26 78%, #1a2733 100%); }
 .paysage.nuit .paysage-halo { opacity: .35; filter: hue-rotate(170deg) saturate(.5); }
-.paysage.nuit .reflets-astre line { stroke: rgba(215, 230, 240, .3); }
 .paysage.nuit .fenetre.allumee { opacity: 1; }
 
 @media (max-width: 639px) { .chantier { display: none; } }
 .chariot { animation: chariot 16s ease-in-out infinite; }
 .charge { transform-box: view-box; transform-origin: 1261px 153px; animation: balancer 4s ease-in-out infinite; }
+.paysage.nuit .chariot, .paysage.nuit .charge { animation: none; }
 
 /* Étiquette du mont Choungui : apparaît en fondu quand la souris frôle le sommet */
 .sommet { opacity: 0; transform: translateY(4px); transition: opacity .5s ease, transform .5s ease; }
@@ -318,10 +308,6 @@ onBeforeUnmount(debrancher)
 .fenetre.allumee { fill: #f7b955; opacity: .85; }
 .fenetre.clignote { animation: clignoter 6s steps(1) infinite; }
 
-.reflets line { animation: scintiller 7s linear infinite; }
-.reflets line:nth-child(2) { animation-duration: 9s; animation-direction: reverse; }
-.reflets line:nth-child(3) { animation-duration: 6s; }
-
 /* Grain photographique léger */
 .paysage-grain {
   position: absolute; inset: 0; opacity: .035;
@@ -332,7 +318,6 @@ onBeforeUnmount(debrancher)
 @keyframes chariot { 0%, 8% { transform: translateX(0); } 45%, 58% { transform: translateX(92px); } 100% { transform: translateX(0); } }
 @keyframes balancer { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
 @keyframes clignoter { 0%, 70% { opacity: .85; } 71%, 100% { opacity: .15; } }
-@keyframes scintiller { to { stroke-dashoffset: -180; } }
 @keyframes pulser { 50% { transform: scale(1.8); opacity: .5; } }
 
 @media (prefers-reduced-motion: reduce) {

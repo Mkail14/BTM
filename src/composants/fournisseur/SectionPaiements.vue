@@ -4,21 +4,47 @@
  *  - Encaissements : filtre par période et par moyen, totaux, reçu PDF, export CSV pour la comptabilité,
  *    annulation avec motif obligatoire ;
  *  - Journal : toutes les opérations (encaissements et annulations), jamais modifiées ni effacées ;
- *  - Reversement à BTM : le fournisseur encaisse tout et reverse les frais de service BTM sur le RIB
- *    saisi par l'admin ; son virement est pris en compte dès qu'il le déclare (migrations 0014, 0015).
+ *  - Reversement à BTM : le fournisseur encaisse tout et reverse la commission BTM sur le RIB saisi par l'admin ;
+ *    son virement compte dès qu'il clique « Virement fait », sans validation.
+ *  - BTM vous doit : quand les codes promo BTM dépassent la commission, BTM rembourse la différence sur le RIB
+ *    que le fournisseur enregistre ici ; le virement apparaît dans l'historique dès que BTM l'enregistre.
  */
 import { computed, ref } from 'vue'
 import { useAdmin } from '@/composables/useAdmin.js'
 import { useEspaceFournisseur, formatDate, formatHeure } from '@/composables/useEspaceFournisseur.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
-import { formaterIban } from '@/services/versements.js'
+import { formaterIban, ibanValide, bicValide, normaliserIban, masquerIban } from '@/services/versements.js'
 import * as api from '@/services/supabase/serviceEspaceFournisseur.js'
 import AdminPanneau from '@/composants/admin/AdminPanneau.vue'
 
 const props = defineProps({ recherche: { type: String, default: '' } })
 const { MOYENS } = api
 const { notifier } = useAdmin()
-const { fiche, paiements, journal, journalIndisponible, nomCompte, retirerPaiement, reversements, rib, soldeBtm } = useEspaceFournisseur()
+const { fiche, paiements, journal, journalIndisponible, nomCompte, retirerPaiement, reversements, rib, monRib, soldeBtm } = useEspaceFournisseur()
+
+// ---------- Mon RIB (BTM y rembourse les codes promo BTM) ----------
+const ribEdition = ref(null) // { titulaire, iban, bic, banque, envoi, erreur }
+function modifierRib() {
+  const r = monRib.value
+  ribEdition.value = { titulaire: r?.titulaire || fiche.value?.nom || '', iban: r ? formaterIban(r.iban) : '', bic: r?.bic || '', banque: r?.banque || '', envoi: false, erreur: '' }
+}
+async function enregistrerRib() {
+  const e = ribEdition.value
+  const iban = normaliserIban(e.iban)
+  e.erreur = e.titulaire.trim().length < 2 ? 'Indiquez le titulaire du compte.'
+    : !ibanValide(iban) ? 'IBAN invalide : vérifiez les caractères.'
+    : e.bic && !bicValide(e.bic) ? 'BIC invalide (8 ou 11 caractères).' : ''
+  if (e.erreur) return
+  e.envoi = true
+  try {
+    monRib.value = await api.enregistrerMonRib({ titulaire: e.titulaire.trim(), iban, bic: e.bic.trim(), banque: e.banque.trim() })
+    notifier('RIB enregistré : BTM l’utilisera pour vous rembourser.')
+    ribEdition.value = null
+  } catch (err) {
+    e.erreur = err?.message || 'Enregistrement impossible.'
+    e.envoi = false
+  }
+}
 
 const onglet = ref('encaissements')
 
@@ -72,14 +98,14 @@ async function declarer() {
   const r = reversement.value
   const montant = Number(String(r.montant).replace(/\s/g, '').replace(',', '.'))
   r.erreur = !(montant > 0) ? 'Le montant doit être supérieur à 0.'
-    : montant > soldeBtm.value.aDeclarer + 0.001 ? `Vous pouvez déclarer au plus ${formaterEuros(soldeBtm.value.aDeclarer)}${soldeBtm.value.attente ? ' (virements en vérification déduits)' : ''}.`
+    : montant > soldeBtm.value.aDeclarer + 0.001 ? `Vous devez au plus ${formaterEuros(soldeBtm.value.aDeclarer)} à BTM.`
     : r.reference.trim().length < 3 ? 'Indiquez la référence de votre virement.' : ''
   if (r.erreur) return
   r.envoi = true
   try {
     const nouveau = await api.declarerReversement(montant, r.reference.trim())
     reversements.value = [nouveau, ...reversements.value]
-    notifier(`Virement de ${formaterEuros(montant)} déclaré, merci ! Il sera déduit dès que BTM l’aura reçu sur son compte.`)
+    notifier(`Virement de ${formaterEuros(montant)} enregistré, merci ! Il est déduit de ce que vous devez à BTM.`)
     reversement.value = null
   } catch (e) {
     r.erreur = e?.message || 'Déclaration impossible.'
@@ -147,9 +173,16 @@ async function confirmerAnnulation() {
     <section class="adm-carte rev">
       <span class="rev-icone"><i class="fa-solid fa-building-columns" aria-hidden="true"></i></span>
       <div class="rev-texte">
-        <span>À reverser à BTM</span>
-        <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
-        <small>Frais de service BTM encaissés pour BTM<template v-if="soldeBtm.reverse"> · {{ formaterEuros(soldeBtm.reverse) }} déjà reversés</template><template v-if="soldeBtm.attente"> · {{ formaterEuros(soldeBtm.attente) }} en vérification par BTM</template></small>
+        <template v-if="soldeBtm.btmDoit">
+          <span>BTM vous doit</span>
+          <strong>{{ formaterEuros(soldeBtm.btmDoit) }}</strong>
+          <small>Remises des codes promo BTM, plus élevées que la commission : BTM vous rembourse la différence par virement</small>
+        </template>
+        <template v-else>
+          <span>À reverser à BTM</span>
+          <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
+          <small>Commission BTM, moins les codes promo BTM que vous avez appliqués<template v-if="soldeBtm.reverse"> · {{ formaterEuros(soldeBtm.reverse) }} déjà reversés</template></small>
+        </template>
       </div>
       <button type="button" class="adm-btn" :class="soldeBtm.aDeclarer > 0 ? 'adm-btn-noir' : 'adm-btn-clair'" @click="ouvrirReversement">
         <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> {{ soldeBtm.aDeclarer > 0 ? 'Reverser à BTM' : 'Voir les reversements' }}
@@ -272,10 +305,34 @@ async function confirmerAnnulation() {
         <dl class="rev-chiffres">
           <div><dt>Dû au total</dt><dd>{{ formaterEuros(soldeBtm.du) }}</dd></div>
           <div><dt>Reçu par BTM</dt><dd>{{ formaterEuros(soldeBtm.reverse) }}</dd></div>
-          <div v-if="soldeBtm.attente"><dt>En vérification</dt><dd>{{ formaterEuros(soldeBtm.attente) }}</dd></div>
-          <div><dt>Reste à reverser</dt><dd>{{ formaterEuros(soldeBtm.reste) }}</dd></div>
+          <div v-if="soldeBtm.recuDeBtm"><dt>Versé par BTM</dt><dd>{{ formaterEuros(soldeBtm.recuDeBtm) }}</dd></div>
+          <div v-if="soldeBtm.btmDoit"><dt>BTM vous doit</dt><dd>{{ formaterEuros(soldeBtm.btmDoit) }}</dd></div>
+          <div v-else><dt>Reste à reverser</dt><dd>{{ formaterEuros(soldeBtm.reste) }}</dd></div>
         </dl>
-        <p v-if="soldeBtm.attente" class="rev-aide"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Un virement déclaré est déduit dès que BTM l’a vu arriver sur son compte (en général sous quelques jours ouvrés).</p>
+
+        <!-- Mon RIB : BTM y rembourse les codes promo BTM qui dépassent la commission -->
+        <div class="rev-monrib">
+          <h3 class="rev-titre">Votre RIB <small>pour les remboursements de BTM</small></h3>
+          <form v-if="ribEdition" class="adm-grille-form" novalidate @submit.prevent="enregistrerRib">
+            <div class="adm-champ"><label for="mr-titulaire">Titulaire</label><input id="mr-titulaire" v-model="ribEdition.titulaire" maxlength="120" /></div>
+            <div class="adm-champ"><label for="mr-banque">Banque <small>(facultatif)</small></label><input id="mr-banque" v-model="ribEdition.banque" maxlength="80" /></div>
+            <div class="adm-champ plein"><label for="mr-iban">IBAN</label><input id="mr-iban" v-model="ribEdition.iban" class="adm-mono" autocomplete="off" placeholder="FR76 …" /></div>
+            <div class="adm-champ"><label for="mr-bic">BIC <small>(facultatif)</small></label><input id="mr-bic" v-model="ribEdition.bic" class="adm-mono" maxlength="11" /></div>
+            <p v-if="ribEdition.erreur" class="plein adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ ribEdition.erreur }}</p>
+            <span class="plein rev-monrib-actions">
+              <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="ribEdition = null">Annuler</button>
+              <button type="submit" class="adm-btn adm-btn-noir adm-btn-sm" :disabled="ribEdition.envoi"><i class="fa-solid fa-check" aria-hidden="true"></i> Enregistrer</button>
+            </span>
+          </form>
+          <p v-else-if="monRib" class="rev-monrib-ligne">
+            <span><strong>{{ monRib.titulaire }}</strong> · <span class="adm-mono">{{ masquerIban(monRib.iban) }}</span></span>
+            <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="modifierRib">Modifier</button>
+          </p>
+          <p v-else class="rev-monrib-ligne" :class="{ alerte: soldeBtm.btmDoit }">
+            <span>{{ soldeBtm.btmDoit ? `Ajoutez votre RIB pour que BTM vous verse ${formaterEuros(soldeBtm.btmDoit)}.` : 'Aucun RIB enregistré.' }}</span>
+            <button type="button" class="adm-btn adm-btn-noir adm-btn-sm" @click="modifierRib">Ajouter mon RIB</button>
+          </p>
+        </div>
 
         <form v-if="soldeBtm.aDeclarer > 0 && rib" id="form-reversement" class="adm-grille-form" novalidate @submit.prevent="declarer">
           <div class="adm-champ">
@@ -298,7 +355,8 @@ async function confirmerAnnulation() {
               <strong>{{ formaterEuros(r.montant) }}</strong>
               <small>{{ formatHeure(r.declare_le) }} · <span class="adm-mono">{{ r.reference }}</span><template v-if="r.statut === 'refuse' && r.motif_refus"> · {{ r.motif_refus }}</template></small>
             </span>
-            <span v-if="r.statut === 'valide'" class="adm-badge adm-badge-ok">Reçu par BTM</span>
+            <span v-if="r.sens === 'vers_fournisseur'" class="adm-badge adm-badge-ok">Versé par BTM</span>
+            <span v-else-if="r.statut === 'valide'" class="adm-badge adm-badge-ok">Versé à BTM</span>
             <span v-else-if="r.statut === 'declare'" class="adm-badge adm-badge-attention">En vérification</span>
             <span v-else class="adm-badge">Refusé</span>
           </li>
@@ -308,7 +366,7 @@ async function confirmerAnnulation() {
       <template #pied>
         <button type="button" class="adm-btn adm-btn-clair" @click="reversement = null">Fermer</button>
         <button v-if="soldeBtm.aDeclarer > 0 && rib" type="submit" form="form-reversement" class="adm-btn adm-btn-noir" :disabled="reversement.envoi">
-          <span v-if="reversement.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> J’ai effectué le virement
+          <span v-if="reversement.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Virement fait
         </button>
       </template>
     </AdminPanneau>
@@ -380,6 +438,11 @@ async function confirmerAnnulation() {
 .rev-h-texte { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .rev-h-texte small { color: var(--adm-muet); font-size: .8rem; }
 .rev-vide { margin: 0; color: var(--adm-muet); font-size: .88rem; }
+.rev-monrib { display: flex; flex-direction: column; gap: 10px; }
+.rev-titre small { color: var(--adm-muet); font-size: .8rem; font-weight: 400; }
+.rev-monrib-ligne { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-survol); font-size: .88rem; }
+.rev-monrib-ligne.alerte { background: var(--adm-attention-fond); color: var(--adm-attention-texte); }
+.rev-monrib-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 .pai-barre { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 

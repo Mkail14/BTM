@@ -196,6 +196,9 @@ async function envoyerAvis() {
   }
 }
 
+/** « MARIO JAMES MIKAIL » → « Mario James Mikail » (noms Trustpilot parfois tout en majuscules) */
+const nomAffiche = (nom) => (nom === nom.toUpperCase() ? nom.toLowerCase() : nom)
+
 function formaterDate(date) {
   return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(date))
 }
@@ -259,7 +262,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
               <footer class="avis-auteur">
                 <span class="avis-avatar" aria-hidden="true">{{ element.nom.charAt(0).toUpperCase() }}</span>
                 <span>
-                  <strong>{{ element.nom }}</strong>
+                  <strong>{{ nomAffiche(element.nom) }}</strong>
                   <small>
                     {{ element.source === 'trustpilot' ? 'Trustpilot' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time>
                     <template v-if="element.modifie"> · modifié</template>
@@ -285,7 +288,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
               <footer class="avis-auteur">
                 <span class="avis-avatar" aria-hidden="true">{{ element.nom.charAt(0).toUpperCase() }}</span>
                 <span>
-                  <strong>{{ element.nom }}</strong>
+                  <strong>{{ nomAffiche(element.nom) }}</strong>
                   <small>{{ element.source === 'trustpilot' ? 'Trustpilot' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time></small>
                 </span>
               </footer>
@@ -435,6 +438,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-trustpilot .avis-note i { width: 18px; height: 18px; display: grid; place-items: center; background: #00b67a; color: #fff; font-size: .62rem; }
 .avis-trustpilot .avis-note .eteinte { background: #3a3a3a; color: #8c8c8c; }
 .avis-trustpilot .avis-commentaire { color: #f1f1ec; }
+.avis-carte.avis-trustpilot { gap: 14px; padding: 22px 24px; border-radius: 18px; }
 .avis-trustpilot .avis-auteur strong { color: #fff; }
 .avis-trustpilot .avis-auteur small { color: #a3a39b; }
 .avis-trustpilot .avis-avatar { background: #2c2c2c; color: #00b67a; }
@@ -452,10 +456,16 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-carte { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #fff; border: 1px solid var(--bordure); border-radius: 18px; }
 .avis-note { display: flex; gap: 3px; font-size: .8rem; color: #f59e0b; }
 .avis-note .eteinte { color: var(--gris-200); }
-.avis-commentaire { margin: 0; color: var(--ardoise); font-size: 1rem; line-height: 1.6; }
+/* toutes les cartes (site et Trustpilot) gardent la même taille : 3 lignes d'avis au plus, auteur sur une ligne */
+.avis-commentaire {
+  margin: 0; color: var(--ardoise); font-size: 1rem; line-height: 1.6;
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
 .avis-auteur { display: flex; align-items: center; gap: 12px; }
+.avis-auteur > span:not(.avis-avatar) { min-width: 0; }
 .avis-avatar { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; background: var(--lagon-50); color: var(--lagon-800); font-weight: 700; font-size: .9rem; }
-.avis-auteur strong { display: block; font-size: .9rem; color: var(--ardoise); }
+.avis-auteur strong, .avis-auteur small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avis-auteur strong { font-size: .9rem; color: var(--ardoise); text-transform: capitalize; }
 .avis-auteur small { color: var(--gris-500); font-size: .78rem; }
 
 /* ---------- Formulaire ---------- */

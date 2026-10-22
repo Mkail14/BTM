@@ -90,6 +90,7 @@ function ajouterFraisService(resultat, tauxFrais) {
 /**
  * Code promo (choisi par l'admin) : réduction en % ou en €, sur tout le devis (`total`)
  * ou sur les seuls frais de service BTM (`frais`). Jamais plus que la base réduite.
+ * La remise est payée par BTM : déduite de la commission du fournisseur, ou remboursée par BTM si elle la dépasse.
  * @param {object|null} code { code, type: 'pourcentage'|'montant', valeur, portee: 'total'|'frais' }
  */
 function appliquerRemise(resultat, code) {

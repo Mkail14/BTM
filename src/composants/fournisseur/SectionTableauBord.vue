@@ -144,9 +144,16 @@ const repartition = computed(() => {
       </li>
       <li>
         <router-link to="/espace-fournisseur/paiements" class="adm-carte adm-carte-pad tb-kpi tb-kpi-lien" :class="{ 'tb-kpi-alerte': soldeBtm.reste > 0 }">
-          <span><i class="fa-solid fa-building-columns" aria-hidden="true"></i> À reverser à BTM</span>
-          <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
-          <small>Frais de service BTM encaissés</small>
+          <template v-if="soldeBtm.btmDoit">
+            <span><i class="fa-solid fa-tags" aria-hidden="true"></i> BTM vous doit</span>
+            <strong>{{ formaterEuros(soldeBtm.btmDoit) }}</strong>
+            <small>Codes promo BTM appliqués à vos clients</small>
+          </template>
+          <template v-else>
+            <span><i class="fa-solid fa-building-columns" aria-hidden="true"></i> À reverser à BTM</span>
+            <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
+            <small>Commission BTM, codes promo BTM déduits</small>
+          </template>
         </router-link>
       </li>
     </ul>

@@ -110,15 +110,6 @@ function reinitialiser() { recherche.value = ''; categorie.value = ''; livraison
         <p>Essayez un autre mot (nom, commune, matériau) ou retirez un filtre.</p>
         <button type="button" class="btn btn-secondaire btn-sm" @click="reinitialiser">Voir tous les fournisseurs</button>
       </div>
-
-      <aside class="annuaire-pied">
-        <span class="annuaire-pied-icone" aria-hidden="true"><i class="fa-solid fa-handshake"></i></span>
-        <div>
-          <strong>Vous êtes fournisseur de matériaux ?</strong>
-          <p>Faites connaître votre entreprise aux particuliers et professionnels qui chiffrent leur chantier sur BTM.</p>
-        </div>
-        <a href="mailto:contact@btm.yt?subject=Référencement%20dans%20l’annuaire%20BTM" class="btn btn-primaire btn-sm">Être référencé</a>
-      </aside>
     </div>
   </div>
 </template>
@@ -153,12 +144,6 @@ ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 .annuaire-lien { border: 0; background: none; padding: 6px 0; font: inherit; font-size: .86rem; font-weight: 600; color: var(--lagon-700); cursor: pointer; }
 .annuaire-lien:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-.annuaire-pied { display: flex; align-items: center; gap: 16px; margin-top: 40px; padding: 20px 22px; border-radius: var(--rayon-lg); background: var(--gris-50); }
-.annuaire-pied-icone { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; border-radius: 12px; background: var(--lagon-100); color: var(--lagon-700); }
-.annuaire-pied > div { flex: 1; min-width: 0; }
-.annuaire-pied strong { display: block; font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--ardoise); }
-.annuaire-pied p { margin: 4px 0 0; color: var(--gris-500); font-size: .88rem; line-height: 1.5; }
-.annuaire-pied .btn { flex-shrink: 0; }
 
 /* grand écran : cartes côte à côte, autant de colonnes que la largeur le permet (3 sur un écran de 1920 px) */
 @media (min-width: 1200px) {
@@ -188,9 +173,5 @@ ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 
   .annuaire-vide { margin-top: 16px; padding: 40px 20px; }
 
-  .annuaire-pied { flex-direction: row; flex-wrap: wrap; gap: 12px; margin-top: 28px; padding: 16px; border-radius: 18px; }
-  .annuaire-pied p { display: none; }
-  .annuaire-pied strong { font-size: 1.1rem; }
-  .annuaire-pied .btn { width: 100%; min-height: 46px; justify-content: center; border-radius: 999px; }
 }
 </style>

@@ -17,7 +17,16 @@ const nomProfil = computed(() => Object.fromEntries((donnees.profils || []).map(
 const nomFournisseur = computed(() => Object.fromEntries((donnees.fournisseurs || []).map((f) => [f.id, f.nom])))
 
 // Paiement confirmé par le fournisseur choisi (lui seul sait si le client a payé) → revenu encaissé ; sinon prévisionnel
-const paiementDe = computed(() => Object.fromEntries((donnees.paiements || []).filter((pa) => pa.projet_id).map((pa) => [pa.projet_id, pa])))
+// un devis peut être encaissé par plusieurs fournisseurs : revenu BTM additionné, date du dernier encaissement
+const paiementDe = computed(() => {
+  const n = {}
+  for (const pa of donnees.paiements || []) {
+    if (!pa.projet_id) continue
+    const e = n[pa.projet_id]
+    n[pa.projet_id] = e ? { ...e, revenu_btm: Math.round((e.revenu_btm + pa.revenu_btm) * 100) / 100, paye_le: pa.paye_le > e.paye_le ? pa.paye_le : e.paye_le, nombre: e.nombre + 1 } : { ...pa, nombre: 1 }
+  }
+  return n
+})
 const correspondStatut = (p) => statut.value === 'tous' || (statut.value === 'paye') === !!paiementDe.value[p.id]
 const compteStatut = (s) => (donnees.projets || []).filter((p) => s === 'tous' || (s === 'paye') === !!paiementDe.value[p.id]).length
 

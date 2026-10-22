@@ -72,7 +72,6 @@ function recommencer() {
   quantites.value = {}
   promotionId.value = ''
   extras.value = []
-  utiliserCredit.value = false
   reinitialiserCaisse()
   if (route.query.code) router.replace({ query: {} })
   nextTick(() => champCode.value?.focus())
@@ -129,11 +128,12 @@ const retirerArticle = (e) => { extras.value = extras.value.filter((x) => x.id !
 // Usage unique : promotions déjà utilisées par ce client, code BTM déjà utilisé sur un autre devis
 const promotionsUtilisees = computed(() => new Set(devis.value?.promotions_utilisees || []))
 const promotion = computed(() => promotionsValables.value.find((p) => p.id === promotionId.value && !promotionsUtilisees.value.has(p.id)) || null)
-// Crédit fidélité du client, utilisé si le fournisseur le propose (à la charge de BTM)
-const utiliserCredit = ref(false)
+// Crédit fidélité du client (à la charge de BTM) : appliqué seulement si le client l'a choisi sur son estimation
+const utiliserCredit = computed(() => !!devis.value?.utiliser_credit)
 const calcul = computed(() => (devis.value
   ? api.calculerEncaissement(devis.value.resultat, quantites.value, catalogue.value, promotion.value, {
     articles: extras.value, codeBtmIgnore: !!devis.value.code_btm_deja_utilise, tauxCommission: devis.value.commission,
+    remiseDejaAppliquee: Number(devis.value.remise_btm_deja_appliquee) || 0,
     credit: utiliserCredit.value ? devis.value.credit_disponible : 0
   })
   : null))
@@ -262,8 +262,18 @@ async function recuPdf(mode) {
           <small>{{ typeDevis?.libelle }} · devis du {{ formatDate(devis.cree_le) }} · code <span class="adm-mono">{{ devis.code_retrait }}</span></small>
         </div>
         <span v-if="!devis.fournisseur_choisi && !devis.paiement" class="adm-badge adm-badge-info" title="Le client n’avait choisi aucun fournisseur : ce devis vous sera rattaché à l’encaissement">Sans fournisseur choisi</span>
+        <span v-else-if="devis.plusieurs_fournisseurs" class="adm-badge adm-badge-info" title="Le client a choisi plusieurs fournisseurs : chacun encaisse ce qu’il remet">Plusieurs fournisseurs</span>
         <button type="button" class="adm-btn adm-btn-fantome adm-btn-sm" @click="recommencer"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Autre code</button>
       </section>
+      <!-- Déjà remis par d'autres fournisseurs : ces quantités ne sont plus proposées ici -->
+      <p v-if="!devis.paiement && devis.encaissements_ailleurs?.length" class="val-ailleurs">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        Une partie de ce devis a déjà été remise par {{ devis.encaissements_ailleurs.map((e) => e.fournisseur || 'un autre fournisseur').join(', ') }} :
+        seul ce qui reste à fournir est affiché ci-dessous.
+      </p>
+      <p v-if="!devis.paiement && !devis.resultat?.lignes?.length && devis.encaissements_ailleurs?.length" class="val-ailleurs">
+        <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Tout le devis a déjà été remis par les autres fournisseurs : il ne reste rien à encaisser, sauf vos articles en plus.
+      </p>
 
       <!-- ========== 2. Préparation ========== -->
       <div v-if="etape === 'preparation'" class="val-grille">
@@ -337,10 +347,11 @@ async function recuPdf(mode) {
             <div v-if="calcul.reduction"><dt>Code BTM {{ calcul.remise.code }}</dt><dd>−{{ formaterEuros(calcul.reduction) }}</dd></div>
             <div v-if="calcul.creditUtilise"><dt>Crédit fidélité BTM</dt><dd>−{{ formaterEuros(calcul.creditUtilise) }}</dd></div>
           </dl>
-          <label v-if="devis.credit_disponible > 0" class="val-credit">
-            <input v-model="utiliserCredit" type="checkbox" />
-            <span>Utiliser le crédit fidélité du client <strong>{{ formaterEuros(devis.credit_disponible) }}</strong><small>Offert par BTM : déduit de votre commission, pas de votre chiffre d’affaires.</small></span>
-          </label>
+          <p v-if="devis.credit_disponible > 0" class="val-credit">
+            <i class="fa-solid fa-coins" aria-hidden="true"></i>
+            <span v-if="utiliserCredit">Le client utilise son crédit fidélité <strong>{{ formaterEuros(devis.credit_disponible) }}</strong><small>Choisi par le client. Offert par BTM : déduit de votre commission, pas de votre chiffre d’affaires.</small></span>
+            <span v-else>Le client garde son crédit fidélité ({{ formaterEuros(devis.credit_disponible) }})<small>Il a choisi de ne pas l’utiliser sur ce devis.</small></span>
+          </p>
           <p v-if="calcul.codeBtmIgnore" class="val-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Le code {{ calcul.remise.code }} a déjà été utilisé par ce client sur un autre devis : il ne s’applique qu’une fois.</p>
           <p class="val-total"><span>Le client paie</span><strong>{{ formaterEuros(calcul.montant) }}</strong></p>
           <p class="val-commission"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Commission BTM ({{ String(calcul.taux).replace('.', ',') }} %) : {{ formaterEuros(calcul.commission) }}, à reverser — jamais payée par le client.</p>
@@ -494,6 +505,8 @@ async function recuPdf(mode) {
 
 /* Devis retrouvé */
 .val-devis { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-block: 16px; }
+.val-ailleurs { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-accent-doux); color: var(--adm-info-texte); font-size: .88rem; line-height: 1.5; }
+.val-ailleurs i { margin-top: 3px; }
 .val-devis-icone { width: 48px; height: 48px; background: var(--adm-accent-doux); color: var(--adm-info-texte); font-size: 1.1rem; }
 .val-devis-texte { flex: 1 1 240px; display: flex; flex-direction: column; min-width: 0; }
 .val-devis-texte strong { font-size: 1.05rem; font-weight: 600; }
@@ -518,8 +531,8 @@ async function recuPdf(mode) {
 .val-quantite input:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 3px rgba(8, 145, 178, .14); }
 .val-ligne-prix { text-align: right; }
 .val-extra { background: var(--adm-violet-fond); border-radius: 12px; }
-.val-credit { display: flex; gap: 10px; padding: 12px; border-radius: 12px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); font-size: .86rem; cursor: pointer; }
-.val-credit input { width: 18px; height: 18px; margin-top: 2px; accent-color: #059669; }
+.val-credit { display: flex; gap: 10px; margin: 0; padding: 12px; border-radius: 12px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); font-size: .86rem; }
+.val-credit > i { margin-top: 3px; }
 .val-credit span { display: flex; flex-direction: column; }
 .val-credit small { color: var(--adm-ok-texte); font-size: .78rem; }
 .val-commission { display: flex; gap: 8px; margin: 0; color: var(--adm-muet); font-size: .8rem; line-height: 1.45; }

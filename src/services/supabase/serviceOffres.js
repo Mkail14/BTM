@@ -82,6 +82,33 @@ export function appliquerPrixFournisseur(resultat, fournisseur) {
   }
 }
 
+/**
+ * Devis avec plusieurs fournisseurs choisis : chaque ligne au prix du moins cher d'entre eux qui l'a en stock
+ * (ligne.fournisseurNom indique chez qui) ; une ligne qu'aucun n'a garde le prix de référence, « non disponible ».
+ * Un seul fournisseur : même résultat que appliquerPrixFournisseur.
+ */
+export function appliquerPrixFournisseurs(resultat, fournisseurs) {
+  const groupes = (fournisseurs || []).filter(Boolean)
+  if (!resultat || !groupes.length) return resultat
+  if (groupes.length === 1) return appliquerPrixFournisseur(resultat, groupes[0])
+  const lignes = resultat.lignes.map((l) => {
+    const prixReference = l.prixReference ?? l.prixUnitaire
+    const offres = groupes.map((g) => ({ g, o: g.materiaux[l.id] })).filter((x) => x.o?.disponible).sort((a, b) => a.o.prix - b.o.prix)
+    if (!offres.length) return { ...l, prixUnitaire: prixReference, prixReference, sousTotal: arrondi(l.quantite * prixReference), indisponible: true, prixComptoir: null, fournisseurNom: null }
+    const { g, o } = offres[0]
+    return { ...l, prixUnitaire: o.prix, prixReference, prixComptoir: o.prix_comptoir, sousTotal: arrondi(l.quantite * o.prix), indisponible: false, fournisseurNom: g.nom }
+  })
+  const totalMateriaux = arrondi(lignes.reduce((s, l) => s + l.sousTotal, 0))
+  const totalComptoir = arrondi(lignes.reduce((s, l) => s + (l.prixComptoir != null ? l.quantite * l.prixComptoir : l.sousTotal), 0))
+  const r = resultat.remise
+  const remise = r ? { ...r, montant: arrondi(Math.min(totalMateriaux, r.type === 'montant' ? Number(r.valeur) : (totalMateriaux * Number(r.valeur)) / 100)) } : undefined
+  return {
+    ...resultat, lignes, totalMateriaux, ...(remise ? { remise } : {}),
+    total: arrondi(totalMateriaux - (remise?.montant || 0)),
+    prixFournisseur: { id: groupes[0].id, nom: groupes.map((g) => g.nom).join(', '), totalComptoir, economie: arrondi(totalComptoir - totalMateriaux) }
+  }
+}
+
 /** Meilleure offre disponible pour chaque matériau (catalogue « Je sais ce qu'il me faut ») */
 export function meilleuresOffres(offres) {
   const m = {}

@@ -13,10 +13,11 @@ import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import { formaterEuros, formaterNombre, formaterQuantite, sujetEstimation, detailPrix } from '@/services/calculs/moteurCalculs.js'
 import { exporterEstimationPdf } from '@/services/export/exportPdf.js'
 import { infoType, libelleOuvrage } from '@/services/calculs/fusion.js'
-import { appliquerPrixFournisseur } from '@/services/supabase/serviceOffres.js'
+import { appliquerPrixFournisseurs } from '@/services/supabase/serviceOffres.js'
+import { lireChoixCredit, choisirCredit } from '@/services/supabase/serviceProjets.js'
+import { useCreditFidelite } from '@/composables/useCreditFidelite.js'
 import ComparateurFournisseurs from '@/composants/resultats/ComparateurFournisseurs.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
-import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import EtatVide from '@/composants/commun/EtatVide.vue'
 
 const router = useRouter()
@@ -24,13 +25,14 @@ const calc = useCalculateur()
 const { sauvegarder } = useProjets()
 const { connecte, backendDisponible, estPro } = useAuth()
 
-// Fournisseur choisi dans le comparateur : sa fiche (PDF) et ses offres (prix BTM)
-const choixFournisseur = ref(null) // { fiche, groupe }
-const fournisseur = computed(() => choixFournisseur.value?.fiche || null)
-// Le devis (ou devis pro cumulé), aux prix du fournisseur choisi quand il en a
+// Fournisseurs choisis dans le comparateur (plusieurs possibles) : fiches (PDF) et offres (prix BTM)
+const choixFournisseurs = ref([]) // [{ fiche, groupe }]
+const fournisseurs = computed(() => choixFournisseurs.value.map((c) => c.fiche))
+const fournisseur = computed(() => fournisseurs.value[0] || null) // PDF : le premier choisi
+// Le devis (ou devis pro cumulé) : chaque matériau au prix du moins cher des fournisseurs choisis qui l'a
 const resultat = computed(() => {
   const base = calc.devis.value
-  return base && choixFournisseur.value?.groupe ? appliquerPrixFournisseur(base, choixFournisseur.value.groupe) : base
+  return base ? appliquerPrixFournisseurs(base, choixFournisseurs.value.map((c) => c.groupe)) : base
 })
 const type = computed(() => (resultat.value ? infoType(resultat.value) : null))
 // Devis pro : les estimations réunies (cumul + estimation en cours)
@@ -87,7 +89,7 @@ const exportEnCours = ref('') // 'visualiser' | 'telecharger' pendant la génér
 async function pdf(mode) {
   exportEnCours.value = mode
   try {
-    await exporterEstimationPdf({ nom: nomProjet.value.trim(), resultat: resultat.value, fournisseur: fournisseur.value, code: codeRetrait.value }, mode)
+    await exporterEstimationPdf({ nom: nomProjet.value.trim(), resultat: resultat.value, fournisseur: fournisseur.value, code: codeRetrait.value, credit: creditApplique.value }, mode)
   } catch (e) {
     console.error(e)
     alert('Impossible de générer le PDF. Réessayez.')
@@ -101,7 +103,38 @@ async function pdf(mode) {
 const enregistre = ref(null)
 const signature = (r) => JSON.stringify([r?.lignes?.map((l) => [l.id, l.quantite, l.prixUnitaire]), r?.total])
 const codeRetrait = computed(() => (enregistre.value && enregistre.value.signature === signature(resultat.value) ? enregistre.value.code : (calc.cumul.value.length ? '' : calc.codeRetrait.value)))
-watch(() => calc.fournisseurId.value, (nouveau, ancien) => { if (ancien !== undefined && nouveau !== ancien && !enregistre.value) calc.associerCodeRetrait(null) })
+watch(() => calc.fournisseurIds.value.join(), (nouveau, ancien) => { if (ancien !== undefined && nouveau !== ancien && !enregistre.value) calc.associerCodeRetrait(null) })
+
+// ---------- Crédit fidélité : le client choisit de l'utiliser sur ce devis ou de le garder ----------
+// Le choix est enregistré sur le projet ; le fournisseur l'applique d'office (et ne peut rien faire d'autre).
+const { credit, charger: chargerCredit } = useCreditFidelite()
+const utiliserCredit = ref(false)
+const choixCreditEnCours = ref(false)
+const erreurCredit = ref('')
+watch(codeRetrait, async (code) => {
+  utiliserCredit.value = false
+  erreurCredit.value = ''
+  if (!code || !connecte.value) return
+  chargerCredit()
+  try { utiliserCredit.value = await lireChoixCredit(code) } catch { /* choix illisible : crédit gardé par défaut */ }
+}, { immediate: true })
+// Crédit déduit du prix affiché et du PDF (jamais plus que le total) ; le fournisseur déduit le même montant
+const creditApplique = computed(() => (utiliserCredit.value && codeRetrait.value ? Math.min(credit.value.solde, resultat.value?.total || 0) : 0))
+const totalAPayer = computed(() => Math.round(((resultat.value?.total || 0) - creditApplique.value) * 100) / 100)
+async function basculerCredit(utiliser) {
+  // le prix change tout de suite ; on revient en arrière si l'enregistrement échoue
+  utiliserCredit.value = utiliser
+  choixCreditEnCours.value = true
+  erreurCredit.value = ''
+  try {
+    await choisirCredit(codeRetrait.value, utiliser)
+  } catch {
+    utiliserCredit.value = !utiliser
+    erreurCredit.value = 'Choix non enregistré : réessayez.'
+  } finally {
+    choixCreditEnCours.value = false
+  }
+}
 
 // ---------- Sauvegarde ----------
 const dialogueOuvert = ref(false)
@@ -115,7 +148,6 @@ function ouvrirCompte(mode) {
 watch(compteRequis, async (ouvert) => { if (ouvert) { await nextTick(); document.querySelector('.compte .btn')?.focus() } })
 const nomErreur = ref('')
 const sauvegardeEnCours = ref(false)
-const messageSucces = ref('')
 
 function ouvrirDialogue() {
   if (backendDisponible && !connecte.value) { compteRequis.value = true; return }
@@ -129,12 +161,11 @@ async function confirmerSauvegarde() {
   if (!nomProjet.value.trim()) { nomErreur.value = 'Donnez un nom à votre projet'; return }
   sauvegardeEnCours.value = true
   try {
-    const cree = await sauvegarder({ nom: nomProjet.value, resultat: resultat.value, fournisseur: fournisseur.value })
+    const cree = await sauvegarder({ nom: nomProjet.value, resultat: resultat.value, fournisseurs: fournisseurs.value })
     // projet en ligne : code à présenter au fournisseur, valable tant que le devis affiché ne change pas
     enregistre.value = cree?.code_retrait ? { code: cree.code_retrait, signature: signature(resultat.value) } : null
     calc.oublierMiseDeCote()
     dialogueOuvert.value = false
-    messageSucces.value = `« ${nomProjet.value.trim()} » est enregistré.`
   } finally {
     sauvegardeEnCours.value = false
   }
@@ -145,7 +176,6 @@ function modifier() {
   router.push({ path: '/calculateur', query: { type: calc.resultat.value?.type } })
 }
 const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.value?.type === 'achat' || !!type.value?.champs))
-function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur') }
 </script>
 
 <template>
@@ -161,11 +191,11 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
             <button v-if="modifiable" type="button" class="resultats-lien" @click="modifier"><i class="fa-solid fa-pen" aria-hidden="true"></i> Modifier</button>
           </p>
           <h1 id="resultats-titre" class="resultats-titre">{{ titre }}</h1>
-          <p class="resultats-total prix">{{ formaterEuros(resultat.total) }}</p>
+          <p class="resultats-total prix">{{ formaterEuros(totalAPayer) }}</p>
           <!-- l'essentiel en une ligne ; ce qui n'est pas compris est détaillé dans « Comment est fait le calcul ? » -->
 
           <!-- sans code promo, le détail répéterait le total -->
-          <ul v-if="remise" class="resultats-repartition">
+          <ul v-if="remise || creditApplique" class="resultats-repartition">
             <li v-for="p in repartition" :key="p.label">
               <span>{{ p.label }}<small v-if="p.detail">{{ p.detail }}</small></span>
               <strong class="prix">{{ formaterEuros(p.valeur) }}</strong>
@@ -180,44 +210,42 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <button type="button" class="resultats-remise-retirer" :aria-label="`Retirer le code ${calc.codePromo.value?.code}`" title="Retirer le code" :disabled="calc.chargement.value" @click="calc.retirerCode()"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </span>
           </p>
+          <p v-if="creditApplique" class="resultats-remise resultats-remise-credit">
+            <span><i class="fa-solid fa-coins" aria-hidden="true"></i> Crédit fidélité</span>
+            <strong class="prix">{{ formaterEuros(-creditApplique) }}</strong>
+          </p>
           <p v-if="calc.messageCode.value" class="resultats-code-info" role="status"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> {{ calc.messageCode.value }}</p>
 
-          <!-- Bas du bloc (ordinateur : calé au-dessus du pied, l'espace libre reste sous le prix) -->
+          <!-- Bas du bloc : une seule action principale à chaque étape -->
           <div class="resultats-bas">
-          <!-- Code de retrait : projet enregistré en ligne -->
-          <p v-if="codeRetrait" class="resultats-retrait">
-            <i class="fa-solid fa-ticket" aria-hidden="true"></i>
-            <span>Code de retrait <strong class="mono">{{ codeRetrait }}</strong><small>Présentez-le au fournisseur (il figure aussi sur le PDF) : il retrouve votre estimation et vous remet un reçu.</small></span>
-          </p>
+          <!-- Avec le code : le ticket à montrer au fournisseur, puis le crédit en un interrupteur -->
+          <template v-if="codeRetrait">
+            <div class="resultats-retrait">
+              <small>Votre code de retrait</small>
+              <strong class="mono">{{ codeRetrait }}</strong>
+              <small>À montrer au fournisseur</small>
+            </div>
+            <label v-if="credit.solde > 0" class="resultats-credit">
+              <span><i class="fa-solid fa-coins" aria-hidden="true"></i> Utiliser mon crédit <strong>{{ formaterEuros(credit.solde) }}</strong></span>
+              <input type="checkbox" role="switch" :checked="utiliserCredit" :disabled="choixCreditEnCours" @change="basculerCredit($event.target.checked)" />
+            </label>
+            <p v-if="erreurCredit" class="resultats-code-erreur" role="alert">{{ erreurCredit }}</p>
+          </template>
 
-          <!-- Sans code de retrait, l'action utile est de l'obtenir (enregistrer) : bouton principal, le PDF passe en second.
-               Avec le code : voir le PDF (large), puis le télécharger et réenregistrer (boutons carrés). -->
-          <div v-if="!codeRetrait && backendDisponible" class="resultats-actions" role="group" aria-label="Actions de l’estimation">
-            <BoutonBase class="resultats-action-principale" icone="fa-solid fa-ticket" @click="ouvrirDialogue">Obtenir le prix BTM</BoutonBase>
-            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" aria-label="Visualiser le PDF" title="Visualiser le PDF" @click="pdf('visualiser')" />
+          <div class="resultats-actions" role="group" aria-label="Actions de l’estimation">
+            <BoutonBase v-if="!codeRetrait && backendDisponible" class="resultats-action-principale" icone="fa-solid fa-ticket" @click="ouvrirDialogue">Obtenir mon code BTM</BoutonBase>
+            <BoutonBase v-else class="resultats-action-principale" icone="fa-solid fa-file-pdf" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" @click="pdf('visualiser')">Voir le PDF</BoutonBase>
             <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
           </div>
-          <div v-else class="resultats-actions" role="group" aria-label="Actions de l’estimation">
-            <BoutonBase class="resultats-action-principale" icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" @click="pdf('visualiser')">Visualiser le PDF</BoutonBase>
-            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
-            <BoutonBase v-if="backendDisponible" class="resultats-action-icone" variante="secondaire" icone="fa-regular fa-bookmark" aria-label="Enregistrer l’estimation" title="Enregistrer l’estimation" @click="ouvrirDialogue" />
-          </div>
-          <p v-if="!codeRetrait && backendDisponible" class="resultats-action-aide">Gratuit · vous recevez un code à présenter au fournisseur</p>
-
-          <transition name="glisser">
-            <BandeauAvertissement v-if="messageSucces" type="succes" compact>
-              {{ messageSucces }} <router-link to="/dashboard" class="resultats-lien">Voir mes projets →</router-link>
-            </BandeauAvertissement>
-          </transition>
           </div>
 
           <div class="resultats-pied">
             <!-- liens secondaires, sur une ligne -->
             <p class="resultats-liens">
-              <button type="button" class="resultats-lien" @click="nouvelleEstimation"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle estimation</button>
-              <button v-if="!remise && !champCodeOuvert" type="button" class="resultats-lien resultats-lien-doux" @click="ouvrirChampCode">J’ai un code promo</button>
+              <router-link v-if="codeRetrait && connecte" to="/dashboard" class="resultats-lien resultats-lien-doux">Mes projets</router-link>
+              <button v-else-if="!remise && !champCodeOuvert" type="button" class="resultats-lien resultats-lien-doux" @click="ouvrirChampCode">J’ai un code promo</button>
             </p>
-            <form v-if="!remise && champCodeOuvert" class="resultats-code" novalidate @submit.prevent="appliquerCode">
+            <form v-if="!codeRetrait && !remise && champCodeOuvert" class="resultats-code" novalidate @submit.prevent="appliquerCode">
               <label for="code-promo" class="visually-hidden">Code promo</label>
               <input
                 id="code-promo" v-model="saisieCode" type="text" placeholder="Votre code promo" autocomplete="off" autocapitalize="characters" spellcheck="false"
@@ -235,7 +263,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         <section v-if="estPro" class="carte resultats-bloc resultats-pro" aria-labelledby="pro-titre">
           <div class="resultats-pro-tete">
             <h2 id="pro-titre"><span class="resultats-pro-badge">Pro</span> Votre estimation</h2>
-            <button type="button" class="btn btn-secondaire btn-sm" @click="ajouterOuvrage"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter un ouvrage ou des matériaux</button>
+            <button type="button" class="btn btn-secondaire btn-sm" @click="ajouterOuvrage"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter</button>
           </div>
           <ul class="resultats-pro-liste">
             <li v-for="(o, i) in ouvrages" :key="i">
@@ -245,7 +273,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <button v-if="ouvrages.length > 1" type="button" class="resultats-pro-retirer" :aria-label="`Retirer ${libelleOuvrage(o)}`" @click="calc.retirerDuDevis(i)"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </li>
           </ul>
-          <p class="resultats-pro-aide">Réunissez tout votre chantier — murs, dalles, fondations, terrasses, carrelage et achats directs — dans une seule estimation et un seul code de retrait.</p>
+          <p class="resultats-pro-aide">Tout votre chantier, un seul code de retrait.</p>
         </section>
 
         <section class="carte resultats-bloc" aria-labelledby="achats-titre">
@@ -257,6 +285,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
                 <strong>{{ formaterQuantite(l.quantite, l.unite) }}</strong>
                 <small>{{ l.libelle }} · {{ formaterEuros(l.prixUnitaire) }} / {{ l.unite === 'u' ? 'unité' : l.unite }}</small>
                 <small v-if="l.indisponible" class="resultats-indispo"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Non disponible chez {{ resultat.prixFournisseur?.nom }} (prix de référence)</small>
+                <small v-else-if="l.fournisseurNom && fournisseurs.length > 1" class="resultats-chez"><i class="fa-solid fa-store" aria-hidden="true"></i> Chez {{ l.fournisseurNom }}</small>
               </span>
               <span class="prix">{{ formaterEuros(l.sousTotal) }}</span>
             </li>
@@ -266,12 +295,12 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         </div>
 
         <!-- 3. Où acheter : prix exacts chez chaque fournisseur -->
-        <ComparateurFournisseurs class="resultats-ou" :lignes="calc.devis.value.lignes" :model-value="calc.fournisseurId.value" @update:model-value="calc.choisirFournisseur" @fournisseur="choixFournisseur = $event" />
+        <ComparateurFournisseurs class="resultats-ou" :lignes="calc.devis.value.lignes" :model-value="calc.fournisseurIds.value" @update:model-value="calc.choisirFournisseurs" @fournisseurs="choixFournisseurs = $event" />
         </div>
 
         <!-- Mentions et méthode : en bas de page, hors du chemin -->
         <details class="resultats-calcul">
-          <summary>Estimation indicative, non contractuelle · comment est fait le calcul ?</summary>
+          <summary>Estimation indicative · comment est fait le calcul ?</summary>
           <p>{{ type.hypotheses }}</p>
           <p>Ce n’est pas un devis. Prix TTC des matériaux seuls, hors main-d’œuvre, livraison, coffrage, terrassement (creusement et préparation du terrain) et études : faites valider les quantités par un professionnel avant d’acheter. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
         </details>
@@ -345,7 +374,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-resume { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; color: var(--texte-secondaire); font-size: .92rem; }
 .resultats-resume i { color: var(--lagon-600); margin-right: 4px; }
 .resultats-titre { margin-top: 18px; color: var(--ardoise); font-size: clamp(1.5rem, 3.4vw, 2rem); }
-.resultats-action-aide { margin: 8px 0 0; color: var(--gris-500); font-size: .8rem; }
 .resultats-liens { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 20px; margin: 0; font-size: .9rem; }
 .resultats-lien-doux { color: var(--gris-500); font-weight: 600; }
 .resultats-pied .resultats-code { align-self: stretch; margin-top: 0; }
@@ -367,6 +395,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-remise strong { color: #047857; font-size: .98rem; }
 .resultats-remise-retirer { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #047857; }
 .resultats-remise-retirer:hover:not(:disabled) { background: #d1fae5; }
+.resultats-remise-credit { padding-right: 14px; background: #fffbeb; color: #92400e; }
+.resultats-remise-credit strong { color: #92400e; }
 .resultats-code-info { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; color: #b45309; font-size: .85rem; text-align: left; }
 .resultats-code { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .resultats-code input {
@@ -412,6 +442,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 
 /* Devis pro */
 .resultats-indispo { color: #b45309 !important; font-weight: 600; }
+.resultats-chez { color: var(--lagon-700) !important; font-weight: 600; }
 .resultats-bas { display: flex; flex-direction: column; }
 .resultats-pro { border: 1.5px solid var(--ardoise); }
 .resultats-pro-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
@@ -427,12 +458,23 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-pro-retirer i { background: none !important; }
 .resultats-pro-aide { margin: 10px 0 0; color: var(--texte-secondaire); font-size: .86rem; }
 
-/* Code de retrait */
-.resultats-retrait { display: flex; align-items: flex-start; gap: 12px; margin: 16px 0 0; padding: 14px 16px; border-radius: var(--rayon); background: var(--lagon-50); color: var(--ardoise); }
-.resultats-retrait > i { margin-top: 3px; color: var(--lagon-700); }
-.resultats-retrait span { display: flex; flex-direction: column; gap: 2px; }
-.resultats-retrait strong { font-size: 1.15rem; letter-spacing: .08em; color: var(--lagon-800); }
-.resultats-retrait small { color: var(--texte-secondaire); font-size: .84rem; }
+/* Code de retrait : un ticket, le code en grand */
+.resultats-retrait { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 4px 0 0; padding: 14px 16px; border: 1.5px dashed var(--lagon-500); border-radius: var(--rayon); background: var(--lagon-50); }
+.resultats-retrait strong { font-size: 1.6rem; letter-spacing: .1em; color: var(--lagon-800); }
+.resultats-retrait small { color: var(--texte-secondaire); font-size: .82rem; }
+
+/* Crédit fidélité : un interrupteur */
+.resultats-credit { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: #fffbeb; color: var(--ardoise); font-size: .92rem; text-align: left; cursor: pointer; }
+.resultats-credit i { margin-right: 4px; color: #b45309; }
+.resultats-credit input {
+  appearance: none; position: relative; width: 44px; height: 26px; flex: none; margin: 0; border-radius: 999px; background: var(--gris-300);
+  cursor: pointer; transition: background var(--transition);
+}
+.resultats-credit input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: var(--ombre-sm); transition: transform var(--transition); }
+.resultats-credit input:checked { background: #b45309; }
+.resultats-credit input:checked::after { transform: translateX(18px); }
+.resultats-credit input:focus-visible { outline: 3px solid rgba(180, 83, 9, .35); outline-offset: 2px; }
+.resultats-credit input:disabled { opacity: .6; cursor: wait; }
 
 /* Compte requis pour enregistrer : une action principale, la connexion en lien secondaire */
 .compte { position: relative; max-width: 440px; padding: 34px 30px 26px; text-align: center; }

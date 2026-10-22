@@ -18,12 +18,13 @@ const articles = ref([])      // produits propres au fournisseur (0016)
 const promotions = ref([])
 const reversements = ref([])
 const rib = ref(null)
+const monRib = ref(null)    // RIB du fournisseur : BTM y rembourse les codes promo BTM
 const erreur = ref('')
 const journalIndisponible = ref(false) // migration 0013 absente
 
 surChangementCompte(() => {
   fiche.value = null; devis.value = null; paiements.value = []; journal.value = []; erreur.value = ''
-  catalogueListe.value = []; articles.value = []; promotions.value = []; reversements.value = []; rib.value = null
+  catalogueListe.value = []; articles.value = []; promotions.value = []; reversements.value = []; rib.value = null; monRib.value = null
 })
 
 const paiementDe = computed(() => Object.fromEntries(paiements.value.filter((p) => p.projet_id).map((p) => [p.projet_id, p])))
@@ -38,15 +39,19 @@ const ruptures = computed(() => [
   ...articles.value.filter((a) => a.vendu && (a.rupture || a.stock === 0)).map((a) => a.libelle)
 ])
 
-// Reversements : commission encaissée − virements reçus par BTM. Un virement déclaré reste « en vérification » tant
-// que BTM ne l'a pas vu arriver : il ne réduit pas encore la dette, mais ne peut pas être déclaré une deuxième fois.
+// Solde avec BTM : commission (moins les codes promo BTM et le crédit fidélité faits à la place de BTM)
+// − virements faits à BTM + virements reçus de BTM. Un virement compte dès que celui qui l'a fait l'enregistre.
 const somme = (liste, champ) => Math.round(liste.reduce((s, x) => s + (Number(x[champ]) || 0), 0) * 100) / 100
 const soldeBtm = computed(() => {
+  // du : commission − codes promo BTM et crédit fidélité que vous avez faits au client à la place de BTM
   const du = somme(paiements.value, 'revenu_btm')
-  const reverse = somme(reversements.value.filter((r) => r.statut === 'valide'), 'montant')
-  const attente = somme(reversements.value.filter((r) => r.statut === 'declare'), 'montant')
-  const reste = Math.max(0, Math.round((du - reverse) * 100) / 100)
-  return { du, reverse, attente, reste, aDeclarer: Math.max(0, Math.round((reste - attente) * 100) / 100) }
+  const versBtm = (r) => (r.sens || 'vers_btm') === 'vers_btm'
+  const reverse = somme(reversements.value.filter((r) => r.statut === 'valide' && versBtm(r)), 'montant')
+  const recuDeBtm = somme(reversements.value.filter((r) => r.statut === 'valide' && !versBtm(r)), 'montant')
+  const solde = Math.round((du - reverse + recuDeBtm) * 100) / 100
+  const reste = Math.max(0, solde)
+  // solde négatif : les remises BTM ont dépassé la commission, BTM vous rembourse la différence
+  return { du, reverse, recuDeBtm, reste, btmDoit: Math.max(0, -solde), aDeclarer: reste }
 })
 
 /** Charge une donnée facultative sans bloquer le reste (migration absente, réseau…) */
@@ -66,11 +71,12 @@ export function useEspaceFournisseur() {
       erreur.value = 'Impossible de charger vos données pour le moment.'
       devis.value = devis.value || []
     }
-    const [m, c, pr, rv, rb, ar] = await Promise.all([
+    const [m, c, pr, rv, rb, ar, mr] = await Promise.all([
       tenter(api.listerMateriauxBtm(), []), tenter(api.listerMonCatalogue(), []), tenter(api.listerPromotions(), []),
-      tenter(api.listerReversements(), []), tenter(api.lireRibBtm(), null), tenter(api.listerArticles(), []), chargerJournal()
+      tenter(api.listerReversements(), []), tenter(api.lireRibBtm(), null), tenter(api.listerArticles(), []),
+      tenter(api.lireMonRib(fournisseurLie.value), null), chargerJournal()
     ])
-    materiauxBtm.value = m; catalogueListe.value = c; promotions.value = pr; reversements.value = rv; rib.value = rb; articles.value = ar
+    materiauxBtm.value = m; catalogueListe.value = c; promotions.value = pr; reversements.value = rv; rib.value = rb; articles.value = ar; monRib.value = mr
   }
 
   async function chargerJournal() {
@@ -105,7 +111,7 @@ export function useEspaceFournisseur() {
 
   return {
     fiche, devis, paiements, journal, erreur, journalIndisponible, paiementDe, enAttente, nomCompte,
-    materiauxBtm, catalogueListe, catalogue, articles, ruptures, promotions, promotionsValables, reversements, rib, soldeBtm,
+    materiauxBtm, catalogueListe, catalogue, articles, ruptures, promotions, promotionsValables, reversements, rib, monRib, soldeBtm,
     charger, chargerJournal, rechargerCatalogue, rechargerPromotions, ajouterPaiement, retirerPaiement
   }
 }

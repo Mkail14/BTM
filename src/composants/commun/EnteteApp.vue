@@ -182,6 +182,8 @@ function ouvrirAction(action) {
   profilMessage.value = ''
   profilErreur.value = ''
   suppressionConfirmee.value = false
+  // solde à jour avant d'autoriser la suppression (le serveur revérifie)
+  if (action === 'supprimer') chargerCredit()
 }
 
 // ancien mot de passe oublié : un lien reçu par e-mail permet d'en choisir un nouveau (fenêtre de connexion)
@@ -421,7 +423,7 @@ async function supprimerCompte() {
             <button class="btn btn-primaire" type="submit">Modifier le mot de passe</button>
           </form>
 
-          <div v-else class="profil-suppression"><h3>Supprimer mon compte</h3><p>Cette action est définitive. Vos informations de compte ne pourront pas être récupérées.</p><label class="profil-checkbox"><input v-model="suppressionConfirmee" type="checkbox" /> Je comprends et je veux supprimer mon compte</label><p v-if="profilErreur" class="profil-retour profil-erreur" role="alert">{{ profilErreur }}</p><button class="btn btn-danger" type="button" :disabled="!suppressionConfirmee" @click="supprimerCompte"><i class="fa-solid fa-trash"></i> Supprimer définitivement</button></div>
+          <div v-else class="profil-suppression"><h3>Supprimer mon compte</h3><p>Cette action est définitive. Vos informations de compte ne pourront pas être récupérées.</p><p v-if="credit.solde > 0" class="profil-retour profil-erreur" role="alert">Il vous reste {{ formaterEuros(credit.solde) }} de crédit fidélité. Utilisez-le chez un fournisseur avant de supprimer votre compte.</p><label v-else class="profil-checkbox"><input v-model="suppressionConfirmee" type="checkbox" /> Je comprends et je veux supprimer mon compte</label><p v-if="profilErreur" class="profil-retour profil-erreur" role="alert">{{ profilErreur }}</p><button class="btn btn-danger" type="button" :disabled="!suppressionConfirmee || credit.solde > 0" @click="supprimerCompte"><i class="fa-solid fa-trash"></i> Supprimer définitivement</button></div>
         </section>
       </div>
     </section>

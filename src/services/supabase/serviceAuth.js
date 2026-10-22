@@ -122,7 +122,11 @@ export async function definirMotDePasse(motDePasse) {
 export async function supprimerCompte() {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
   const { data, error } = await supabase.functions.invoke('supprimer-compte')
-  if (error) throw error
+  if (error) {
+    let message = error.message
+    try { message = (await error.context.json()).erreur || message } catch { /* corps non JSON */ }
+    throw new Error(message)
+  }
   return data
 }
 

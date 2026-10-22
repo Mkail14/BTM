@@ -137,7 +137,6 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
       </nav>
     </div>
 
-    <a href="#types-projets" class="hero-defiler" aria-label="Voir la suite"><span></span></a>
 
     <!-- cadre blanc qui se dessine au défilement : bords latéraux + coins arrondis en bas -->
     <span class="hero-cadre" aria-hidden="true"><i class="cadre-g"></i><i class="cadre-d"></i><i class="coin-g"></i><i class="coin-d"></i></span>
@@ -247,7 +246,6 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
   /* « Chiffrez votre fondation » tient sur une ligne même avec le mot le plus long */
   .hero-titre-ligne { white-space: nowrap; font-size: min(8vw, 2.6rem); }
   .hero-desc { display: none; }
-  .hero-defiler { display: none; }
 }
 @media (max-width: 360px) {
   .hero-surtitre { font-size: .6rem; letter-spacing: .08em; gap: 8px; }
@@ -278,15 +276,4 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
 
 .hero-titre { text-shadow: 0 2px 30px rgba(10, 15, 20, .5); }
 .hero-desc { color: rgba(255, 255, 255, .72); }
-
-/* Indicateur de défilement : une souris dont la molette descend */
-.hero-defiler {
-  position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
-  width: 26px; height: 40px; border: 1.5px solid rgba(255, 255, 255, .45); border-radius: 14px;
-  transition: border-color var(--transition);
-}
-.hero-defiler:hover { border-color: #fff; }
-.hero-defiler span { position: absolute; left: 50%; top: 8px; width: 3px; height: 8px; margin-left: -1.5px; border-radius: 2px; background: #fff; animation: molette 1.8s ease-in-out infinite; }
-@keyframes molette { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(12px); } }
-@media (prefers-reduced-motion: reduce) { .hero-defiler span { animation: none; } }
 </style>

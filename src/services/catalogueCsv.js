@@ -1,10 +1,4 @@
-/**
- * Catalogue fournisseur en fichier : modèle à remplir et lecture d'un fichier rempli.
- * Format CSV (Excel : « Enregistrer sous → CSV (séparateur : point-virgule) »), séparateur ; , ou tabulation
- * détecté seul — un copier-coller de cellules Excel (tabulations) est donc lu aussi.
- * Une ligne avec un code BTM met à jour le matériau BTM correspondant ; une ligne sans code est un article
- * du fournisseur (reconnu par sa désignation : mis à jour s'il existe, ajouté sinon).
- */
+
 
 export const COLONNES = ['code_btm', 'designation', 'unite', 'prix_btm', 'prix_comptoir', 'stock', 'en_vente', 'rupture']
 
@@ -13,7 +7,7 @@ const SYNONYMES = {
   code_btm: ['codebtm', 'materiaubtm', 'idbtm'], // pas « code » seul : c'est souvent la référence interne du fournisseur
   designation: ['designation', 'libelle', 'produit', 'article', 'nom', 'description'],
   unite: ['unite', 'unitedevente', 'uv'],
-  prix_btm: ['prixbtm', 'prix', 'prixunitaire', 'prixaveccode', 'prixaveccodebtm', 'prixht', 'prixttc'],
+  prix_btm: ['prixbtm', 'prix', 'prixunitaire', 'prixaveccode', 'prixaveccodebtm', 'prixht', 'prixttc', 'prixdevente', 'prixvente', 'tarif'],
   prix_comptoir: ['prixcomptoir', 'prixaucomptoir', 'prixpublic', 'prixsanscode'],
   stock: ['stock', 'quantite', 'qte', 'quantiteenstock'],
   en_vente: ['envente', 'vendu', 'jelevends', 'actif'],
@@ -120,10 +114,13 @@ export function analyserCatalogue(texte, materiauxBtm, articles = []) {
 
     const prix = lireNombre(val('prix_btm'))
     const comptoir = lireNombre(val('prix_comptoir'))
-    const stock = lireNombre(val('stock'))
+    // stock négatif (export Odoo : ventes non encore réapprovisionnées) → 0
+    const stockNegatif = val('stock').startsWith('-')
+    const stock = stockNegatif ? lireNombre(val('stock').slice(1)) && 0 : lireNombre(val('stock'))
     const vendu = lireBooleen(val('en_vente'), true)
     const rupture = lireBooleen(val('rupture'), false)
-    const designation = val('designation')
+    // 80 caractères au plus en base : un nom plus long (export de logiciel de caisse) est coupé
+    const designation = val('designation').slice(0, 80).trim()
     if (Number.isNaN(prix)) return erreur(`prix_btm illisible : « ${val('prix_btm')} ».`)
     if (Number.isNaN(comptoir)) return erreur(`prix_comptoir illisible : « ${val('prix_comptoir')} ».`)
     if (Number.isNaN(stock)) return erreur(`stock illisible : « ${val('stock')} ».`)
@@ -143,7 +140,6 @@ export function analyserCatalogue(texte, materiauxBtm, articles = []) {
 
     // Article du fournisseur
     if (designation.length < 2) return erreur('designation manquante.')
-    if (designation.length > 80) return erreur(`designation trop longue (80 caractères au plus) : « ${designation.slice(0, 40)}… ».`)
     const unite = val('unite') || 'u'
     if (unite.length > 12) return erreur(`unite trop longue (12 caractères au plus) : « ${unite} ».`)
     if (prix === null) return erreur(`prix_btm manquant pour « ${designation} ».`)

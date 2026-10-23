@@ -2,13 +2,14 @@
 /** Ligne de l'annuaire : identité + appel direct ; se déplie pour la description, les horaires et les autres moyens de contact. */
 import { computed, ref } from 'vue'
 
-const props = defineProps({ fournisseur: { type: Object, required: true } })
-const ouvert = ref(false)
+const props = defineProps({ fournisseur: { type: Object, required: true }, deplie: { type: Boolean, default: false } })
+const ouvert = ref(props.deplie) // dépliée d'emblée dans l'aperçu de l'espace fournisseur
 const logoCasse = ref(false) // fournisseur ajouté sans logo : ses initiales à la place d'une image cassée
 const idDetails = `fournisseur-${props.fournisseur.id}`
 
 const initiales = computed(() => props.fournisseur.nom.split(/[\s-]+/).filter(Boolean).slice(0, 2).map((m) => m[0]).join('').toUpperCase())
 const telephone = computed(() => props.fournisseur.telephone?.replace(/\s/g, '') || '')
+const noteTexte = computed(() => String(props.fournisseur.avis?.moyenne ?? '').replace('.', ','))
 const lienSite = (url) => (url?.startsWith('http') ? url : `https://${url}`)
 const domaine = (url) => url?.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')
 // itinéraire : coordonnées GPS si connues (plus précis à Mayotte, où les adresses sont rares), sinon l'adresse
@@ -29,11 +30,12 @@ const itineraire = computed(() => {
           <!-- badge « Livraison » à côté du nom : la ligne d'infos reste sur une seule ligne, même en carte étroite -->
           <span class="fr-nom">
             <strong>{{ fournisseur.nom }}</strong>
-            <span v-if="fournisseur.livraison" class="fr-badge" title="Livraison sur chantier"><i class="fa-solid fa-truck" aria-hidden="true"></i><span class="fr-badge-texte">Livraison</span></span>
+            <span v-if="fournisseur.livraison" class="fr-badge" :title="fournisseur.livraison_payante ? 'Livraison payante sur chantier' : 'Livraison gratuite sur chantier'"><i class="fa-solid fa-truck" aria-hidden="true"></i><span class="fr-badge-texte">Livraison</span></span>
           </span>
           <span class="fr-infos">
             <span>{{ fournisseur.categorie }}</span>
             <span><i class="fa-solid fa-location-dot" aria-hidden="true"></i>{{ fournisseur.commune }}</span>
+            <span v-if="fournisseur.avis" class="fr-note" :aria-label="`Noté ${noteTexte} sur 5 par ${fournisseur.avis.nombre} client${fournisseur.avis.nombre > 1 ? 's' : ''}`"><i class="fa-solid fa-star" aria-hidden="true"></i>{{ noteTexte }} <small>({{ fournisseur.avis.nombre }})</small></span>
           </span>
         </span>
         <i class="fa-solid fa-chevron-down fr-chevron" aria-hidden="true"></i>
@@ -49,7 +51,21 @@ const itineraire = computed(() => {
       <dl>
         <div><dt><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Adresse</dt><dd>{{ fournisseur.adresse || fournisseur.commune }}</dd></div>
         <div v-if="fournisseur.horaires"><dt><i class="fa-regular fa-clock" aria-hidden="true"></i>Horaires</dt><dd>{{ fournisseur.horaires }}</dd></div>
+        <div v-if="fournisseur.livraison">
+          <dt><i class="fa-solid fa-truck" aria-hidden="true"></i>Livraison</dt>
+          <dd>{{ fournisseur.livraison_payante ? `Payante${fournisseur.livraison_tarif ? ` : ${fournisseur.livraison_tarif}` : ''}` : 'Gratuite sur chantier' }}</dd>
+        </div>
       </dl>
+      <!-- Avis des clients venus retirer leur commande (les 3 plus récents) -->
+      <ul v-if="fournisseur.avis" class="fr-avis" aria-label="Avis des clients">
+        <li v-for="a in fournisseur.avis.liste.slice(0, 3)" :key="a.id">
+          <span class="fr-avis-tete">
+            <span class="fr-etoiles" :aria-label="`${a.note} sur 5`"><i v-for="n in 5" :key="n" class="fa-solid fa-star" :class="{ eteinte: n > a.note }" aria-hidden="true"></i></span>
+            <strong>{{ a.nom }}</strong>
+          </span>
+          <p v-if="a.commentaire">{{ a.commentaire }}</p>
+        </li>
+      </ul>
       <div class="fr-actions">
         <a :href="itineraire" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-route" aria-hidden="true"></i>Itinéraire</a>
         <a v-if="fournisseur.email" :href="`mailto:${fournisseur.email}`"><i class="fa-solid fa-envelope" aria-hidden="true"></i>E-mail</a>
@@ -105,6 +121,16 @@ const itineraire = computed(() => {
 .fr-details dt { color: var(--gris-500); }
 .fr-details dt i { width: 16px; margin-right: 6px; color: var(--gris-400); text-align: center; }
 .fr-details dd { margin: 0; color: var(--ardoise); }
+.fr-note { flex: none; color: var(--ardoise); font-weight: 600; }
+.fr-note i { color: #f59e0b !important; }
+.fr-note small { color: var(--gris-500); font-weight: 400; }
+.fr-avis { display: flex; flex-direction: column; gap: 10px; max-width: 580px; margin: 16px 0 0; padding: 0; list-style: none; }
+.fr-avis li { padding: 10px 12px; border-radius: 12px; background: var(--gris-100); }
+.fr-avis-tete { display: flex; align-items: center; gap: 10px; font-size: .84rem; }
+.fr-avis-tete strong { color: var(--ardoise); font-weight: 600; }
+.fr-etoiles { display: inline-flex; gap: 2px; color: #f59e0b; font-size: .72rem; }
+.fr-etoiles .eteinte { color: var(--gris-300); }
+.fr-avis p { margin: 4px 0 0; color: var(--gris-600); font-size: .86rem; line-height: 1.5; }
 .fr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .fr-actions a {
   display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid var(--gris-200); border-radius: 999px;

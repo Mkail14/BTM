@@ -2,7 +2,7 @@
 /**
  * Carreaux du fournisseur (migration 0029) : les modèles qu'il met en ligne, choisis par les clients dans le
  * calculateur (carrelage). Chaque modèle : nom, format, finition, couleur ou photo, prix d'un carreau
- * (prix BTM, appliqué en caisse) et prix au comptoir facultatif. Un modèle masqué ou en rupture n'est plus proposé.
+ * (le prix du fournisseur, appliqué en caisse). Un modèle masqué ou en rupture n'est plus proposé.
  */
 import { computed, onMounted, ref } from 'vue'
 import { useAdmin } from '@/composables/useAdmin.js'
@@ -51,8 +51,8 @@ const lireNombre = (t) => (String(t ?? '').trim() === '' ? null : Number(String(
 function ouvrir(c = null) {
   erreurForm.value = ''
   formulaire.value = c
-    ? { ...c, finition: c.finition || '', prix: texteNombre(c.prix_unitaire), comptoir: texteNombre(c.prix_comptoir) }
-    : { id: null, nom: '', format: '60x60', finition: '', couleur: '#e9e5de', photo_url: '', prix: '', comptoir: '', rupture: false, actif: true }
+    ? { ...c, finition: c.finition || '', prix: texteNombre(c.prix_unitaire) }
+    : { id: null, nom: '', format: '60x60', finition: '', couleur: '#e9e5de', photo_url: '', prix: '', rupture: false, actif: true }
 }
 const prixM2 = computed(() => {
   const p = lireNombre(formulaire.value?.prix)
@@ -77,14 +77,12 @@ async function choisirPhoto(e) {
 async function enregistrer() {
   const f = formulaire.value
   const prix = lireNombre(f.prix)
-  const comptoir = lireNombre(f.comptoir)
   erreurForm.value = f.nom.trim().length < 2 ? 'Donnez un nom au modèle.'
-    : !(prix > 0) ? 'Indiquez le prix d’un carreau (supérieur à 0).'
-    : comptoir != null && !(comptoir >= prix) ? 'Le prix au comptoir doit être au moins égal au prix BTM.' : ''
+    : !(prix > 0) ? 'Indiquez le prix d’un carreau (supérieur à 0).' : ''
   if (erreurForm.value) return
   enregistrement.value = true
   try {
-    await api.enregistrerCarreau(fournisseurLie.value, { ...f, prix_unitaire: prix, prix_comptoir: comptoir })
+    await api.enregistrerCarreau(fournisseurLie.value, { ...f, prix_unitaire: prix, prix_comptoir: null })
     await recharger()
     notifier(f.id ? 'Modèle modifié.' : 'Modèle ajouté : il est proposé dans le calculateur.')
     formulaire.value = null
@@ -105,6 +103,9 @@ async function basculer(c, champ) {
   } catch (e) { notifier(e?.message || 'Modification impossible.', 'erreur') }
 }
 
+// « Nouveau modèle » est dans la barre du catalogue, au-dessus des onglets
+defineExpose({ ouvrir })
+
 async function supprimer(c) {
   if (!(await confirmer({ titre: 'Supprimer ce modèle ?', texte: `« ${c.nom} » ne sera plus proposé. Les devis déjà faits le gardent, mais vous ne pourrez plus l’encaisser.`, libelle: 'Supprimer', danger: true }))) return
   try {
@@ -122,7 +123,6 @@ async function supprimer(c) {
         <button type="button" class="adm-pilule" :class="{ actif: filtreFormat === 'tous' }" @click="filtreFormat = 'tous'">Tous <small>{{ carreaux.length }}</small></button>
         <button v-for="f in FORMATS" :key="f" type="button" class="adm-pilule" :class="{ actif: filtreFormat === f }" @click="filtreFormat = f">{{ api.libelleFormat(f) }} <small>{{ compte(f) }}</small></button>
       </div>
-      <button type="button" class="adm-btn adm-btn-noir" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouveau modèle</button>
     </div>
 
     <div v-if="chargement" class="adm-carte adm-vide"><span class="spinner" aria-hidden="true"></span></div>
@@ -148,7 +148,6 @@ async function supprimer(c) {
           <strong>{{ c.nom }}</strong>
           <small>{{ [api.libelleFormat(c.format), c.finition].filter(Boolean).join(' · ') }}</small>
           <p class="car-prix"><b>{{ formaterEuros(c.prix_unitaire) }}</b> le carreau <span>≈ {{ formaterEuros(api.prixAuM2(c)) }} / m²</span></p>
-          <p v-if="c.prix_comptoir" class="car-comptoir">{{ formaterEuros(c.prix_comptoir) }} au comptoir</p>
         </div>
         <div class="car-pied">
           <label class="car-interrupteur"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="c.actif" :aria-label="`Proposer ${c.nom}`" @click="basculer(c, 'actif')"></button> Proposé</label>
@@ -186,14 +185,9 @@ async function supprimer(c) {
           <span class="adm-champ-aide"><span>Sans photo, le client voit la couleur choisie.</span></span>
         </div>
         <div class="adm-champ">
-          <label for="ca-prix">Prix d’un carreau (prix BTM) *</label>
+          <label for="ca-prix">Prix d’un carreau *</label>
           <span class="adm-saisie-unite"><input id="ca-prix" v-model="formulaire.prix" inputmode="decimal" placeholder="2,50" /><span>€</span></span>
           <span v-if="prixM2" class="adm-champ-aide"><span>≈ {{ formaterEuros(prixM2) }} le m²</span></span>
-        </div>
-        <div class="adm-champ">
-          <label for="ca-comptoir">Prix au comptoir (facultatif)</label>
-          <span class="adm-saisie-unite"><input id="ca-comptoir" v-model="formulaire.comptoir" inputmode="decimal" placeholder="2,90" /><span>€</span></span>
-          <span class="adm-champ-aide"><span>Sans code de retrait. Affiché pour montrer l’économie.</span></span>
         </div>
         <label class="plein car-option"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="formulaire.actif" @click="formulaire.actif = !formulaire.actif"></button> Proposé dans le calculateur</label>
         <label class="plein car-option"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="formulaire.rupture" @click="formulaire.rupture = !formulaire.rupture"></button> En rupture de stock</label>
@@ -211,7 +205,7 @@ async function supprimer(c) {
 
 <style scoped>
 .car { display: flex; flex-direction: column; gap: 18px; }
-.car-barre { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.car-barre { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 
 .car-vide { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 24px; text-align: center; }
 .car-vide h2 { margin: 6px 0 0; font-family: var(--font-corps); font-size: 1.2rem; font-weight: 600; }
@@ -236,7 +230,6 @@ async function supprimer(c) {
 .car-prix { margin: 8px 0 0; color: var(--adm-encre-2); font-size: .86rem; }
 .car-prix b { color: var(--adm-info-texte); font-size: 1.3rem; font-weight: 600; }
 .car-prix span { display: block; color: var(--adm-muet); font-size: .8rem; }
-.car-comptoir { margin: 0; color: var(--adm-muet); font-size: .8rem; }
 .car-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; padding: 12px 18px; border-top: 1px solid var(--adm-ligne-2); color: var(--adm-muet); font-size: .8rem; }
 .car-interrupteur, .car-option { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .car-option { gap: 12px; font-size: .92rem; font-weight: 500; }
@@ -248,7 +241,6 @@ async function supprimer(c) {
 @media (max-width: 767px) {
   .car { gap: 12px; }
   .car-barre { gap: 10px; }
-  .car-barre > .adm-btn { order: -1; flex: 1 1 100%; }
   .car-barre > .adm-pilules { flex: 1 1 100%; min-width: 0; }
   .car-grille { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .car-carte { display: grid; grid-template-columns: 96px minmax(0, 1fr); }

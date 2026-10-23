@@ -5,6 +5,7 @@ import { useAdmin, initiales, correspond } from '@/composables/useAdmin.js'
 import AdminPanneau from './AdminPanneau.vue'
 import PanneauAccesFournisseur from './PanneauAccesFournisseur.vue'
 import AdminCarreaux from './AdminCarreaux.vue'
+import ChampHoraires from '@/composants/fournisseur/ChampHoraires.vue'
 import { listerTousCarreaux } from '@/services/supabase/serviceCarreaux.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
@@ -232,7 +233,7 @@ async function supprimerCategorie(c) {
         <div class="adm-champ"><label for="f-mail">E-mail</label><input id="f-mail" v-model="formulaire.email" type="email" /></div>
         <div class="adm-champ plein"><label for="f-adr">Adresse</label><input id="f-adr" v-model="formulaire.adresse" maxlength="160" /></div>
         <div class="adm-champ"><label for="f-web">Site web</label><input id="f-web" v-model="formulaire.site_web" type="url" placeholder="https://" /></div>
-        <div class="adm-champ"><label for="f-hor">Horaires</label><input id="f-hor" v-model="formulaire.horaires" placeholder="Lun–Ven 7h–16h" /></div>
+        <div class="adm-champ plein"><span class="adm-champ-label">Horaires</span><ChampHoraires v-model="formulaire.horaires" /></div>
         <div class="adm-champ plein"><label for="f-logo">Logo (URL d’image)</label><input id="f-logo" v-model="formulaire.logo_url" type="url" placeholder="https://…/logo.png" /></div>
         <div class="adm-champ plein">
           <label for="f-desc">Description</label>

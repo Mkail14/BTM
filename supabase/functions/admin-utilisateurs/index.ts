@@ -1,5 +1,4 @@
-// Fonction réservée aux administrateurs : lire / modifier / bannir / supprimer un utilisateur, lui envoyer un e-mail de réinitialisation.
-// Le rôle admin est revérifié ici (table profils, avec la clé service) — le navigateur n'est jamais cru sur parole.
+
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {

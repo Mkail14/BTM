@@ -31,9 +31,23 @@ export async function lireMaFiche(fournisseurId) {
 export async function modifierMaFiche(f) {
   const { data, error } = await supabase.rpc('modifier_ma_fiche', {
     p_telephone: f.telephone, p_email: f.email, p_adresse: f.adresse, p_commune: f.commune, p_site_web: f.site_web,
-    p_description: f.description, p_horaires: f.horaires, p_logo_url: f.logo_url, p_livraison: !!f.livraison
+    p_description: f.description, p_horaires: f.horaires, p_logo_url: f.logo_url, p_livraison: !!f.livraison,
+    p_livraison_payante: !!f.livraison_payante, p_livraison_tarif: f.livraison_tarif || null // migration 20261023160000
   })
   if (error) throw erreurSql(error, '0012')
+  return data
+}
+
+// ---------- Avis des clients (migration 20261023180000) ----------
+/** Demandes d'avis envoyées par le fournisseur et réponses des clients (les plus récentes d'abord) */
+export async function listerMesAvis() {
+  return ok(await supabase.from('avis_fournisseurs').select('*').order('demande_le', { ascending: false }))
+}
+
+/** Demande au client d'un encaissement de noter l'entreprise (renvoie la demande existante si déjà faite) */
+export async function demanderAvis(paiementId) {
+  const { data, error } = await supabase.rpc('demander_avis_fournisseur', { p_paiement: paiementId })
+  if (error) throw erreurSql(error, '20261023180000 (avis fournisseurs)')
   return data
 }
 
@@ -236,3 +250,4 @@ export async function enregistrerMonRib({ titulaire, iban, bic, banque }) {
   if (error) throw erreurSql(error, 'virements_sans_validation_rib_fournisseurs')
   return data?.iban ? data : null
 }
+export const supprimerMonRib = () => enregistrerMonRib({ titulaire: '', iban: '' })

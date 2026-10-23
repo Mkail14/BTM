@@ -143,11 +143,18 @@ export const supprimerProjet = async (id) => { verifier(); ok(await supabase.fro
 // ---------- Avis -----------------------------------------------------------------
 export async function listerAvis() {
   verifier()
-  const lignes = ok(await supabase.from('avis').select('*').order('cree_le', { ascending: false }))
-  return lignes.map((a) => ({ ...a, visible: a.visible !== false })) // colonne absente avant 0007 : tout est visible
+  // avis des clients sur les fournisseurs (publiés seulement) : même liste, source « fournisseur », table à part
+  const [lignes, surFournisseurs] = await Promise.all([
+    supabase.from('avis').select('*').order('cree_le', { ascending: false }).then(ok),
+    supabase.from('avis_fournisseurs').select('*').eq('statut', 'publie').then(ok).catch(() => []) // migration absente : aucun
+  ])
+  return [
+    ...lignes.map((a) => ({ ...a, visible: a.visible !== false })), // colonne absente avant 0007 : tout est visible
+    ...surFournisseurs.map((a) => ({ ...a, source: 'fournisseur', table: 'avis_fournisseurs', ville: `sur ${a.fournisseur_nom}`, cree_le: a.repondu_le }))
+  ].sort((x, y) => new Date(y.cree_le) - new Date(x.cree_le))
 }
-export const definirAvisVisible = async (id, visible) => { verifier(); ok(await supabase.from('avis').update({ visible }).eq('id', id)) }
-export const supprimerAvis = async (id) => { verifier(); ok(await supabase.from('avis').delete().eq('id', id)) }
+export const definirAvisVisible = async (id, visible, table = 'avis') => { verifier(); ok(await supabase.from(table).update({ visible }).eq('id', id)) }
+export const supprimerAvis = async (id, table = 'avis') => { verifier(); ok(await supabase.from(table).delete().eq('id', id)) }
 // ---------- Réalisations (accueil, migration 0025) ------------------------------------------
 export async function listerRealisations() {
   verifier()

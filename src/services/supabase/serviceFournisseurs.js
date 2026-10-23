@@ -1,9 +1,10 @@
 /** Accès aux fournisseurs : Supabase si configuré, sinon données locales */
 import { supabase, supabaseConfigure } from './client.js'
 import { fournisseurs as locaux, categories as categoriesLocales, normaliserFournisseur } from '@/donnees/fournisseurs.js'
+import { avisParFournisseur } from './serviceAvisFournisseurs.js'
 
 // colonnes lues par normaliserFournisseur : inutile de rapatrier le reste de la table
-const COLONNES = 'id, slug, nom, categorie_id, commune, adresse, telephone, email, site_web, description, livraison, horaires, logo_url, latitude, longitude, demonstration'
+const COLONNES = 'id, slug, nom, categorie_id, commune, adresse, telephone, email, site_web, description, livraison, livraison_payante, livraison_tarif, horaires, logo_url, latitude, longitude, demonstration'
 // l'annuaire change rarement : gardé une minute en mémoire (retour sur la page sans nouvel appel ni attente)
 const DUREE_CACHE = 60_000
 let cacheFournisseurs = null
@@ -20,10 +21,14 @@ export function chargerFournisseurs() {
 async function lireFournisseurs() {
   if (!supabaseConfigure) return { donnees: locaux, source: 'local' }
   try {
-    const { data, error } = await supabase.from('fournisseurs').select(COLONNES).eq('actif', true).order('nom')
+    // avis des clients lus en même temps (vides si la migration des avis fournisseurs n'est pas appliquée)
+    const [{ data, error }, avis] = await Promise.all([
+      supabase.from('fournisseurs').select(COLONNES).eq('actif', true).order('nom'),
+      avisParFournisseur()
+    ])
     if (error) throw error
     if (!data?.length) return { donnees: locaux, source: 'local' }
-    return { donnees: data.map(normaliserFournisseur), source: 'supabase' }
+    return { donnees: data.map((l) => ({ ...normaliserFournisseur(l), avis: avis[l.id] || null })), source: 'supabase' }
   } catch (e) {
     console.warn('Supabase indisponible, repli local', e)
     return { donnees: locaux, source: 'local' }

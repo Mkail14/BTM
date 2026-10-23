@@ -120,7 +120,7 @@ const repartition = computed(() => {
       </div>
       <span v-else class="tb-libelle-periode"><i class="fa-regular fa-calendar" aria-hidden="true"></i> {{ libellePeriode }}</span>
       <router-link v-if="ruptures.length" to="/espace-fournisseur/materiaux" class="tb-ruptures" :title="ruptures.join(', ')">
-        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ ruptures.length }} en rupture de stock
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ ruptures.length }}<span class="tb-ruptures-texte"> en rupture de stock</span>
       </router-link>
     </div>
 
@@ -178,7 +178,7 @@ const repartition = computed(() => {
     <div class="tb-colonnes">
       <section class="adm-carte adm-carte-pad">
         <div class="adm-carte-tete">
-          <div><h2>Devis qui vous ont choisi</h2><p>Le client viendra avec son code de retrait.</p></div>
+          <div><h2><span class="tb-titre-long">Devis qui vous ont choisi</span><span class="tb-titre-court">Devis à valider</span></h2><p>Le client viendra avec son code de retrait.</p></div>
           <router-link :to="lienValider()" class="adm-btn adm-btn-noir adm-btn-sm"><i class="fa-solid fa-ticket" aria-hidden="true"></i> Saisir un code</router-link>
         </div>
         <ul v-if="enAttente.length" class="tb-liste">
@@ -255,6 +255,7 @@ const repartition = computed(() => {
 .tb-droite { display: inline-flex; flex: none; align-items: center; gap: 12px; }
 .tb-montant { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tb-avatar-ok { background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
+.tb-titre-court { display: none; }
 
 @media (max-width: 1100px) { .tb-colonnes, .tb-colonnes-graphe { grid-template-columns: minmax(0, 1fr); } .tb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Téléphone : chiffres en 2 × 2, période sur une ligne qui défile, listes compactes */
@@ -278,6 +279,51 @@ const repartition = computed(() => {
   .tb-droite { flex-direction: column; align-items: flex-end; gap: 6px; }
   .tb-droite .adm-btn-sm { min-height: 30px; padding: 0 12px; font-size: .8rem; }
   .tb-moyens { gap: 14px; }
+}
+/* Téléphone assez haut : une seule page, sans défilement — chiffres, graphique et devis en attente
+   (moyens de paiement et encaissements restent dans Paiements) ; la liste défile dans sa carte */
+@media (max-width: 767px) and (min-height: 560px) {
+  .tb { height: 100%; gap: 10px; }
+  .tb > .adm-alerte, .tb-periode, .tb-kpis { flex: none; margin: 0; }
+  .tb > .adm-alerte { padding: 10px 12px; font-size: .8rem; }
+
+  .tb-periode { flex-wrap: wrap; gap: 8px; }
+  .tb-periode > .adm-pilules { flex: 1 1 0; min-width: 0; }
+  .tb-periode .adm-pilule { min-height: 34px; padding: 0 13px; font-size: .82rem; }
+  .tb-libelle-periode, .tb-ruptures-texte { display: none; }
+  .tb-ruptures { flex: none; margin-left: 0; padding: 0 12px; min-height: 34px; }
+  .tb-dates { flex: 1 1 100%; }
+  .tb-dates input { min-height: 34px; }
+
+  /* chiffres : libellé et montant seulement (la période est déjà dans les pilules) */
+  .tb-kpis { gap: 8px; }
+  .tb-kpis > li, .tb-kpi { min-width: 0; }
+  .tb-kpi { gap: 4px; padding: 11px 13px; border-radius: 16px; }
+  .tb-kpi span { overflow: hidden; font-size: .74rem; white-space: nowrap; }
+  .tb-kpi strong { font-size: 1.15rem; line-height: 1.15; }
+  .tb-kpi small { display: none; }
+
+  /* graphique et devis se partagent le reste de l'écran ; chaque carte garde sa hauteur */
+  .tb-colonnes { display: flex; align-items: stretch; min-height: 0; gap: 0; }
+  .tb-colonnes-graphe { flex: 1.3 1 0; }
+  .tb-colonnes:not(.tb-colonnes-graphe) { flex: 1 1 0; }
+  .tb-colonnes > section + section { display: none; }
+  .tb-colonnes > section { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; padding: 12px 14px; border-radius: 16px; }
+  .tb-colonnes .adm-carte-tete { flex: none; flex-wrap: nowrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .tb-colonnes .adm-carte-tete > div { min-width: 0; }
+  .tb-colonnes .adm-carte-tete p { display: none; }
+  .tb-colonnes .adm-carte-tete h2 { overflow: hidden; font-size: .95rem; text-overflow: ellipsis; white-space: nowrap; }
+  .tb-colonnes .adm-carte-tete .adm-btn { flex: none; min-height: 32px; padding: 0 12px; font-size: .8rem; }
+  .tb-titre-long { display: none; }
+  .tb-titre-court { display: inline; }
+  .tb-colonnes :deep(.graphe) { flex: 1; min-height: 90px; height: auto; }
+  .tb-colonnes .tb-liste { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  .tb-liste li { padding: 8px 0; }
+  .tb-droite { flex-direction: row; align-items: center; gap: 8px; }
+  /* liste vide : une ligne discrète, centrée dans la carte */
+  .tb-colonnes .adm-vide { flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; min-height: 0; padding: 0; }
+  .tb-colonnes .adm-vide i { margin: 0; font-size: 1rem; }
+  .tb-colonnes .adm-vide p { margin: 0; font-size: .84rem; }
 }
 
 /* Ordinateur : une seule page, sans défilement — les lignes se partagent la hauteur, les listes défilent dans leur carte */

@@ -15,6 +15,7 @@ import { infoType } from '@/services/calculs/fusion.js'
 import { chargerFournisseurs } from '@/services/supabase/serviceFournisseurs.js'
 import CarteProjet from '@/composants/tableau-de-bord/CarteProjet.vue'
 import PropositionsRealisation from '@/composants/tableau-de-bord/PropositionsRealisation.vue'
+import DemandesAvisFournisseurs from '@/composants/tableau-de-bord/DemandesAvisFournisseurs.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import BandeauPage from '@/composants/commun/BandeauPage.vue'
 
@@ -121,6 +122,7 @@ async function confirmerSuppression() {
       </BandeauPage>
 
       <!-- invitation de BTM à mettre un projet en avant sur la page d'accueil -->
+      <DemandesAvisFournisseurs v-if="connecte" />
       <PropositionsRealisation v-if="connecte" />
 
       <p v-if="erreur" class="tdb-note" :title="erreur"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Synchronisation indisponible : seuls les projets de cet appareil sont affichés.</p>

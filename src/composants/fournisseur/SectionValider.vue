@@ -622,11 +622,13 @@ async function recuPdf(mode) {
 @media (max-width: 767px) {
   .val { gap: 14px; }
 
-  /* étapes : une seule ligne, seul le libellé de l'étape en cours est écrit */
-  .val-etapes { flex-wrap: nowrap; gap: 6px; }
-  .val-etapes li { flex: none; gap: 8px; padding: 4px; font-size: .84rem; }
-  .val-etapes li.active { flex: 1; padding-right: 14px; }
-  .val-etapes li:not(.active) > span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* étapes : barre de progression en 4 segments, libellés courts dessous */
+  .val-etapes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .val-etapes li { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 0; border-radius: 0; background: none; box-shadow: none; font-size: .72rem; font-weight: 600; text-align: center; white-space: nowrap; }
+  .val-etapes li::before { content: ''; height: 4px; border-radius: 999px; background: var(--adm-ligne); }
+  .val-etapes li.faite::before { background: var(--adm-ok-texte); }
+  .val-etapes li.active::before { background: var(--adm-accent); }
+  .val-etapes .val-etape-num { display: none; }
 
   .val-code { padding: 24px 16px; gap: 8px; }
   .val-code-icone { width: 48px; height: 48px; border-radius: 14px; font-size: 1.2rem; }
@@ -687,5 +689,75 @@ async function recuPdf(mode) {
   .val-recu-infos { grid-template-columns: 1fr 1fr; }
   .val-recu-actions { width: 100%; flex-direction: column; }
   .val-recu-actions .adm-btn { width: 100%; }
+}
+
+/* Téléphone assez haut : la page ne défile plus. Étapes et devis restent en haut, le contenu de l'étape
+   défile dans sa zone, le total et le bouton suivant restent collés en bas de cette zone. */
+@media (max-width: 767px) and (min-height: 560px) {
+  .val { height: 100%; gap: 10px; }
+  .val > .val-etapes, .val > .val-devis, .val > .val-ailleurs { flex: none; }
+
+  /* 1. Code : saisie en haut, devis en attente dans une liste qui défile */
+  .val-code-grille { display: flex; flex-direction: column; flex: 1; gap: 10px; min-height: 0; }
+  .val-code { flex: none; gap: 8px; padding: 16px; }
+  .val-code-icone { display: none; }
+  .val-code h2 { margin: 0; font-size: 1rem; }
+  .val-code > p { margin: 0; font-size: .78rem; line-height: 1.4; }
+  .val-code-champ { height: 56px; }
+  .val-code-btn { min-height: 46px; margin-top: 2px; }
+  .val-code-grille > section { flex: 1; min-height: 0; padding: 14px 16px; }
+  .val-code-grille .adm-carte-tete { flex: none; margin-bottom: 6px; }
+  .val-code-grille .adm-carte-tete h2 { font-size: .95rem; }
+  .val-code-grille .adm-carte-tete p { display: none; }
+  .val-attente { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  .val-attente li { padding: 10px 0; }
+  .val-code-grille .adm-vide { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0; }
+  .val-code-grille .adm-vide i { font-size: 1rem; }
+  .val-code-grille .adm-vide p { font-size: .84rem; }
+
+  /* devis retrouvé : une ligne compacte */
+  .val-devis { padding: 10px 12px; border-radius: 16px; }
+  .val-devis-icone { width: 36px; height: 36px; font-size: .95rem; }
+  .val-devis-texte strong { overflow: hidden; font-size: .92rem; text-overflow: ellipsis; white-space: nowrap; }
+  .val-devis-texte small { overflow: hidden; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+  .val-devis > .adm-btn { min-height: 32px; font-size: .78rem; }
+  .val-ailleurs { padding: 8px 12px; font-size: .76rem; line-height: 1.4; }
+
+  /* 2. Préparation et 3. Caisse : la zone de l'étape défile, sa barre reste en bas */
+  .val-grille { display: flex; flex-direction: column; flex: 1; gap: 10px; min-height: 0; margin: 0 -4px; padding: 0 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .val-grille::-webkit-scrollbar { display: none; }
+  .val-grille > * { flex: none; }
+  .val-barre { position: sticky; bottom: 0; margin-top: auto; padding: 8px 8px 8px 16px; border-radius: 18px; }
+  .val-barre strong { font-size: 1.2rem; }
+  .val-barre .adm-btn { min-height: 44px; }
+
+  .val-pad { padding: 14px 14px 0; }
+  .val-pad h2 { font-size: .95rem; }
+  .val-pad p { display: none; }
+  .val-lignes { padding: 4px 6px 8px; }
+  .val-lignes li { padding: 10px 8px; }
+  .val-ajout { padding: 2px 14px 14px; }
+  .val-resume { gap: 10px; padding: 14px; }
+  .val-resume h2 { display: none; }
+  .val-total { display: none; } /* déjà dans la barre du bas */
+  .val-commission { font-size: .74rem; }
+
+  .val-terminal { padding: 14px 16px; border-radius: 18px; }
+  .val-terminal-tete { margin-bottom: 2px; font-size: .74rem; }
+  .val-terminal-montant { font-size: 1.8rem; }
+  .val-terminal-retour { min-height: 28px; margin-top: 2px; font-size: .8rem; }
+  .val-grille > section.adm-carte-pad { padding: 14px; }
+  .val-grille .adm-carte-tete { margin-bottom: 10px; }
+  .val-grille .adm-carte-tete h2 { font-size: .95rem; }
+  .val-grille .adm-carte-tete p { display: none; }
+  .val-moyen { min-height: 50px; }
+  .val-saisie { gap: 12px; margin-top: 12px; padding-top: 12px; }
+
+  /* 4. Reçu : centré dans l'écran, défile s'il le faut */
+  .val-recu { flex: 1; min-height: 0; justify-content: center; gap: 10px; padding: 20px 16px; overflow-y: auto; }
+  .val-recu-icone { width: 52px; height: 52px; font-size: 1.3rem; }
+  .val-recu h2 { font-size: 1.15rem; }
+  .val-recu-infos { gap: 8px; margin: 6px 0; }
+  .val-recu-infos div { padding: 8px 12px; }
 }
 </style>

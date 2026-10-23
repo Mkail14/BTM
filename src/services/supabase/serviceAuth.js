@@ -60,6 +60,12 @@ export async function deconnexion() {
   if (!supabaseConfigure) return
   await supabase.auth.signOut()
 }
+/** Ferme la session sur tous les appareils du compte (téléphone perdu, ordinateur prêté), celui-ci compris */
+export async function deconnexionPartout() {
+  if (!supabaseConfigure) return
+  const { error } = await supabase.auth.signOut({ scope: 'global' })
+  if (error) throw error
+}
 
 export async function mettreAJourProfil({ pseudo, telephone, email, ancienMotDePasse, motDePasse }) {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
@@ -119,9 +125,10 @@ export async function definirMotDePasse(motDePasse) {
   if (error) throw error
 }
 
-export async function supprimerCompte() {
+/** Fournisseur : { motDePasse, confirmation } vérifiés par la fonction (supabase/functions/supprimer-compte) */
+export async function supprimerCompte(verification) {
   if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
-  const { data, error } = await supabase.functions.invoke('supprimer-compte')
+  const { data, error } = await supabase.functions.invoke('supprimer-compte', verification ? { body: verification } : undefined)
   if (error) {
     let message = error.message
     try { message = (await error.context.json()).erreur || message } catch { /* corps non JSON */ }

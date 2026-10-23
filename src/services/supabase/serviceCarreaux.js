@@ -82,23 +82,38 @@ export async function listerMesCarreaux(fournisseurId) {
   return (data || []).map(versCarreau)
 }
 
+const champsCarreau = (c) => ({
+  nom: c.nom.trim(),
+  format: c.format,
+  finition: c.finition?.trim() || null,
+  couleur: c.couleur,
+  photo_url: c.photo_url || null,
+  prix_unitaire: c.prix_unitaire,
+  prix_comptoir: c.prix_comptoir ?? null,
+  rupture: !!c.rupture,
+  actif: c.actif !== false,
+  mis_a_jour_le: new Date().toISOString()
+})
+
 export async function enregistrerCarreau(fournisseurId, c) {
-  const champs = {
-    nom: c.nom.trim(),
-    format: c.format,
-    finition: c.finition?.trim() || null,
-    couleur: c.couleur,
-    photo_url: c.photo_url || null,
-    prix_unitaire: c.prix_unitaire,
-    prix_comptoir: c.prix_comptoir ?? null,
-    rupture: !!c.rupture,
-    actif: c.actif !== false,
-    mis_a_jour_le: new Date().toISOString()
-  }
+  const champs = champsCarreau(c)
   const { error } = await (c.id
     ? supabase.from('carreaux_fournisseur').update(champs).eq('id', c.id)
     : supabase.from('carreaux_fournisseur').insert({ ...champs, fournisseur_id: fournisseurId }))
   if (error) throw erreurTable(error)
+  oublierCarreaux()
+}
+
+/** Import d'un fichier : modèles ajoutés et modèles mis à jour, en deux requêtes */
+export async function importerCarreaux(fournisseurId, nouveaux, modifies) {
+  if (nouveaux.length) {
+    const { error } = await supabase.from('carreaux_fournisseur').insert(nouveaux.map((c) => ({ ...champsCarreau(c), fournisseur_id: fournisseurId })))
+    if (error) throw erreurTable(error)
+  }
+  if (modifies.length) {
+    const { error } = await supabase.from('carreaux_fournisseur').upsert(modifies.map((c) => ({ ...champsCarreau(c), id: c.id, fournisseur_id: fournisseurId })))
+    if (error) throw erreurTable(error)
+  }
   oublierCarreaux()
 }
 

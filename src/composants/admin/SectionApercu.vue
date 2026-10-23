@@ -151,7 +151,7 @@ const kpis = computed(() => {
   ]
 })
 const noteMoyenne = computed(() => {
-  const visibles = (donnees.avis || []).filter((a) => a.visible)
+  const visibles = (donnees.avis || []).filter((a) => a.visible && a.source !== 'fournisseur') // note de BTM seulement
   return { nombre: visibles.length, valeur: visibles.length ? visibles.reduce((s, a) => s + a.note, 0) / visibles.length : 0 }
 })
 

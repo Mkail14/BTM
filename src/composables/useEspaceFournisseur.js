@@ -19,8 +19,10 @@ const promotions = ref([])
 const reversements = ref([])
 const rib = ref(null)
 const monRib = ref(null)    // RIB du fournisseur : BTM y rembourse les codes promo BTM
+const mesAvis = ref([])       // avis demandés aux clients (migration 20261023180000)
 const erreur = ref('')
 const journalIndisponible = ref(false) // migration 0013 absente
+const avisIndisponibles = ref(false)   // migration des avis fournisseurs absente
 
 surChangementCompte(() => {
   fiche.value = null; devis.value = null; paiements.value = []; journal.value = []; erreur.value = ''
@@ -30,8 +32,18 @@ surChangementCompte(() => {
 const paiementDe = computed(() => Object.fromEntries(paiements.value.filter((p) => p.projet_id).map((p) => [p.projet_id, p])))
 /** Devis dont le client a choisi ce fournisseur, pas encore encaissés */
 const enAttente = computed(() => (devis.value || []).filter((d) => !paiementDe.value[d.id]))
-/** { [materiauId]: { vendu, prix_unitaire, stock } } */
-const catalogue = computed(() => Object.fromEntries(catalogueListe.value.map((c) => [c.materiau_id, c])))
+// Vendeur de carrelage : la catégorie fixée par l'admin fait foi
+const CATEGORIES_CARRELAGE = ['carrelage-finition', 'carreaux']
+const MATERIAUX_CARRELAGE = ['carrelage_sol', 'carrelage', 'colle_carrelage', 'joint_carrelage']
+const vendCarreaux = computed(() => CATEGORIES_CARRELAGE.includes(fiche.value?.categorie_id))
+/** { [materiauId]: { vendu, prix_unitaire, stock } } — sans ligne, un matériau est vendu, sauf hors carrelage chez un vendeur de carrelage */
+const catalogue = computed(() => {
+  const parId = Object.fromEntries(catalogueListe.value.map((c) => [c.materiau_id, c]))
+  if (vendCarreaux.value) {
+    for (const m of materiauxBtm.value) if (!parId[m.id] && !MATERIAUX_CARRELAGE.includes(m.id)) parId[m.id] = { materiau_id: m.id, vendu: false, rupture: false, prix_unitaire: null, prix_comptoir: null, stock: null }
+  }
+  return parId
+})
 const promotionsValables = computed(() => promotions.value.filter((p) => api.promotionValable(p)))
 /** Matériaux BTM et articles en rupture (tableau de bord, caisse) */
 const ruptures = computed(() => [
@@ -74,7 +86,7 @@ export function useEspaceFournisseur() {
     const [m, c, pr, rv, rb, ar, mr] = await Promise.all([
       tenter(api.listerMateriauxBtm(), []), tenter(api.listerMonCatalogue(), []), tenter(api.listerPromotions(), []),
       tenter(api.listerReversements(), []), tenter(api.lireRibBtm(), null), tenter(api.listerArticles(), []),
-      tenter(api.lireMonRib(fournisseurLie.value), null), chargerJournal()
+      tenter(api.lireMonRib(fournisseurLie.value), null), chargerJournal(), chargerAvis()
     ])
     materiauxBtm.value = m; catalogueListe.value = c; promotions.value = pr; reversements.value = rv; rib.value = rb; articles.value = ar; monRib.value = mr
   }
@@ -87,6 +99,21 @@ export function useEspaceFournisseur() {
       console.warn(e)
       journalIndisponible.value = true
     }
+  }
+  async function chargerAvis() {
+    try {
+      mesAvis.value = await api.listerMesAvis()
+      avisIndisponibles.value = false
+    } catch (e) {
+      console.warn(e)
+      avisIndisponibles.value = true
+    }
+  }
+  /** Demande d'avis au client d'un encaissement : la ligne rejoint la liste (une seule par encaissement) */
+  async function demanderAvis(paiementId) {
+    const ligne = await api.demanderAvis(paiementId)
+    mesAvis.value = [ligne, ...mesAvis.value.filter((a) => a.id !== ligne.id)]
+    return ligne
   }
   const rechargerCatalogue = async () => {
     const [c, a] = await Promise.all([tenter(api.listerMonCatalogue(), catalogueListe.value), tenter(api.listerArticles(), articles.value)])
@@ -111,7 +138,8 @@ export function useEspaceFournisseur() {
 
   return {
     fiche, devis, paiements, journal, erreur, journalIndisponible, paiementDe, enAttente, nomCompte,
-    materiauxBtm, catalogueListe, catalogue, articles, ruptures, promotions, promotionsValables, reversements, rib, monRib, soldeBtm,
+    materiauxBtm, vendCarreaux, catalogueListe, catalogue, articles, ruptures, promotions, promotionsValables, reversements, rib, monRib, soldeBtm,
+    mesAvis, avisIndisponibles, demanderAvis,
     charger, chargerJournal, rechargerCatalogue, rechargerPromotions, ajouterPaiement, retirerPaiement
   }
 }

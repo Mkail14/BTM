@@ -27,7 +27,7 @@ const { bandeauVisible, confirmer } = useCookies()
 <style scoped>
 .cookies {
   position: fixed; left: 16px; bottom: calc(16px + var(--barre-onglets, 0px)); z-index: 150; width: min(420px, calc(100vw - 32px));
-  padding: 18px 20px; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; box-shadow: var(--ombre-lg);
+  padding: 18px 20px; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); box-shadow: var(--ombre-lg);
 }
 .cookies-titre { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--ardoise); font-weight: 700; }
 .cookies-titre i { color: var(--lagon-600); }

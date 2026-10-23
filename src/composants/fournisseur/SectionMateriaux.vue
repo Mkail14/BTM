@@ -173,13 +173,13 @@ const aImporter = computed(() => {
   const a = apercu.value
   return a ? a.materiaux.length + a.nouveaux.length + a.modifies.length + a.carreauxNouveaux.length + a.carreauxModifies.length : 0
 })
-// Aperçu : une ligne par produit ; un carreau est montré au prix d'un carreau (prix du carton ÷ pièces)
+// Aperçu : une ligne par produit ; un carreau en carton de plusieurs pièces est vendu au carton
 const lignesApercu = computed(() => {
   const a = apercu.value
   if (!a) return []
   const type = (l) => (l.materiau_id ? 'Matériau BTM' : l.id ? 'Produit mis à jour' : 'Nouveau produit')
   const carreau = (c, nouveau) => ({
-    cle: `c:${c.nom}`, libelle: c.nom, unite: 'carreau', prix_unitaire: c.prix_unitaire, stock: null, vendu: c.actif, rupture: c.rupture,
+    cle: `c:${c.nom}`, libelle: c.nom, unite: c.carreaux_par_carton ? 'carton' : 'carreau', prix_unitaire: c.prix_unitaire, stock: c.stock, vendu: c.actif, rupture: c.rupture,
     type: `${nouveau ? 'Nouveau carreau' : 'Carreau mis à jour'} ${apiCarreaux.libelleFormat(c.format)}${c.pieces > 1 ? ` (carton de ${c.pieces})` : ''}`
   })
   return [

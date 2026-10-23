@@ -585,7 +585,7 @@ async function recuPdf(mode) {
 .val-terminal-tete { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; color: rgba(255, 255, 255, .55); font-family: var(--font-mono); font-size: .8rem; }
 .val-terminal-libelle { color: rgba(255, 255, 255, .6); font-size: .85rem; }
 .val-terminal-montant { font-size: clamp(2.2rem, 3.4vw, 2.8rem); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; color: #67e8f9; }
-:global(.adm-sombre) .val-terminal-montant { color: #fff; }
+:global(.adm-sombre .val-terminal-montant) { color: #fff; }
 .val-terminal-detail { color: rgba(255, 255, 255, .55); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .val-terminal-moyen { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .1); font-size: .84rem; }
 .val-terminal-valider {

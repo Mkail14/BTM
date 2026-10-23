@@ -1,13 +1,14 @@
 <script setup>
 /**
  * Carreaux du fournisseur (migration 0029) : les modèles qu'il met en ligne, choisis par les clients dans le
- * calculateur (carrelage). Chaque modèle : nom, format, finition, couleur ou photo, prix d'un carreau
- * (le prix du fournisseur, appliqué en caisse). Un modèle masqué ou en rupture n'est plus proposé.
+ * calculateur (carrelage). Chaque modèle : nom, format, finition, couleur ou photo, vendu au carreau ou au carton
+ * (carreaux par carton), et son prix : celui du fournisseur, appliqué en caisse. Un modèle masqué ou en rupture
+ * n'est plus proposé.
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useAdmin } from '@/composables/useAdmin.js'
 import { useAuth } from '@/composables/useAuth.js'
-import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
+import { formaterEuros, formaterNombre } from '@/services/calculs/moteurCalculs.js'
 import * as api from '@/services/supabase/serviceCarreaux.js'
 import AdminPanneau from '@/composants/admin/AdminPanneau.vue'
 
@@ -50,13 +51,51 @@ const lireNombre = (t) => (String(t ?? '').trim() === '' ? null : Number(String(
 
 function ouvrir(c = null) {
   erreurForm.value = ''
+  prixCarreauBase = null
   formulaire.value = c
-    ? { ...c, finition: c.finition || '', prix: texteNombre(c.prix_unitaire) }
-    : { id: null, nom: '', format: '60x60', finition: '', couleur: '#e9e5de', photo_url: '', prix: '', rupture: false, actif: true }
+    ? { ...c, finition: c.finition || '', prix: texteNombre(c.prix_unitaire), vente: c.carreaux_par_carton ? 'carton' : 'carreau', parCarton: c.carreaux_par_carton ? String(c.carreaux_par_carton) : '', stockSaisi: texteNombre(c.stock) }
+    : { id: null, nom: '', format: '60x60', finition: '', couleur: '#e9e5de', photo_url: '', prix: '', vente: 'carreau', parCarton: '', stockSaisi: '', rupture: false, actif: true }
 }
-const prixM2 = computed(() => {
+// Vente au carton : nombre de carreaux par carton (2 à 200), null sinon
+const parCartonSaisi = computed(() => {
+  const f = formulaire.value
+  const n = Number(String(f?.parCarton ?? '').trim())
+  return f?.vente === 'carton' && Number.isInteger(n) && n >= 2 && n <= 200 ? n : null
+})
+// Passage carreau ⇄ carton : le prix est converti tout seul (prix du carreau × carreaux par carton, et l'inverse).
+// Le prix du carreau est gardé tant que le fournisseur ne retouche pas le prix : changer le nombre de carreaux
+// par carton recalcule alors le prix du carton.
+const arrondi = (n) => Math.round(n * 100) / 100
+let prixCarreauBase = null
+function choisirVente(v) {
+  const f = formulaire.value
+  if (f.vente === v) return
+  const prix = lireNombre(f.prix)
+  if (v === 'carton') {
+    prixCarreauBase = prix > 0 ? prix : null
+    f.vente = v
+    if (prixCarreauBase && parCartonSaisi.value) f.prix = texteNombre(arrondi(prixCarreauBase * parCartonSaisi.value))
+  } else {
+    if (prix > 0 && parCartonSaisi.value) f.prix = texteNombre(arrondi(prix / parCartonSaisi.value))
+    prixCarreauBase = null
+    f.vente = v
+  }
+}
+const oublierPrixCarreau = () => { prixCarreauBase = null } // prix du carton saisi à la main : il fait foi
+watch(parCartonSaisi, (n) => {
+  if (n && prixCarreauBase) formulaire.value.prix = texteNombre(arrondi(prixCarreauBase * n))
+})
+// Prix d'un carreau quand le modèle est vendu au carton (aide sous le prix)
+const prixDuCarreau = computed(() => {
   const p = lireNombre(formulaire.value?.prix)
-  return p > 0 ? api.prixAuM2({ prix_unitaire: p, format: formulaire.value.format }) : null
+  return p > 0 && parCartonSaisi.value ? arrondi(p / parCartonSaisi.value) : null
+})
+
+// Modèle tel qu'il sera enregistré, pour les aides sous le prix (m² au carton, prix au m²)
+const apercuVente = computed(() => {
+  const f = formulaire.value
+  const p = lireNombre(f?.prix)
+  return f && p > 0 && (f.vente === 'carreau' || parCartonSaisi.value) ? { prix_unitaire: p, format: f.format, carreaux_par_carton: parCartonSaisi.value } : null
 })
 
 async function choisirPhoto(e) {
@@ -77,12 +116,15 @@ async function choisirPhoto(e) {
 async function enregistrer() {
   const f = formulaire.value
   const prix = lireNombre(f.prix)
+  const stock = lireNombre(f.stockSaisi)
   erreurForm.value = f.nom.trim().length < 2 ? 'Donnez un nom au modèle.'
-    : !(prix > 0) ? 'Indiquez le prix d’un carreau (supérieur à 0).' : ''
+    : f.vente === 'carton' && !parCartonSaisi.value ? 'Indiquez le nombre de carreaux par carton (de 2 à 200).'
+    : !(prix > 0) ? `Indiquez le prix d’un ${f.vente} (supérieur à 0).`
+    : stock !== null && !(stock >= 0) ? 'Le stock doit être un nombre positif, ou vide s’il n’est pas suivi.' : ''
   if (erreurForm.value) return
   enregistrement.value = true
   try {
-    await api.enregistrerCarreau(fournisseurLie.value, { ...f, prix_unitaire: prix, prix_comptoir: null })
+    await api.enregistrerCarreau(fournisseurLie.value, { ...f, prix_unitaire: prix, prix_comptoir: null, carreaux_par_carton: parCartonSaisi.value, stock })
     await recharger()
     notifier(f.id ? 'Modèle modifié.' : 'Modèle ajouté : il est proposé dans le calculateur.')
     formulaire.value = null
@@ -130,7 +172,7 @@ async function supprimer(c) {
     <div v-else-if="!carreaux.length" class="adm-carte car-vide">
       <span class="car-vide-icone"><i class="fa-solid fa-table-cells" aria-hidden="true"></i></span>
       <h2>Aucun modèle de carreaux</h2>
-      <p>Mettez vos carreaux en ligne avec leur prix à l’unité : les clients les choisissent dans le calculateur et viennent les retirer chez vous avec leur code.</p>
+      <p>Mettez vos carreaux en ligne, au carreau ou au carton : les clients les choisissent dans le calculateur et viennent les retirer chez vous avec leur code.</p>
       <button type="button" class="adm-btn adm-btn-noir" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter mon premier modèle</button>
     </div>
     <div v-else-if="!liste.length" class="adm-carte adm-vide"><i class="fa-solid fa-table-cells" aria-hidden="true"></i><p>Aucun modèle ne correspond.</p></div>
@@ -141,13 +183,14 @@ async function supprimer(c) {
           <img v-if="c.photo_url" :src="c.photo_url" alt="" loading="lazy" />
           <span class="car-badges">
             <em v-if="!c.actif" class="adm-badge">Masqué</em>
-            <em v-if="c.rupture" class="adm-badge car-rupture">Rupture</em>
+            <em v-if="c.rupture || c.stock === 0" class="adm-badge car-rupture">Rupture</em>
           </span>
         </span>
         <div class="car-corps">
           <strong>{{ c.nom }}</strong>
           <small>{{ [api.libelleFormat(c.format), c.finition].filter(Boolean).join(' · ') }}</small>
-          <p class="car-prix"><b>{{ formaterEuros(c.prix_unitaire) }}</b> le carreau <span>≈ {{ formaterEuros(api.prixAuM2(c)) }} / m²</span></p>
+          <p class="car-prix"><b>{{ formaterEuros(c.prix_unitaire) }}</b> {{ api.libelleVente(c) }} <span>≈ {{ formaterEuros(api.prixAuM2(c)) }} / m²</span></p>
+          <small v-if="c.stock != null">Stock : {{ formaterNombre(c.stock) }} {{ api.uniteVente(c) }}{{ c.stock > 1 ? 's' : '' }}</small>
         </div>
         <div class="car-pied">
           <label class="car-interrupteur"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="c.actif" :aria-label="`Proposer ${c.nom}`" @click="basculer(c, 'actif')"></button> Proposé</label>
@@ -160,7 +203,7 @@ async function supprimer(c) {
       </li>
     </ul>
 
-    <AdminPanneau v-if="formulaire" :titre="formulaire.id ? 'Modifier le modèle' : 'Nouveau modèle de carreaux'" sous-titre="Proposé aux clients dans le calculateur, au prix d’un carreau." @fermer="formulaire = null">
+    <AdminPanneau v-if="formulaire" :titre="formulaire.id ? 'Modifier le modèle' : 'Nouveau modèle de carreaux'" sous-titre="Proposé aux clients dans le calculateur, au carreau ou au carton." @fermer="formulaire = null">
       <form id="form-carreau" class="adm-grille-form" novalidate @submit.prevent="enregistrer">
         <div class="adm-champ plein"><label for="ca-nom">Nom du modèle *</label><input id="ca-nom" v-model="formulaire.nom" maxlength="60" placeholder="Ex. : Grès cérame Sable de Moya" /></div>
         <div class="adm-champ plein">
@@ -184,10 +227,28 @@ async function supprimer(c) {
           </div>
           <span class="adm-champ-aide"><span>Sans photo, le client voit la couleur choisie.</span></span>
         </div>
+        <div class="adm-champ plein">
+          <span class="adm-champ-label">Vendu *</span>
+          <div class="adm-segments car-formats" role="radiogroup" aria-label="Vendu">
+            <button v-for="v in ['carreau', 'carton']" :key="v" type="button" role="radio" :aria-checked="formulaire.vente === v" :aria-selected="formulaire.vente === v" @click="choisirVente(v)">
+              {{ v === 'carreau' ? 'Au carreau' : 'Au carton' }}
+            </button>
+          </div>
+        </div>
+        <div v-if="formulaire.vente === 'carton'" class="adm-champ">
+          <label for="ca-carton">Carreaux par carton *</label>
+          <input id="ca-carton" v-model="formulaire.parCarton" inputmode="numeric" placeholder="4" />
+          <span v-if="parCartonSaisi" class="adm-champ-aide"><span>1 carton = {{ formaterNombre(api.m2ParUnite({ format: formulaire.format, carreaux_par_carton: parCartonSaisi }), 2) }} m²</span></span>
+        </div>
         <div class="adm-champ">
-          <label for="ca-prix">Prix d’un carreau *</label>
-          <span class="adm-saisie-unite"><input id="ca-prix" v-model="formulaire.prix" inputmode="decimal" placeholder="2,50" /><span>€</span></span>
-          <span v-if="prixM2" class="adm-champ-aide"><span>≈ {{ formaterEuros(prixM2) }} le m²</span></span>
+          <label for="ca-prix">Prix d’un {{ formulaire.vente }} *</label>
+          <span class="adm-saisie-unite"><input id="ca-prix" v-model="formulaire.prix" inputmode="decimal" :placeholder="formulaire.vente === 'carton' ? '39,90' : '2,50'" @input="oublierPrixCarreau" /><span>€</span></span>
+          <span v-if="apercuVente" class="adm-champ-aide"><span><template v-if="prixDuCarreau">soit {{ formaterEuros(prixDuCarreau) }} le carreau · </template>≈ {{ formaterEuros(api.prixAuM2(apercuVente)) }} le m²</span></span>
+        </div>
+        <div class="adm-champ">
+          <label for="ca-stock">Stock (facultatif)</label>
+          <span class="adm-saisie-unite"><input id="ca-stock" v-model="formulaire.stockSaisi" inputmode="decimal" placeholder="Non suivi" /><span>{{ formulaire.vente }}s</span></span>
+          <span class="adm-champ-aide"><span>Baisse à chaque encaissement ; à 0, le modèle passe en rupture.</span></span>
         </div>
         <label class="plein car-option"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="formulaire.actif" @click="formulaire.actif = !formulaire.actif"></button> Proposé dans le calculateur</label>
         <label class="plein car-option"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="formulaire.rupture" @click="formulaire.rupture = !formulaire.rupture"></button> En rupture de stock</label>

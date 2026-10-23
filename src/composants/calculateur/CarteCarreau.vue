@@ -1,20 +1,24 @@
 <script setup>
 /**
- * CarteCarreau — une carte de modèle de carreaux (aperçu, nom, fournisseur, prix à l'unité), cliquable.
+ * CarteCarreau — une carte de modèle de carreaux (aperçu, nom, fournisseur, prix au carreau ou au carton), cliquable.
  * Sans `carreau` : la carte « Modèle standard » (prix moyen du catalogue BTM).
  * Utilisée par le carrousel du calculateur et par la fenêtre « Tous les modèles » (SelecteurCarreau).
  * `nbCarreaux` : carreaux à commander pour la pièce, pour afficher le coût du modèle sur ce chantier.
  * `ligne` : sur téléphone, présentation en ligne compacte (aperçu à gauche, texte à droite).
  */
-import { libelleFormat, prixAuM2 } from '@/services/supabase/serviceCarreaux.js'
-import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
+import { computed } from 'vue'
+import { libelleFormat, libelleVente, prixAuM2, unitesPour, uniteVente } from '@/services/supabase/serviceCarreaux.js'
+import { formaterEuros, formaterNombre } from '@/services/calculs/moteurCalculs.js'
 
-defineProps({
+const props = defineProps({
   carreau: { type: Object, default: null },
   actif: Boolean,
   nbCarreaux: { type: Number, default: 0 },
   ligne: Boolean
 })
+// stock suivi mais trop juste pour la pièce : le client est prévenu avant de choisir
+const manque = computed(() => props.carreau && !props.carreau.rupture && props.carreau.stock != null && props.nbCarreaux > 0
+  && unitesPour(props.carreau, props.nbCarreaux) > props.carreau.stock)
 </script>
 
 <template>
@@ -43,8 +47,9 @@ defineProps({
       <small>{{ [carreau.finition, libelleFormat(carreau.format)].filter(Boolean).join(' · ') }}</small>
       <small class="cc-fournisseur"><i class="fa-solid fa-store" aria-hidden="true"></i> {{ carreau.fournisseur }}<template v-if="carreau.commune"> · {{ carreau.commune }}</template></small>
       <span class="cc-prix">
-        <b>{{ formaterEuros(carreau.prix_unitaire) }}</b><small>le carreau<span class="cc-m2"> · ≈ {{ formaterEuros(prixAuM2(carreau)) }} / m²</span></small>
-        <small v-if="nbCarreaux && !carreau.rupture" class="cc-total">≈ {{ formaterEuros(nbCarreaux * carreau.prix_unitaire) }} au total pour la pièce</small>
+        <b>{{ formaterEuros(carreau.prix_unitaire) }}</b><small>{{ libelleVente(carreau) }}<span class="cc-m2"> · ≈ {{ formaterEuros(prixAuM2(carreau)) }} / m²</span></small>
+        <small v-if="manque" class="cc-total cc-manque"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Plus que {{ formaterNombre(carreau.stock) }} {{ uniteVente(carreau) }}{{ carreau.stock > 1 ? 's' : '' }} en stock</small>
+        <small v-if="nbCarreaux && !carreau.rupture" class="cc-total">≈ {{ formaterEuros(unitesPour(carreau, nbCarreaux) * carreau.prix_unitaire) }} au total pour la pièce</small>
         <small v-else-if="carreau.rupture" class="cc-total">Indisponible pour le moment</small>
       </span>
     </span>
@@ -55,14 +60,14 @@ defineProps({
 <style scoped>
 .cc {
   position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; padding: 0; overflow: hidden;
-  border: 1.5px solid var(--gris-200); border-radius: var(--rayon); background: #fff;
+  border: 1.5px solid var(--gris-200); border-radius: var(--rayon); background: var(--carte);
   font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color var(--transition), box-shadow var(--transition);
 }
 .cc:hover { border-color: var(--lagon-500); }
 .cc:focus-visible { outline: 3px solid var(--lagon-500); outline-offset: 2px; }
 .cc.actif { border-color: var(--lagon-600); box-shadow: 0 0 0 3px rgba(6, 182, 212, .18); }
 .cc.rupture { cursor: not-allowed; opacity: .55; }
-.cc-coche { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #fff; color: var(--lagon-600); font-size: 1.5rem; }
+.cc-coche { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--carte); color: var(--lagon-600); font-size: 1.5rem; }
 /* aperçu : la teinte du modèle, quadrillée comme un sol carrelé (ou sa photo) */
 .cc-visuel {
   position: relative; display: grid; place-items: center; flex: none; height: 110px;
@@ -82,6 +87,7 @@ defineProps({
 .cc-prix { display: flex; flex-direction: column; margin-top: auto; padding-top: 8px; }
 .cc-prix b { color: var(--lagon-700); font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .cc-prix .cc-total { margin-top: 2px; color: var(--ardoise); font-weight: 700; }
+.cc-prix .cc-manque { color: #9a3412; }
 
 /* Téléphone : ligne compacte, aperçu carré à gauche, une information par ligne */
 @media (max-width: 599px) {

@@ -6,17 +6,22 @@
  *  - Murs : chaque mur ajouté se colle au bout du précédent en formant un angle droit.
  *  - Des cotes (lignes + étiquettes) affichent les mesures ; le mur en cours de saisie est surligné.
  * Glisser pour tourner ; bouton « Vue du dessus » pour lire les angles et les longueurs.
+ * Murs : portes et fenêtres dessinées à leur place ; avec `placement`, toucher le mur actif émet `placer`
+ * ({ mur, position } : position de 0 = début du mur à 1 = fin).
  */
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
 import { appareilLeger } from '@/composables/useAppareil.js'
+import { MENUISERIES } from '@/donnees/menuiseries.js'
 
 const props = defineProps({
   type: { type: String, required: true },
   dimensions: { type: Object, default: () => ({}) },
   murActif: { type: Number, default: -1 }, // index du mur en cours de saisie (0 = premier), -1 = aucun
+  placement: { type: String, default: '' }, // 'porte' ou 'fenetre' : on attend que l'utilisateur touche le mur actif
   compacte: Boolean // cartes de choix : pas d'interaction ni de cotes, rendu plus léger
 })
+const emit = defineEmits(['placer'])
 
 const conteneur = ref(null)
 const indisponible = ref(false)
@@ -29,6 +34,7 @@ let glisse = null
 let rotationCible = -0.55
 let textures = []
 let etiquettes = []
+let corpsMurs = [] // maçonnerie de chaque mur, pour savoir où l'utilisateur touche (placement d'une porte, d'une fenêtre)
 const reduireAnimations = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
 // ---------- Matériaux partagés ----------
@@ -145,12 +151,13 @@ function cote(annot, a, b, texte, tick) {
 // ---------- Constructeurs (unités = mètres, sol à y = 0) ----------
 function construireMur(d, struct, annot) {
   const t = .2 // épaisseur d'un mur en parpaings 20 cm
-  const murs = [{ longueur: nb(d.longueur, 6), hauteur: nb(d.hauteur, 2.5), ouvertures: nb(d.ouvertures, 0) }]
+  const murs = [{ longueur: nb(d.longueur, 6), hauteur: nb(d.hauteur, 2.5), ouvertures: nb(d.ouvertures, 0), menuiseries: d.menuiseries || [] }]
   for (const m of d.autresMurs || []) {
     murs.push({
       longueur: nb(m.longueur, 4),
       hauteur: nb(m.hauteur, murs[0].hauteur),
-      ouvertures: nb(m.ouvertures, 0)
+      ouvertures: nb(m.ouvertures, 0),
+      menuiseries: m.menuiseries || []
     })
   }
   murs.forEach((m) => { m.longueur = borner(m.longueur, .3, 200); m.hauteur = borner(m.hauteur, .3, 20) })
@@ -174,10 +181,35 @@ function construireMur(d, struct, annot) {
     const faceBout = new THREE.MeshStandardMaterial({ map: textureMotif(motifParpaing, t / .8, H / .4), roughness: .95 })
     const corps = new THREE.Mesh(new THREE.BoxGeometry(len, H, t), [faceBout, faceBout, M.dessusMur, M.dessusMur, faceLongue, faceLongue])
     corps.position.y = H / 2
+    corps.userData = { mur: i, debut: a, longueur: len, total: m.longueur }
+    corpsMurs.push(corps)
     groupe.add(corps)
 
-    // ouverture (porte / fenêtre) proportionnelle à la surface déclarée, visible des deux côtés
-    if (m.ouvertures > 0) {
+    // portes et fenêtres placées par l'utilisateur, à leur position le long du mur, visibles des deux côtés
+    for (const o of m.menuiseries) {
+      const modele = MENUISERIES[o.type]
+      if (!modele) continue
+      const w = borner(nb(o.largeur, modele.largeur), .2, Math.max(.2, len - .1))
+      const h = borner(nb(o.hauteur, modele.hauteur), .2, Math.max(.2, H - .05))
+      // porte posée au sol ; fenêtre centrée sur la hauteur touchée (sinon allège standard), sans sortir du mur
+      const centre = Number(o.centre)
+      const bas = o.type === 'porte' ? 0
+        : borner(Number.isFinite(centre) && o.centre !== '' && o.centre != null ? centre - h / 2 : modele.allege, .05, Math.max(.05, H - h - .05))
+      // position saisie sur le mur entier ; ramenée dans la partie dessinée de ce mur, sans dépasser des bords
+      const x = borner(Number(o.position) * m.longueur - a - len / 2, -len / 2 + w / 2 + .05, len / 2 - w / 2 - .05)
+      const remplissage = o.type === 'porte' ? M.bois : M.vitre
+      for (const s of [1, -1]) {
+        groupe.add(boite(w, h, .04, remplissage, x, bas + h / 2, s * (t / 2 + .01)))
+        const e = .06
+        if (o.type !== 'porte') groupe.add(boite(w + e, e, .06, M.cadre, x, bas, s * (t / 2 + .02)))
+        groupe.add(boite(w + e, e, .06, M.cadre, x, bas + h, s * (t / 2 + .02)))
+        groupe.add(boite(e, h, .06, M.cadre, x - w / 2, bas + h / 2, s * (t / 2 + .02)), boite(e, h, .06, M.cadre, x + w / 2, bas + h / 2, s * (t / 2 + .02)))
+        if (o.type === 'porte') groupe.add(boite(.04, .14, .05, M.cadre, x + w / 2 - .12, bas + 1.05, s * (t / 2 + .05))) // poignée
+      }
+    }
+
+    // ouverture sans porte ni fenêtre placée : proportionnelle à la surface déclarée, au centre du mur
+    if (m.ouvertures > 0 && !m.menuiseries.length) {
       let fh = Math.min(H * .7, m.ouvertures > 3 ? 2.1 : 1.2)
       const fw = Math.min(len * .7, m.ouvertures / fh)
       fh = Math.min(H * .8, m.ouvertures / fw)
@@ -216,7 +248,7 @@ function construireMur(d, struct, annot) {
     }
     px += dx * m.longueur; pz += dz * m.longueur
   })
-  const surface = murs.reduce((s, m) => s + m.longueur * m.hauteur - m.ouvertures, 0)
+  const surface = murs.reduce((s, m) => s + m.longueur * m.hauteur - m.ouvertures, 0) // ouvertures = menuiseries + autre
   legende.value = n > 1 ? `${n} murs · ${fr(surface, 1)} m² de maçonnerie` : ''
 }
 
@@ -377,7 +409,7 @@ function reconstruire() {
   if (!scene) return
   const rotation = modele?.rotation.y ?? rotationCible
   if (modele) { scene.remove(modele); liberer(modele) }
-  textures.forEach((t) => t.dispose()); textures = []; etiquettes = []
+  textures.forEach((t) => t.dispose()); textures = []; etiquettes = []; corpsMurs = []
 
   const { struct, annot } = construire()
   const boiteStruct = new THREE.Box3().setFromObject(struct)
@@ -484,7 +516,9 @@ function redimensionner() {
   aDessiner = true
 }
 
+let appui = null // point où le doigt / la souris s'est posé : un toucher sans glisser place la porte ou la fenêtre
 function debutGlisse(e) {
+  appui = { x: e.clientX, y: e.clientY }
   if (props.compacte || dessus.value) return
   glisse = { x: e.clientX, rotation: rotationCible }
   e.currentTarget.setPointerCapture?.(e.pointerId)
@@ -492,7 +526,28 @@ function debutGlisse(e) {
 function pendantGlisse(e) {
   if (glisse) rotationCible = glisse.rotation + (e.clientX - glisse.x) * .012
 }
-function finGlisse() { glisse = null }
+function finGlisse(e) {
+  glisse = null
+  const toucher = appui && e?.type === 'pointerup' && Math.hypot(e.clientX - appui.x, e.clientY - appui.y) < 6
+  appui = null
+  if (toucher && props.placement) placer(e)
+}
+
+// Toucher le mur actif : position le long du mur entier (0 = son début, 1 = sa fin)
+const rayon = new THREE.Raycaster()
+function placer(e) {
+  if (!renderer || !camera) return
+  const r = renderer.domElement.getBoundingClientRect()
+  rayon.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera)
+  const cibles = corpsMurs.filter((c) => c.userData.mur === props.murActif)
+  const impact = rayon.intersectObjects(cibles, false)[0]
+  if (!impact) return
+  const { mur, debut, longueur, total } = impact.object.userData
+  const local = impact.object.parent.worldToLocal(impact.point.clone())
+  const position = Math.min(1, Math.max(0, (local.x + longueur / 2 + debut) / total))
+  // le point touché est le centre de la menuiserie : position le long du mur et hauteur depuis le sol (m)
+  emit('placer', { mur, position: Math.round(position * 1000) / 1000, hauteur: Math.round(Math.max(0, local.y) * 100) / 100 })
+}
 
 watch(() => [props.type, props.murActif, JSON.stringify(props.dimensions)], reconstruire)
 watch(dessus, reconstruire)
@@ -516,7 +571,7 @@ onBeforeUnmount(() => {
   <div
     ref="conteneur"
     class="maquette"
-    :class="{ 'maquette-interactive': !compacte && !dessus }"
+    :class="{ 'maquette-interactive': !compacte && !dessus, 'maquette-placement': placement }"
     role="img"
     :aria-label="`Maquette 3D à l’échelle : ${type}`"
     @pointerdown="debutGlisse"
@@ -529,6 +584,9 @@ onBeforeUnmount(() => {
       <button type="button" class="maquette-vue" @click="dessus = !dessus" @pointerdown.stop>
         <i :class="dessus ? 'fa-solid fa-cube' : 'fa-solid fa-border-none'" aria-hidden="true"></i> {{ dessus ? 'Vue 3D' : 'Vue du dessus' }}
       </button>
+      <span v-if="placement" class="maquette-consigne" role="status">
+        <i class="fa-solid fa-hand-pointer" aria-hidden="true"></i> Touchez le mur en surbrillance là où se trouve la {{ placement === 'porte' ? 'porte' : 'fenêtre' }}
+      </span>
       <span v-if="legende" class="maquette-legende">{{ legende }}</span>
       <span v-else class="maquette-astuce"><i class="fa-solid fa-hand-pointer" aria-hidden="true"></i> Glissez pour tourner</span>
     </template>
@@ -541,12 +599,23 @@ onBeforeUnmount(() => {
 .maquette-interactive { cursor: grab; }
 .maquette-interactive:active { cursor: grabbing; }
 .maquette-secours { position: absolute; inset: 0; display: grid; place-items: center; color: var(--lagon-300); font-size: 3rem; }
-.maquette-astuce, .maquette-legende { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: calc(100% - 20px); padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,.88); color: var(--gris-600); font-size: .72rem; text-align: center; pointer-events: none; }
+.maquette-astuce, .maquette-legende { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: calc(100% - 20px); padding: 5px 10px; border-radius: 999px; background: color-mix(in srgb, var(--carte) 88%, transparent); color: var(--gris-600); font-size: .72rem; text-align: center; pointer-events: none; }
 .maquette-astuce { white-space: nowrap; }
 .maquette-vue {
   position: absolute; top: 10px; right: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px;
-  border: 1px solid var(--lagon-200, #a5f3fc); border-radius: 999px; background: rgba(255,255,255,.92); color: var(--lagon-800, #0b3a4d);
+  border: 1px solid var(--lagon-200, #a5f3fc); border-radius: 999px; background: color-mix(in srgb, var(--carte) 92%, transparent); color: var(--lagon-800, #0b3a4d);
   font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; transition: background var(--transition), border-color var(--transition);
 }
-.maquette-vue:hover { background: #fff; border-color: var(--lagon-500); }
+.maquette-vue:hover { background: var(--carte); border-color: var(--lagon-500); }
+.maquette-placement, .maquette-placement:active { cursor: crosshair; }
+.maquette-consigne {
+  position: absolute; top: 52px; left: 50%; z-index: 2; transform: translateX(-50%); max-width: calc(100% - 20px); padding: 7px 14px; border-radius: 999px;
+  background: #0e7490; color: #fff; font-size: .8rem; font-weight: 600; text-align: center; pointer-events: none;
+  box-shadow: 0 8px 20px rgba(14, 116, 144, .35); animation: consigne 1.6s ease-in-out infinite;
+}
+.maquette-consigne i { margin-right: 4px; }
+@keyframes consigne { 50% { box-shadow: 0 8px 26px rgba(34, 211, 238, .55); } }
+@media (prefers-reduced-motion: reduce) { .maquette-consigne { animation: none; } }
+/* téléphone : maquette plus basse, la consigne passe en bas pour ne pas cacher le mur */
+@media (max-width: 639px) { .maquette-consigne { top: auto; bottom: 10px; padding: 6px 12px; font-size: .74rem; } }
 </style>

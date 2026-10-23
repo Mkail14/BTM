@@ -87,6 +87,11 @@ describe('Carrelage', () => {
     const r = calculerEstimation('carrelage', { longueur: 5, largeur: 4, format: '60x60', carreau })
     expect(ligne(r, 'carreau:m1')).toMatchObject({ quantite: 62, prixUnitaire: 4.5, sousTotal: 279 })
   })
+  it('avec un modèle vendu au carton, en cartons entiers', () => {
+    const carreau = { id: 'm1', nom: 'Armani Grey', format: '60x60', prix: 16, parCarton: 4 }
+    const r = calculerEstimation('carrelage', { longueur: 5, largeur: 4, format: '60x60', carreau })
+    expect(ligne(r, 'carreau:m1')).toMatchObject({ unite: 'carton', quantite: 16, prixUnitaire: 16, sousTotal: 256 }) // 62 carreaux → 16 cartons
+  })
   it('ignore un modèle d’un autre format', () => {
     const carreau = { id: 'm1', nom: 'Gris clair', format: '30x30', prix: 1.2 }
     const r = calculerEstimation('carrelage', { longueur: 5, largeur: 4, format: '60x60', carreau })

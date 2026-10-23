@@ -88,7 +88,7 @@ const itineraire = computed(() => {
   border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer;
 }
 .fr-principal:focus-visible { outline: 2px solid var(--lagon-600); outline-offset: 4px; border-radius: 8px; }
-.fr-logo { width: 52px; height: 52px; flex-shrink: 0; border-radius: 14px; border: 1px solid var(--gris-100); background: #fff; object-fit: contain; }
+.fr-logo { width: 52px; height: 52px; flex-shrink: 0; border-radius: 14px; border: 1px solid var(--gris-100); background: var(--carte); object-fit: contain; }
 .fr-initiales { display: grid; place-items: center; border: 0; background: var(--lagon-100); color: var(--lagon-800); font-size: 1rem; font-weight: 700; letter-spacing: .02em; }
 .fr-texte { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .fr-nom { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -105,11 +105,11 @@ const itineraire = computed(() => {
 
 .fr-appel {
   flex-shrink: 0; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px;
-  border: 1px solid var(--gris-200); background: #fff; color: var(--ardoise); font-size: .88rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--gris-200); background: var(--carte); color: var(--ardoise); font-size: .88rem; font-weight: 600; font-variant-numeric: tabular-nums;
   transition: background var(--transition), border-color var(--transition), color var(--transition);
 }
 .fr-appel i { font-size: .8rem; color: var(--lagon-600); transition: color var(--transition); }
-.fr-appel:hover { background: var(--ardoise); border-color: var(--ardoise); color: #fff; }
+.fr-appel:hover { background: var(--ardoise); border-color: var(--ardoise); color: var(--carte); }
 .fr-appel:hover i { color: #fff; }
 
 .fr-details { padding: 4px 16px 22px 84px; background: var(--gris-50); animation: apparaitre .2s ease; }
@@ -134,7 +134,7 @@ const itineraire = computed(() => {
 .fr-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .fr-actions a {
   display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid var(--gris-200); border-radius: 999px;
-  background: #fff; color: var(--lagon-800); font-size: .86rem; font-weight: 600; transition: border-color var(--transition), background var(--transition);
+  background: var(--carte); color: var(--lagon-800); font-size: .86rem; font-weight: 600; transition: border-color var(--transition), background var(--transition);
 }
 .fr-actions a:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
 .fr-actions a i { font-size: .8rem; color: var(--lagon-600); }

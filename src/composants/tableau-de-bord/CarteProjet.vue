@@ -97,7 +97,7 @@ async function copierCode() {
   width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 50%;
   background: rgba(255, 255, 255, .55); color: var(--ardoise); cursor: pointer; transition: background var(--transition), color var(--transition);
 }
-.cp-actions button:hover { background: #fff; }
+.cp-actions button:hover { background: var(--carte); }
 .cp-actions .cp-suppr:hover { color: var(--erreur); }
 
 .cp-icone { width: 58px; height: 58px; display: grid; place-items: center; margin-bottom: 18px; border-radius: 18px; background: rgba(255, 255, 255, .7); color: var(--teinte); font-size: 1.45rem; box-shadow: 0 6px 18px -8px rgba(11, 58, 77, .35); }
@@ -110,14 +110,14 @@ async function copierCode() {
   display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; padding: 4px 12px; border: 1px dashed color-mix(in srgb, var(--teinte) 45%, transparent); border-radius: 999px;
   background: rgba(255, 255, 255, .6); color: var(--teinte); font-family: var(--font-mono); font-size: .8rem; letter-spacing: .06em; cursor: pointer;
 }
-.cp-code:hover { background: #fff; }
+.cp-code:hover { background: var(--carte); }
 .cp-code-local { border-style: solid; border-color: transparent; font-family: var(--font-corps); letter-spacing: 0; cursor: default; }
 .cp-code-local { color: var(--gris-500); }
 .cp-code-local:hover { background: rgba(255, 255, 255, .6); }
 
 /* le bouton blanc du modèle */
 .cp-voir {
-  width: 100%; min-height: 48px; margin-top: 18px; border: 0; border-radius: 14px; background: #fff; color: var(--ardoise);
+  width: 100%; min-height: 48px; margin-top: 18px; border: 0; border-radius: 14px; background: var(--carte); color: var(--ardoise);
   font-family: var(--font-mono); font-size: .86rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
   box-shadow: 0 8px 20px -10px rgba(11, 58, 77, .45); transition: transform var(--transition), box-shadow var(--transition);
 }
@@ -133,7 +133,7 @@ async function copierCode() {
   .cp {
     display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; grid-template-areas: "icone nom prix" "icone texte texte" "code code actions";
     align-items: center; column-gap: 12px; row-gap: 2px; min-height: 0; padding: 14px 14px 12px; text-align: left; cursor: pointer;
-    border: 1px solid var(--gris-200); border-radius: 18px; background: #fff; box-shadow: none;
+    border: 1px solid var(--gris-200); border-radius: 18px; background: var(--carte); box-shadow: none;
   }
   .cp:hover { transform: none; box-shadow: none; }
   .cp:active { background: var(--gris-50); }

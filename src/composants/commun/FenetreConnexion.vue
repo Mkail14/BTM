@@ -104,12 +104,28 @@ function terminerConnexion() {
     const { role, fournisseur_id: fid } = compte
     const cible = demandee || (role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : null)
     try {
-      if (cible) await router.push(cible)
+      if (cible) {
+        await router.push(cible)
+        // App.vue envoie aussi un admin / fournisseur vers son espace : sa navigation peut remplacer celle-ci, qui se
+        // termine alors avant que la page soit chargée. La fenêtre reste ouverte jusqu'à l'arrivée réelle sur la page
+        // (sinon l'accueil apparaissait quelques secondes avant le tableau de bord).
+        await arriveeSur(cible)
+      }
     } finally {
       emit('fermer')
     }
   })()
   return connexionEnCours
+}
+/** Attend que la page affichée soit `chemin` (8 s au plus : la fenêtre ne reste jamais bloquée) */
+function arriveeSur(chemin) {
+  const arrive = () => router.currentRoute.value.path.startsWith(chemin.split('?')[0])
+  if (arrive()) return Promise.resolve()
+  return new Promise((resolve) => {
+    const fin = () => { arreter(); clearTimeout(delai); resolve() }
+    const arreter = watch(() => router.currentRoute.value.path, () => { if (arrive()) fin() })
+    const delai = setTimeout(fin, 8000)
+  })
 }
 const { connexion, inscription, deconnexion, backendDisponible, connecte, utilisateur } = useAuth()
 
@@ -127,7 +143,7 @@ async function finOubli() {
     if (await refuserSiClient(compte)) return
     const { role, fournisseur_id: fid } = compte
     const cible = props.redirect || (role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : null)
-    if (cible && router.currentRoute.value.path !== cible) await router.push(cible)
+    if (cible && router.currentRoute.value.path !== cible) { await router.push(cible); await arriveeSur(cible) }
   } catch { /* rôle illisible (réseau) : on reste sur la page en cours */ } finally {
     emit('fermer')
   }
@@ -526,8 +542,7 @@ function traduire(m = '') {
           </button>
           <h2 id="auth-titre" class="auth-titre">{{ reserve ? 'Espace partenaires' : !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
           <p v-if="raison && (!estInscription || etape === 0)" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ raison }}</p>
-          <p v-if="estInscription && etape <= 1" class="champ-aide auth-donnees">Vos informations servent uniquement à votre compte et à vos estimations : elles ne sont ni vendues ni cédées à des tiers.</p>
-          <p class="texte-secondaire auth-intro">{{ reserve ? 'Réservé aux fournisseurs partenaires et à l’équipe BTM.' : !estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit : 3 courtes étapes, puis une confirmation par e-mail.' }}</p>
+          <p v-if="!estInscription || etape === 0 || typeCompte === 'professionnel'" class="texte-secondaire auth-intro">{{ reserve ? 'Réservé aux fournisseurs partenaires et à l’équipe BTM.' : !estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' }}</p>
 
           <BandeauAvertissement v-if="!backendDisponible" type="info" compact class="auth-note">
             Authentification prévue avec Supabase — renseignez <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> pour l’activer.
@@ -711,7 +726,6 @@ function traduire(m = '') {
 .auth-carte :deep(.btn) { min-height: 50px; border-radius: 999px; }
 .auth-raison { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: var(--lagon-50, #ecfeff); border: 1px solid var(--gris-200); color: var(--ardoise); font-weight: 600; font-size: .92rem; }
 .auth-raison i { color: var(--primaire); }
-.auth-donnees { margin: 6px 0 0; }
 .auth-intro { margin: 4px 0 20px; }
 .auth-note { margin-bottom: 20px; }
 .auth-note code { font-family: var(--font-mono); font-size: .8rem; background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 4px; }
@@ -748,7 +762,7 @@ function traduire(m = '') {
 .auth-google.occupe { opacity: .6; pointer-events: none; }
 .auth-externe-bouton {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 40px; padding: 0 14px;
-  border: 1px solid var(--gris-300); border-radius: var(--rayon); background: #fff; color: var(--ardoise);
+  border: 1px solid var(--gris-300); border-radius: var(--rayon); background: var(--carte); color: var(--ardoise);
   font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s;
 }
 .auth-externe-bouton:hover:not(:disabled) { border-color: var(--gris-400); background: var(--gris-50); }
@@ -776,7 +790,7 @@ function traduire(m = '') {
 .auth-profils { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .auth-profil {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 20px 18px; text-align: left;
-  border: 1.5px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; font: inherit; color: inherit; cursor: pointer;
+  border: 1.5px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); font: inherit; color: inherit; cursor: pointer;
   transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
 }
 .auth-profil:hover { border-color: var(--lagon-500); box-shadow: 0 10px 30px rgba(8, 145, 178, .12); transform: translateY(-2px); }
@@ -784,17 +798,40 @@ function traduire(m = '') {
 .auth-profil strong { font-size: 1.1rem; color: var(--ardoise); }
 .auth-profil small { color: var(--texte-secondaire); font-size: .86rem; line-height: 1.45; }
 .auth-profil-icone { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: var(--gris-100); color: var(--ardoise); font-size: 1.2rem; }
-.auth-profil.pro .auth-profil-icone { background: var(--ardoise); color: #fcd34d; }
+.auth-profil.pro .auth-profil-icone { background: var(--encre); color: #fcd34d; }
 .auth-profil-suite { margin-top: auto; padding-top: 8px; color: var(--lagon-700); font-size: .88rem; font-weight: 700; }
 .auth-profil-badge { position: absolute; top: 14px; right: 14px; padding: 2px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 
 /* Civilité */
 .auth-civilite { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
 .auth-civilite legend { width: 100%; margin-bottom: 8px; padding: 0; font-weight: 600; font-size: .95rem; color: var(--gris-700); }
-.auth-civilite button { flex: 1; min-height: 46px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon); background: #fff; font: inherit; font-weight: 600; color: var(--ardoise); cursor: pointer; transition: border-color var(--transition), background var(--transition); }
+.auth-civilite button { flex: 1; min-height: 46px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon); background: var(--carte); font: inherit; font-weight: 600; color: var(--ardoise); cursor: pointer; transition: border-color var(--transition), background var(--transition); }
 .auth-civilite button:hover { border-color: var(--lagon-500); }
 .auth-civilite button[aria-pressed="true"] { border-color: var(--lagon-600); background: var(--lagon-50); color: var(--lagon-800); }
 .auth-civilite .champ-erreur { width: 100%; }
+
+/* Écran peu haut (ordinateur portable, affichage agrandi) : la fenêtre tient sans défiler. Mêmes champs et mêmes
+   textes ; seuls les espacements se resserrent et les étapes passent sur une ligne. */
+@media (min-width: 640px) and (max-height: 860px) {
+  .auth-carte:not(.auth-carte-accueil) { padding: 46px 32px 16px; min-height: 0; }
+  /* « Autres options » (en haut à gauche, 16 → 56 px) : le titre commence sous lui, jamais derrière */
+  .auth-carte:not(.auth-carte-accueil):has(.auth-retour-accueil) { padding-top: 70px; }
+  .auth-titre { font-size: 1.75rem; padding-right: 44px; }
+  .auth-intro { margin: 4px 0 12px; }
+  .auth-etapes { margin: 12px 0 14px; }
+  .auth-etapes li { flex-direction: row; align-items: center; gap: 6px; padding-top: 8px; }
+  .auth-etape-numero { width: 22px; height: 22px; flex: none; }
+  .auth-form { gap: 12px; }
+  .auth-civilite legend { margin-bottom: 6px; }
+  .auth-civilite button { min-height: 40px; }
+  .auth-form :deep(.champ) { gap: 4px; }
+  .auth-form :deep(.champ input) { padding-top: 10px; padding-bottom: 10px; }
+  .auth-identite-grille { gap: 12px; }
+  .auth-carte :deep(.btn) { min-height: 46px; }
+  .auth-recap { gap: 8px; padding: 12px 16px; }
+  .auth-bascule { margin-top: 12px; }
+  .auth-externe { margin-top: 14px; }
+}
 
 /* Entreprise reconnue */
 .auth-siret { font-size: 1.1rem; letter-spacing: .08em; }
@@ -820,7 +857,7 @@ function traduire(m = '') {
 .auth-type legend { grid-column: 1 / -1; margin-bottom: 8px; padding: 0; font-weight: 600; font-size: .95rem; color: var(--gris-700); }
 .auth-type-choix {
   position: relative; display: flex; align-items: center; gap: 12px; padding: 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon);
-  background: #fff; cursor: pointer; transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+  background: var(--carte); cursor: pointer; transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
 .auth-type-choix:hover { border-color: var(--lagon-500); }
 .auth-type-choix.actif { border-color: var(--lagon-600); background: var(--lagon-50); box-shadow: 0 0 0 3px rgba(6, 182, 212, .15); }
@@ -864,7 +901,7 @@ function traduire(m = '') {
 .auth-google-bloc { position: relative; }
 .auth-google.cache { visibility: hidden; }
 .auth-google-attente { position: absolute; inset: 0; cursor: default; }
-.auth-google-g { width: 30px; height: 30px; margin-left: -10px; display: grid; place-items: center; flex: none; border-radius: 50%; background: #fff; }
+.auth-google-g { width: 30px; height: 30px; margin-left: -10px; display: grid; place-items: center; flex: none; border-radius: 50%; background: var(--carte); }
 /* même hauteur et même noir que le bouton officiel de Google (40 px) */
 .auth-pilule {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 40px; padding: 0 18px; border: 0; border-radius: 999px;
@@ -876,6 +913,8 @@ function traduire(m = '') {
 .auth-pilule.sombre:hover:not(:disabled) { background: #333; }
 .auth-pilule.clair { background: var(--lagon-100); color: var(--ocean); }
 .auth-pilule.clair:hover { background: var(--lagon-200); }
+:global(html[data-theme="sombre"] .auth-pilule.clair) { background: rgba(6, 182, 212, .16); color: var(--lagon-800); box-shadow: inset 0 0 0 1px rgba(34, 211, 238, .35); }
+:global(html[data-theme="sombre"] .auth-pilule.clair:hover) { background: rgba(6, 182, 212, .26); }
 .auth-accueil-bascule { margin: 22px 0 0; color: var(--texte-secondaire); font-size: .92rem; }
 .auth-accueil-bascule button { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
 .auth-accueil-legal { max-width: 320px; margin: 10px 0 0; color: var(--gris-500); font-size: .75rem; line-height: 1.5; }

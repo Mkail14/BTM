@@ -254,7 +254,7 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(255,255,255,.45);
   border-radius: 50%;
   background: rgba(255,255,255,.96);
-  color: var(--ardoise);
+  color: var(--encre); /* pastille blanche, croix toujours foncée (thèmes clair et sombre) */
   cursor: pointer;
   box-shadow: 0 12px 28px rgba(0,0,0,.18);
   transition: background .2s, transform .2s;
@@ -280,20 +280,18 @@ onBeforeUnmount(() => {
   border-radius: var(--rayon);
   color: var(--ardoise);
   text-decoration: none;
-  transition: transform .2s, border-color .2s, box-shadow .2s;
 }
-.aide-page:hover { transform: translateY(-3px); border-color: var(--lagon-400); box-shadow: var(--ombre); }
-.aide-page-assistant { background: linear-gradient(145deg, #f8feff, #effbfc); }
+.aide-page-assistant { background: linear-gradient(145deg, color-mix(in srgb, var(--lagon-50) 40%, var(--carte)), var(--lagon-50)); }
 .aide-page-email { background: var(--gris-50); }
 .aide-page-entete { display: flex; align-items: center; gap: 14px; }
 .aide-page-icone { width: 48px; height: 48px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 12px; background: var(--lagon-100); color: var(--lagon-700); font-size: 1.35rem; }
-.aide-page-email .aide-page-icone { background: #e2e8f0; color: var(--ardoise-2); }
+.aide-page-email .aide-page-icone { background: var(--gris-200); color: var(--ardoise-2); }
 .aide-page-label { color: var(--lagon-700); font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .aide-page h3 { margin-top: 3px; color: var(--ardoise); font-size: 1.45rem; }
 .aide-page-description { margin: 22px 0; color: var(--texte-secondaire); line-height: 1.55; }
 .aide-page-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: auto; }
-.aide-action { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-width: 0; padding: 14px 12px; border: 1px solid var(--gris-200); border-radius: var(--rayon-sm); background: #fff; color: var(--ardoise); text-align: left; cursor: pointer; transition: border-color .2s, background .2s; }
-.aide-action:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
+.aide-action { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-width: 0; padding: 14px 12px; border: 1px solid var(--gris-200); border-radius: var(--rayon-sm); background: var(--carte); color: var(--ardoise); text-align: left; cursor: pointer; transition: border-color .2s, background .2s; }
+.aide-action:hover { background: var(--lagon-50); } /* survol discret : pas de contour bleu ni de carte qui se soulève */
 .aide-action > i { color: var(--lagon-700); font-size: 1.15rem; }
 .aide-action-whatsapp > i { color: #16a34a; }
 .aide-action strong { font-size: .92rem; }
@@ -322,7 +320,7 @@ onBeforeUnmount(() => {
   .aide-dialogue, .aide-fermer { display: none; }
   .aide-feuille {
     display: flex; flex-direction: column; align-items: center; width: 100%; max-height: 92dvh; overflow-y: auto;
-    padding: 10px 20px calc(16px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; background: #fff; text-align: center;
+    padding: 10px 20px calc(16px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; background: var(--carte); text-align: center;
     animation: aide-monte .28s cubic-bezier(.22, .61, .36, 1);
   }
   .aide-feuille-poignee { width: 38px; height: 5px; margin-bottom: 18px; border-radius: 999px; background: var(--gris-200); }
@@ -331,7 +329,7 @@ onBeforeUnmount(() => {
   .aide-feuille-liste { width: 100%; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; text-align: left; }
   .aide-feuille-ligne {
     display: flex; align-items: center; gap: 14px; width: 100%; min-height: 66px; padding: 10px 16px;
-    border: 0; background: #fff; color: var(--ardoise); font: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    border: 0; background: var(--carte); color: var(--ardoise); font: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
   }
   .aide-feuille-ligne + .aide-feuille-ligne { border-top: 1px solid var(--gris-100); }
   .aide-feuille-ligne:active { background: var(--gris-50); }

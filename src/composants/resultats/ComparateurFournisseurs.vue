@@ -112,7 +112,7 @@ function choisir(f) {
 .cf-liste { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .cf-carte {
   display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 1.5px solid var(--gris-200); border-radius: var(--rayon);
-  background: #fff; font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color var(--transition), box-shadow var(--transition);
+  background: var(--carte); font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color var(--transition), box-shadow var(--transition);
 }
 .cf-carte:hover { border-color: var(--lagon-500); }
 .cf-carte.actif { border-color: var(--lagon-600); background: var(--lagon-50); box-shadow: 0 0 0 3px rgba(6, 182, 212, .15); }

@@ -53,13 +53,23 @@ onMounted(() => requete?.addEventListener('change', surTaille))
 const libererEcran = telephone.value ? () => {} : retenirEcranChargement()
 onBeforeUnmount(() => requete?.removeEventListener('change', surTaille))
 
-// Cadre au défilement : en descendant, des bords blancs apparaissent sur les côtés du héros et son bas s'arrondit
-// (le héros se détache comme une carte posée sur la page). Léger : une seule variable CSS mise à jour hors de Vue,
-// et le cadre n'est animé que par transform (aucun recalcul de la scène 3D ni de la mise en page).
+// Réduction au défilement : en descendant, le héros rétrécit en entier (comme une fenêtre qu'on réduit) jusqu'à la
+// largeur du contenu du site, et ses coins s'arrondissent : il devient une carte alignée sur les sections.
+// Léger : un seul transform (scale) mis à jour hors de Vue, rien n'est redessiné ni remis en page.
 const heros = ref(null)
 const calme = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 let dernier = -1
 let raf = null
+let proportion = 1 // largeur du contenu (.conteneur sans ses marges) / largeur du héros : la taille réduite
+function mesurer() {
+  const el = heros.value
+  const grille = el?.querySelector('.hero-grille')
+  if (!el || !grille) return
+  const s = getComputedStyle(grille)
+  const contenu = grille.clientWidth - parseFloat(s.paddingLeft) - parseFloat(s.paddingRight)
+  proportion = el.clientWidth ? Math.min(1, contenu / el.clientWidth) : 1
+  dernier = -1
+}
 function cadrer() {
   raf = null
   const h = window.innerHeight
@@ -69,11 +79,20 @@ function cadrer() {
   if (arrondi === dernier) return
   dernier = arrondi
   heros.value.style.setProperty('--cadre', arrondi)
+  heros.value.style.transform = arrondi ? `scale(${1 - arrondi * (1 - proportion)})` : ''
 }
 const surScroll = () => { if (!raf) raf = requestAnimationFrame(cadrer) }
+const surRedimension = () => { mesurer(); surScroll() }
 // accueil gardé en mémoire (keep-alive) : le défilement des autres pages ne doit pas recalculer le héros
-const brancherScroll = () => { window.addEventListener('scroll', surScroll, { passive: true }); surScroll() }
-const debrancherScroll = () => { window.removeEventListener('scroll', surScroll); if (raf) cancelAnimationFrame(raf); raf = null }
+const brancherScroll = () => {
+  window.addEventListener('scroll', surScroll, { passive: true })
+  window.addEventListener('resize', surRedimension)
+  surRedimension()
+}
+const debrancherScroll = () => {
+  window.removeEventListener('scroll', surScroll); window.removeEventListener('resize', surRedimension)
+  if (raf) cancelAnimationFrame(raf); raf = null
+}
 onMounted(() => { brancherScroll(); demarrerMots() })
 onActivated(() => { brancherScroll(); demarrerMots() })
 onDeactivated(() => { debrancherScroll(); arreterMots() })
@@ -136,10 +155,6 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
         </ul>
       </nav>
     </div>
-
-
-    <!-- cadre blanc qui se dessine au défilement : bords latéraux + coins arrondis en bas -->
-    <span class="hero-cadre" aria-hidden="true"><i class="cadre-g"></i><i class="cadre-d"></i><i class="coin-g"></i><i class="coin-d"></i></span>
   </section>
 </template>
 
@@ -147,30 +162,13 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
 .hero {
   position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; overflow: hidden;
   color: #fff; padding: calc(var(--hauteur-entete) + 48px) 0 0; isolation: isolate; background: #0a0f14;
-  --cadre-bord: 28px; --cadre-coin: 64px;
+  /* réduction au défilement (script) : le bas reste en place, le héros rétrécit vers lui ; les coins s'arrondissent */
+  transform-origin: 50% 100%; will-change: transform;
+  border-radius: calc(var(--cadre, 0) * 44px);
 }
-
-/* ---------- Cadre blanc au défilement ----------
-   Bords latéraux qui s'élargissent et coins arrondis qui grandissent en bas : le héros devient une carte posée sur la page.
-   Uniquement des transform pilotés par --cadre (0 → 1) : rien n'est redessiné, la scène 3D n'est pas touchée. */
-.hero-cadre { position: absolute; inset: 0; z-index: 12; pointer-events: none; }
-.hero-cadre i { position: absolute; will-change: transform; } /* positions données pièce par pièce (sinon elles seraient écrasées) */
-/* Pièces volontairement un peu plus grandes que nécessaire et qui se chevauchent (et débordent sous le bord du héros) :
-   aucune jointure entre deux pièces, donc aucun liseré sombre aux positions intermédiaires. */
-.cadre-g, .cadre-d { top: -2px; bottom: -2px; width: calc(var(--cadre-bord) + 3px); background: #fff; transform: scaleX(var(--cadre, 0)); }
-.cadre-g { left: -3px; transform-origin: left; }
-.cadre-d { right: -3px; transform-origin: right; }
-/* chaque coin englobe aussi la bande latérale : l'arrondi part directement du bord blanc */
-/* le coin descend 3 px sous le héros (masqués) : son arrondi se termine exactement sur le bord bas, sans marche */
-.coin-g, .coin-d { bottom: -3px; width: calc(var(--cadre-bord) + var(--cadre-coin) + 3px); height: calc(var(--cadre-coin) + 3px); transform: scale(var(--cadre, 0)); }.coin-g {
-  left: -3px; transform-origin: bottom left;
-  background: radial-gradient(circle var(--cadre-coin) at 100% 0, transparent calc(var(--cadre-coin) - 1px), #fff calc(var(--cadre-coin) + .5px));
-}
-.coin-d {
-  right: -3px; transform-origin: bottom right;
-  background: radial-gradient(circle var(--cadre-coin) at 0 0, transparent calc(var(--cadre-coin) - 1px), #fff calc(var(--cadre-coin) + .5px));
-}
-@media (max-width: 639px) { .hero { --cadre-bord: 12px; --cadre-coin: 32px; } }
+@media (max-width: 639px) { .hero { border-radius: calc(var(--cadre, 0) * 26px); } }
+/* derrière le héros réduit : le fond des sections de l'accueil */
+:global(#page-accueil) { background: var(--fond-nuit); }
 .hero-grille {
   display: grid; gap: 32px 56px; grid-template-columns: 1fr; align-items: center; justify-items: center;
   flex: 1; width: 100%; margin: 0 auto; padding: 0 var(--gouttiere) 40px;

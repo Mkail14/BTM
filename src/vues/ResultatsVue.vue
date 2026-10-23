@@ -325,7 +325,6 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
               <ul class="compte-avantages">
                 <li><i class="fa-solid fa-check" aria-hidden="true"></i> Votre code de retrait pour le prix BTM chez le fournisseur</li>
                 <li><i class="fa-solid fa-check" aria-hidden="true"></i> Vos estimations sur ordinateur et téléphone, à modifier quand vous voulez</li>
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Gratuit : 3 courtes étapes, puis une confirmation par e-mail</li>
               </ul>
 
               <BoutonBase bloc icone="fa-solid fa-user-plus" @click="ouvrirCompte('inscription')">Créer mon compte gratuit</BoutonBase>
@@ -435,7 +434,7 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
 .resultats-calcul p { max-width: 72ch; margin: 8px auto 0; line-height: 1.55; }
 
 .modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(6,32,44,.55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
-.modale { background: #fff; border-radius: var(--rayon-lg); padding: 30px; width: 100%; max-width: 460px; box-shadow: var(--ombre-lg); animation: apparaitre .3s ease; }
+.modale { background: var(--carte); border-radius: var(--rayon-lg); padding: 30px; width: 100%; max-width: 460px; box-shadow: var(--ombre-lg); animation: apparaitre .3s ease; }
 .modale h2 { font-size: 1.7rem; color: var(--ardoise); margin-bottom: 6px; }
 .modale form { margin-top: 20px; display: flex; flex-direction: column; gap: 20px; }
 .modale-actions { display: flex; justify-content: flex-end; gap: 10px; }
@@ -447,7 +446,7 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
 .resultats-pro { border: 1.5px solid var(--ardoise); }
 .resultats-pro-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .resultats-pro-tete h2 { display: flex; align-items: center; gap: 10px; margin: 0; }
-.resultats-pro-badge { padding: 2px 10px; border-radius: 999px; background: var(--ardoise); color: #fcd34d; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.resultats-pro-badge { padding: 2px 10px; border-radius: 999px; background: var(--encre); color: #fcd34d; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .resultats-pro-liste { display: flex; flex-direction: column; margin: 14px 0 0; padding: 0; list-style: none; }
 .resultats-pro-liste li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gris-100); }
 .resultats-pro-liste li:last-child { border-bottom: 0; }
@@ -470,7 +469,7 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
   appearance: none; position: relative; width: 44px; height: 26px; flex: none; margin: 0; border-radius: 999px; background: var(--gris-300);
   cursor: pointer; transition: background var(--transition);
 }
-.resultats-credit input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: var(--ombre-sm); transition: transform var(--transition); }
+.resultats-credit input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--carte); box-shadow: var(--ombre-sm); transition: transform var(--transition); }
 .resultats-credit input:checked { background: #b45309; }
 .resultats-credit input:checked::after { transform: translateX(18px); }
 .resultats-credit input:focus-visible { outline: 3px solid rgba(180, 83, 9, .35); outline-offset: 2px; }
@@ -490,7 +489,7 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
   display: flex; align-items: center; gap: 12px; margin: 22px 0 18px; padding: 12px 14px;
   border: 1px solid var(--gris-200); border-radius: var(--rayon); background: var(--gris-50); text-align: left;
 }
-.compte-devis-icone { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 10px; background: #fff; color: var(--lagon-700); box-shadow: var(--ombre-sm); }
+.compte-devis-icone { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--carte); color: var(--lagon-700); box-shadow: var(--ombre-sm); }
 .compte-devis-texte { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .compte-devis-texte strong { color: var(--ardoise); font-size: .95rem; }
 .compte-devis-texte small { color: var(--texte-secondaire); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

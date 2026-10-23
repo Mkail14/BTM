@@ -54,7 +54,7 @@ const lienTelephone = computed(() => {
 </template>
 
 <style scoped>
-.pied { position: relative; background: var(--ardoise); color: rgba(255,255,255,.78); border-top: 3px solid var(--lagon-700); }
+.pied { position: relative; background: var(--encre); color: rgba(255,255,255,.78); border-top: 3px solid var(--lagon-700); }
 .pied-grille { display: grid; gap: 36px; padding: 64px 20px 40px; grid-template-columns: 1fr; }
 @media (max-width: 639px) {
   .pied-grille { grid-template-columns: 1fr 1fr; gap: 28px 20px; padding-top: 44px; }

@@ -152,7 +152,7 @@ async function decliner(r) {
 
 <style scoped>
 .pr { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
-.pr-carte { display: flex; flex-direction: column; gap: 16px; padding: 20px 22px; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; }
+.pr-carte { display: flex; flex-direction: column; gap: 16px; padding: 20px 22px; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); }
 .pr-proposee { border-color: var(--lagon-200, #a5f3fc); background: linear-gradient(180deg, var(--lagon-50), #fff 70%); }
 .pr-tete { display: flex; align-items: flex-start; gap: 14px; }
 .pr-tete strong { display: block; color: var(--ardoise); font-size: 1.02rem; }
@@ -161,7 +161,7 @@ async function decliner(r) {
 .pr-soumise .pr-icone { background: #fef3c7; color: #b45309; }
 .pr-publiee .pr-icone { background: #d1fae5; color: #047857; }
 .pr-refusee .pr-icone { background: var(--gris-100); color: var(--gris-500); }
-.pr-message { margin: 0; padding: 12px 16px; border-left: 3px solid var(--lagon-500); border-radius: 0 10px 10px 0; background: #fff; color: var(--ardoise); font-size: .92rem; font-style: italic; }
+.pr-message { margin: 0; padding: 12px 16px; border-left: 3px solid var(--lagon-500); border-radius: 0 10px 10px 0; background: var(--carte); color: var(--ardoise); font-size: .92rem; font-style: italic; }
 .pr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .pr-lien { padding: 6px 0; border: 0; background: none; color: var(--texte-secondaire); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; }
 .pr-lien:hover { color: var(--ardoise); text-decoration: underline; text-underline-offset: 3px; }

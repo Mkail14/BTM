@@ -9,7 +9,7 @@
  * d'un rechargement de la liste ; le prix exact est relu par le fournisseur à l'encaissement.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { listerCarreauxPublics, libelleFormat } from '@/services/supabase/serviceCarreaux.js'
+import { listerCarreauxPublics, libelleFormat, prixAuM2 } from '@/services/supabase/serviceCarreaux.js'
 import CarteCarreau from '@/composants/calculateur/CarteCarreau.vue'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
@@ -30,7 +30,7 @@ onMounted(async () => {
   chargement.value = false
 })
 // les plus choisis d'abord, puis les moins chers ; les ruptures en dernier
-const parPopularite = (a, b) => (a.rupture - b.rupture) || (b.devis - a.devis) || (a.prix_unitaire - b.prix_unitaire)
+const parPopularite = (a, b) => (a.rupture - b.rupture) || (b.devis - a.devis) || (prixAuM2(a) - prixAuM2(b))
 const modeles = computed(() => tous.value.filter((c) => c.format === props.format).sort(parPopularite))
 const choisiId = computed(() => (props.modelValue && typeof props.modelValue === 'object' ? props.modelValue.id : 'standard'))
 
@@ -50,7 +50,7 @@ function choisir(c) {
   fermerCatalogue()
   emit('choisir', {
     id: c.id, nom: c.nom, format: c.format, finition: c.finition || '', couleur: c.couleur, photo_url: c.photo_url || '',
-    prix: c.prix_unitaire, fournisseur: c.fournisseur, fournisseurId: c.fournisseur_id
+    prix: c.prix_unitaire, parCarton: c.carreaux_par_carton || null, fournisseur: c.fournisseur, fournisseurId: c.fournisseur_id
   })
 }
 
@@ -77,8 +77,8 @@ const fournisseurs = computed(() => [...new Set(modeles.value.map((c) => c.fourn
 const sansAccents = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const TRIS = {
   populaires: parPopularite,
-  'prix-croissant': (a, b) => (a.rupture - b.rupture) || (a.prix_unitaire - b.prix_unitaire),
-  'prix-decroissant': (a, b) => (a.rupture - b.rupture) || (b.prix_unitaire - a.prix_unitaire),
+  'prix-croissant': (a, b) => (a.rupture - b.rupture) || (prixAuM2(a) - prixAuM2(b)),
+  'prix-decroissant': (a, b) => (a.rupture - b.rupture) || (prixAuM2(b) - prixAuM2(a)),
   nom: (a, b) => a.nom.localeCompare(b.nom, 'fr')
 }
 const resultats = computed(() => {
@@ -140,8 +140,9 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
       <template v-if="choisi">
         <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
         <p>
-          <strong>Votre choix : « {{ choisi.nom }} »</strong><small>{{ choisi.fournisseur }} · {{ formaterEuros(choisi.prix) }} le carreau</small>
-          <span v-if="nbCarreaux">{{ nbCarreaux }} carreaux pour votre pièce ≈ <b>{{ formaterEuros(nbCarreaux * choisi.prix) }}</b></span>
+          <strong>Votre choix : « {{ choisi.nom }} »</strong><small>{{ choisi.fournisseur }} · {{ formaterEuros(choisi.prix) }} {{ choisi.parCarton > 1 ? `le carton de ${choisi.parCarton}` : 'le carreau' }}</small>
+          <span v-if="nbCarreaux && choisi.parCarton > 1">{{ Math.ceil(nbCarreaux / choisi.parCarton) }} cartons ({{ nbCarreaux }} carreaux) pour votre pièce ≈ <b>{{ formaterEuros(Math.ceil(nbCarreaux / choisi.parCarton) * choisi.prix) }}</b></span>
+          <span v-else-if="nbCarreaux">{{ nbCarreaux }} carreaux pour votre pièce ≈ <b>{{ formaterEuros(nbCarreaux * choisi.prix) }}</b></span>
         </p>
       </template>
       <template v-else>
@@ -223,7 +224,7 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
 .sc-piste > li { flex: 0 0 200px; scroll-snap-align: start; }
 .sc-fleche {
   position: absolute; top: 50%; z-index: 1; width: 36px; height: 36px; display: grid; place-items: center; transform: translateY(-50%);
-  border: 1px solid var(--gris-200); border-radius: 50%; background: #fff; color: var(--ardoise); box-shadow: var(--ombre-sm, 0 2px 6px rgba(0,0,0,.12)); cursor: pointer;
+  border: 1px solid var(--gris-200); border-radius: 50%; background: var(--carte); color: var(--ardoise); box-shadow: var(--ombre-sm, 0 2px 6px rgba(0,0,0,.12)); cursor: pointer;
 }
 .sc-fleche.gauche { left: -14px; }
 .sc-fleche.droite { right: -14px; }
@@ -231,7 +232,7 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
 .sc-note .spinner { width: 14px; height: 14px; border-width: 2px; }
 .sc-tous {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px; align-self: flex-start; padding: 11px 18px;
-  border: 1.5px solid var(--lagon-600); border-radius: 999px; background: #fff; color: var(--lagon-700);
+  border: 1.5px solid var(--lagon-600); border-radius: 999px; background: var(--carte); color: var(--lagon-700);
   font: inherit; font-weight: 700; cursor: pointer; transition: background var(--transition);
 }
 .sc-tous:hover { background: var(--lagon-50, #ecfeff); }
@@ -239,20 +240,20 @@ onBeforeUnmount(() => { document.body.style.overflow = '' })
 /* Fenêtre « Tous les modèles » */
 .scc-fond { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 20px; background: rgba(6, 32, 44, .6); backdrop-filter: blur(4px); }
 .scc { display: flex; flex-direction: column; width: min(1040px, 100%); height: min(90vh, 900px); overflow: hidden; border-radius: var(--rayon-lg); background: var(--fond, #f8fafc); box-shadow: var(--ombre-lg); }
-.scc-tete { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; background: #fff; }
+.scc-tete { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 20px 12px; background: var(--carte); }
 .scc-titre { margin: 0; color: var(--ardoise); font-size: 1.6rem; }
 .scc-sous-titre { margin: 2px 0 0; color: var(--texte-secondaire); font-size: .88rem; }
 .scc-fermer { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: var(--gris-100); color: var(--ardoise); font-size: 1.1rem; cursor: pointer; }
 .scc-fermer:hover { background: var(--gris-200); }
-.scc-outils { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 20px 14px; background: #fff; border-bottom: 1px solid var(--gris-200); }
+.scc-outils { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 20px 14px; background: var(--carte); border-bottom: 1px solid var(--gris-200); }
 .scc-recherche { position: relative; flex: 1 1 280px; }
 .scc-recherche i { position: absolute; top: 50%; left: 14px; transform: translateY(-50%); color: var(--gris-500); }
 .scc-recherche input { width: 100%; padding: 11px 14px 11px 40px; border: 1.5px solid var(--gris-200); border-radius: var(--rayon); font: inherit; }
 .scc-recherche input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 3px rgba(6, 182, 212, .15); }
 .scc-selects { display: flex; flex-wrap: wrap; gap: 10px; }
-.scc-selects select { padding: 11px 12px; border: 1.5px solid var(--gris-200); border-radius: var(--rayon); background: #fff; font: inherit; color: var(--ardoise); cursor: pointer; }
+.scc-selects select { padding: 11px 12px; border: 1.5px solid var(--gris-200); border-radius: var(--rayon); background: var(--carte); font: inherit; color: var(--ardoise); cursor: pointer; }
 .scc-puces { display: flex; gap: 8px; width: 100%; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
-.scc-puce { flex: none; padding: 6px 14px; border: 1px solid var(--gris-200); border-radius: 999px; background: #fff; color: var(--ardoise); font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; }
+.scc-puce { flex: none; padding: 6px 14px; border: 1px solid var(--gris-200); border-radius: 999px; background: var(--carte); color: var(--ardoise); font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; }
 .scc-puce:hover { border-color: var(--lagon-500); }
 .scc-puce.actif { border-color: var(--lagon-600); background: var(--lagon-600); color: #fff; }
 .scc-compte { display: flex; align-items: center; gap: 14px; margin: 0; padding: 12px 20px 0; color: var(--texte-secondaire); font-size: .88rem; font-weight: 600; }

@@ -17,6 +17,7 @@ import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import CatalogueDirect from '@/composants/calculateur/CatalogueDirect.vue'
 import SelecteurCarreau from '@/composants/calculateur/SelecteurCarreau.vue'
 import { modeleCarreau } from '@/services/calculs/formuleCarrelage.js'
+import { MENUISERIES, surfaceMenuiseries, surfaceAutre, decrireMenuiseries } from '@/donnees/menuiseries.js'
 import { useAuth } from '@/composables/useAuth.js'
 
 const route = useRoute()
@@ -63,7 +64,8 @@ const questions = computed(() => {
     ;(calc.dimensions.autresMurs || []).forEach((_, index) => {
       t.champs.forEach((champ) => liste.push({ cle: `autresMurs.${index}.${champ.nom}`, champ, mur: index + 2, index }))
     })
-    liste.push({ cle: 'autreMur', special: true })
+    // Plusieurs murs : réservé aux comptes professionnels
+    if (estPro.value) liste.push({ cle: 'autreMur', special: true })
   }
   return liste
 })
@@ -137,9 +139,49 @@ function choisirOption(q, valeur) {
 }
 
 function aucuneOuverture(q) {
-  ecrireValeur(q, '0')
+  ecrireMur(q, { menuiseries: [], ouverturesAutre: '', ouvertures: '0' })
   suivant()
 }
+
+// ---------- Portes et fenêtres (question « ouvertures » du mur) ----------
+// On choisit « porte » ou « fenêtre », puis on touche le mur dans la maquette pour la placer (taille standard,
+// modifiable). « Autre » garde une simple surface en m². Le calcul ne lit que `ouvertures` : la somme des deux.
+const placement = ref('') // 'porte' | 'fenetre' : on attend un toucher sur le mur dans la maquette
+const autreOuverte = ref(false)
+watch(() => question.value?.cle, () => { placement.value = ''; autreOuverte.value = false })
+
+const murDe = (q) => (q.index !== undefined ? calc.dimensions.autresMurs?.[q.index] : calc.dimensions) || {}
+function ecrireMur(q, patch) {
+  if (q.index === undefined) return calc.definirDimensions(patch)
+  calc.definirDimensions({ autresMurs: calc.dimensions.autresMurs.map((m, i) => (i === q.index ? { ...m, ...patch } : m)) })
+}
+const positif = (v) => { const n = parseFloat(String(v ?? '').replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : 0 }
+// surface « autre » telle que saisie ; un ancien devis (sans détail) garde toute sa surface en « autre »
+const autreTexte = (mur) => mur.ouverturesAutre ?? (surfaceAutre(mur) ? String(surfaceAutre(mur)) : '')
+const totalOuvertures = (mur) => Math.round((surfaceMenuiseries(mur.menuiseries) + positif(autreTexte(mur))) * 100) / 100
+
+function ecrireOuvertures(q, menuiseries, autre = autreTexte(murDe(q))) {
+  const total = Math.round((surfaceMenuiseries(menuiseries) + positif(autre)) * 100) / 100
+  ecrireMur(q, { menuiseries, ouverturesAutre: autre, ouvertures: String(total) })
+  if (calc.erreurs[q.cle]) calc.validerChamp(q.cle)
+}
+function choisirMenuiserie(type) {
+  placement.value = placement.value === type ? '' : type
+}
+// le point touché est le centre de la menuiserie ; une porte reste posée au sol, une fenêtre garde la hauteur touchée
+function placerMenuiserie({ mur, position, hauteur }) {
+  const q = question.value
+  if (!placement.value || !q || q.champ?.nom !== 'ouvertures' || mur !== murActif.value) return
+  const m = MENUISERIES[placement.value]
+  const nouvelle = { type: placement.value, position, largeur: String(m.largeur), hauteur: String(m.hauteur) }
+  if (placement.value === 'fenetre') nouvelle.centre = hauteur
+  ecrireOuvertures(q, [...(murDe(q).menuiseries || []), nouvelle])
+  placement.value = ''
+}
+const modifierMenuiserie = (q, i, champ, valeur) => ecrireOuvertures(q, murDe(q).menuiseries.map((m, j) => (j === i ? { ...m, [champ]: valeur } : m)))
+const retirerMenuiserie = (q, i) => ecrireOuvertures(q, murDe(q).menuiseries.filter((_, j) => j !== i))
+// « Porte 2 », « Fenêtre 1 » : numérotées par sorte
+const nomMenuiserie = (liste, i) => `${MENUISERIES[liste[i].type].libelle} ${liste.slice(0, i + 1).filter((m) => m.type === liste[i].type).length}`
 
 /** L'écran « autre mur ? » : les questions du nouveau mur prennent sa place dans la liste */
 function ajouterMur() {
@@ -293,7 +335,7 @@ function formater(champ, valeur) {
   if (champ.type === 'select') return champ.options.find((o) => o.valeur === valeur)?.label.split(' — ')[0] || valeur
   if (champ.type === 'carreau') {
     const m = modeleCarreau(calc.dimensions)
-    return m ? `« ${m.nom} » — ${m.fournisseur}, ${formaterEuros(m.prix)} le carreau` : 'Modèle standard (prix moyen)'
+    return m ? `« ${m.nom} » — ${m.fournisseur}, ${formaterEuros(m.prix)} ${m.parCarton > 1 ? `le carton de ${m.parCarton}` : 'le carreau'}` : 'Modèle standard (prix moyen)'
   }
   if (valeur === '' || valeur === undefined || valeur === null) return champ.optionnel ? 'Aucune' : '—'
   return `${formaterNombre(String(valeur).replace(',', '.'), 2)} ${champ.unite}`
@@ -306,7 +348,8 @@ const recapitulatif = computed(() => {
   const murs = [calc.dimensions, ...(calc.dimensions.autresMurs || [])]
   return murs.map((m, i) => {
     const [longueur, hauteur, ouvertures] = t.champs
-    const ouv = Number(String(m.ouvertures || 0).replace(',', '.')) ? `, ${formater(ouvertures, m.ouvertures)} d’ouvertures` : ', sans ouverture'
+    const detail = decrireMenuiseries(m.menuiseries)
+    const ouv = Number(String(m.ouvertures || 0).replace(',', '.')) ? `, ${detail ? `${detail} — ` : ''}${formater(ouvertures, m.ouvertures)} d’ouvertures` : ', sans ouverture'
     return {
       cle: i === 0 ? 'longueur' : `autresMurs.${i - 1}.longueur`,
       label: `Mur ${i + 1}`,
@@ -343,10 +386,10 @@ const recapitulatif = computed(() => {
         </button>
       </div>
 
-      <template v-if="mode === 'direct'">
+      <div v-if="mode === 'direct'" class="calc-direct">
         <BandeauAvertissement v-if="calc.erreurGlobale.value" type="erreur" compact>{{ calc.erreurGlobale.value }}</BandeauAvertissement>
         <CatalogueDirect :initial="achatInitial" @valider="validerAchat" />
-      </template>
+      </div>
 
       <form v-else novalidate @submit.prevent="valider">
         <transition name="fondu" mode="out-in">
@@ -403,6 +446,59 @@ const recapitulatif = computed(() => {
                     <SelecteurCarreau :format="calc.dimensions.format" :model-value="lireValeur(question)" :nb-carreaux="nbCarreaux" @choisir="ecrireValeur(question, $event)" />
                   </template>
 
+                  <template v-else-if="question.champ.nom === 'ouvertures'">
+                    <h2 class="assistant-question assistant-focus" tabindex="-1">{{ question.champ.question }}</h2>
+                    <p class="assistant-aide">Ajoutez chaque porte et fenêtre, puis touchez le mur dans le dessin pour la placer.</p>
+                    <div class="assistant-choix ouv-choix">
+                      <button
+                        v-for="(m, sorte) in MENUISERIES" :key="sorte" type="button" class="assistant-choix-bouton"
+                        :class="{ actif: placement === sorte }" :aria-pressed="placement === sorte" @click="choisirMenuiserie(sorte)"
+                      >
+                        <i :class="m.icone" aria-hidden="true"></i> {{ placement === sorte ? 'Touchez le mur…' : `Une ${m.libelle.toLowerCase()}` }}
+                      </button>
+                      <button type="button" class="assistant-choix-bouton" :class="{ actif: autreOuverte }" @click="autreOuverte = true; placement = ''">
+                        <i class="fa-solid fa-ruler-combined" aria-hidden="true"></i> Autre
+                      </button>
+                    </div>
+
+                    <ul v-if="murDe(question).menuiseries?.length" class="ouv-liste">
+                      <li v-for="(m, i) in murDe(question).menuiseries" :key="i">
+                        <i :class="MENUISERIES[m.type].icone" aria-hidden="true"></i>
+                        <strong>{{ nomMenuiserie(murDe(question).menuiseries, i) }}</strong>
+                        <span class="ouv-taille">
+                          <input
+                            type="number" inputmode="decimal" min="0.2" max="10" step="0.05" :value="m.largeur" :aria-label="`Largeur de la ${nomMenuiserie(murDe(question).menuiseries, i).toLowerCase()} (m)`"
+                            @input="modifierMenuiserie(question, i, 'largeur', $event.target.value)"
+                          />
+                          ×
+                          <input
+                            type="number" inputmode="decimal" min="0.2" max="10" step="0.05" :value="m.hauteur" :aria-label="`Hauteur de la ${nomMenuiserie(murDe(question).menuiseries, i).toLowerCase()} (m)`"
+                            @input="modifierMenuiserie(question, i, 'hauteur', $event.target.value)"
+                          />
+                          m
+                        </span>
+                        <button type="button" class="ouv-retirer" :aria-label="`Retirer la ${nomMenuiserie(murDe(question).menuiseries, i).toLowerCase()}`" @click="retirerMenuiserie(question, i)">
+                          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+                        </button>
+                      </li>
+                    </ul>
+
+                    <div v-if="autreOuverte || autreTexte(murDe(question))" class="ouv-autre">
+                      <label :for="`champ-${question.cle}`">Autre ouverture (passage, baie…)</label>
+                      <div class="assistant-saisie" :class="{ erreur: calc.erreurs[question.cle] }">
+                        <input
+                          :id="`champ-${question.cle}`" type="number" inputmode="decimal" min="0" step="0.1" placeholder="ex. 2"
+                          :value="autreTexte(murDe(question))" @input="ecrireOuvertures(question, murDe(question).menuiseries || [], $event.target.value)"
+                        />
+                        <span>m²</span>
+                      </div>
+                    </div>
+
+                    <p v-if="totalOuvertures(murDe(question))" class="ouv-total">Total des ouvertures : <strong>{{ formaterNombre(totalOuvertures(murDe(question)), 2) }} m²</strong></p>
+                    <p v-if="calc.erreurs[question.cle]" id="assistant-erreur" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ calc.erreurs[question.cle] }}</p>
+                    <button type="button" class="assistant-lien assistant-passer" @click="aucuneOuverture(question)">Il n’y a ni porte ni fenêtre</button>
+                  </template>
+
                   <template v-else>
                     <label :for="`champ-${question.cle}`" class="assistant-question">{{ question.champ.question }}</label>
                     <p class="assistant-aide">{{ question.champ.aide || aideUnite(question.champ.unite) }}</p>
@@ -420,9 +516,6 @@ const recapitulatif = computed(() => {
                       <button type="button" class="assistant-pas" :aria-label="`Plus ${pasRapide(question.champ)} ${question.champ.unite}`" @pointerdown.prevent @click="ajuster(question, 1)"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                     </div>
                     <p v-if="calc.erreurs[question.cle]" id="assistant-erreur" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ calc.erreurs[question.cle] }}</p>
-                    <button v-if="question.champ.nom === 'ouvertures'" type="button" class="assistant-lien assistant-passer" @click="aucuneOuverture(question)">
-                      Il n’y a ni porte ni fenêtre
-                    </button>
                   </template>
                   </div>
 
@@ -445,7 +538,7 @@ const recapitulatif = computed(() => {
                       </button>
                     </li>
                   </ul>
-                  <button v-if="calc.typeId.value === 'mur'" type="button" class="assistant-lien assistant-ajouter" @click="ajouterMur">
+                  <button v-if="calc.typeId.value === 'mur' && estPro" type="button" class="assistant-lien assistant-ajouter" @click="ajouterMur">
                     <i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter un autre mur
                   </button>
 
@@ -464,7 +557,8 @@ const recapitulatif = computed(() => {
             </div>
 
             <div class="assistant-maquette">
-              <Maquette3D :type="calc.typeId.value" :dimensions="calc.dimensions" :mur-actif="murActif" />            </div>
+              <Maquette3D :type="calc.typeId.value" :dimensions="calc.dimensions" :mur-actif="murActif" :placement="placement" @placer="placerMenuiserie" />
+            </div>
           </section>
         </transition>
       </form>
@@ -474,7 +568,7 @@ const recapitulatif = computed(() => {
 
 <style scoped>
 .calc-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 22px; }
-.calc-modes button { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid var(--gris-200); border-radius: var(--rayon); background: #fff; font: inherit; text-align: left; color: inherit; cursor: pointer; transition: border-color var(--transition), background var(--transition); }
+.calc-modes button { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1.5px solid var(--gris-200); border-radius: var(--rayon); background: var(--carte); font: inherit; text-align: left; color: inherit; cursor: pointer; transition: border-color var(--transition), background var(--transition); }
 .calc-modes button:hover { border-color: var(--lagon-500); }
 .calc-modes button[aria-selected="true"] { border-color: var(--lagon-600); background: var(--lagon-50); }
 .calc-modes i { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--gris-100); color: var(--ardoise); }
@@ -482,7 +576,7 @@ const recapitulatif = computed(() => {
 .calc-modes span { display: flex; flex-direction: column; }
 .calc-modes strong { color: var(--ardoise); }
 .calc-modes small { color: var(--texte-secondaire); font-size: .8rem; }
-.calc-pro { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-radius: var(--rayon); background: var(--ardoise); color: #fff; font-size: .9rem; }
+.calc-pro { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-radius: var(--rayon); background: var(--encre); color: #fff; font-size: .9rem; }
 .calc-pro a { margin-left: auto; color: #fcd34d; font-weight: 700; }
 .calc-pro-badge { padding: 2px 10px; border-radius: 999px; background: #fcd34d; color: var(--ardoise); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 /* Téléphone : deux onglets côte à côte, sans le sous-titre, pour laisser la place au contenu */
@@ -509,8 +603,15 @@ const recapitulatif = computed(() => {
 .assistant-corps { display: flex; flex: 1; flex-direction: column; justify-content: center; padding: 8px 0; }
 .assistant-numero { margin: 0 0 8px; color: var(--lagon-700); font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .assistant-ajouter { align-self: flex-start; margin-bottom: 8px; }
-.assistant-maquette { order: -1; height: 300px; background: radial-gradient(circle at 50% 55%, #fff, var(--lagon-50) 75%); }
-@media (min-width: 900px) { .assistant-maquette { order: 0; height: auto; border-left: 1px solid var(--gris-200); } }
+.assistant-maquette { order: -1; height: 300px; background: radial-gradient(circle at 50% 55%, var(--carte), var(--lagon-50) 75%); }
+/* Ordinateur : hauteur fixe, collée en haut de l'écran. Elle ne suit plus la hauteur du formulaire : quand une ligne
+   s'y ajoute (porte, fenêtre), le dessin ne se recadre pas et la porte reste exactement là où l'on a cliqué. */
+@media (min-width: 900px) {
+  .assistant-maquette {
+    order: 0; align-self: start; position: sticky; top: calc(var(--hauteur-entete) + 16px);
+    height: clamp(440px, calc(100vh - var(--hauteur-entete) - 140px), 620px); border-left: 1px solid var(--gris-200);
+  }
+}
 /* Téléphone et tablette : la maquette reste collée sous l'entête pendant qu'on remplit le formulaire,
    et rétrécit quand le clavier est ouvert (--hauteur-maquette, réglée dans le script) */
 @media (max-width: 899px) {
@@ -531,7 +632,7 @@ const recapitulatif = computed(() => {
   /* … et « Continuer » reste à portée du pouce en bas de l'écran */
   .etape-carreau .assistant-actions {
     position: sticky; bottom: var(--barre-onglets, 0px); z-index: 2; margin: 0 -32px -32px; padding: 12px 32px calc(12px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--gris-200); background: #fff; box-shadow: 0 -8px 18px -14px rgba(11, 18, 32, .3);
+    border-top: 1px solid var(--gris-200); background: var(--carte); box-shadow: 0 -8px 18px -14px rgba(11, 18, 32, .3);
   }
   /* Récapitulatif : rien à saisir, la maquette défile avec la page */
   .etape-recap .assistant-maquette { position: relative; top: auto; height: 180px; }
@@ -542,7 +643,7 @@ const recapitulatif = computed(() => {
 .assistant-lien { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; }
 .assistant-lien:hover { text-decoration: underline; }
 
-.assistant-saisie { display: flex; align-items: center; width: 100%; max-width: 420px; border: 2px solid var(--gris-300); border-radius: var(--rayon); background: #fff; transition: border-color .2s, box-shadow .2s; }
+.assistant-saisie { display: flex; align-items: center; width: 100%; max-width: 420px; border: 2px solid var(--gris-300); border-radius: var(--rayon); background: var(--carte); transition: border-color .2s, box-shadow .2s; }
 .assistant-saisie:focus-within { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .16); }
 .assistant-saisie.erreur { border-color: var(--erreur); }
 .assistant-saisie input { flex: 1; min-width: 0; padding: 16px 18px; border: 0; outline: 0; background: transparent; color: var(--ardoise); font: 600 1.6rem var(--font-corps); }
@@ -551,10 +652,33 @@ const recapitulatif = computed(() => {
 .champ-erreur { margin-top: 10px; }
 
 .assistant-choix { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 8px; }
-.assistant-choix-bouton { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 20px 16px; border: 2px solid var(--gris-200); border-radius: var(--rayon); background: #fff; color: var(--ardoise); font: inherit; font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: border-color .2s, background .2s, transform .2s; }
+.assistant-choix-bouton { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 20px 16px; border: 2px solid var(--gris-200); border-radius: var(--rayon); background: var(--carte); color: var(--ardoise); font: inherit; font-size: 1.05rem; font-weight: 700; cursor: pointer; transition: border-color .2s, background .2s, transform .2s; }
 .assistant-choix-bouton i { color: var(--lagon-600); font-size: 1.2rem; }
 .assistant-choix-bouton small { color: var(--texte-secondaire); font-size: .85rem; font-weight: 500; }
 .assistant-choix-bouton:hover, .assistant-choix-bouton.actif { border-color: var(--lagon-500); background: var(--lagon-50); transform: translateY(-2px); }
+/* Portes et fenêtres : choix compacts, liste des menuiseries placées (taille modifiable), surface « autre » */
+.assistant-choix.ouv-choix { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } /* 3 colonnes, téléphone compris */
+.ouv-choix .assistant-choix-bouton, .calc-app .ouv-choix .assistant-choix-bouton { flex-direction: row; align-items: center; justify-content: center; gap: 8px; padding: 12px 10px; font-size: .92rem; text-align: center; }
+.ouv-choix .assistant-choix-bouton.actif { animation: ouv-attente 1.4s ease-in-out infinite; }
+@keyframes ouv-attente { 50% { box-shadow: 0 0 0 4px rgba(6, 182, 212, .2); } }
+.ouv-liste { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.ouv-liste li { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border: 1px solid var(--bordure); border-radius: var(--rayon); background: var(--carte); }
+.ouv-liste li > i { color: var(--lagon-600); width: 18px; text-align: center; }
+.ouv-liste strong { flex: 1; min-width: 0; font-size: .92rem; color: var(--ardoise); }
+.ouv-taille { display: inline-flex; align-items: center; gap: 4px; color: var(--texte-secondaire); font-size: .85rem; }
+.ouv-taille input { width: 64px; padding: 6px 6px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); background: var(--carte); color: var(--ardoise); font: 600 .9rem var(--font-corps); text-align: center; }
+.ouv-taille input:focus { outline: none; border-color: var(--lagon-500); }
+.ouv-retirer { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: transparent; color: var(--gris-500); }
+.ouv-retirer:hover { background: var(--erreur-clair); color: var(--erreur); }
+.ouv-autre { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+.ouv-autre label { font-size: .88rem; font-weight: 600; color: var(--gris-700); }
+.ouv-autre .assistant-saisie input { padding: 10px 14px; font-size: 1.15rem; }
+.ouv-total { margin-top: 12px; font-size: .9rem; color: var(--texte-secondaire); }
+.ouv-total strong { color: var(--ardoise); }
+@media (max-width: 639px) {
+  .ouv-choix .assistant-choix-bouton, .calc-app .ouv-choix .assistant-choix-bouton { padding: 10px 6px; font-size: .84rem; gap: 6px; }
+  .ouv-taille input { width: 54px; }
+}
 
 .assistant-actions { display: flex; justify-content: space-between; gap: 12px; margin-top: auto; padding-top: 28px; }
 
@@ -578,7 +702,7 @@ const recapitulatif = computed(() => {
   /* deux façons de faire : sélecteur à deux segments */
   .calc-modes { gap: 0; margin: 0 0 20px; padding: 4px; border-radius: 999px; background: rgba(15, 23, 42, .06); }
   .calc-modes button { flex-direction: row; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: var(--gris-600); }
-  .calc-modes button[aria-selected="true"] { background: #fff; color: var(--ardoise); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+  .calc-modes button[aria-selected="true"] { background: var(--carte); color: var(--ardoise); box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
   .calc-modes i, .calc-modes button[aria-selected="true"] i { width: auto; height: auto; border-radius: 0; background: none; color: inherit; font-size: .88rem; }
   .calc-modes button[aria-selected="true"] i { color: var(--lagon-700); }
   .calc-modes strong, .calc-modes small { display: none; }
@@ -607,7 +731,7 @@ const recapitulatif = computed(() => {
   .assistant-contexte { justify-content: flex-start; gap: 10px; margin-bottom: 16px; }
   .assistant-retour-haut {
     display: grid; place-items: center; flex: none; width: 38px; height: 38px; padding: 0;
-    border: 1px solid var(--gris-200); border-radius: 50%; background: #fff; color: var(--ardoise); font-size: .9rem; cursor: pointer;
+    border: 1px solid var(--gris-200); border-radius: 50%; background: var(--carte); color: var(--ardoise); font-size: .9rem; cursor: pointer;
   }
   .assistant-retour-haut:active { background: var(--gris-100); }
   .assistant-compteur { display: inline; margin-left: auto; color: var(--gris-500); font-size: .85rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -620,7 +744,7 @@ const recapitulatif = computed(() => {
   .assistant-choix { grid-template-columns: 1fr; gap: 10px; margin-top: 4px; }
   .assistant-choix-bouton { align-items: flex-start; padding: 15px 18px; border-radius: 16px; text-align: left; font-size: 1rem; }
   .assistant-choix-bouton:hover, .assistant-choix-bouton.actif { transform: none; }
-  .assistant-recap { padding: 0 16px; border: 1px solid var(--gris-200); border-radius: 16px; background: #fff; }
+  .assistant-recap { padding: 0 16px; border: 1px solid var(--gris-200); border-radius: 16px; background: var(--carte); }
   .assistant-recap li:last-child { border-bottom: 0; }
 
   /* un seul gros bouton, fixé en bas au-dessus des onglets ; le retour est en haut */
@@ -651,7 +775,7 @@ const recapitulatif = computed(() => {
   .calc-app .assistant-contexte { order: -2; flex: none; margin-bottom: 10px; }
   .calc-app .assistant-maquette {
     order: -1; position: relative; top: auto; flex: none; min-height: 0; height: clamp(120px, calc(var(--zone-visible, 100dvh) * .36), 320px); margin-bottom: 16px;
-    border: 0; border-radius: 24px; background: radial-gradient(circle at 50% 60%, #fff, var(--lagon-50) 80%);
+    border: 0; border-radius: 24px; background: radial-gradient(circle at 50% 60%, var(--carte), var(--lagon-50) 80%);
     box-shadow: inset 0 0 0 1px rgba(14, 116, 144, .1), 0 14px 30px -18px rgba(14, 116, 144, .45);
     transition: none;
   }
@@ -688,4 +812,35 @@ const recapitulatif = computed(() => {
   .calc-app.calc-clavier .assistant-actions .btn { min-height: 48px; }
 }
 .assistant-pas { display: none; }
+
+/* ---------- Tablette et ordinateur : une seule page fixe ----------
+   La page occupe l'écran sous l'entête et ne défile pas ; un contenu trop long (projets, catalogue, modèles de carreaux,
+   récapitulatif) défile dans sa propre zone, la maquette 3D reste en place. */
+@media (min-width: 640px) {
+  #page-calculateur.page {
+    display: flex; flex-direction: column; height: calc(100dvh - var(--barre-onglets, 0px)); min-height: 0; overflow: hidden;
+    padding-top: calc(var(--hauteur-entete) + 20px); padding-bottom: 20px;
+  }
+  #page-calculateur > .conteneur { display: flex; flex: 1; flex-direction: column; width: 100%; min-height: 0; }
+  .calc-modes, .calc-pro, .assistant-progression { flex: none; }
+  .calc-modes { margin-bottom: 16px; }
+  .assistant-progression { margin-bottom: 18px; }
+  .calc-direct, form { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+  .calc-direct, .assistant-etape, .assistant-contenu { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .calc-direct, .assistant-etape { flex: 1; }
+  .assistant-carte { flex: 1; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+  .assistant-maquette, .etape-recap .assistant-maquette { position: relative; top: auto; }
+  .assistant-contenu :is(input, .assistant-focus, .assistant-question) { scroll-margin-top: 12px; }
+  .etape-carreau .assistant-actions { bottom: 0; }
+}
+@media (min-width: 640px) {
+  /* le conteneur principal (App.vue) a une hauteur minimale d'un écran : avec la barre d'onglets, il ferait défiler */
+  :global(#contenu-principal:has(> #page-calculateur)) { min-height: 0; }
+}
+@media (min-width: 900px) {
+  .assistant-carte { grid-template-rows: minmax(0, 1fr); min-height: 0; }
+  /* la carte a la hauteur de l'écran, pas celle du formulaire (qui défile dedans) : la maquette la remplit
+     sans se recadrer quand une ligne s'ajoute au formulaire */
+  .assistant-maquette { align-self: stretch; height: auto; }
+}
 </style>

@@ -119,7 +119,7 @@ function reinitialiser() { recherche.value = ''; categorie.value = ''; livraison
 .annuaire-barre { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 10px; }
 .annuaire-compteur { margin: 0; font-size: .86rem; color: var(--gris-500); }
 .annuaire-compteur strong { color: var(--ardoise); }
-.annuaire-liste { margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; }
+.annuaire-liste { margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); }
 .annuaire-barre + .annuaire-liste { margin-top: 0; }
 ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 
@@ -148,7 +148,7 @@ ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 /* grand écran : cartes côte à côte, autant de colonnes que la largeur le permet (3 sur un écran de 1920 px) */
 @media (min-width: 1200px) {
   .annuaire-liste { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); align-items: start; gap: 12px; overflow: visible; border: 0; border-radius: 0; background: none; }
-  .annuaire-liste > :deep(li), .annuaire-liste > :deep(li:last-child) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; }
+  .annuaire-liste > :deep(li), .annuaire-liste > :deep(li:last-child) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); }
   .annuaire-squelette:last-child { border-bottom: 1px solid var(--gris-200); }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -167,9 +167,9 @@ ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 
   .annuaire-barre { margin: 16px 2px 8px; }
   .annuaire-liste { display: flex; flex-direction: column; gap: 10px; overflow: visible; border: 0; border-radius: 0; background: none; }
-  .annuaire-liste > :deep(li) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; background: #fff; box-shadow: 0 4px 14px -10px rgba(11, 58, 77, .25); }
+  .annuaire-liste > :deep(li) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; background: var(--carte); box-shadow: 0 4px 14px -10px rgba(11, 58, 77, .25); }
   ul.annuaire-liste[aria-busy] { margin-top: 16px; }
-  .annuaire-squelette, .annuaire-squelette:last-child { border: 1px solid var(--gris-200); border-radius: 18px; background: #fff; }
+  .annuaire-squelette, .annuaire-squelette:last-child { border: 1px solid var(--gris-200); border-radius: 18px; background: var(--carte); }
 
   .annuaire-vide { margin-top: 16px; padding: 40px 20px; }
 

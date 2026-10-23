@@ -157,7 +157,7 @@ export function analyserCatalogue(texte, materiauxBtm, articles = [], carreaux =
       return
     }
 
-    // Carreau : un modèle de l'onglet Carreaux, au prix d'un carreau
+    // Carreau : un modèle de l'onglet Carreaux, au carreau ou au carton selon la désignation
     if (carreaux && estCarreau(val('designation'))) {
       const c = lireCarreau(val('designation'), carreaux.formats)
       if (!c.format) return erreur(`format de carreau non proposé (${c.cote} cm) : « ${c.nom} ». Formats possibles : ${carreaux.formats.join(', ')}.`)
@@ -165,7 +165,8 @@ export function analyserCatalogue(texte, materiauxBtm, articles = [], carreaux =
       const k = `carreau:${cle(c.nom)}`
       if (vus.has(k)) return erreur(`« ${c.nom} » apparaît deux fois.`)
       vus.add(k)
-      const modele = { nom: c.nom, format: c.format, prix_unitaire: Math.round((prix / c.pieces) * 100) / 100, prix_comptoir: null, rupture, actif: vendu, pieces: c.pieces }
+      // carton de plusieurs pièces : le modèle est vendu au carton, au prix du fichier
+      const modele = { nom: c.nom, format: c.format, prix_unitaire: prix, carreaux_par_carton: c.pieces > 1 ? c.pieces : null, prix_comptoir: null, stock, rupture, actif: vendu, pieces: c.pieces }
       const existant = carreauxExistants[cle(c.nom)]
       if (existant) resultat.carreauxModifies.push({ ...existant, ...modele })
       else resultat.carreauxNouveaux.push({ ...modele, finition: '', couleur: '#e9e5de', photo_url: '' })

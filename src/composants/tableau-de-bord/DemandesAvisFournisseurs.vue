@@ -115,7 +115,7 @@ async function decliner(a) {
 
 <style scoped>
 .da { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
-.da-carte { display: flex; flex-direction: column; gap: 16px; padding: 20px 22px; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; }
+.da-carte { display: flex; flex-direction: column; gap: 16px; padding: 20px 22px; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); }
 .da-demande { border-color: #fde68a; background: linear-gradient(180deg, #fffbeb, #fff 70%); }
 .da-tete { display: flex; align-items: flex-start; gap: 14px; }
 .da-tete strong { display: block; color: var(--ardoise); font-size: 1.02rem; }

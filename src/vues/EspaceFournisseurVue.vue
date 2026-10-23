@@ -13,6 +13,7 @@ import { useAuth } from '@/composables/useAuth.js'
 import { initiales } from '@/composables/useAdmin.js'
 import { useEspaceFournisseur } from '@/composables/useEspaceFournisseur.js'
 import { activerModeSite } from '@/composables/useModeSite.js'
+import { useOuverture } from '@/composables/useOuverture.js'
 import { useThemeAdmin } from '@/composables/useThemeAdmin.js'
 import LogoBtm from '@/composants/commun/LogoBtm.vue'
 import AdminRetours from '@/composants/admin/AdminRetours.vue'
@@ -65,7 +66,9 @@ watch(section, (s) => { document.title = `${s.titre} — Espace fournisseur BTM`
 onMounted(charger)
 watch(fournisseurLie, charger)
 
-// « Voir le site » : le fournisseur parcourt le site public en tant que professionnel
+// « Voir le site » : le fournisseur parcourt le site public en tant que professionnel.
+// Seulement une fois le site en ligne : en attente de partenaires ou en maintenance, le site public reste fermé à tous.
+const { enAttente: siteFerme } = useOuverture()
 function voirLeSite() {
   activerModeSite()
   router.push('/')
@@ -105,7 +108,7 @@ async function seDeconnecter() {
       </nav>
 
       <div class="adm-lat-bas">
-        <button type="button" class="adm-lat-lien" title="Parcourir le site comme un professionnel" @click="voirLeSite"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Voir le site</span></button>
+        <button v-if="siteFerme === false" type="button" class="adm-lat-lien" title="Parcourir le site comme un professionnel" @click="voirLeSite"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i><span>Voir le site</span></button>
         <button type="button" class="adm-lat-lien" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i><span>Déconnexion</span></button>
       </div>
     </aside>

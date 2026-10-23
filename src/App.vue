@@ -57,7 +57,14 @@ const { environnement, partenaires, mode: modeOuverture, enAttente } = useOuvert
 // fournisseur, la vérification de la session prend un instant, et le site public (en-tête, page d'attente) apparaissait
 // pendant ce temps avant de laisser place au tableau de bord.
 const pageChargee = computed(() => route.matched.length > 0)
-const pageAttente = computed(() => pageChargee.value && enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value && !fournisseurLie.value)
+// Un compte fournisseur n'y échappe pas : tant que le site n'est pas en ligne, « Voir le site » ne l'ouvre pas non plus
+const pageAttente = computed(() => pageChargee.value && enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value)
+// fournisseur resté en « Voir le site » (onglet ouvert avant la fermeture du site) : retour à son espace
+watch([enAttente, modeSite, fournisseurLie], ([attente, visite, fid]) => {
+  if (attente !== true || !visite || !fid) return
+  quitterModeSite()
+  router.replace({ name: 'espace-fournisseur' })
+})
 const stopPret = watch([pageChargee, () => pageAttente.value && enAttente.value === null], async ([chargee, verification]) => {
   if (!chargee || verification) return
   stopPret()

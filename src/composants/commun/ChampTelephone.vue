@@ -13,12 +13,13 @@ const props = defineProps({
   label: { type: String, default: 'Numéro de téléphone' },
   erreur: { type: String, default: '' },
   requis: { type: Boolean, default: false },
-  aide: { type: String, default: '' } // texte affiché sous le champ tant qu'il n'y a pas d'erreur
+  aide: { type: String, default: '' }, // texte affiché sous le champ tant qu'il n'y a pas d'erreur
+  paysFixe: { type: String, default: '' } // code pays imposé (ex. 'YT') : indicatif affiché, sans liste des pays
 })
 const emit = defineEmits(['update:modelValue', 'update:valide'])
 
 const initial = analyserTelephone(props.modelValue)
-const codePays = ref(initial?.pays.code || 'YT')
+const codePays = ref(props.paysFixe || initial?.pays.code || 'YT')
 const national = ref(initial?.national || '')
 
 const pays = computed(() => trouverPays(codePays.value))
@@ -71,7 +72,8 @@ const message = computed(() => props.erreur || (formatInvalide.value ? `Numéro 
   <div class="champ tel">
     <label :for="id">{{ label }}<span v-if="requis" class="tel-requis" aria-hidden="true"> *</span></label>
     <div class="tel-groupe" :class="{ 'tel-invalide': !!message, 'tel-ok': valide && !message }">
-      <label class="tel-pays" :for="`${id}-pays`">
+      <span v-if="paysFixe" class="tel-pays tel-pays-fixe"><span class="tel-indicatif">+{{ pays.indicatif }}</span></span>
+      <label v-else class="tel-pays" :for="`${id}-pays`">
         <span class="sr-only">Pays</span>
         <select :id="`${id}-pays`" v-model="codePays" @change="surPays" :aria-label="'Pays du numéro de téléphone'">
           <option v-for="p in PAYS" :key="p.code" :value="p.code">{{ p.nom }} (+{{ p.indicatif }})</option>
@@ -103,6 +105,8 @@ const message = computed(() => props.erreur || (formatInvalide.value ? `Numéro 
   position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: 0;
 }
 .tel-indicatif { padding: 0 30px 0 14px; font-family: var(--font-mono); font-weight: 600; color: var(--texte); white-space: nowrap; }
+.tel-pays-fixe { cursor: default; }
+.tel-pays-fixe .tel-indicatif { padding-right: 14px; color: var(--texte-secondaire); }
 .tel-chevron { position: absolute; right: 11px; font-size: .7rem; color: var(--gris-400); pointer-events: none; }
 
 /* Le champ de saisie hérite du style global .champ input : on retire sa bordure, portée par le groupe */

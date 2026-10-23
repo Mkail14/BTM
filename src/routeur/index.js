@@ -37,19 +37,21 @@ const routeur = createRouter({
  * getSession() lit la session locale : pas d'appel réseau pour un visiteur non connecté.
  */
 let cacheRole = { id: null, role: null, fournisseur_id: null }
-export async function roleSession() {
+export async function roleSession({ premiere = false } = {}) {
   if (!supabaseConfigure) return null
   // Une session périmée fait renouveler le jeton par le réseau : sans réponse en 4 s, on navigue comme un visiteur
-  // plutôt que de laisser le clic sans effet (la RLS protège les données quoi qu'il arrive)
+  // plutôt que de laisser le clic sans effet (la RLS protège les données quoi qu'il arrive).
+  // Première page (rechargement, lien) : on attend bien plus longtemps — sinon l'admin rechargé passait par l'accueil.
   const { data } = await Promise.race([
     supabase.auth.getSession(),
-    new Promise((r) => setTimeout(() => r({ data: { session: null } }), 4000))
+    new Promise((r) => setTimeout(() => r({ data: { session: null } }), premiere ? 15000 : 4000))
   ])
   const id = data.session?.user?.id
   if (!id) return null
   if (cacheRole.id === id) return cacheRole
-  const lu = { id, ...(await lireRoleCompte(id)) }
-  if (lu.role) cacheRole = lu // lecture ratée (réseau) : pas mise en cache, retentée à la page suivante
+  let lu = { id, ...(await lireRoleCompte(id)) }
+  if (!lu.role) lu = { id, ...(await lireRoleCompte(id)) } // lecture ratée (réseau) : une seconde tentative
+  if (lu.role) cacheRole = lu // encore ratée : pas mise en cache, retentée à la page suivante
   return lu
 }
 
@@ -67,7 +69,7 @@ let lienMotDePasse = /[#&?]type=recovery\b/.test(ARRIVEE) || /[#&?]error_code=ot
 
 routeur.beforeEach(async (to, from) => {
   // Session locale + rôle en cache : aucun appel réseau à la navigation (la base revérifie tout par la RLS)
-  const compte = await roleSession()
+  const compte = await roleSession({ premiere: !from.matched.length })
   // après la lecture de la session : Supabase a déjà lu le jeton dans l'adresse, la redirection ne le lui retire pas
   if (lienMotDePasse) {
     lienMotDePasse = false

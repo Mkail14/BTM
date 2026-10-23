@@ -51,11 +51,13 @@ function retourEspace() {
 // Trois versions : en ligne (btm.yt), develop, locale. En ligne, tant que le site n'a pas assez de fournisseurs
 // partenaires, la page d'attente remplace le site public (espaces admin / fournisseur et pages légales exceptés).
 const { environnement, partenaires, mode: modeOuverture, enAttente } = useOuverture()
-const pageAttente = computed(() => enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value && !fournisseurLie.value)
-
 // Écran de chargement (index.html) : retiré quand la première page est affichée — routeur prêt et, en ligne,
-// ouverture vérifiée. Le pied de page n'apparaît qu'avec une page : plus de pied collé sous l'en-tête au rechargement.
+// ouverture vérifiée.
+// Rien n'est affiché tant que le routeur n'a pas choisi la première page : au rechargement de l'admin ou de l'espace
+// fournisseur, la vérification de la session prend un instant, et le site public (en-tête, page d'attente) apparaissait
+// pendant ce temps avant de laisser place au tableau de bord.
 const pageChargee = computed(() => route.matched.length > 0)
+const pageAttente = computed(() => pageChargee.value && enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value && !fournisseurLie.value)
 const stopPret = watch([pageChargee, () => pageAttente.value && enAttente.value === null], async ([chargee, verification]) => {
   if (!chargee || verification) return
   stopPret()
@@ -86,7 +88,7 @@ watch(() => route.query, (q) => {
   <template v-if="pageAttente">
     <BientotVue v-if="enAttente" :partenaires="partenaires || 0" :maintenance="modeOuverture === 'maintenance'" />
   </template>
-  <template v-else>
+  <template v-else-if="pageChargee">
   <a class="lien-evitement" href="#contenu-principal">Aller au contenu</a>
   <EnteteApp v-if="!pleinEcran" />
   <main id="contenu-principal">
@@ -101,7 +103,7 @@ watch(() => route.query, (q) => {
     </router-view>
   </main>
   <template v-if="!pleinEcran">
-    <PiedDePage v-if="pageChargee && !PAGES_SANS_PIED.includes(route.name)":class="{ 'pied-ordinateur': !piedSurTelephone }" />
+    <PiedDePage v-if="!PAGES_SANS_PIED.includes(route.name)" :class="{ 'pied-ordinateur': !piedSurTelephone }" />
     <AideFlottante />
     <BandeauAnnonce />
     <BandeauCookies />

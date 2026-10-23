@@ -110,11 +110,7 @@ async function envoyer() {
         </div>
 
         <div class="bientot-actions">
-          <button type="button" class="bientot-cta" @click="ouvrir">
-            <i class="fa-solid fa-handshake bientot-cta-icone" aria-hidden="true"></i>
-            <span>Devenir partenaire</span>
-            <span class="bientot-cta-fleche" aria-hidden="true"><i class="fa-solid fa-arrow-right"></i></span>
-          </button>
+          <BoutonBase variante="primaire" icone-droite="fa-solid fa-arrow-right" @click="ouvrir">Devenir partenaire</BoutonBase>
         </div>
       </div>
       <!-- le chantier en cours : un robot BTM monte un mur, en boucle (ordinateur seulement) -->
@@ -209,31 +205,7 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 .bientot-avancement span { width: 56px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .2); }
 .bientot-avancement span.fait { background: var(--lagon-400); }
 .bientot-avancement small { margin-left: 8px; color: var(--beton); font-size: .85rem; }
-.bientot-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; animation: apparaitre .7s .28s ease both; }
-/* « Devenir partenaire » : pilule lagon lumineuse, flèche dans une pastille qui glisse au survol */
-.bientot-cta {
-  position: relative; display: inline-flex; align-items: center; gap: 12px; height: 60px; padding: 0 8px 0 24px; overflow: hidden;
-  border: 1px solid rgba(165, 243, 252, .35); border-radius: 999px; cursor: pointer;
-  background: linear-gradient(135deg, var(--lagon-400) 0%, var(--lagon-600) 55%, var(--lagon-700) 100%);
-  color: #fff; font: 700 1.05rem var(--font-corps); letter-spacing: .01em;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 14px 34px -10px rgba(6, 182, 212, .65), 0 0 0 6px rgba(34, 211, 238, .08);
-  transition: transform .25s ease, box-shadow .25s ease;
-}
-/* reflet qui traverse le bouton au survol */
-.bientot-cta::before {
-  content: ''; position: absolute; inset: 0; transform: translateX(-120%);
-  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .28) 50%, transparent 70%); transition: transform .7s ease;
-}
-.bientot-cta:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 20px 40px -12px rgba(6, 182, 212, .8), 0 0 0 8px rgba(34, 211, 238, .12); }
-.bientot-cta:hover::before { transform: translateX(120%); }
-.bientot-cta:active { transform: translateY(0) scale(.98); }
-.bientot-cta:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
-.bientot-cta-icone { font-size: 1.15rem; opacity: .95; }
-.bientot-cta-fleche {
-  display: grid; place-items: center; width: 44px; height: 44px; margin-left: 6px; border-radius: 50%;
-  background: #fff; color: var(--lagon-700); font-size: .95rem; transition: transform .25s ease;
-}
-.bientot-cta:hover .bientot-cta-fleche { transform: translateX(3px); }
+.bientot-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; animation: apparaitre .7s .28s ease both; }
 
 .bientot-pied {
   flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding-top: 14px; padding-bottom: 16px;
@@ -271,8 +243,6 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 @media (max-width: 639px) {
   .bientot-surtitre { font-size: .7rem; letter-spacing: .12em; margin-bottom: 14px; }
   .bientot-marque small { display: none; }
-  .bientot-cta { height: 56px; font-size: 1rem; }
-  .bientot-cta-fleche { width: 40px; height: 40px; }
   /* téléphone : la fenêtre monte du bas de l'écran, compacte pour tenir sans défiler */
   .bientot-voile { place-items: end center; padding: 0; }
   .bientot-fenetre { width: 100%; max-height: calc(100dvh - 12px); padding: 22px 18px calc(18px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; }

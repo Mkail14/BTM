@@ -4,6 +4,7 @@ import routeur from './routeur'
 import { chargerContenus } from './composables/useContenuSite.js'
 import { chargerTypesProjets } from './services/supabase/serviceTypesProjets.js'
 import { avancerChargement } from './composables/useEcranChargement.js'
+import { suivreFluidite } from './composables/useAppareil.js'
 // Polices et icônes servies par le site lui-même : aucune requête vers Google Fonts ou un CDN
 // (pas d'adresse IP des visiteurs transmise à un tiers, et un affichage plus rapide)
 import '@fontsource/inter/400.css'
@@ -30,3 +31,4 @@ window.scrollTo(0, 0)
 
 avancerChargement(0.35) // scripts du site chargés : la ligne de l'écran de chargement avance
 createApp(App).use(routeur).mount('#app')
+suivreFluidite() // appareil qui saccade : le site passe en rendu léger (composables/useAppareil.js)

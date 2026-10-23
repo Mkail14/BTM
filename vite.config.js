@@ -23,10 +23,11 @@ export default defineConfig({
     sourcemap: false,
     rollupOptions: {
       output: {
+        // jspdf n'est pas listé : importé à la demande (services/export), il a déjà son propre bloc. Le nommer ici y
+        // rangeait aussi des outils partagés avec le site, et ses 420 Ko étaient téléchargés à chaque ouverture.
         manualChunks: {
           vendor: ['vue', 'vue-router'],
-          supabase: ['@supabase/supabase-js'],
-          pdf: ['jspdf', 'jspdf-autotable']
+          supabase: ['@supabase/supabase-js']
         }
       }
     }

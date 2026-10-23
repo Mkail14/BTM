@@ -9,6 +9,7 @@
  */
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
+import { appareilLeger } from '@/composables/useAppareil.js'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -432,12 +433,12 @@ function cadrer(boiteStruct) {
 function initialiser() {
   const el = conteneur.value
   try {
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
+    renderer = new THREE.WebGLRenderer({ antialias: !appareilLeger.value, alpha: true })
   } catch {
     indisponible.value = true
     return
   }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, props.compacte ? 1.5 : 2))
+  renderer.setPixelRatio(appareilLeger.value ? 1 : Math.min(window.devicePixelRatio, props.compacte ? 1.5 : 2))
   renderer.setSize(el.clientWidth, el.clientHeight)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   el.appendChild(renderer.domElement)
@@ -455,7 +456,7 @@ function initialiser() {
     frame = requestAnimationFrame(boucle)
     if (!visible || !modele) return
     // rotation lente uniquement sur les cartes de choix ; sur le calculateur on garde une vue stable pour lire les cotes
-    if (props.compacte && !glisse && !reduireAnimations) rotationCible += .004
+    if (props.compacte && !glisse && !reduireAnimations && !appareilLeger.value) rotationCible += .004
     const cible = dessus.value ? 0 : rotationCible
     const ecart = cible - modele.rotation.y
     const enMouvement = Math.abs(ecart) > 1e-4

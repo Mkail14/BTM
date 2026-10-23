@@ -22,10 +22,12 @@ function planifier(tache) {
  * Pivote vers l'utilisateur quand `actif` est vrai (survol de la carte).
  * La scène n'est construite qu'à l'approche de l'écran, et le rendu ne tourne que lorsqu'elle est visible.
  */
-import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { appareilLeger } from '@/composables/useAppareil.js'
+import { prendreMoteur, rendreMoteur, dessiner } from './moteurMaquettes.js'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 
 const props = defineProps({
   type: { type: String, required: true },
@@ -33,11 +35,12 @@ const props = defineProps({
 })
 
 const hote = ref(null)
-let renderer, scene, camera, pivot, pmrem, envTexture
+let moteur, toile, scene, camera, pivot
 let rafId = null
-let visible = false
+let visible = false // à moins de 300 px de l'écran : la scène est construite
+let aEcran = false // réellement à l'écran : la scène est animée
 let pivotSurvol = 0
-let observateurVisibilite, observateurTaille
+let observateurVisibilite, observateurEcran, observateurTaille
 let planifiee = false
 let detruite = false
 let inactive = false // accueil quitté (keep-alive)
@@ -164,10 +167,11 @@ function construireDalle(g, m) {
 
   // treillis soudé sur cales
   const debut = coupe - 0.15, fin = Lx / 2 - 0.08, hy = yb + 0.05
+  const cale = matiere('#3b4450') // une seule matière pour toutes les cales : elles se regroupent en un seul dessin
   for (let z = -Lz / 2 + 0.1; z < Lz / 2 - 0.05; z += 0.2) barre(g, fin - debut, 'x', m.acier, (debut + fin) / 2, hy, z)
   for (let x = coupe + 0.1; x < Lx / 2 - 0.05; x += 0.2) {
     barre(g, Lz - 0.12, 'z', m.acier, x, hy + 0.024, 0)
-    for (let z = -Lz / 2 + 0.3; z < Lz / 2; z += 0.6) boite(g, 0.03, 0.04, 0.03, matiere('#3b4450'), x, yb, z)
+    for (let z = -Lz / 2 + 0.3; z < Lz / 2; z += 0.6) boite(g, 0.03, 0.04, 0.03, cale, x, yb, z)
   }
 
   // coffrage bois
@@ -287,16 +291,48 @@ function construireCarrelage(g, m) {
 
 const constructeurs = { mur: construireMur, dalle: construireDalle, fondation: construireFondation, terrasse: construireTerrasse, carrelage: construireCarrelage }
 
+// Une maquette compte jusqu'à une centaine de pièces (parpaings, barres, carreaux) : fusionnées par matière, elles se
+// dessinent en quelques appels par image au lieu d'un par pièce (et autant pour l'ombre). Rendu identique.
+function regrouper(g) {
+  g.updateMatrixWorld(true)
+  const groupes = new Map()
+  for (const p of g.children) {
+    const cle = `${p.material.uuid}|${p.castShadow}|${p.receiveShadow}`
+    if (!groupes.has(cle)) groupes.set(cle, [])
+    groupes.get(cle).push(p)
+  }
+  const regroupe = new THREE.Group()
+  for (const lot of groupes.values()) {
+    // géométries sans index (boîtes arrondies, sphères…) et avec index ne se fusionnent pas ensemble : toutes sans
+    const geos = lot.map((p) => (p.geometry.index ? p.geometry.toNonIndexed() : p.geometry.clone()).applyMatrix4(p.matrixWorld))
+    const fusion = lot.length > 1 ? mergeGeometries(geos) : null
+    if (!fusion) { // pièce seule, ou attributs différents : gardées telles quelles
+      geos.forEach((geo) => geo.dispose())
+      lot.forEach((p) => regroupe.attach(p))
+      continue
+    }
+    geos.forEach((geo) => geo.dispose())
+    lot.forEach((p) => p.geometry.dispose())
+    const m = new THREE.Mesh(fusion, lot[0].material)
+    m.castShadow = lot[0].castShadow
+    m.receiveShadow = lot[0].receiveShadow
+    regroupe.add(m)
+  }
+  return regroupe
+}
+
 /* ---------- Scène ---------- */
 
 let cible = new THREE.Vector3()
 let rayon = 1
 
 function cadrer() {
-  if (!hote.value || !renderer) return
+  if (!hote.value || !scene) return
   const { clientWidth: w, clientHeight: h } = hote.value
   if (!w || !h) return
-  renderer.setSize(w, h, false)
+  const densite = moteur.leger ? 1 : Math.min(window.devicePixelRatio, 2)
+  toile.width = Math.round(w * densite)
+  toile.height = Math.round(h * densite)
   camera.aspect = w / h
   camera.updateProjectionMatrix()
   const demiV = THREE.MathUtils.degToRad(camera.fov / 2)
@@ -310,28 +346,25 @@ function cadrer() {
 }
 
 function initialiser() {
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.outputColorSpace = THREE.SRGBColorSpace
-  renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.05
-  renderer.shadowMap.enabled = true
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap
-  renderer.domElement.addEventListener('webglcontextlost', surPerteContexte)
-  hote.value.appendChild(renderer.domElement)
+  // moteur commun aux cinq maquettes (moteurMaquettes.js) ; la maquette dessine dans son propre canevas 2D
+  moteur = prendreMoteur(appareilLeger.value, surPerteContexte)
+  // appareil léger : ni ombres ni reflets d'ambiance (l'hémisphère éclaire plus fort à la place)
+  const leger = moteur.leger
+  toile = document.createElement('canvas')
+  hote.value.appendChild(toile)
 
   scene = new THREE.Scene()
-  pmrem = new THREE.PMREMGenerator(renderer)
-  envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-  scene.environment = envTexture
-  scene.environmentIntensity = 0.55
+  if (moteur.environnement) {
+    scene.environment = moteur.environnement
+    scene.environmentIntensity = 0.55
+  }
 
   camera = new THREE.PerspectiveCamera(24, 1, 0.1, 100)
 
-  scene.add(new THREE.HemisphereLight('#ffffff', '#d9cfbf', 0.9))
+  scene.add(new THREE.HemisphereLight('#ffffff', '#d9cfbf', leger ? 1.6 : 0.9))
   const soleil = new THREE.DirectionalLight('#fff3df', 2.4)
   soleil.position.set(2.5, 5, 3)
-  soleil.castShadow = true
+  soleil.castShadow = !leger
   soleil.shadow.mapSize.set(1024, 1024)
   Object.assign(soleil.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3, near: 0.5, far: 15 })
   soleil.shadow.bias = -0.0004
@@ -344,8 +377,9 @@ function initialiser() {
   scene.add(sol)
 
   // Maquette : construite, centrée, posée au sol et mise à l'échelle
-  const maquette = new THREE.Group()
-  constructeurs[props.type]?.(maquette, materiaux())
+  const pieces = new THREE.Group()
+  constructeurs[props.type]?.(pieces, materiaux())
+  const maquette = regrouper(pieces)
   const boiteEnglobante = new THREE.Box3().setFromObject(maquette)
   const taille = boiteEnglobante.getSize(new THREE.Vector3())
   const centre = boiteEnglobante.getCenter(new THREE.Vector3())
@@ -361,7 +395,7 @@ function initialiser() {
 }
 
 function rendre() {
-  if (renderer) renderer.render(scene, camera)
+  if (scene) dessiner(scene, camera, toile)
 }
 
 // balancement lent : 30 images par seconde suffisent, et les cinq vitrines de l'accueil coûtent deux fois moins
@@ -376,7 +410,7 @@ function boucle(temps) {
 }
 
 function demarrer() {
-  if (rafId || mouvementReduit || !visible || !renderer) return
+  if (rafId || mouvementReduit || appareilLeger.value || !aEcran || !scene) return
   rafId = requestAnimationFrame(boucle)
 }
 function arreter() {
@@ -385,7 +419,7 @@ function arreter() {
 }
 
 async function construire() {
-  if (detruite || renderer || !hote.value) return
+  if (detruite || scene || !hote.value) return
   // accueil quitté entre-temps (keep-alive) : la scène sera construite au retour
   if (inactive || !hote.value.isConnected) { planifiee = false; return }
   try {
@@ -395,15 +429,17 @@ async function construire() {
     return
   }
   // shaders compilés en parallèle (KHR_parallel_shader_compile) : le premier rendu ne fige plus la page
-  try { await renderer.compileAsync(scene, camera) } catch { /* navigateur sans compilation asynchrone : compilés au premier rendu */ }
-  if (detruite || !renderer) return // libérée pendant la compilation (page quittée, contexte perdu)
+  // (déjà prêts si une autre maquette utilise les mêmes matières : moteur commun)
+  const maScene = scene
+  try { await moteur.renderer.compileAsync(scene, camera) } catch { /* navigateur sans compilation asynchrone : compilés au premier rendu */ }
+  if (detruite || scene !== maScene) return // libérée pendant la compilation (page quittée, contexte perdu)
   cadrer()
   observateurTaille = new ResizeObserver(cadrer)
   observateurTaille.observe(hote.value)
   demarrer()
 }
 
-/** Libère la scène et son contexte WebGL (le navigateur n'en accepte qu'un nombre limité en même temps) */
+/** Libère la scène, et le moteur commun si plus aucune maquette ne s'en sert (contextes WebGL limités par navigateur) */
 function liberer() {
   arreter()
   observateurTaille?.disconnect()
@@ -415,16 +451,11 @@ function liberer() {
       o.material.dispose()
     }
   })
-  envTexture?.dispose()
-  pmrem?.dispose()
-  scene = envTexture = pmrem = pivot = null
-  if (renderer) {
-    renderer.domElement.removeEventListener('webglcontextlost', surPerteContexte)
-    renderer.dispose()
-    renderer.forceContextLoss() // dispose() seul garde le contexte WebGL ouvert jusqu'au ramasse-miettes
-    renderer.domElement.remove()
-    renderer = null
-  }
+  scene = pivot = null
+  toile?.remove()
+  toile = null
+  if (moteur) rendreMoteur(surPerteContexte)
+  moteur = null
   planifiee = false
 }
 function reconstruireSiVisible() {
@@ -435,8 +466,7 @@ function reconstruireSiVisible() {
  * Contexte coupé par le navigateur (trop de scènes 3D ouvertes, mise en veille, carte graphique réinitialisée…) :
  * sans ceci la maquette restait vide jusqu'au rechargement de la page. On repart d'une scène neuve.
  */
-function surPerteContexte(e) {
-  e.preventDefault()
+function surPerteContexte() {
   liberer()
   reconstruireSiVisible()
 }
@@ -446,18 +476,22 @@ onMounted(() => {
   observateurVisibilite = new IntersectionObserver(([entree]) => {
     visible = entree.isIntersecting
     if (visible) reconstruireSiVisible()
-    visible ? demarrer() : arreter()
   }, { rootMargin: '300px 0px' })
   observateurVisibilite.observe(hote.value)
+  // animée seulement à l'écran : dans la marge, une maquette tournait pour rien (les cinq à la fois sous le héros)
+  observateurEcran = new IntersectionObserver(([entree]) => { aEcran = entree.isIntersecting; aEcran ? demarrer() : arreter() })
+  observateurEcran.observe(hote.value)
 })
 // Accueil gardé en mémoire (keep-alive) : en le quittant, les scènes sont libérées pour laisser leurs contextes
 // WebGL aux autres pages (calculateur, projet pro) ; elles sont reconstruites au retour.
 onDeactivated(() => { inactive = true; liberer() })
+watch(appareilLeger, arreter) // saccades mesurées : la maquette reste sur sa dernière image
 onActivated(() => { inactive = false; reconstruireSiVisible(); demarrer() })
 
 onBeforeUnmount(() => {
   detruite = true
   observateurVisibilite?.disconnect()
+  observateurEcran?.disconnect()
   liberer()
 })
 </script>

@@ -1,11 +1,13 @@
 <script setup>
-import { ref } from 'vue'
+import { defineAsyncComponent, ref } from 'vue'
 import { typesProjets } from '@/donnees/typesProjets.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
-import Maquette3D from './Maquette3D.vue'
+// three.js n'est téléchargé que si une maquette s'affiche : un téléphone (vitrine masquée) ouvre l'accueil sans lui
+const Maquette3D = defineAsyncComponent(() => import('./Maquette3D.vue'))
 
 const contenu = useContenuSite()
 const survol = ref(null)
+const telephone = window.matchMedia('(max-width: 639px)').matches
 </script>
 
 <template>
@@ -26,7 +28,7 @@ const survol = ref(null)
           @focus="survol = t.id" @blur="survol = null"
         >
           <span class="ouvrage-num">0{{ i + 1 }}</span>
-          <div class="ouvrage-scene"><Maquette3D :type="t.id" :actif="survol === t.id" /></div>
+          <div class="ouvrage-scene"><Maquette3D v-if="!telephone" :type="t.id" :actif="survol === t.id" /></div>
           <div class="ouvrage-pied">
             <div>
               <h3>{{ t.libelle }}</h3>

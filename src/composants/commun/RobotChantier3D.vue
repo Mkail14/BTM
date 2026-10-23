@@ -11,6 +11,7 @@
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import * as THREE from 'three'
+import { appareilLeger } from '@/composables/useAppareil.js'
 
 const conteneur = ref(null)
 let renderer, scene, camera, raf, observateur
@@ -82,8 +83,8 @@ function construire() {
   camera.position.set(0, 2.6, 6.5)
   camera.lookAt(0, 0.5, 0)
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer = new THREE.WebGLRenderer({ antialias: !appareilLeger.value, alpha: true })
+  renderer.setPixelRatio(appareilLeger.value ? 1 : Math.min(window.devicePixelRatio, 2))
   renderer.setSize(largeur, hauteur)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.shadowMap.enabled = true

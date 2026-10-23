@@ -23,6 +23,8 @@ const pleinEcran = computed(() => !!route.meta.pleinEcran)
 // Il reste sur l'accueil (contact, réseaux, liens légaux) et sur les pages légales.
 const PAGES_AVEC_PIED = ['accueil', 'conditions', 'confidentialite']
 const piedSurTelephone = computed(() => PAGES_AVEC_PIED.includes(route.name))
+// Le calculateur tient dans l'écran, sans défilement : pas de pied de page, quel que soit l'écran
+const PAGES_SANS_PIED = ['calculateur']
 
 // Les comptes admin et fournisseur n'utilisent pas le site public : si le compte le devient sur une page
 // publique (connexion dans un autre onglet…), il rejoint son espace.
@@ -89,7 +91,8 @@ watch(() => route.query, (q) => {
   <EnteteApp v-if="!pleinEcran" />
   <main id="contenu-principal">
     <router-view v-slot="{ Component }">
-      <transition name="fondu" mode="out-in">
+      <!-- Vers l'espace admin ou fournisseur, pas de fondu : il laissait voir la page quittée (l'accueil) une demi-seconde -->
+      <transition name="fondu" mode="out-in" :css="!pleinEcran">
         <!-- L'accueil reste en mémoire : y revenir ne reconstruit pas ses 5 scènes 3D (≈ 0,6 s de page figée) -->
         <keep-alive include="AccueilVue">
           <component :is="Component" />
@@ -98,7 +101,7 @@ watch(() => route.query, (q) => {
     </router-view>
   </main>
   <template v-if="!pleinEcran">
-    <PiedDePage v-if="pageChargee" :class="{ 'pied-ordinateur': !piedSurTelephone }" />
+    <PiedDePage v-if="pageChargee && !PAGES_SANS_PIED.includes(route.name)":class="{ 'pied-ordinateur': !piedSurTelephone }" />
     <AideFlottante />
     <BandeauAnnonce />
     <BandeauCookies />
@@ -124,7 +127,7 @@ watch(() => route.query, (q) => {
 #contenu-principal { min-height: 100vh; }
 .lien-evitement {
   position: absolute; left: 16px; top: -60px; z-index: 1000; padding: 10px 16px;
-  background: var(--ardoise); color: #fff; border-radius: 8px; transition: top .2s;
+  background: var(--encre); color: #fff; border-radius: 8px; transition: top .2s;
 }
 .lien-evitement:focus { top: 12px; }
 .visite-fournisseur {

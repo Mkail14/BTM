@@ -20,7 +20,7 @@ const icones = { avertissement: 'fa-solid fa-triangle-exclamation', info: 'fa-so
 }
 .bandeau i { font-size: 1.2rem; margin-top: 2px; flex-shrink: 0; }
 .bandeau-compact { padding: 10px 14px; font-size: .86rem; }
-.bandeau-avertissement { background: #fff; border-color: var(--gris-300); border-left: 4px solid var(--sable-fonce); color: var(--gris-700); }
+.bandeau-avertissement { background: var(--carte); border-color: var(--gris-300); border-left: 4px solid var(--sable-fonce); color: var(--gris-700); }
 .bandeau-avertissement i { color: var(--sable-fonce); }
 .bandeau-info { background: var(--lagon-50); border-color: var(--lagon-200); color: var(--lagon-900); }
 .bandeau-info i { color: var(--lagon-600); }

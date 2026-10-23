@@ -74,7 +74,38 @@ export const lireUtilisateur = (id) => fonctionAdmin({ action: 'lire', id })
 export const modifierUtilisateur = (id, champs) => fonctionAdmin({ action: 'modifier', id, ...champs })
 export const reinitialiserMotDePasse = (id) => fonctionAdmin({ action: 'reinitialiser', id, origine: SITE_PUBLIC })
 /** Suppression définitive du compte (refusée par le serveur pour son propre compte) */
-export const supprimerUtilisateur = (id) => fonctionAdmin({ action: 'supprimer', id })
+/** Le crédit fidélité restant est annulé avec `motif` (obligatoire s'il reste du crédit), preuve dans credits_annules */
+export const supprimerUtilisateur = (id, motif = '') => fonctionAdmin({ action: 'supprimer', id, motif })
+export const soldeCreditUtilisateur = async (id) => { verifier(); return Number(ok(await supabase.rpc('solde_credit', { p_utilisateur: id }))) || 0 }
+/** Crédits annulés à la suppression d'un compte (preuve : montant, motif, mouvements, auteur) ; [] avant la migration registre_fonds */
+export async function listerCreditsAnnules() {
+  verifier()
+  const { data, error } = await supabase.from('credits_annules').select('*').order('cree_le', { ascending: false })
+  if (error) { if (CODES_MIGRATION.includes(error.code)) return []; throw traduire(error) }
+  return data.map((c) => ({ ...c, montant: Number(c.montant) }))
+}
+/** Crédit fidélité cumulé par compte : { [utilisateur_id]: { gagne, utilise, solde, mouvements, dernier } } (lecture admin, RLS) */
+export async function listerCredits() {
+  verifier()
+  const lignes = []
+  for (let debut = 0; ; debut += 1000) { // PostgREST plafonne à 1000 lignes par requête
+    const page = ok(await supabase.from('credits_fidelite').select('utilisateur_id, montant, cree_le').order('id').range(debut, debut + 999))
+    lignes.push(...page)
+    if (page.length < 1000) break
+  }
+  const parCompte = {}
+  for (const l of lignes) {
+    const c = (parCompte[l.utilisateur_id] ||= { gagne: 0, utilise: 0, solde: 0, mouvements: 0, dernier: null })
+    const m = Number(l.montant) || 0
+    if (m >= 0) c.gagne += m
+    else c.utilise -= m
+    c.solde += m
+    c.mouvements++
+    if (!c.dernier || l.cree_le > c.dernier) c.dernier = l.cree_le
+  }
+  for (const c of Object.values(parCompte)) for (const k of ['gagne', 'utilise', 'solde']) c[k] = Math.round(c[k] * 100) / 100
+  return parCompte
+}
 /** Bannissement (migration 0022) : `jusqua` = date ISO de fin, ou null pour un ban à vie */
 export const bannirUtilisateur = (id, jusqua, motif) => fonctionAdmin({ action: 'bannir', id, jusqua: jusqua || 'vie', motif })
 export const debannirUtilisateur = (id) => fonctionAdmin({ action: 'debannir', id })
@@ -112,11 +143,18 @@ export const supprimerProjet = async (id) => { verifier(); ok(await supabase.fro
 // ---------- Avis -----------------------------------------------------------------
 export async function listerAvis() {
   verifier()
-  const lignes = ok(await supabase.from('avis').select('*').order('cree_le', { ascending: false }))
-  return lignes.map((a) => ({ ...a, visible: a.visible !== false })) // colonne absente avant 0007 : tout est visible
+  // avis des clients sur les fournisseurs (publiés seulement) : même liste, source « fournisseur », table à part
+  const [lignes, surFournisseurs] = await Promise.all([
+    supabase.from('avis').select('*').order('cree_le', { ascending: false }).then(ok),
+    supabase.from('avis_fournisseurs').select('*').eq('statut', 'publie').then(ok).catch(() => []) // migration absente : aucun
+  ])
+  return [
+    ...lignes.map((a) => ({ ...a, visible: a.visible !== false })), // colonne absente avant 0007 : tout est visible
+    ...surFournisseurs.map((a) => ({ ...a, source: 'fournisseur', table: 'avis_fournisseurs', ville: `sur ${a.fournisseur_nom}`, cree_le: a.repondu_le }))
+  ].sort((x, y) => new Date(y.cree_le) - new Date(x.cree_le))
 }
-export const definirAvisVisible = async (id, visible) => { verifier(); ok(await supabase.from('avis').update({ visible }).eq('id', id)) }
-export const supprimerAvis = async (id) => { verifier(); ok(await supabase.from('avis').delete().eq('id', id)) }
+export const definirAvisVisible = async (id, visible, table = 'avis') => { verifier(); ok(await supabase.from(table).update({ visible }).eq('id', id)) }
+export const supprimerAvis = async (id, table = 'avis') => { verifier(); ok(await supabase.from(table).delete().eq('id', id)) }
 // ---------- Réalisations (accueil, migration 0025) ------------------------------------------
 export async function listerRealisations() {
   verifier()
@@ -327,10 +365,17 @@ export async function listerReversements() {
   if (error) throw traduire(error)
   return data.map(versReversement)
 }
-/** decision : 'valide' (virement reçu) | 'refuse' (motif obligatoire, affiché au fournisseur) */
-export async function statuerReversement(id, decision, motif) {
+/** RIB des fournisseurs (saisis par eux) : { [fournisseur_id]: { titulaire, iban, bic, banque, mis_a_jour_le } } */
+export async function listerRibsFournisseurs() {
   verifier()
-  const { data, error } = await supabase.rpc('statuer_reversement', { p_id: id, p_decision: decision, p_motif: motif || null })
+  const { data, error } = await supabase.from('ribs_fournisseurs').select('*')
+  if (error) { if (CODES_MIGRATION.includes(error.code)) return {}; throw traduire(error) }
+  return Object.fromEntries(data.map((r) => [r.fournisseur_id, r]))
+}
+/** Virement de BTM vers un fournisseur : rembourse les codes promo BTM qui ont dépassé sa commission */
+export async function verserAuFournisseur(fournisseurId, montant, reference) {
+  verifier()
+  const { data, error } = await supabase.rpc('verser_au_fournisseur', { p_fournisseur: fournisseurId, p_montant: montant, p_reference: reference })
   if (error) throw traduire(error)
   return versReversement(data)
 }

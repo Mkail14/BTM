@@ -4,8 +4,10 @@
  *  - Encaissements : filtre par période et par moyen, totaux, reçu PDF, export CSV pour la comptabilité,
  *    annulation avec motif obligatoire ;
  *  - Journal : toutes les opérations (encaissements et annulations), jamais modifiées ni effacées ;
- *  - Reversement à BTM : le fournisseur encaisse tout et reverse les frais de service BTM sur le RIB
- *    saisi par l'admin ; son virement est pris en compte dès qu'il le déclare (migrations 0014, 0015).
+ *  - Reversement à BTM : le fournisseur encaisse tout et reverse la commission BTM sur le RIB saisi par l'admin ;
+ *    son virement compte dès qu'il clique « Virement fait », sans validation.
+ *  - BTM vous doit : quand les codes promo BTM dépassent la commission, BTM rembourse la différence sur le RIB
+ *    du fournisseur (enregistré dans Mon compte) ; le virement apparaît dans l'historique dès que BTM l'enregistre.
  */
 import { computed, ref } from 'vue'
 import { useAdmin } from '@/composables/useAdmin.js'
@@ -18,7 +20,7 @@ import AdminPanneau from '@/composants/admin/AdminPanneau.vue'
 const props = defineProps({ recherche: { type: String, default: '' } })
 const { MOYENS } = api
 const { notifier } = useAdmin()
-const { fiche, paiements, journal, journalIndisponible, nomCompte, retirerPaiement, reversements, rib, soldeBtm } = useEspaceFournisseur()
+const { fiche, paiements, journal, journalIndisponible, nomCompte, retirerPaiement, reversements, rib, monRib, soldeBtm } = useEspaceFournisseur()
 
 const onglet = ref('encaissements')
 
@@ -72,14 +74,14 @@ async function declarer() {
   const r = reversement.value
   const montant = Number(String(r.montant).replace(/\s/g, '').replace(',', '.'))
   r.erreur = !(montant > 0) ? 'Le montant doit être supérieur à 0.'
-    : montant > soldeBtm.value.aDeclarer + 0.001 ? `Vous pouvez déclarer au plus ${formaterEuros(soldeBtm.value.aDeclarer)}${soldeBtm.value.attente ? ' (virements en vérification déduits)' : ''}.`
+    : montant > soldeBtm.value.aDeclarer + 0.001 ? `Vous devez au plus ${formaterEuros(soldeBtm.value.aDeclarer)} à BTM.`
     : r.reference.trim().length < 3 ? 'Indiquez la référence de votre virement.' : ''
   if (r.erreur) return
   r.envoi = true
   try {
     const nouveau = await api.declarerReversement(montant, r.reference.trim())
     reversements.value = [nouveau, ...reversements.value]
-    notifier(`Virement de ${formaterEuros(montant)} déclaré, merci ! Il sera déduit dès que BTM l’aura reçu sur son compte.`)
+    notifier(`Virement de ${formaterEuros(montant)} enregistré, merci ! Il est déduit de ce que vous devez à BTM.`)
     reversement.value = null
   } catch (e) {
     r.erreur = e?.message || 'Déclaration impossible.'
@@ -147,9 +149,16 @@ async function confirmerAnnulation() {
     <section class="adm-carte rev">
       <span class="rev-icone"><i class="fa-solid fa-building-columns" aria-hidden="true"></i></span>
       <div class="rev-texte">
-        <span>À reverser à BTM</span>
-        <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
-        <small>Frais de service BTM encaissés pour BTM<template v-if="soldeBtm.reverse"> · {{ formaterEuros(soldeBtm.reverse) }} déjà reversés</template><template v-if="soldeBtm.attente"> · {{ formaterEuros(soldeBtm.attente) }} en vérification par BTM</template></small>
+        <template v-if="soldeBtm.btmDoit">
+          <span>BTM vous doit</span>
+          <strong>{{ formaterEuros(soldeBtm.btmDoit) }}</strong>
+          <small>Remises des codes promo BTM, plus élevées que la commission : BTM vous rembourse la différence par virement</small>
+        </template>
+        <template v-else>
+          <span>À reverser à BTM</span>
+          <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
+          <small>Commission BTM, moins les codes promo BTM que vous avez appliqués<template v-if="soldeBtm.reverse"> · {{ formaterEuros(soldeBtm.reverse) }} déjà reversés</template></small>
+        </template>
       </div>
       <button type="button" class="adm-btn" :class="soldeBtm.aDeclarer > 0 ? 'adm-btn-noir' : 'adm-btn-clair'" @click="ouvrirReversement">
         <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> {{ soldeBtm.aDeclarer > 0 ? 'Reverser à BTM' : 'Voir les reversements' }}
@@ -272,10 +281,16 @@ async function confirmerAnnulation() {
         <dl class="rev-chiffres">
           <div><dt>Dû au total</dt><dd>{{ formaterEuros(soldeBtm.du) }}</dd></div>
           <div><dt>Reçu par BTM</dt><dd>{{ formaterEuros(soldeBtm.reverse) }}</dd></div>
-          <div v-if="soldeBtm.attente"><dt>En vérification</dt><dd>{{ formaterEuros(soldeBtm.attente) }}</dd></div>
-          <div><dt>Reste à reverser</dt><dd>{{ formaterEuros(soldeBtm.reste) }}</dd></div>
+          <div v-if="soldeBtm.recuDeBtm"><dt>Versé par BTM</dt><dd>{{ formaterEuros(soldeBtm.recuDeBtm) }}</dd></div>
+          <div v-if="soldeBtm.btmDoit"><dt>BTM vous doit</dt><dd>{{ formaterEuros(soldeBtm.btmDoit) }}</dd></div>
+          <div v-else><dt>Reste à reverser</dt><dd>{{ formaterEuros(soldeBtm.reste) }}</dd></div>
         </dl>
-        <p v-if="soldeBtm.attente" class="rev-aide"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> Un virement déclaré est déduit dès que BTM l’a vu arriver sur son compte (en général sous quelques jours ouvrés).</p>
+
+        <!-- BTM vous doit de l'argent sans RIB pour le verser : le RIB se gère dans Mon compte -->
+        <p v-if="soldeBtm.btmDoit && !monRib" class="rev-monrib-ligne alerte">
+          <span>Ajoutez votre RIB pour que BTM vous verse {{ formaterEuros(soldeBtm.btmDoit) }}.</span>
+          <router-link to="/espace-fournisseur/compte?vue=rib" class="adm-btn adm-btn-noir adm-btn-sm">Ajouter mon RIB</router-link>
+        </p>
 
         <form v-if="soldeBtm.aDeclarer > 0 && rib" id="form-reversement" class="adm-grille-form" novalidate @submit.prevent="declarer">
           <div class="adm-champ">
@@ -298,7 +313,8 @@ async function confirmerAnnulation() {
               <strong>{{ formaterEuros(r.montant) }}</strong>
               <small>{{ formatHeure(r.declare_le) }} · <span class="adm-mono">{{ r.reference }}</span><template v-if="r.statut === 'refuse' && r.motif_refus"> · {{ r.motif_refus }}</template></small>
             </span>
-            <span v-if="r.statut === 'valide'" class="adm-badge adm-badge-ok">Reçu par BTM</span>
+            <span v-if="r.sens === 'vers_fournisseur'" class="adm-badge adm-badge-ok">Versé par BTM</span>
+            <span v-else-if="r.statut === 'valide'" class="adm-badge adm-badge-ok">Versé à BTM</span>
             <span v-else-if="r.statut === 'declare'" class="adm-badge adm-badge-attention">En vérification</span>
             <span v-else class="adm-badge">Refusé</span>
           </li>
@@ -308,7 +324,7 @@ async function confirmerAnnulation() {
       <template #pied>
         <button type="button" class="adm-btn adm-btn-clair" @click="reversement = null">Fermer</button>
         <button v-if="soldeBtm.aDeclarer > 0 && rib" type="submit" form="form-reversement" class="adm-btn adm-btn-noir" :disabled="reversement.envoi">
-          <span v-if="reversement.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> J’ai effectué le virement
+          <span v-if="reversement.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Virement fait
         </button>
       </template>
     </AdminPanneau>
@@ -380,6 +396,8 @@ async function confirmerAnnulation() {
 .rev-h-texte { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .rev-h-texte small { color: var(--adm-muet); font-size: .8rem; }
 .rev-vide { margin: 0; color: var(--adm-muet); font-size: .88rem; }
+.rev-monrib-ligne { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-survol); font-size: .88rem; }
+.rev-monrib-ligne.alerte { background: var(--adm-attention-fond); color: var(--adm-attention-texte); }
 
 .pai-barre { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 

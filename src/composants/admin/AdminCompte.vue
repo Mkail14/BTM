@@ -1,11 +1,11 @@
 <script setup>
 /**
  * Compte & reversements (clic sur le profil admin) :
- *  - Reversements : les fournisseurs encaissent tout et reversent à BTM sa commission. Un virement déclaré par le
- *    fournisseur reste « en vérification » : il ne compte qu'une fois que l'admin l'a vu arriver sur le compte de BTM
- *    (« Reçu »), ou il est refusé avec un motif affiché au fournisseur (« Pas reçu »).
- *    BTM ne déclenche aucun virement ; la rémunération interne est gérée hors du site (RH).
+ *  - Reversements : les fournisseurs encaissent tout et reversent à BTM sa commission (codes promo BTM déduits).
+ *    Quand les codes promo BTM dépassent la commission, BTM rembourse le fournisseur (« Verser »).
+ *    Pas de validation : un virement compte dès que celui qui l'a fait clique « Virement fait ».
  *  - RIB de BTM : communiqué aux fournisseurs pour leurs reversements (IBAN contrôlé par sa clé).
+ *  - RIB des fournisseurs : saisis par eux dans leur espace, pour que BTM les rembourse.
  *  - Profils : donner un profil (utilisateur, professionnel, fournisseur, administrateur) à un compte à partir de son
  *    e-mail, ou retirer ses droits à un administrateur. Le changement passe par api.definirRoleCompte ; le serveur revérifie le rôle de l'appelant.
  *  - Mise en ligne : ouvrir btm.yt au public, le mettre en maintenance, ou le laisser s'ouvrir seul dès
@@ -23,47 +23,68 @@ const emit = defineEmits(['fermer'])
 const { api, donnees, erreurs, charger, confirmer, executer, notifier } = useAdmin()
 const { utilisateur } = useAuth()
 const onglet = ref('reversements')
-onMounted(() => charger(['versement', 'reversements', 'paiements', 'fournisseurs', 'profils'], { force: true }))
+onMounted(() => charger(['versement', 'reversements', 'paiements', 'fournisseurs', 'profils', 'ribsFournisseurs'], { force: true }))
 
 // ---------- Reversements ----------
 const somme = (liste) => Math.round(liste.reduce((s, x) => s + (Number(x) || 0), 0) * 100) / 100
 const reversements = computed(() => donnees.reversements || [])
-const recus = computed(() => reversements.value.filter((r) => r.statut === 'valide'))
-const aVerifier = computed(() => reversements.value.filter((r) => r.statut === 'declare'))
-const historique = computed(() => reversements.value.filter((r) => r.statut !== 'declare'))
-/** Par fournisseur : commission encaissée, reçue, reste dû (dont virements en vérification) */
+// sens 'vers_btm' : le fournisseur paie BTM ; 'vers_fournisseur' : BTM rembourse les codes promo qu'il a avancés
+const versBtm = (r) => (r.sens || 'vers_btm') === 'vers_btm'
+const recus = computed(() => reversements.value.filter((r) => r.statut === 'valide' && versBtm(r)))
+const verses = computed(() => reversements.value.filter((r) => r.statut === 'valide' && !versBtm(r)))
+const historique = reversements
+/**
+ * Par fournisseur : du = commission − codes promo BTM − crédit utilisé (négatif si BTM a offert plus que la commission),
+ * reçu de lui, versé par BTM ; solde > 0 : il doit à BTM, solde < 0 : BTM lui doit (« btmDoit »).
+ */
 const parFournisseur = computed(() => {
   const noms = Object.fromEntries((donnees.fournisseurs || []).map((f) => [f.id, f.nom]))
   const lignes = {}
-  const ligne = (id) => (lignes[id] ||= { id, nom: noms[id] || 'Fournisseur supprimé', du: 0, recu: 0, attente: 0 })
+  const ligne = (id) => (lignes[id] ||= { id, nom: noms[id] || 'Fournisseur supprimé', du: 0, recu: 0, verse: 0 })
   for (const p of donnees.paiements || []) if (p.fournisseur_id && p.revenu_btm) ligne(p.fournisseur_id).du += Number(p.revenu_btm)
   for (const r of recus.value) ligne(r.fournisseur_id).recu += r.montant
-  for (const r of aVerifier.value) ligne(r.fournisseur_id).attente += r.montant
-  return Object.values(lignes).map((l) => ({ ...l, du: somme([l.du]), recu: somme([l.recu]), attente: somme([l.attente]), reste: Math.max(0, somme([l.du, -l.recu])) })).sort((a, b) => b.reste - a.reste)
+  for (const r of verses.value) ligne(r.fournisseur_id).verse += r.montant
+  return Object.values(lignes).map((l) => {
+    const solde = somme([l.du, -l.recu, l.verse])
+    return { ...l, du: somme([l.du]), recu: somme([l.recu]), verse: somme([l.verse]), reste: Math.max(0, solde), btmDoit: Math.max(0, -solde), rib: donnees.ribsFournisseurs?.[l.id] || null }
+  }).sort((a, b) => b.btmDoit - a.btmDoit || b.reste - a.reste)
 })
 
-// Vérification d'un virement déclaré : « Reçu » (vu sur le compte de BTM) ou « Pas reçu » (motif pour le fournisseur)
-const refus = ref(null) // { id, motif }
-const statutEnCours = ref('')
-async function statuer(r, decision) {
-  const motif = decision === 'refuse' ? refus.value?.motif?.trim() : null
-  if (decision === 'refuse' && !motif) { notifier('Indiquez le motif : il est affiché au fournisseur.', 'erreur'); return }
-  if (decision === 'valide' && !(await confirmer({
-    titre: `Virement de ${formaterEuros(r.montant)} bien reçu ?`, libelle: 'Oui, reçu',
-    texte: `Vérifiez sur le compte de BTM qu’un virement de ${r.fournisseur_nom} avec la référence « ${r.reference} » est bien arrivé. Il sera déduit de ce que doit ce fournisseur.`
-  }))) return
-  statutEnCours.value = r.id
-  const ok = await executer(async () => {
-    const maj = await api.statuerReversement(r.id, decision, motif)
-    donnees.reversements = reversements.value.map((x) => (x.id === r.id ? { ...x, ...maj, fournisseur_nom: x.fournisseur_nom } : x))
-  }, decision === 'valide' ? 'Reversement confirmé : il est déduit de ce que doit le fournisseur.' : 'Reversement refusé : le fournisseur voit le motif dans son espace.')
-  statutEnCours.value = ''
-  if (ok) refus.value = null
+// Virement de BTM vers un fournisseur (remboursement des codes promo BTM qu'il a avancés)
+const versement = ref(null) // { ligne, montant, reference, envoi, erreur }
+function ouvrirVersement(l) {
+  const mois = new Date().toISOString().slice(0, 7).replace('-', '')
+  versement.value = { ligne: l, montant: String(l.btmDoit).replace('.', ','), reference: `BTM-PROMO-${mois}`, envoi: false, erreur: '' }
 }
+async function verser() {
+  const v = versement.value
+  const montant = Number(String(v.montant).replace(',', '.'))
+  v.erreur = ''
+  if (!(montant > 0)) { v.erreur = 'Indiquez le montant viré.'; return }
+  if (montant > v.ligne.btmDoit + 0.001) { v.erreur = `BTM ne doit que ${formaterEuros(v.ligne.btmDoit)} à ce fournisseur.`; return }
+  if (v.reference.trim().length < 3) { v.erreur = 'Indiquez la référence du virement.'; return }
+  v.envoi = true
+  const ok = await executer(async () => {
+    const r = await api.verserAuFournisseur(v.ligne.id, montant, v.reference.trim())
+    donnees.reversements = [{ ...r, fournisseur_nom: v.ligne.nom }, ...reversements.value]
+  }, `Virement de ${formaterEuros(montant)} à ${v.ligne.nom} enregistré.`)
+  v.envoi = false
+  if (ok) versement.value = null
+}
+
+// ---------- RIB des fournisseurs ----------
+const ribsFournisseurs = computed(() => (donnees.fournisseurs || [])
+  .map((f) => ({ id: f.id, nom: f.nom, commune: f.commune, rib: donnees.ribsFournisseurs?.[f.id] || null, btmDoit: parFournisseur.value.find((l) => l.id === f.id)?.btmDoit || 0 }))
+  .sort((a, b) => b.btmDoit - a.btmDoit || !!b.rib - !!a.rib || a.nom.localeCompare(b.nom, 'fr')))
+async function copier(texte, quoi) {
+  try { await navigator.clipboard.writeText(texte); notifier(`${quoi} copié.`, 'info') } catch { notifier('Copie impossible.', 'erreur') }
+}
+
 const totaux = computed(() => ({
   du: somme(parFournisseur.value.map((l) => l.du)),
   recu: somme(parFournisseur.value.map((l) => l.recu)),
-  reste: somme(parFournisseur.value.map((l) => l.reste))
+  reste: somme(parFournisseur.value.map((l) => l.reste)),
+  btmDoit: somme(parFournisseur.value.map((l) => l.btmDoit))
 }))
 
 
@@ -231,6 +252,7 @@ async function changerMode(mode) {
           <i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> Reversements
         </button>
         <button type="button" role="tab" :aria-selected="onglet === 'rib'" @click="onglet = 'rib'"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> RIB de BTM</button>
+        <button type="button" role="tab" :aria-selected="onglet === 'ribsFournisseurs'" @click="onglet = 'ribsFournisseurs'"><i class="fa-solid fa-truck" aria-hidden="true"></i> RIB fournisseurs</button>
         <button type="button" role="tab" :aria-selected="onglet === 'admins'" @click="onglet = 'admins'"><i class="fa-solid fa-id-badge" aria-hidden="true"></i> Profils</button>
         <button type="button" role="tab" :aria-selected="onglet === 'site'" @click="onglet = 'site'"><i class="fa-solid fa-power-off" aria-hidden="true"></i> Mise en ligne</button>
       </div>
@@ -252,16 +274,6 @@ async function changerMode(mode) {
               <i v-if="ouverture.mode === cle" class="fa-solid fa-circle-check site-mode-coche" aria-hidden="true"></i>
             </button>
           </div>
-          <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Le changement s’applique tout de suite, sans redéploiement. Les visiteurs déjà sur le site le voient à leur prochain chargement de page.</p>
-          <section class="site-publication" aria-labelledby="site-publication-titre">
-            <div>
-              <h3 id="site-publication-titre">Publier le code de Develop</h3>
-              <p>Prépare une demande de fusion vers <code>main</code>. GitHub bloque la fusion si des conflits existent : résolvez-les avant de pouvoir mettre le code en ligne. Après la fusion, Vercel déploie la production.</p>
-            </div>
-            <a class="adm-btn adm-btn-noir" href="https://github.com/Mkail14/BTM/compare/main...develop?expand=1" target="_blank" rel="noopener noreferrer">
-              <i class="fa-brands fa-github" aria-hidden="true"></i> Préparer la mise en ligne
-            </a>
-          </section>
         </template>
       </template>
 
@@ -281,52 +293,60 @@ async function changerMode(mode) {
         </div>
 
         <dl class="chiffres">
-          <div><dt>Commission encaissée</dt><dd>{{ formaterEuros(totaux.du) }}</dd></div>
-          <div><dt>Reçue sur le compte</dt><dd>{{ formaterEuros(totaux.recu) }}</dd></div>
-          <div><dt>À vérifier</dt><dd>{{ aVerifier.length }}</dd></div>
+          <div><dt>Revenu BTM encaissé</dt><dd>{{ formaterEuros(totaux.du) }}</dd></div>
+          <div><dt>Reçu sur le compte</dt><dd>{{ formaterEuros(totaux.recu) }}</dd></div>
+          <div v-if="totaux.btmDoit"><dt>BTM doit aux fournisseurs</dt><dd class="btm-doit">{{ formaterEuros(totaux.btmDoit) }}</dd></div>
         </dl>
-
-        <template v-if="aVerifier.length">
-          <h3 class="compte-titre">À vérifier sur le compte bancaire de BTM</h3>
-          <ul class="historique">
-            <li v-for="r in aVerifier" :key="r.id">
-              <span class="historique-icone attente"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i></span>
-              <span class="historique-texte">
-                <strong>{{ formaterEuros(r.montant) }} · {{ r.fournisseur_nom }}</strong>
-                <small>Déclaré le {{ formatDate(r.declare_le) }} · réf. <span class="adm-mono">{{ r.reference }}</span></small>
-              </span>
-              <span v-if="refus?.id !== r.id" class="verif-actions">
-                <button type="button" class="adm-btn adm-btn-noir adm-btn-sm" :disabled="!!statutEnCours" @click="statuer(r, 'valide')">
-                  <span v-if="statutEnCours === r.id" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Reçu
-                </button>
-                <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="!!statutEnCours" @click="refus = { id: r.id, motif: '' }">Pas reçu</button>
-              </span>
-              <form v-else class="verif-refus" novalidate @submit.prevent="statuer(r, 'refuse')">
-                <label :for="`refus-${r.id}`" class="visually-hidden">Motif du refus</label>
-                <input :id="`refus-${r.id}`" v-model="refus.motif" maxlength="300" placeholder="Motif, ex. : aucun virement reçu avec cette référence" />
-                <button type="submit" class="adm-btn adm-btn-noir adm-btn-sm" :disabled="!!statutEnCours || !refus.motif.trim()">Refuser</button>
-                <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="refus = null">Annuler</button>
-              </form>
-            </li>
-          </ul>
-        </template>
-
+        <p v-if="totaux.btmDoit" class="compte-note"><i class="fa-solid fa-tags" aria-hidden="true"></i> Des codes promo BTM ont dépassé la commission : le fournisseur a fait la remise au client à la place de BTM. Remboursez-le par virement, puis enregistrez-le avec « Verser ».</p>
 
         <template v-if="parFournisseur.length">
           <h3 class="compte-titre">Par fournisseur</h3>
           <table class="adm-table compte-table">
-            <thead><tr><th>Fournisseur</th><th class="num">Dû</th><th class="num">Reçu</th><th class="num">En vérification</th><th class="num">Reste</th></tr></thead>
+            <thead><tr><th>Fournisseur</th><th class="num">Dû</th><th class="num">Reçu</th><th class="num">Reste</th></tr></thead>
             <tbody>
               <tr v-for="l in parFournisseur" :key="l.id">
-                <td>{{ l.nom }}</td>
+                <td>{{ l.nom }}<small v-if="l.verse" class="compte-petit">{{ formaterEuros(l.verse) }} versés par BTM</small></td>
                 <td class="num">{{ formaterEuros(l.du) }}</td>
                 <td class="num">{{ formaterEuros(l.recu) }}</td>
-                <td class="num">{{ l.attente ? formaterEuros(l.attente) : '—' }}</td>
-                <td class="num"><strong :class="{ reste: l.reste > 0 }">{{ formaterEuros(l.reste) }}</strong></td>
+                <td class="num">
+                  <template v-if="l.btmDoit">
+                    <strong class="btm-doit">BTM doit {{ formaterEuros(l.btmDoit) }}</strong>
+                    <button type="button" class="adm-btn adm-btn-noir adm-btn-sm compte-verser" @click="ouvrirVersement(l)">Verser</button>
+                  </template>
+                  <strong v-else :class="{ reste: l.reste > 0 }">{{ formaterEuros(l.reste) }}</strong>
+                </td>
               </tr>
             </tbody>
           </table>
         </template>
+
+        <!-- Virement de BTM vers un fournisseur -->
+        <form v-if="versement" class="versement" novalidate @submit.prevent="verser">
+          <strong><i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> Rembourser {{ versement.ligne.nom }}</strong>
+          <p>Faites le virement depuis le compte de BTM, puis cliquez « Virement fait » : il est déduit de ce que BTM lui doit et apparaît dans son historique.</p>
+          <div v-if="versement.ligne.rib" class="rib-carte">
+            <span><small>Titulaire</small><strong>{{ versement.ligne.rib.titulaire }}</strong></span>
+            <span><small>IBAN</small><strong class="adm-mono">{{ formaterIban(versement.ligne.rib.iban) }}</strong>
+              <button type="button" class="adm-icone-btn" aria-label="Copier l’IBAN" @click="copier(versement.ligne.rib.iban, 'IBAN')"><i class="fa-regular fa-copy" aria-hidden="true"></i></button></span>
+            <span v-if="versement.ligne.rib.bic"><small>BIC</small><strong class="adm-mono">{{ versement.ligne.rib.bic }}</strong></span>
+          </div>
+          <p v-else class="adm-alerte"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Ce fournisseur n’a pas encore enregistré son RIB (Espace fournisseur → Paiements). Demandez-le-lui.</p>
+          <div class="adm-champ">
+            <label for="vers-montant">Montant viré</label>
+            <span class="adm-saisie-unite"><input id="vers-montant" v-model="versement.montant" inputmode="decimal" /><span>€</span></span>
+          </div>
+          <div class="adm-champ">
+            <label for="vers-ref">Référence du virement</label>
+            <input id="vers-ref" v-model="versement.reference" class="adm-mono" maxlength="60" />
+          </div>
+          <p v-if="versement.erreur" class="adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ versement.erreur }}</p>
+          <span class="verif-actions">
+            <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="versement = null">Annuler</button>
+            <button type="submit" class="adm-btn adm-btn-noir adm-btn-sm" :disabled="versement.envoi">
+              <span v-if="versement.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Virement fait
+            </button>
+          </span>
+        </form>
 
         <h3 class="compte-titre">Historique des reversements</h3>
         <div v-if="!donnees.reversements" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
@@ -334,13 +354,31 @@ async function changerMode(mode) {
           <li v-for="r in historique" :key="r.id">
             <span class="historique-icone" :class="{ refuse: r.statut === 'refuse' }"><i :class="r.statut === 'refuse' ? 'fa-solid fa-xmark' : 'fa-solid fa-check'" aria-hidden="true"></i></span>
             <span class="historique-texte">
-              <strong>{{ formaterEuros(r.montant) }} · {{ r.fournisseur_nom }}</strong>
+              <strong>{{ versBtm(r) ? '' : '− ' }}{{ formaterEuros(r.montant) }} · {{ versBtm(r) ? `reçu de ${r.fournisseur_nom}` : `versé par BTM à ${r.fournisseur_nom}` }}</strong>
               <small>{{ formatDate(r.declare_le) }} · réf. <span class="adm-mono">{{ r.reference }}</span><template v-if="r.statut === 'refuse'"> · refusé : {{ r.motif_refus }}</template></small>
             </span>
           </li>
         </ul>
         <p v-else class="compte-vide"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Aucun reversement pour le moment.</p>
-        <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> BTM ne déclenche aucun virement : les fournisseurs vous reversent la commission sur ce RIB et le déclarent dans leur espace. Un virement ne compte qu’après votre vérification.</p>
+        <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Les fournisseurs vous reversent la commission sur le RIB de BTM et cliquent « Virement fait » : il compte tout de suite. Vérifiez vos relevés bancaires avec la référence indiquée.</p>
+      </template>
+
+      <!-- ===================== RIB des fournisseurs ===================== -->
+      <template v-else-if="onglet === 'ribsFournisseurs'">
+        <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Chaque fournisseur enregistre son RIB dans son espace (Paiements). BTM l’utilise pour le rembourser quand les codes promo BTM dépassent sa commission.</p>
+        <div v-if="!donnees.fournisseurs || !donnees.ribsFournisseurs" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
+        <ul v-else class="historique">
+          <li v-for="f in ribsFournisseurs" :key="f.id">
+            <span class="historique-icone" :class="{ refuse: !f.rib }"><i :class="f.rib ? 'fa-solid fa-building-columns' : 'fa-solid fa-question'" aria-hidden="true"></i></span>
+            <span class="historique-texte">
+              <strong>{{ f.nom }}<template v-if="f.btmDoit"> · <span class="btm-doit">BTM doit {{ formaterEuros(f.btmDoit) }}</span></template></strong>
+              <small v-if="f.rib">{{ f.rib.titulaire }} · <span class="adm-mono">{{ formaterIban(f.rib.iban) }}</span><template v-if="f.rib.bic"> · {{ f.rib.bic }}</template></small>
+              <small v-else>RIB pas encore enregistré</small>
+            </span>
+            <button v-if="f.rib" type="button" class="adm-icone-btn" :aria-label="`Copier l’IBAN de ${f.nom}`" @click="copier(f.rib.iban, 'IBAN')"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+            <button v-if="f.btmDoit" type="button" class="adm-btn adm-btn-noir adm-btn-sm" @click="onglet = 'reversements'; ouvrirVersement(parFournisseur.find((l) => l.id === f.id))">Verser</button>
+          </li>
+        </ul>
       </template>
 
       <!-- ===================== Administrateurs ===================== -->
@@ -483,6 +521,15 @@ async function changerMode(mode) {
 
 .compte-table td, .compte-table th { padding: 10px 12px; }
 .compte-table strong.reste { color: var(--adm-attention-texte); }
+.btm-doit { color: var(--adm-baisse); }
+.compte-petit { display: block; color: var(--adm-muet); font-size: .76rem; }
+.compte-verser { margin-left: 8px; }
+.versement { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--adm-survol); box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.versement p { margin: 0; color: var(--adm-encre-2); font-size: .86rem; }
+.versement .verif-actions { justify-content: flex-end; }
+.rib-carte { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--adm-carte); box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.rib-carte span { display: flex; align-items: center; gap: 10px; font-size: .88rem; }
+.rib-carte small { width: 70px; color: var(--adm-muet); }
 
 .rib-carte {
   display: flex; flex-direction: column; gap: 8px; padding: 22px; border-radius: 20px; color: #fff;
@@ -515,11 +562,6 @@ async function changerMode(mode) {
 .site-mode-coche { color: var(--adm-noir); font-size: 1.1rem; }
 .adm-sombre .site-mode.actif { box-shadow: inset 0 0 0 2px var(--adm-accent); }
 .adm-sombre .site-mode-coche { color: var(--adm-accent); }
-.site-publication { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding: 18px; border: 1px solid var(--adm-ligne); border-radius: 16px; }
-.site-publication h3 { margin: 0 0 4px; font-size: .95rem; }
-.site-publication p { max-width: 470px; margin: 0; color: var(--adm-muet); font-size: .82rem; line-height: 1.5; }
-.site-publication code { font-family: var(--font-mono); font-size: .95em; }
-.site-publication .adm-btn { flex: none; }
 
 .admins-ajout { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: var(--adm-ligne-2); }
 .admins-saisie { display: flex; flex-wrap: wrap; gap: 8px; }

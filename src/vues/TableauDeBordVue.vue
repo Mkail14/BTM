@@ -15,6 +15,7 @@ import { infoType } from '@/services/calculs/fusion.js'
 import { chargerFournisseurs } from '@/services/supabase/serviceFournisseurs.js'
 import CarteProjet from '@/composants/tableau-de-bord/CarteProjet.vue'
 import PropositionsRealisation from '@/composants/tableau-de-bord/PropositionsRealisation.vue'
+import DemandesAvisFournisseurs from '@/composants/tableau-de-bord/DemandesAvisFournisseurs.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import BandeauPage from '@/composants/commun/BandeauPage.vue'
 
@@ -121,6 +122,7 @@ async function confirmerSuppression() {
       </BandeauPage>
 
       <!-- invitation de BTM à mettre un projet en avant sur la page d'accueil -->
+      <DemandesAvisFournisseurs v-if="connecte" />
       <PropositionsRealisation v-if="connecte" />
 
       <p v-if="erreur" class="tdb-note" :title="erreur"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Synchronisation indisponible : seuls les projets de cet appareil sont affichés.</p>
@@ -204,29 +206,29 @@ async function confirmerSuppression() {
 
 /* Outils */
 /* une seule barre blanche : recherche, types, tri */
-.tdb-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 24px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: #fff; box-shadow: 0 6px 20px -14px rgba(11, 58, 77, .3); }
+.tdb-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 24px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: var(--carte); box-shadow: 0 6px 20px -14px rgba(11, 58, 77, .3); }
 .tdb-recherche { position: relative; flex: 1 1 260px; display: flex; align-items: center; }
 .tdb-recherche > i { position: absolute; left: 16px; color: var(--gris-400); pointer-events: none; }
 .tdb-recherche input {
   width: 100%; min-height: 44px; padding: 0 16px 0 44px; border: 0; border-radius: 12px; background: var(--gris-50);
   font: inherit; color: var(--ardoise); transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
-.tdb-recherche input:focus { outline: none; background: #fff; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .14); }
+.tdb-recherche input:focus { outline: none; background: var(--carte); border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .14); }
 .tdb-tri { position: relative; display: flex; align-items: center; }
 .tdb-tri i { position: absolute; left: 14px; color: var(--gris-400); font-size: .85rem; pointer-events: none; }
-.tdb-tri select { min-height: 44px; padding: 0 16px 0 38px; border: 1px solid var(--gris-200); border-radius: 14px; background: #fff; font: inherit; font-size: .92rem; color: var(--ardoise); cursor: pointer; }
+.tdb-tri select { min-height: 44px; padding: 0 16px 0 38px; border: 1px solid var(--gris-200); border-radius: 14px; background: var(--carte); font: inherit; font-size: .92rem; color: var(--ardoise); cursor: pointer; }
 .tdb-puces { display: flex; flex-wrap: wrap; gap: 6px; }
 .tdb-puces button {
   display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 14px; border: 1px solid var(--gris-200); border-radius: 999px;
-  background: #fff; font: inherit; font-size: .88rem; font-weight: 600; color: var(--gris-600); cursor: pointer;
+  background: var(--carte); font: inherit; font-size: .88rem; font-weight: 600; color: var(--gris-600); cursor: pointer;
   transition: color var(--transition), background var(--transition), border-color var(--transition);
 }
 .tdb-puces button i { font-size: .8rem; color: var(--gris-400); }
 .tdb-puces button small { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--gris-100); color: var(--gris-500); font-size: .74rem; text-align: center; }
 .tdb-puces button:hover { border-color: var(--gris-300); color: var(--ardoise); }
-.tdb-puces button.actif { border-color: var(--ardoise); background: var(--ardoise); color: #fff; }
+.tdb-puces button.actif { border-color: var(--ardoise); background: var(--ardoise); color: var(--carte); }
 .tdb-puces button.actif i { color: inherit; }
-.tdb-puces button.actif small { background: rgba(255, 255, 255, .2); color: #fff; }
+.tdb-puces button.actif small { background: rgba(127, 127, 127, .25); color: inherit; }
 
 /* Cartes */
 /* cartes hautes alignées droit, de la même largeur */
@@ -243,13 +245,13 @@ async function confirmerSuppression() {
 .tdb-raccourcis { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
 .tdb-raccourcis a {
   display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 18px; border: 1px solid var(--gris-200); border-radius: 14px;
-  background: #fff; color: var(--ardoise); font-weight: 600; transition: border-color var(--transition), transform var(--transition);
+  background: var(--carte); color: var(--ardoise); font-weight: 600; transition: border-color var(--transition), transform var(--transition);
 }
 .tdb-raccourcis a:hover { border-color: var(--teinte); transform: translateY(-2px); }
 .tdb-raccourcis i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--teinte) 14%, #fff); color: var(--teinte); font-size: .85rem; }
 
 .modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(6,32,44,.45); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
-.modale { background: #fff; border-radius: var(--rayon-lg); padding: 28px; width: 100%; max-width: 420px; box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
+.modale { background: var(--carte); border-radius: var(--rayon-lg); padding: 28px; width: 100%; max-width: 420px; box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
 .modale h2 { font-size: 1.4rem; color: var(--ardoise); word-break: break-word; }
 .modale p { margin: 10px 0 0; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.5; }
 .modale-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
@@ -280,8 +282,8 @@ async function confirmerSuppression() {
 
   /* recherche + tri sur une ligne, puis les types en ruban qui glisse */
   .tdb-outils { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; margin-bottom: 16px; padding: 0; border: 0; background: none; box-shadow: none; }
-  .tdb-recherche input { min-height: 44px; border: 1px solid var(--gris-200); background: #fff; font-size: 16px; }
-  .tdb-tri { width: 44px; height: 44px; justify-content: center; border: 1px solid var(--gris-200); border-radius: 12px; background: #fff; }
+  .tdb-recherche input { min-height: 44px; border: 1px solid var(--gris-200); background: var(--carte); font-size: 16px; }
+  .tdb-tri { width: 44px; height: 44px; justify-content: center; border: 1px solid var(--gris-200); border-radius: 12px; background: var(--carte); }
   .tdb-tri i { position: static; color: var(--ardoise); }
   .tdb-tri select { position: absolute; inset: 0; width: 100%; min-height: 0; padding: 0; opacity: 0; } /* liste native du téléphone */
   .tdb-puces {
@@ -296,7 +298,7 @@ async function confirmerSuppression() {
   .tdb-aucun { padding: 32px 16px; }
 
   /* aucun projet : les ouvrages en liste */
-  .tdb-vide { padding: 32px 16px; border-style: solid; border-color: var(--gris-200); background: #fff; }
+  .tdb-vide { padding: 32px 16px; border-style: solid; border-color: var(--gris-200); background: var(--carte); }
   .tdb-vide h2 { font-size: 1.4rem; }
   .tdb-raccourcis { flex-direction: column; width: 100%; gap: 8px; margin-top: 8px; }
   .tdb-raccourcis a { width: 100%; min-height: 54px; }

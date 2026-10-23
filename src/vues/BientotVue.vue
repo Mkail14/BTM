@@ -110,7 +110,11 @@ async function envoyer() {
         </div>
 
         <div class="bientot-actions">
-          <BoutonBase variante="primaire" icone-droite="fa-solid fa-arrow-right" @click="ouvrir">Devenir partenaire</BoutonBase>
+          <button type="button" class="bientot-cta" @click="ouvrir">
+            <i class="fa-solid fa-handshake bientot-cta-icone" aria-hidden="true"></i>
+            <span>Devenir partenaire</span>
+            <span class="bientot-cta-fleche" aria-hidden="true"><i class="fa-solid fa-arrow-right"></i></span>
+          </button>
         </div>
       </div>
       <!-- le chantier en cours : un robot BTM monte un mur, en boucle (ordinateur seulement) -->
@@ -135,17 +139,21 @@ async function envoyer() {
         </template>
 
         <form v-else novalidate class="bientot-form" @submit.prevent="envoyer">
-          <div>
-            <h2 id="partenaire-titre" class="bientot-fenetre-titre">Devenir partenaire</h2>
-            <p class="texte-secondaire bientot-fenetre-intro">Vous vendez des matériaux à Mayotte ? Laissez vos coordonnées : nous vous présentons BTM et ouvrons votre espace fournisseur.</p>
+          <div class="bientot-fenetre-entete">
+            <span class="bientot-fenetre-icone" aria-hidden="true"><i class="fa-solid fa-handshake"></i></span>
+            <div>
+              <h2 id="partenaire-titre" class="bientot-fenetre-titre">Devenir partenaire</h2>
+              <p class="texte-secondaire bientot-fenetre-intro">Vous vendez des matériaux à Mayotte ? Nous vous rappelons pour ouvrir votre espace fournisseur.</p>
+            </div>
           </div>
+          <!-- deux champs par ligne (sur téléphone, seuls commune et nom) : la fenêtre tient dans l'écran, sans défiler -->
           <div class="bientot-champs">
-            <div class="champ plein"><label for="p-ent">Entreprise</label><input id="p-ent" ref="premierChamp" v-model="f.entreprise" maxlength="80" autocomplete="organization" placeholder="Nom de l’entreprise" /></div>
-            <div class="champ"><label for="p-nom">Votre nom</label><input id="p-nom" v-model="f.nom" maxlength="60" autocomplete="name" placeholder="Prénom Nom" /></div>
+            <div class="champ"><label for="p-ent">Entreprise</label><input id="p-ent" ref="premierChamp" v-model="f.entreprise" maxlength="80" autocomplete="organization" placeholder="Nom de l’entreprise" /></div>
             <div class="champ"><label for="p-com">Commune</label><input id="p-com" v-model="f.commune" maxlength="60" autocomplete="address-level2" placeholder="Mamoudzou" /></div>
-            <div class="champ plein"><label for="p-mail">Adresse e-mail</label><input id="p-mail" v-model="f.email" type="email" maxlength="254" autocomplete="email" placeholder="contact@entreprise.yt" /></div>
-            <ChampTelephone id="p-tel" v-model="f.telephone" class="plein" />
-            <div class="champ plein"><label for="p-prod">Ce que vous vendez <small class="texte-secondaire">(facultatif)</small></label><input id="p-prod" v-model="f.produits" maxlength="160" placeholder="Ciment, parpaings, carrelage…" /></div>
+            <div class="champ"><label for="p-nom">Votre nom</label><input id="p-nom" v-model="f.nom" maxlength="60" autocomplete="name" placeholder="Prénom Nom" /></div>
+            <ChampTelephone id="p-tel" v-model="f.telephone" label="Téléphone" pays-fixe="YT" />
+            <div class="champ"><label for="p-mail">E-mail</label><input id="p-mail" v-model="f.email" type="email" maxlength="254" autocomplete="email" placeholder="contact@entreprise.yt" /></div>
+            <div class="champ"><label for="p-prod">Vous vendez <small class="texte-secondaire">(facultatif)</small></label><input id="p-prod" v-model="f.produits" maxlength="160" placeholder="Ciment, parpaings…" /></div>
           </div>
           <BandeauAvertissement v-if="erreur" type="erreur" compact>{{ erreur }}</BandeauAvertissement>
           <BoutonBase type="submit" variante="primaire" bloc icone="fa-solid fa-paper-plane" :chargement="etat === 'envoi'">Envoyer ma demande</BoutonBase>
@@ -201,7 +209,31 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 .bientot-avancement span { width: 56px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .2); }
 .bientot-avancement span.fait { background: var(--lagon-400); }
 .bientot-avancement small { margin-left: 8px; color: var(--beton); font-size: .85rem; }
-.bientot-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; animation: apparaitre .7s .28s ease both; }
+.bientot-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; animation: apparaitre .7s .28s ease both; }
+/* « Devenir partenaire » : pilule lagon lumineuse, flèche dans une pastille qui glisse au survol */
+.bientot-cta {
+  position: relative; display: inline-flex; align-items: center; gap: 12px; height: 60px; padding: 0 8px 0 24px; overflow: hidden;
+  border: 1px solid rgba(165, 243, 252, .35); border-radius: 999px; cursor: pointer;
+  background: linear-gradient(135deg, var(--lagon-400) 0%, var(--lagon-600) 55%, var(--lagon-700) 100%);
+  color: #fff; font: 700 1.05rem var(--font-corps); letter-spacing: .01em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 14px 34px -10px rgba(6, 182, 212, .65), 0 0 0 6px rgba(34, 211, 238, .08);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+/* reflet qui traverse le bouton au survol */
+.bientot-cta::before {
+  content: ''; position: absolute; inset: 0; transform: translateX(-120%);
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, .28) 50%, transparent 70%); transition: transform .7s ease;
+}
+.bientot-cta:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 20px 40px -12px rgba(6, 182, 212, .8), 0 0 0 8px rgba(34, 211, 238, .12); }
+.bientot-cta:hover::before { transform: translateX(120%); }
+.bientot-cta:active { transform: translateY(0) scale(.98); }
+.bientot-cta:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.bientot-cta-icone { font-size: 1.15rem; opacity: .95; }
+.bientot-cta-fleche {
+  display: grid; place-items: center; width: 44px; height: 44px; margin-left: 6px; border-radius: 50%;
+  background: #fff; color: var(--lagon-700); font-size: .95rem; transition: transform .25s ease;
+}
+.bientot-cta:hover .bientot-cta-fleche { transform: translateX(3px); }
 
 .bientot-pied {
   flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding-top: 14px; padding-bottom: 16px;
@@ -215,17 +247,22 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
   position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px;
   background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
 }
-.bientot-fenetre { position: relative; width: min(100%, 520px); max-height: calc(100dvh - 48px); overflow: hidden auto; padding: 32px; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); }
-.bientot-fenetre-titre { margin: 0; font-family: var(--font-display); font-size: 2.2rem; color: var(--ardoise); }
-.bientot-fenetre-intro { margin: 6px 0 0; line-height: 1.5; }
+.bientot-fenetre { position: relative; width: min(100%, 600px); max-height: calc(100dvh - 48px); overflow: hidden auto; padding: 30px 32px; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); }
+.bientot-fenetre-entete { display: flex; align-items: flex-start; gap: 14px; padding-right: 36px; }
+.bientot-fenetre-icone {
+  display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 14px;
+  background: linear-gradient(135deg, var(--lagon-400), var(--lagon-700)); color: #fff; font-size: 1.2rem;
+  box-shadow: 0 10px 22px -10px rgba(6, 182, 212, .7);
+}
+.bientot-fenetre-titre { margin: 0; font-family: var(--font-display); font-size: 1.9rem; line-height: 1.1; color: var(--ardoise); }
+.bientot-fenetre-intro { margin: 4px 0 0; font-size: .92rem; line-height: 1.45; }
 .bientot-fermer {
   position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; display: grid; place-items: center;
   border: 0; border-radius: 50%; background: var(--gris-100); color: var(--gris-600); cursor: pointer;
 }
 .bientot-form { display: flex; flex-direction: column; gap: 18px; }
-.bientot-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.bientot-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
 .bientot-champs > * { min-width: 0; }
-.bientot-champs .plein { grid-column: 1 / -1; }
 .bientot-champs input { width: 100%; min-width: 0; font-family: var(--font-corps); } /* comme les champs de la fenêtre de connexion */
 .bientot-champs small { font-weight: 400; }
 .bientot-merci-icone { display: block; margin-bottom: 10px; color: #047857; font-size: 2.2rem; }
@@ -234,9 +271,20 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 @media (max-width: 639px) {
   .bientot-surtitre { font-size: .7rem; letter-spacing: .12em; margin-bottom: 14px; }
   .bientot-marque small { display: none; }
-  .bientot-champs { grid-template-columns: 1fr; }
-  .bientot-fenetre { padding: 26px 22px; }
-  .bientot-voile { padding: 14px; }
+  .bientot-cta { height: 56px; font-size: 1rem; }
+  .bientot-cta-fleche { width: 40px; height: 40px; }
+  /* téléphone : la fenêtre monte du bas de l'écran, compacte pour tenir sans défiler */
+  .bientot-voile { place-items: end center; padding: 0; }
+  .bientot-fenetre { width: 100%; max-height: calc(100dvh - 12px); padding: 22px 18px calc(18px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; }
+  .bientot-fenetre-icone { width: 42px; height: 42px; border-radius: 12px; font-size: 1.05rem; }
+  .bientot-fenetre-titre { font-size: 1.6rem; }
+  .bientot-fenetre-intro { font-size: .86rem; }
+  .bientot-form { gap: 14px; }
+  .bientot-champs { gap: 9px 10px; }
+  /* commune et nom côte à côte, le reste en pleine largeur */
+  .bientot-champs > :nth-child(1), .bientot-champs > :nth-child(n + 4) { grid-column: 1 / -1; }
+  .bientot-champs :deep(label) { margin-bottom: 4px; font-size: .84rem; }
+  .bientot-champs :deep(input) { height: 44px; padding-top: 0; padding-bottom: 0; }
   .bientot-pied { justify-content: center; text-align: center; }
 }
 </style>

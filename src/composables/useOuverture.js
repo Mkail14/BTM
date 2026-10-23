@@ -5,14 +5,14 @@
  *    Les espaces admin et fournisseur, et les pages légales, restent accessibles ;
  *  - develop (prévisualisation Vercel) et local (ordinateur) : le site complet, avec un repère discret
  *    indiquant la version. « ?bientot » y affiche la page d'attente pour la vérifier.
- * L'ouverture est automatique : dès le 2e partenaire réel, btm.yt affiche le site sans redéploiement.
+ * L'ouverture est automatique : dès le 3e partenaire réel, btm.yt affiche le site sans redéploiement.
  * L'admin peut forcer l'état (Compte BTM → Mise en ligne) : ligne « ouverture » de contenus_site,
  * { mode: 'auto' | 'en-ligne' | 'maintenance' }. « maintenance » ferme le site même avec assez de partenaires.
  */
 import { computed, ref } from 'vue'
 import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
 
-export const SEUIL_FOURNISSEURS = 2
+export const SEUIL_FOURNISSEURS = 3
 export const MODES_OUVERTURE = ['auto', 'en-ligne', 'maintenance']
 export const CLE_OUVERTURE = 'ouverture'
 

@@ -86,6 +86,8 @@ const estPro = computed(() => demandePro.value?.statut === 'verifie' || !!fourni
     utilisateur, connecte, pret, admin, fournisseurLie, typeProfil, demandePro, estPro, rechargerRole: () => chargerRole(), backendDisponible: supabaseConfigure,
     connexion: auth.connexion, inscription: auth.inscription,
     mettreAJourProfil: auth.mettreAJourProfil, supprimerCompte: auth.supprimerCompte,
-    deconnexion: async () => { await auth.deconnexion(); utilisateur.value = null }
+    deconnexion: async () => { await auth.deconnexion(); utilisateur.value = null },
+    deconnexionPartout: async () => { await auth.deconnexionPartout(); utilisateur.value = null },
+    envoyerLienMotDePasse: auth.envoyerLienMotDePasse
   }
 }

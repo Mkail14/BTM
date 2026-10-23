@@ -196,6 +196,9 @@ async function envoyerAvis() {
   }
 }
 
+/** « MARIO JAMES MIKAIL » → « Mario James Mikail » (noms Trustpilot parfois tout en majuscules) */
+const nomAffiche = (nom) => (nom === nom.toUpperCase() ? nom.toLowerCase() : nom)
+
 function formaterDate(date) {
   return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(date))
 }
@@ -204,7 +207,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 </script>
 
 <template>
-  <section id="avis" class="section avis-section" aria-labelledby="avis-titre">
+  <section id="avis" class="section section-nuit avis-section" aria-labelledby="avis-titre">
     <div class="conteneur avis-grille">
       <!-- Synthèse -->
       <header class="avis-synthese">
@@ -259,7 +262,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
               <footer class="avis-auteur">
                 <span class="avis-avatar" aria-hidden="true">{{ element.nom.charAt(0).toUpperCase() }}</span>
                 <span>
-                  <strong>{{ element.nom }}</strong>
+                  <strong>{{ nomAffiche(element.nom) }}</strong>
                   <small>
                     {{ element.source === 'trustpilot' ? 'Trustpilot' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time>
                     <template v-if="element.modifie"> · modifié</template>
@@ -285,7 +288,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
               <footer class="avis-auteur">
                 <span class="avis-avatar" aria-hidden="true">{{ element.nom.charAt(0).toUpperCase() }}</span>
                 <span>
-                  <strong>{{ element.nom }}</strong>
+                  <strong>{{ nomAffiche(element.nom) }}</strong>
                   <small>{{ element.source === 'trustpilot' ? 'Trustpilot' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time></small>
                 </span>
               </footer>
@@ -390,7 +393,36 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 </template>
 
 <style scoped>
-.avis-section { background: var(--fond); overflow: hidden; }
+.avis-section { background: var(--fond-nuit); overflow: hidden; }
+
+/* ---------- Thème sombre : la nuit du héros continue ----------
+   Fond et titres : --fond-nuit et .section-nuit (style.css). Ces règles l'emportent sur celles du téléphone ;
+   les fenêtres (avis-modal) suivent le thème du site. En thème clair, les styles ci-dessous s'appliquent tels quels. */
+:global(html[data-theme="sombre"] .avis-section .avis-score > strong) { color: #fff; }
+:global(html[data-theme="sombre"] .avis-section .avis-score small), :global(html[data-theme="sombre"] .avis-section .avis-repartition li) { color: rgba(255, 255, 255, .6); }
+:global(html[data-theme="sombre"] .avis-section .avis-vide) { color: rgba(255, 255, 255, .7); }
+:global(html[data-theme="sombre"] .avis-section .etoiles::before), :global(html[data-theme="sombre"] .avis-section .avis-note .eteinte) { color: rgba(255, 255, 255, .18); }
+:global(html[data-theme="sombre"] .avis-section .avis-barre) { background: rgba(255, 255, 255, .12); }
+:global(html[data-theme="sombre"] .avis-section .avis-barre > span) { background: #f59e0b; }
+:global(html[data-theme="sombre"] .avis-section .avis-resume) { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .12); }
+:global(html[data-theme="sombre"] .avis-section .avis-score) { border-color: rgba(255, 255, 255, .1); }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot)) { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .12); }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-commentaire) { color: #e2e8f0; }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-auteur strong) { color: #fff; }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-auteur small) { color: rgba(255, 255, 255, .55); }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-avatar) { background: rgba(255, 255, 255, .14); color: #a5f3fc; }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-source) { color: rgba(255, 255, 255, .55); }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-source:hover) { background: rgba(255, 255, 255, .08); color: #67e8f9; }
+/* Trustpilot en thème sombre : cartes blanches, aux couleurs officielles de Trustpilot (vert sur blanc) */
+:global(html[data-theme="sombre"] .avis-section .avis-carte.avis-trustpilot) { border-color: #e5e5dd; background: #fff; box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .5); }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot-marque) { color: #191919; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-commentaire) { color: #191919; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-auteur strong) { color: #191919; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-auteur small) { color: #6b6b65; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-avatar) { background: #e6f8f1; color: #00b67a; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-note .eteinte) { background: #dcdce6; color: #fff; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-source) { color: #6b6b65; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-source:hover) { background: #e6f8f1; color: #00b67a; }
 .avis-grille { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: clamp(40px, 6vw, 88px); align-items: center; }
 
 /* ---------- Synthèse ---------- */
@@ -411,7 +443,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-repartition { list-style: none; margin: 0 0 32px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .avis-repartition li { display: grid; grid-template-columns: 12px 1fr 20px; gap: 12px; align-items: center; font-size: .82rem; color: var(--gris-500); }
 .avis-barre { height: 6px; border-radius: 99px; background: var(--gris-200); overflow: hidden; }
-.avis-barre > span { display: block; height: 100%; border-radius: inherit; background: var(--ardoise); transition: width .6s ease; }
+.avis-barre > span { display: block; height: 100%; border-radius: inherit; background: var(--encre); transition: width .6s ease; }
 .avis-barre-nombre { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---------- Mur défilant ---------- */
@@ -435,6 +467,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-trustpilot .avis-note i { width: 18px; height: 18px; display: grid; place-items: center; background: #00b67a; color: #fff; font-size: .62rem; }
 .avis-trustpilot .avis-note .eteinte { background: #3a3a3a; color: #8c8c8c; }
 .avis-trustpilot .avis-commentaire { color: #f1f1ec; }
+.avis-carte.avis-trustpilot { gap: 14px; padding: 22px 24px; border-radius: 18px; }
 .avis-trustpilot .avis-auteur strong { color: #fff; }
 .avis-trustpilot .avis-auteur small { color: #a3a39b; }
 .avis-trustpilot .avis-avatar { background: #2c2c2c; color: #00b67a; }
@@ -449,13 +482,19 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-resume { display: contents; } /* ordinateur : note et répartition l'une sous l'autre */
 @keyframes defiler { from { transform: translateY(0); } to { transform: translateY(calc(-50% - 8px)); } }
 
-.avis-carte { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #fff; border: 1px solid var(--bordure); border-radius: 18px; }
+.avis-carte { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: var(--carte); border: 1px solid var(--bordure); border-radius: 18px; }
 .avis-note { display: flex; gap: 3px; font-size: .8rem; color: #f59e0b; }
 .avis-note .eteinte { color: var(--gris-200); }
-.avis-commentaire { margin: 0; color: var(--ardoise); font-size: 1rem; line-height: 1.6; }
+/* toutes les cartes (site et Trustpilot) gardent la même taille : 3 lignes d'avis au plus, auteur sur une ligne */
+.avis-commentaire {
+  margin: 0; color: var(--ardoise); font-size: 1rem; line-height: 1.6;
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
 .avis-auteur { display: flex; align-items: center; gap: 12px; }
+.avis-auteur > span:not(.avis-avatar) { min-width: 0; }
 .avis-avatar { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; background: var(--lagon-50); color: var(--lagon-800); font-weight: 700; font-size: .9rem; }
-.avis-auteur strong { display: block; font-size: .9rem; color: var(--ardoise); }
+.avis-auteur strong, .avis-auteur small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avis-auteur strong { font-size: .9rem; color: var(--ardoise); text-transform: capitalize; }
 .avis-auteur small { color: var(--gris-500); font-size: .78rem; }
 
 /* ---------- Formulaire ---------- */
@@ -466,12 +505,12 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
   cursor: pointer; transition: background .2s, transform .2s;
 }
 .avis-fermer:hover { background: rgba(255,255,255,.25); transform: rotate(90deg); }
-.avis-modal { width: min(100%, 480px); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 32px; background: #fff; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
+.avis-modal { width: min(100%, 480px); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 32px; background: var(--carte); border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
 .avis-modal h2 { color: var(--ardoise); font-size: 1.7rem; }
 .avis-ligne { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .avis-label, .avis-rating legend { display: block; margin: 18px 0 7px; color: var(--ardoise); font-weight: 600; font-size: .86rem; }
 .avis-label span { color: var(--gris-500); font-weight: 400; }
-.avis-modal input, .avis-modal textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); background: #fff; color: var(--texte); font: inherit; resize: vertical; }
+.avis-modal input, .avis-modal textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); background: var(--carte); color: var(--texte); font: inherit; resize: vertical; }
 .avis-modal input:focus, .avis-modal textarea:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .18); }
 .avis-rating { border: 0; padding: 0; margin: 0; }
 .avis-rating-choix { display: flex; gap: 6px; }
@@ -497,7 +536,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-choix-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .avis-choix-option {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; text-align: left;
-  border: 1.5px solid var(--bordure); border-radius: var(--rayon-sm, 12px); background: #fff; color: var(--ardoise);
+  border: 1.5px solid var(--bordure); border-radius: var(--rayon-sm, 12px); background: var(--carte); color: var(--ardoise);
   font: inherit; text-decoration: none; cursor: pointer; transition: border-color .2s, box-shadow .2s, transform .2s;
 }
 .avis-choix-option:hover, .avis-choix-option:focus-visible { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .12); transform: translateY(-1px); }
@@ -535,7 +574,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
   /* Synthèse : grande note à gauche, répartition à droite, dans une carte */
   .avis-resume {
     display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 20px;
-    margin: 20px 0 16px; padding: 18px; background: #fff; border: 1px solid var(--bordure); border-radius: 20px;
+    margin: 20px 0 16px; padding: 18px; background: var(--carte); border: 1px solid var(--bordure); border-radius: 20px;
   }
   .avis-score { flex-direction: column; align-items: center; gap: 6px; margin: 0; padding-right: 20px; border-right: 1px solid var(--bordure); }
   .avis-score > strong { font-size: 3.2rem; }

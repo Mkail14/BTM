@@ -257,7 +257,8 @@ create table if not exists public.projets (
   cout_total numeric(12,2) default 0 not null,
   cree_le timestamp with time zone default now() not null,
   mis_a_jour_le timestamp with time zone default now() not null,
-  code_retrait text not null
+  code_retrait text not null,
+  utiliser_credit boolean default false not null
 );
 
 create table if not exists public.promotions_fournisseur (

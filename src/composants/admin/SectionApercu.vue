@@ -6,12 +6,13 @@ import { useContenuSite } from '@/composables/useContenuSite.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 import { typesProjets, trouverTypeProjet } from '@/donnees/typesProjets.js'
 import AdminGraphiqueBarres from './AdminGraphiqueBarres.vue'
+import AdminPanneau from './AdminPanneau.vue'
 
 const { donnees, erreurs, charger, compteOuvert } = useAdmin()
 const ouvrirCompte = () => { compteOuvert.value = true }
 const contenu = useContenuSite()
 const pret = ref(false)
-onMounted(async () => { await charger(['profils', 'projets', 'avis', 'fournisseurs', 'materiaux', 'paiements', 'reversements', 'versement']); pret.value = true })
+onMounted(async () => { await charger(['profils', 'projets', 'avis', 'fournisseurs', 'materiaux', 'paiements', 'reversements', 'versement', 'credits', 'annules']); pret.value = true })
 
 // ---------- Période ----------
 const periodes = [
@@ -123,7 +124,8 @@ const fraisDe = (p) => (Number(p.cout_total || 0) * taux.value) / 100
 const idsPayes = computed(() => new Set((donnees.paiements || []).map((pa) => pa.projet_id)))
 const estPaye = (p) => idsPayes.value.has(p.id)
 const previsionnels = (liste) => liste.filter((p) => !estPaye(p)).reduce((s, p) => s + fraisDe(p), 0)
-const paiementsEntre = (debut, fin) => (donnees.paiements || []).filter((pa) => dans(pa.paye_le, debut, fin))
+// seuls les paiements encaissés par un fournisseur comptent : c'est lui qui reverse la commission à BTM
+const paiementsEntre = (debut, fin) => (donnees.paiements || []).filter((pa) => pa.fournisseur_id && dans(pa.paye_le, debut, fin))
 const encaisses = (debut, fin) => paiementsEntre(debut, fin).reduce((s, pa) => s + pa.revenu_btm, 0)
 
 function evolution(actuel, precedent) {
@@ -149,7 +151,7 @@ const kpis = computed(() => {
   ]
 })
 const noteMoyenne = computed(() => {
-  const visibles = (donnees.avis || []).filter((a) => a.visible)
+  const visibles = (donnees.avis || []).filter((a) => a.visible && a.source !== 'fournisseur') // note de BTM seulement
   return { nombre: visibles.length, valeur: visibles.length ? visibles.reduce((s, a) => s + a.note, 0) / visibles.length : 0 }
 })
 
@@ -191,10 +193,15 @@ const vigilance = computed(() => {
   const anciens = (donnees.materiaux || []).filter((m) => Date.now() - new Date(m.mis_a_jour_le).getTime() > 180 * JOUR).length
   // Reversements des fournisseurs : RIB à fournir (action = « Compte & reversements »)
   if (!donnees.versement?.iban) liste.push({ icone: 'fa-solid fa-building-columns', texte: 'Ajoutez le RIB de BTM : les fournisseurs en ont besoin pour reverser vos frais', action: ouvrirCompte })
-  const virements = (donnees.reversements || []).filter((r) => r.statut === 'declare').length
-  if (virements) liste.push({ icone: 'fa-solid fa-money-bill-transfer', texte: `${virements} virement${virements > 1 ? 's' : ''} de fournisseur à vérifier sur le compte de BTM`, action: ouvrirCompte })
+  // codes promo BTM plus élevés que la commission : BTM doit rembourser le fournisseur
+  const soldes = {}
+  for (const p of donnees.paiements || []) if (p.fournisseur_id) soldes[p.fournisseur_id] = (soldes[p.fournisseur_id] || 0) + p.revenu_btm
+  for (const r of donnees.reversements || []) if (r.statut === 'valide') soldes[r.fournisseur_id] = (soldes[r.fournisseur_id] || 0) + (r.sens === 'vers_fournisseur' ? r.montant : -r.montant)
+  const btmDoit = arr(Object.values(soldes).reduce((s, v) => s + Math.max(0, -arr(v)), 0))
+  if (btmDoit > 0) liste.push({ icone: 'fa-solid fa-money-bill-transfer', texte: `BTM doit ${formaterEuros(btmDoit)} aux fournisseurs (codes promo)`, action: ouvrirCompte })
   const prosAVerifier = (donnees.profils || []).filter((p) => p.pro_statut === 'en_attente').length
   if (prosAVerifier) liste.push({ icone: 'fa-solid fa-helmet-safety', texte: `${prosAVerifier} compte${prosAVerifier > 1 ? 's' : ''} professionnel${prosAVerifier > 1 ? 's' : ''} à vérifier`, lien: '/admin/utilisateurs' })
+  if (creditDu.value > 0) liste.push({ icone: 'fa-solid fa-coins', texte: `${formaterEuros(creditDu.value)} de crédit fidélité dû aux clients`, lien: '/admin/utilisateurs', ok: true })
   const enAttente = (donnees.projets || []).filter((p) => p.fournisseur_id && !estPaye(p)).length
   if (enAttente) liste.push({ icone: 'fa-solid fa-hourglass-half', texte: `${enAttente} devis en attente de confirmation de paiement`, lien: '/admin/projets', ok: true })
   if (anciens) liste.push({ icone: 'fa-solid fa-tags', texte: `${anciens} prix non mis à jour depuis plus de 6 mois`, lien: '/admin/calculateur' })
@@ -209,6 +216,57 @@ const vigilance = computed(() => {
 })
 
 const nomProfil = computed(() => Object.fromEntries((donnees.profils || []).map((p) => [p.id, p.nom_affiche || p.email])))
+
+// ---------- Historique des fonds (carte « Revenus encaissés ») ----------
+// Une seule liste, du plus récent au plus ancien, de tout ce qui touche à l'argent de BTM sur la période :
+//  - revenu d'un paiement (commission du fournisseur, moins code promo / crédit fidélité utilisé) ;
+//  - virement d'un fournisseur reçu sur le compte de BTM ;
+//  - crédit fidélité annulé à la suppression d'un compte (preuve : motif, auteur, mouvements).
+const historiqueOuvert = ref(false)
+const nomFournisseur = computed(() => Object.fromEntries((donnees.fournisseurs || []).map((f) => [f.id, f.nom])))
+const arr = (v) => Math.round(v * 100) / 100
+const mouvements = computed(() => {
+  const { debut, fin } = bornes.value
+  const liste = paiementsEntre(debut, fin).map((pa) => {
+    const commission = Number(pa.commission) || 0
+    const credit = Number(pa.credit_utilise) || 0
+    const promo = commission || credit ? Math.max(0, arr(commission - credit - pa.revenu_btm)) : 0
+    const deductions = [promo && `code promo − ${formaterEuros(promo)}`, credit && `crédit fidélité − ${formaterEuros(credit)}`].filter(Boolean)
+    return {
+      id: `p-${pa.id}`, date: pa.paye_le, type: 'revenu', icone: 'fa-solid fa-receipt', montant: pa.revenu_btm,
+      titre: `${pa.projet_nom} · ${nomFournisseur.value[pa.fournisseur_id] || 'Fournisseur supprimé'}`,
+      detail: [pa.numero_recu && `Reçu ${pa.numero_recu}`, commission && `commission ${formaterEuros(commission)}`, ...deductions].filter(Boolean).join(' · ')
+    }
+  })
+  for (const r of donnees.reversements || []) {
+    if (r.statut !== 'valide' || !dans(r.statue_le || r.declare_le, debut, fin)) continue
+    const nom = r.fournisseur_nom || nomFournisseur.value[r.fournisseur_id] || 'un fournisseur'
+    const versFournisseur = r.sens === 'vers_fournisseur' // BTM rembourse des codes promo qui ont dépassé la commission
+    liste.push({
+      id: `v-${r.id}`, date: r.statue_le || r.declare_le, type: 'virement', icone: versFournisseur ? 'fa-solid fa-money-bill-transfer' : 'fa-solid fa-building-columns',
+      montant: versFournisseur ? -r.montant : r.montant,
+      titre: versFournisseur ? `Virement de BTM à ${nom} (codes promo)` : `Virement reçu de ${nom}`, detail: `Référence ${r.reference}`
+    })
+  }
+  for (const c of donnees.annules || []) {
+    if (!dans(c.cree_le, debut, fin)) continue
+    liste.push({
+      id: `a-${c.id}`, date: c.cree_le, type: 'annule', icone: 'fa-solid fa-user-slash', montant: c.montant,
+      titre: `Crédit annulé · compte supprimé ${c.ancien_email || ''}`.trim(),
+      detail: [`Motif : ${c.motif}`, c.par_email && `par ${c.par_email}`, `${c.mouvements?.length || 0} mouvement(s) archivé(s)`].filter(Boolean).join(' · '),
+      preuve: c.mouvements || []
+    })
+  }
+  return liste.sort((a, b) => new Date(b.date) - new Date(a.date))
+})
+const resumeFonds = computed(() => ({
+  revenu: arr(mouvements.value.filter((m) => m.type === 'revenu').reduce((s, m) => s + m.montant, 0)),
+  recu: arr(mouvements.value.filter((m) => m.type === 'virement').reduce((s, m) => s + m.montant, 0)),
+  annule: arr(mouvements.value.filter((m) => m.type === 'annule').reduce((s, m) => s + m.montant, 0))
+}))
+// crédit fidélité que BTM doit encore aux clients (toutes périodes) : il sera déduit du revenu quand ils l'utiliseront
+const creditDu = computed(() => arr(Object.values(donnees.credits || {}).reduce((s, c) => s + Math.max(0, c.solde), 0)))
+const preuveOuverte = ref(null)
 const derniersProjets = computed(() => (donnees.projets || []).slice(0, 10))
 const erreurGlobale = computed(() => Object.values(erreurs)[0])
 </script>
@@ -268,8 +326,39 @@ const erreurGlobale = computed(() => Object.values(erreurs)[0])
           </template>
           <template v-else>{{ k.aide }}</template>
         </span>
+        <button v-if="k.id === 'encaisses'" type="button" class="kpi-historique" :disabled="!pret" @click="historiqueOuvert = true">
+          <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Historique des fonds
+        </button>
       </li>
     </ul>
+
+    <!-- Historique des fonds : provenance de chaque revenu encaissé sur la période -->
+    <AdminPanneau v-if="historiqueOuvert" titre="Historique des fonds" :sous-titre="libellePlage" large @fermer="historiqueOuvert = false">
+      <dl class="fonds-resume">
+        <div class="total"><dt>Revenu BTM</dt><dd>{{ formaterEuros(resumeFonds.revenu) }}</dd><small>gagné sur les paiements</small></div>
+        <div><dt>Sur le compte BTM</dt><dd>{{ formaterEuros(resumeFonds.recu) }}</dd><small>reçu des fournisseurs − remboursé</small></div>
+        <div><dt>Crédit dû aux clients</dt><dd>{{ formaterEuros(creditDu) }}</dd><small>à ce jour, pas encore dépensé</small></div>
+      </dl>
+
+      <ol v-if="mouvements.length" class="fonds-liste">
+        <li v-for="m in mouvements" :key="m.id" :class="m.type">
+          <span class="fonds-icone"><i :class="m.icone" aria-hidden="true"></i></span>
+          <span class="fonds-texte">
+            <strong>{{ m.titre }}</strong>
+            <small>{{ formatDate(m.date, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) }}<template v-if="m.detail"> · {{ m.detail }}</template></small>
+            <button v-if="m.preuve?.length" type="button" class="fonds-preuve-btn" @click="preuveOuverte = preuveOuverte === m.id ? null : m.id">{{ preuveOuverte === m.id ? 'Masquer' : 'Voir' }} l’historique du crédit</button>
+            <ul v-if="preuveOuverte === m.id" class="fonds-preuve">
+              <li v-for="(l, i) in m.preuve" :key="i"><span>{{ formatDate(l.cree_le) }} · {{ l.libelle }}</span><span class="num">{{ formaterEuros(Number(l.montant)) }}</span></li>
+            </ul>
+          </span>
+          <span class="fonds-montant">
+            {{ m.type === 'annule' ? '' : m.montant < 0 ? '−' : '+' }} {{ formaterEuros(Math.abs(m.montant)) }}
+            <small>{{ m.type === 'revenu' ? 'revenu' : m.type === 'virement' ? (m.montant < 0 ? 'versé' : 'reçu') : 'annulé' }}</small>
+          </span>
+        </li>
+      </ol>
+      <div v-else class="adm-vide"><i class="fa-solid fa-clock-rotate-left"></i><p>Aucun mouvement sur cette période.</p></div>
+    </AdminPanneau>
 
     <!-- Évolution -->
     <section class="adm-carte apercu-carte apercu-graphe">
@@ -401,6 +490,35 @@ const erreurGlobale = computed(() => Object.values(erreurs)[0])
 .kpi.sombre .kpi-evolution.hausse { color: #6ee7b7; }
 .kpi.sombre .kpi-evolution.baisse { color: #fda4af; }
 .kpi.sombre .kpi-squelette { opacity: .15; }
+.kpi-historique {
+  position: relative; z-index: 1; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; padding: 5px 10px;
+  border: 0; border-radius: 999px; background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-size: .76rem; font-weight: 600; cursor: pointer;
+  transition: background var(--transition);
+}
+.kpi-historique:hover:not(:disabled) { background: rgba(255, 255, 255, .22); }
+.kpi-historique:disabled { opacity: .5; cursor: default; }
+
+/* Historique des fonds */
+.fonds-resume { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 18px; }
+.fonds-resume div { padding: 12px 14px; border-radius: 12px; background: var(--adm-survol); }
+.fonds-resume dt { font-size: .76rem; color: var(--adm-muet); }
+.fonds-resume dd { margin: 4px 0 2px; font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fonds-resume small { font-size: .74rem; color: var(--adm-muet); }
+.fonds-resume .total { background: var(--adm-noir); color: #fff; }
+.fonds-resume .total dt, .fonds-resume .total small { color: rgba(255, 255, 255, .7); }
+.fonds-liste { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.fonds-liste > li { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 0; border-top: 1px solid var(--adm-ligne-2); }
+.fonds-icone { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--adm-survol); color: var(--adm-encre-2); }
+.virement .fonds-icone { background: var(--adm-accent-doux); color: var(--adm-info-texte); }
+.annule .fonds-icone { background: var(--adm-attention-fond); color: var(--adm-attention-texte); }
+.fonds-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: .9rem; }
+.fonds-texte small { color: var(--adm-muet); font-size: .78rem; }
+.fonds-montant { display: flex; flex-direction: column; align-items: flex-end; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fonds-montant small { color: var(--adm-muet); font-size: .72rem; font-weight: 400; }
+.fonds-preuve-btn { align-self: flex-start; padding: 0; border: 0; background: none; color: var(--adm-accent); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
+.fonds-preuve { display: flex; flex-direction: column; gap: 4px; margin: 4px 0 0; padding: 10px 12px; border-radius: 10px; background: var(--adm-survol); list-style: none; font-size: .8rem; }
+.fonds-preuve li { display: flex; justify-content: space-between; gap: 12px; }
+@media (max-width: 640px) { .fonds-resume { grid-template-columns: 1fr; } }
 
 /* Cartes : en-tête fixe, contenu qui s'adapte à la hauteur disponible */
 .apercu-carte { display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 18px 20px; }

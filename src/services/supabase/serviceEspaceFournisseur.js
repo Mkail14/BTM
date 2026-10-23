@@ -31,9 +31,23 @@ export async function lireMaFiche(fournisseurId) {
 export async function modifierMaFiche(f) {
   const { data, error } = await supabase.rpc('modifier_ma_fiche', {
     p_telephone: f.telephone, p_email: f.email, p_adresse: f.adresse, p_commune: f.commune, p_site_web: f.site_web,
-    p_description: f.description, p_horaires: f.horaires, p_logo_url: f.logo_url, p_livraison: !!f.livraison
+    p_description: f.description, p_horaires: f.horaires, p_logo_url: f.logo_url, p_livraison: !!f.livraison,
+    p_livraison_payante: !!f.livraison_payante, p_livraison_tarif: f.livraison_tarif || null // migration 20261023160000
   })
   if (error) throw erreurSql(error, '0012')
+  return data
+}
+
+// ---------- Avis des clients (migration 20261023180000) ----------
+/** Demandes d'avis envoyées par le fournisseur et réponses des clients (les plus récentes d'abord) */
+export async function listerMesAvis() {
+  return ok(await supabase.from('avis_fournisseurs').select('*').order('demande_le', { ascending: false }))
+}
+
+/** Demande au client d'un encaissement de noter l'entreprise (renvoie la demande existante si déjà faite) */
+export async function demanderAvis(paiementId) {
+  const { data, error } = await supabase.rpc('demander_avis_fournisseur', { p_paiement: paiementId })
+  if (error) throw erreurSql(error, '20261023180000 (avis fournisseurs)')
   return data
 }
 
@@ -41,7 +55,8 @@ export async function modifierMaFiche(f) {
 export async function listerMesDevis(fournisseurId) {
   const lignes = ok(await supabase.from('projets')
     .select('id, nom, type_projet_id, cout_total, resultat, cree_le, code_retrait')
-    .eq('fournisseur_id', fournisseurId)
+    // choisi seul, ou parmi plusieurs fournisseurs (le code BTM marche chez chacun)
+    .or(`fournisseur_id.eq.${fournisseurId},fournisseurs.cs.{${fournisseurId}}`)
     .order('cree_le', { ascending: false }))
   return lignes.map((p) => ({ ...p, cout_total: Number(p.cout_total), resultat: normaliserResultat(p.resultat) }))
 }
@@ -61,7 +76,7 @@ export async function listerJournal() {
 export async function trouverDevisParCode(code) {
   const { data, error } = await supabase.rpc('trouver_devis_par_code', { p_code: code })
   if (error) throw erreurSql(error, '0013')
-  return { ...data, cout_total: Number(data.cout_total), resultat: normaliserResultat(data.resultat), paiement: versPaiement(data.paiement), credit_disponible: Number(data.credit_disponible) || 0, commission: Number(data.commission) || 0 }
+  return { ...data, cout_total: Number(data.cout_total), resultat: normaliserResultat(data.resultat), paiement: versPaiement(data.paiement), credit_disponible: Number(data.credit_disponible) || 0, utiliser_credit: !!data.utiliser_credit, commission: Number(data.commission) || 0 }
 }
 
 /**
@@ -92,7 +107,7 @@ export async function annulerEncaissement(projetId, motif) {
  * @param {object} catalogue { [materiauId]: { vendu, rupture, prix_unitaire, stock } }
  * @param {Array} articles [{ id, libelle, unite, prix_unitaire, stock, quantite }] articles vendus en plus
  */
-export function calculerEncaissement(resultat, quantites = {}, catalogue = {}, promotion = null, { articles = [], codeBtmIgnore = false, tauxCommission = 0, credit = 0 } = {}) {
+export function calculerEncaissement(resultat, quantites = {}, catalogue = {}, promotion = null, { articles = [], codeBtmIgnore = false, tauxCommission = 0, credit = 0, remiseDejaAppliquee = 0 } = {}) {
   const lignes = (resultat?.lignes || []).map((l) => {
     const c = catalogue[l.id]
     const indisponible = !!c && (!c.vendu || c.rupture)
@@ -117,8 +132,9 @@ export function calculerEncaissement(resultat, quantites = {}, catalogue = {}, p
   const r = resultat?.remise
   let reduction = 0
   if (r && Number(r.valeur) > 0 && !codeBtmIgnore) {
-    const brut = r.type === 'montant' ? Number(r.valeur) : (net * Number(r.valeur)) / 100
-    reduction = arrondi(Math.min(net, Math.max(0, brut)))
+    // code en € : partagé entre les fournisseurs du devis (déjà offert chez un autre = déduit)
+    const brut = r.type === 'montant' ? Number(r.valeur) - remiseDejaAppliquee : (net * Number(r.valeur)) / 100
+    reduction = arrondi(Math.min(net, Math.max(0, brut))) // payée par BTM : déduite de la commission, ou remboursée au fournisseur
   }
   const creditUtilise = arrondi(Math.min(Math.max(0, Number(credit) || 0), net - reduction))
   const stockInsuffisant = fournies.filter((l) => l.stock != null && l.quantite > Number(l.stock))
@@ -215,8 +231,23 @@ export async function listerReversements() {
   if (error) throw erreurSql(error, '0014')
   return data.map((r) => ({ ...r, montant: Number(r.montant) }))
 }
+/** Virement fait vers BTM : compté tout de suite, sans validation */
 export async function declarerReversement(montant, reference) {
   const { data, error } = await supabase.rpc('declarer_reversement', { p_montant: montant, p_reference: reference })
   if (error) throw erreurSql(error, '0014')
   return { ...data, montant: Number(data.montant) }
 }
+
+// ---------- RIB du fournisseur (BTM y rembourse les codes promo BTM qui dépassent la commission) ----------
+export async function lireMonRib(fournisseurId) {
+  const { data, error } = await supabase.from('ribs_fournisseurs').select('*').eq('fournisseur_id', fournisseurId).maybeSingle()
+  if (error) throw erreurSql(error, 'virements_sans_validation_rib_fournisseurs')
+  return data
+}
+/** iban vide : retire le RIB */
+export async function enregistrerMonRib({ titulaire, iban, bic, banque }) {
+  const { data, error } = await supabase.rpc('enregistrer_mon_rib', { p_titulaire: titulaire, p_iban: iban, p_bic: bic || null, p_banque: banque || null })
+  if (error) throw erreurSql(error, 'virements_sans_validation_rib_fournisseurs')
+  return data?.iban ? data : null
+}
+export const supprimerMonRib = () => enregistrerMonRib({ titulaire: '', iban: '' })

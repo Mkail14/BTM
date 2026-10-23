@@ -40,12 +40,12 @@ watch(confirmation, async (c) => { if (c) { await nextTick(); boutonAnnuler.valu
 .toasts { position: fixed; right: 20px; bottom: 20px; z-index: 400; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; pointer-events: none; }
 .toast {
   display: flex; align-items: center; gap: 10px; max-width: min(420px, calc(100vw - 40px)); padding: 12px 18px; border-radius: 14px;
-  background: var(--ardoise); color: #fff; font-size: .9rem; font-weight: 500; box-shadow: 0 14px 34px rgba(15, 23, 42, .25); pointer-events: auto;
+  background: var(--encre); color: #fff; font-size: .9rem; font-weight: 500; box-shadow: 0 14px 34px rgba(15, 23, 42, .25); pointer-events: auto;
 }
 .toast-succes i { color: #6ee7b7; }
 .toast-erreur { background: #9f1239; }
 /* thème sombre : la toile est presque de la couleur du message, on l'en détache */
-.adm-sombre .toast { box-shadow: 0 0 0 1px var(--adm-ligne-forte), 0 14px 34px rgba(0, 0, 0, .4); }
+.adm-sombre .toast, :global(html[data-theme="sombre"] .toast) { box-shadow: 0 0 0 1px var(--adm-ligne-forte), 0 14px 34px rgba(0, 0, 0, .4); }
 .toast-info i { color: var(--lagon-300); }
 .toast-enter-active, .toast-leave-active { transition: opacity .25s ease, transform .25s ease; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(10px); }

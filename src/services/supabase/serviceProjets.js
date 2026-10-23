@@ -10,6 +10,7 @@ const versFront = (l) => ({
   dimensions: l.dimensions,
   resultat: normaliserResultat(l.resultat),
   fournisseur_id: l.fournisseur_id,
+  fournisseurs: l.fournisseurs || (l.fournisseur_id ? [l.fournisseur_id] : []),
   code_retrait: l.code_retrait || '',
   cout_total: Number(normaliserResultat(l.resultat)?.total ?? l.cout_total),
   cree_le: l.cree_le,
@@ -37,6 +38,8 @@ export async function creerProjetCloud(utilisateurId, projet) {
       dimensions: projet.dimensions,
       resultat: projet.resultat,
       fournisseur_id: projet.fournisseur_uuid || null,
+      // plusieurs fournisseurs choisis : le code BTM marche chez chacun (colonne absente avant la migration : ignorée)
+      ...(projet.fournisseurs?.length > 1 ? { fournisseurs: projet.fournisseurs } : {}),
       cout_total: projet.cout_total
     })
     .select()
@@ -48,6 +51,18 @@ export async function creerProjetCloud(utilisateurId, projet) {
 
 export async function supprimerProjetCloud(id) {
   const { error } = await supabase.from('projets').delete().eq('id', id)
+  if (error) throw error
+}
+
+/** Choix du client pour ce devis : utiliser son crédit fidélité chez le fournisseur ou le garder */
+export async function lireChoixCredit(codeRetrait) {
+  if (!supabaseConfigure || !codeRetrait) return false
+  const { data, error } = await supabase.from('projets').select('utiliser_credit').eq('code_retrait', codeRetrait).maybeSingle()
+  if (error) throw error
+  return !!data?.utiliser_credit
+}
+export async function choisirCredit(codeRetrait, utiliser) {
+  const { error } = await supabase.from('projets').update({ utiliser_credit: !!utiliser }).eq('code_retrait', codeRetrait)
   if (error) throw error
 }
 

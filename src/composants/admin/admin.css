@@ -49,7 +49,7 @@
 /* ---------- Thème sombre (bouton lune de l'en-tête, useThemeAdmin) ----------
    Posé sur le cadre de l'admin ; « .adm-sombre .adm » couvre les panneaux et dialogues, qui redéclarent .adm.
    --adm-noir reste la couleur d'accent fort (boutons, onglet actif) sous du texte blanc : en sombre, c'est le lagon. */
-.adm.adm-sombre, .adm-sombre .adm {
+.adm.adm-sombre, .adm-sombre .adm, html[data-theme="sombre"] .adm {
   color-scheme: dark;
   --adm-toile: #0b1220;
   --adm-carte: #151d2e;

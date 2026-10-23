@@ -36,7 +36,8 @@ export const fournisseurs = [
   exemple('c', 'materiaux-generaux', 'Matériaux généraux', 'Mamoudzou', 'négoce de matériaux généraux', '#b45309')
 ]
 
-export const libelleCategorie = (id) => categories.find((c) => c.id === id)?.libelle || id
+// catégorie absente de la liste locale (créée par l'admin) : son identifiant, avec une majuscule
+export const libelleCategorie = (id) => categories.find((c) => c.id === id)?.libelle || (id ? id[0].toUpperCase() + id.slice(1).replace(/-/g, ' ') : '')
 
 /** Normalise une ligne Supabase vers le format front */
 export function normaliserFournisseur(ligne) {
@@ -53,6 +54,8 @@ export function normaliserFournisseur(ligne) {
     site_web: ligne.site_web,
     description: ligne.description,
     livraison: !!ligne.livraison,
+    livraison_payante: !!ligne.livraison_payante,
+    livraison_tarif: ligne.livraison_tarif || null,
     demonstration: !!ligne.demonstration,
     horaires: ligne.horaires,
     latitude: ligne.latitude ?? null,

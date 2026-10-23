@@ -11,6 +11,7 @@ import AdminPanneau from './AdminPanneau.vue'
 import PanneauPropositionRealisation from './PanneauPropositionRealisation.vue'
 import { formaterSiret, lienAnnuaire, rechercherSiret } from '@/services/entreprises.js'
 import { envoyerLienMotDePasse } from '@/services/supabase/serviceAuth.js'
+import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
 const { utilisateur: moi } = useAuth()
@@ -119,20 +120,36 @@ async function reinitialiser(p) {
 }
 
 // ---------- Suppression définitive (n'importe quel compte sauf le sien, revérifié par le serveur) ----------
+// Le crédit fidélité restant est annulé avec le motif saisi ; la preuve est gardée dans credits_annules (fait par le serveur).
+const suppression = ref(null) // { profil, solde, motif, envoi, erreur }
 async function supprimer(p) {
   if (api.estAdminPrincipal(p)) { notifier('Le compte administrateur principal ne peut pas être supprimé.', 'erreur'); return }
-  const projets = projetsPar.value[p.id] || 0
-  const texte = [
-    `Le compte ${p.email} sera supprimé définitivement`,
-    projets ? `, avec ses ${projets} projet${projets > 1 ? 's' : ''} et son crédit fidélité` : ', avec son crédit fidélité',
+  suppression.value = { profil: p, solde: null, motif: '', envoi: false, erreur: '' }
+  try { suppression.value.solde = await api.soldeCreditUtilisateur(p.id) } catch { suppression.value.erreur = 'Solde du crédit fidélité illisible.' }
+}
+const texteSuppression = computed(() => {
+  const s = suppression.value
+  if (!s) return ''
+  const projets = projetsPar.value[s.profil.id] || 0
+  return [
+    `Le compte ${s.profil.email} sera supprimé définitivement`,
+    projets ? `, avec ses ${projets} projet${projets > 1 ? 's' : ''}` : '',
     '. Ses avis et ses paiements sont conservés sans auteur.',
-    p.role === 'admin' ? ' Attention : c’est un compte administrateur.' : '',
+    s.profil.role === 'admin' ? ' Attention : c’est un compte administrateur.' : '',
     ' Cette action est irréversible.'
   ].join('')
-  if (!(await confirmer({ titre: 'Supprimer cet utilisateur ?', texte, libelle: 'Supprimer le compte', danger: true }))) return
-  const ok = await executer(async () => { const r = await api.supprimerUtilisateur(p.id); notifier(r?.message || 'Compte supprimé.') })
+})
+async function confirmerSuppression() {
+  const s = suppression.value
+  s.erreur = ''
+  if (s.solde === null) { s.erreur = 'Solde du crédit fidélité illisible : réessayez.'; return }
+  if (s.solde > 0 && !s.motif.trim()) { s.erreur = 'Indiquez le motif : il accompagne l’annulation du crédit restant.'; return }
+  s.envoi = true
+  const ok = await executer(async () => { const r = await api.supprimerUtilisateur(s.profil.id, s.motif.trim()); notifier(r?.message || 'Compte supprimé.') })
+  s.envoi = false
   if (!ok) return
-  if (edition.value?.id === p.id) edition.value = null
+  if (edition.value?.id === s.profil.id) edition.value = null
+  suppression.value = null
   await charger(['profils', 'projets'], { force: true })
 }
 
@@ -216,6 +233,16 @@ async function lever(p) {
   if (ban.value?.profil.id === p.id) ban.value = null
   await charger(['profils'], { force: true })
 }
+
+// ---------- Crédits fidélité cumulés (section « Crédits ») ----------
+// gagné = total reçu depuis l'inscription, utilisé = dépensé chez les fournisseurs (ou reversé), solde = restant
+watch(filtre, (f) => { if (f === 'credits') charger(['credits'], { force: true }) })
+const credits = computed(() => (donnees.profils || [])
+  .map((p) => ({ profil: p, ...(donnees.credits?.[p.id] || { gagne: 0, utilise: 0, solde: 0, mouvements: 0, dernier: null }) }))
+  .filter((c) => c.mouvements)
+  .sort((a, b) => b.gagne - a.gagne))
+const listeCredits = computed(() => credits.value.filter((c) => correspond(recherche.value, c.profil.email, c.profil.nom_affiche)))
+const totalCredits = computed(() => credits.value.reduce((t, c) => ({ gagne: t.gagne + c.gagne, utilise: t.utilise + c.utilise, solde: t.solde + c.solde }), { gagne: 0, utilise: 0, solde: 0 }))
 </script>
 
 <template>
@@ -227,10 +254,42 @@ async function lever(p) {
       <button v-for="(r, cle) in api.ROLES_COMPTE" :key="cle" type="button" class="adm-pilule" :class="{ actif: filtre === cle }" :aria-pressed="filtre === cle" @click="filtre = cle">{{ r.label }}s <small>{{ compte(cle) }}</small></button>
       <button type="button" class="adm-pilule" :class="{ actif: filtre === 'pro_attente', 'pilule-alerte': aVerifier && filtre !== 'pro_attente' }" :aria-pressed="filtre === 'pro_attente'" @click="filtre = 'pro_attente'"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i> Pros à vérifier <small>{{ aVerifier }}</small></button>
       <button type="button" class="adm-pilule" :class="{ actif: filtre === 'bannis' }" :aria-pressed="filtre === 'bannis'" @click="filtre = 'bannis'"><i class="fa-solid fa-ban" aria-hidden="true"></i> Bannis <small>{{ bannis.length }}</small></button>
+      <button type="button" class="adm-pilule" :class="{ actif: filtre === 'credits' }" :aria-pressed="filtre === 'credits'" @click="filtre = 'credits'"><i class="fa-solid fa-coins" aria-hidden="true"></i> Crédits</button>
     </div>
 
+    <!-- Section « Crédits » : crédit fidélité cumulé par compte -->
+    <section v-if="filtre === 'credits'" class="adm-carte">
+      <header class="utils-bannis-entete">
+        <h3><i class="fa-solid fa-coins utils-credit-icone" aria-hidden="true"></i> Crédits fidélité cumulés</h3>
+        <p>{{ credits.length }} compte{{ credits.length > 1 ? 's' : '' }} · gagné {{ formaterEuros(totalCredits.gagne) }} · utilisé {{ formaterEuros(totalCredits.utilise) }} · en circulation {{ formaterEuros(totalCredits.solde) }}</p>
+      </header>
+      <p v-if="erreurs.credits" class="adm-alerte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.credits }}</p>
+      <div v-if="!donnees.profils || !donnees.credits" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
+      <div v-else class="adm-table-cadre">
+        <table v-if="listeCredits.length" class="adm-table adm-table-empile">
+          <thead><tr><th>Utilisateur</th><th class="num">Cumulé gagné</th><th class="num">Utilisé</th><th class="num">Solde</th><th class="num col-secondaire">Mouvements</th><th class="col-secondaire">Dernier</th></tr></thead>
+          <tbody>
+            <tr v-for="c in listeCredits" :key="c.profil.id">
+              <td class="principal">
+                <span class="adm-identite">
+                  <span class="adm-avatar rond">{{ initiales(c.profil.nom_affiche || c.profil.email) }}</span>
+                  <span><strong>{{ c.profil.nom_affiche || '—' }}</strong><small>{{ c.profil.email }}</small></span>
+                </span>
+              </td>
+              <td data-label="Cumulé gagné" class="num"><strong>{{ formaterEuros(c.gagne) }}</strong></td>
+              <td data-label="Utilisé" class="num">{{ formaterEuros(c.utilise) }}</td>
+              <td data-label="Solde" class="num">{{ formaterEuros(c.solde) }}</td>
+              <td data-label="Mouvements" class="num col-secondaire">{{ c.mouvements }}</td>
+              <td data-label="Dernier" class="col-secondaire">{{ formatDate(c.dernier) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-else class="adm-vide"><i class="fa-solid fa-coins"></i><p>{{ credits.length ? 'Aucun compte ne correspond à la recherche.' : 'Aucun crédit fidélité distribué pour l’instant.' }}</p></div>
+      </div>
+    </section>
+
     <!-- Section « Bannis » : à vie ou jusqu'à une date -->
-    <section v-if="filtre === 'bannis'" class="adm-carte">
+    <section v-else-if="filtre === 'bannis'" class="adm-carte">
       <header class="utils-bannis-entete">
         <h3><i class="fa-solid fa-ban" aria-hidden="true"></i> Comptes bannis</h3>
         <p>{{ nbAVie }} à vie · {{ bannis.length - nbAVie }} temporaire{{ bannis.length - nbAVie > 1 ? 's' : '' }}. Un bannissement temporaire se lève tout seul à sa date de fin.</p>
@@ -418,6 +477,28 @@ async function lever(p) {
         </button>
       </template>
     </AdminPanneau>
+
+    <!-- Supprimer un compte : le crédit fidélité restant part au compte BTM avec le motif -->
+    <AdminPanneau v-if="suppression" titre="Supprimer cet utilisateur ?" :sous-titre="suppression.profil.email" @fermer="suppression = null">
+      <form id="form-suppression" class="adm-grille-form" novalidate @submit.prevent="confirmerSuppression">
+        <p class="plein">{{ texteSuppression }}</p>
+        <p v-if="suppression.solde > 0" class="plein utils-ban-actuel">
+          <i class="fa-solid fa-coins" aria-hidden="true"></i>
+          Crédit fidélité restant : <strong>{{ formaterEuros(suppression.solde) }}</strong>. Il sera annulé ; la preuve (motif, historique du crédit) reste dans l’historique des fonds du tableau de bord.
+        </p>
+        <div class="adm-champ plein">
+          <label for="suppression-motif">Motif <small>{{ suppression.solde > 0 ? '(obligatoire)' : '(facultatif)' }}</small></label>
+          <textarea id="suppression-motif" v-model="suppression.motif" rows="3" maxlength="300" placeholder="Ex. : demande de l’utilisateur par e-mail, compte frauduleux…"></textarea>
+        </div>
+      </form>
+      <p v-if="suppression.erreur" class="adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ suppression.erreur }}</p>
+      <template #pied>
+        <button type="button" class="adm-btn adm-btn-clair" @click="suppression = null">Annuler</button>
+        <button type="submit" form="form-suppression" class="adm-btn adm-btn-danger" :disabled="suppression.envoi || suppression.solde === null">
+          <span v-if="suppression.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-trash-can" aria-hidden="true"></i> Supprimer le compte
+        </button>
+      </template>
+    </AdminPanneau>
   </div>
 </template>
 
@@ -432,6 +513,7 @@ async function lever(p) {
 .utils-bannis-entete h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.05rem; }
 .utils-bannis-entete h3 i { color: var(--adm-baisse); }
 .utils-bannis-entete p { margin: 4px 0 0; color: var(--adm-muet); font-size: .86rem; }
+.utils-credit-icone { color: #d97706; }
 .utils-motif { max-width: 280px; color: var(--adm-encre-2); font-size: .86rem; }
 .utils-roles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .utils-role { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px; border: 1.5px solid var(--adm-ligne); border-radius: 14px; background: var(--adm-carte); color: var(--adm-encre-2); font: inherit; font-size: .82rem; cursor: pointer; transition: border-color var(--transition), background var(--transition), color var(--transition); }

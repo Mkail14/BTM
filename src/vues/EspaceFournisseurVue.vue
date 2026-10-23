@@ -21,44 +21,44 @@ import SectionValider from '@/composants/fournisseur/SectionValider.vue'
 import SectionPaiements from '@/composants/fournisseur/SectionPaiements.vue'
 import SectionPromotions from '@/composants/fournisseur/SectionPromotions.vue'
 import SectionMateriaux from '@/composants/fournisseur/SectionMateriaux.vue'
-import SectionCarreaux from '@/composants/fournisseur/SectionCarreaux.vue'
-import SectionMaFiche from '@/composants/fournisseur/SectionMaFiche.vue'
-import SectionMonCompte from '@/composants/fournisseur/SectionMonCompte.vue'
+import SectionMesAvis from '@/composants/fournisseur/SectionMesAvis.vue'
+import SectionCompte from '@/composants/fournisseur/SectionCompte.vue'
 import '@/composants/admin/admin.css'
 
 const sections = [
-  { id: 'apercu', label: 'Tableau de bord', icone: 'fa-solid fa-chart-simple', titre: 'Tableau de bord', sousTitre: 'Votre activité BTM en un coup d’œil.', composant: SectionTableauBord, fixe: true },
-  { id: 'valider', label: 'Valider un projet', icone: 'fa-solid fa-ticket', titre: 'Valider un projet', sousTitre: 'Tapez le code de retrait du client, préparez sa commande et encaissez.', composant: SectionValider },
+  { id: 'apercu', label: 'Tableau de bord', icone: 'fa-solid fa-chart-simple', titre: 'Tableau de bord', sousTitre: 'Votre activité BTM en un coup d’œil.', composant: SectionTableauBord, fixe: true, fixeMobile: true },
+  { id: 'valider', label: 'Valider un projet', icone: 'fa-solid fa-ticket', titre: 'Valider un projet', sousTitre: 'Tapez le code de retrait du client, préparez sa commande et encaissez.', composant: SectionValider, fixeMobile: true },
   { id: 'paiements', label: 'Paiements', icone: 'fa-solid fa-receipt', titre: 'Paiements', sousTitre: 'Encaissements, reçus, journal et reversement à BTM.', recherche: 'Rechercher un reçu, un projet, un code…', composant: SectionPaiements },
   { id: 'promotions', label: 'Promotions', icone: 'fa-solid fa-tags', titre: 'Promotions', sousTitre: 'Vos remises et codes promo, appliqués en caisse.', recherche: 'Rechercher une promotion, un code…', composant: SectionPromotions },
-  { id: 'materiaux', label: 'Matériaux', icone: 'fa-solid fa-boxes-stacked', titre: 'Matériaux', sousTitre: 'Vos prix et vos stocks, appliqués à chaque encaissement.', recherche: 'Rechercher un matériau…', composant: SectionMateriaux },
-  { id: 'carreaux', label: 'Carreaux', icone: 'fa-solid fa-table-cells', titre: 'Carreaux', sousTitre: 'Vos modèles de carreaux et leur prix à l’unité, proposés dans le calculateur.', recherche: 'Rechercher un modèle…', composant: SectionCarreaux },
+  { id: 'materiaux', label: 'Catalogue', icone: 'fa-solid fa-boxes-stacked', titre: 'Catalogue', sousTitre: 'Ce que vous vendez, à vos prix et avec vos stocks, appliqués à chaque encaissement.', recherche: 'Rechercher un produit…', composant: SectionMateriaux },
+  { id: 'avis', label: 'Avis clients', icone: 'fa-solid fa-star-half-stroke', titre: 'Avis de vos clients', sousTitre: 'Demandez leur avis aux clients venus retirer leur commande : il s’affiche sur votre fiche de l’annuaire.', composant: SectionMesAvis, fixe: true },
   { id: 'compte', label: 'Mon compte', icone: 'fa-solid fa-user-gear', titre: 'Mon compte', sousTitre: 'Votre entreprise dans l’annuaire et vos identifiants de connexion.', fixe: true }
 ]
 
 const route = useRoute()
 const router = useRouter()
 const { fournisseurLie, deconnexion } = useAuth()
-const { fiche, devis, erreur, enAttente, nomCompte, soldeBtm, charger } = useEspaceFournisseur()
+const { fiche, devis, erreur, enAttente, nomCompte, soldeBtm, vendCarreaux, charger } = useEspaceFournisseur()
 const { sombre, basculer: basculerTheme } = useThemeAdmin()
 
-// « Carreaux » seulement pour un vendeur de carrelage : la catégorie fixée par l'admin fait foi
-// (pas les Matériaux, où tout est coché « vendu » par défaut)
-const CATEGORIES_CARRELAGE = ['carrelage-finition', 'carreaux']
-const vendCarreaux = computed(() => CATEGORIES_CARRELAGE.includes(fiche.value?.categorie_id))
-const sectionsVisibles = computed(() => sections.filter((s) => s.id !== 'carreaux' || vendCarreaux.value))
-const section = computed(() => sectionsVisibles.value.find((s) => s.id === route.params.section) || sections[0])
+// Vendeur de carrelage : le catalogue a aussi ses carreaux
+const sectionsVisibles = computed(() => sections.map((s) => (s.id === 'materiaux' && vendCarreaux.value
+  ? { ...s, sousTitre: 'Vos carreaux et vos autres produits, à vos prix et avec vos stocks.' }
+  : s)))
+// « Mon compte » s'ouvre par le profil en haut (et l'entreprise dans le tiroir) : pas de doublon dans le menu
+const sectionsMenu = computed(() => sectionsVisibles.value.filter((s) => s.id !== 'compte'))
+// L'ancienne adresse /carreaux mène au catalogue
+const section = computed(() => sectionsVisibles.value.find((s) => s.id === (route.params.section === 'carreaux' ? 'materiaux' : route.params.section)) || sections[0])
 const lienSection = (id) => (id === 'apercu' ? '/espace-fournisseur' : `/espace-fournisseur/${id}`)
 // Téléphone : barre d'onglets en bas pour les gestes du comptoir, le reste dans le menu
 const ONGLETS_BAS = [
   { id: 'apercu', label: 'Accueil', icone: 'fa-solid fa-chart-simple' },
   { id: 'valider', label: 'Valider', icone: 'fa-solid fa-ticket' },
   { id: 'paiements', label: 'Paiements', icone: 'fa-solid fa-receipt' },
-  { id: 'materiaux', label: 'Matériaux', icone: 'fa-solid fa-boxes-stacked' }
+  { id: 'materiaux', label: 'Catalogue', icone: 'fa-solid fa-boxes-stacked' }
 ]
 const menuOuvert = ref(false)
 const recherche = ref('')
-const ongletCompte = ref('entreprise')
 watch(() => section.value.id, () => { recherche.value = ''; menuOuvert.value = false })
 watch(section, (s) => { document.title = `${s.titre} — Espace fournisseur BTM` }, { immediate: true })
 
@@ -78,7 +78,7 @@ async function seDeconnecter() {
 </script>
 
 <template>
-  <div class="adm adm-cadre ef" :class="{ 'adm-sombre': sombre, 'ecran-fixe': section.fixe }">
+  <div class="adm adm-cadre ef" :class="{ 'adm-sombre': sombre, 'ecran-fixe': section.fixe, 'fixe-mobile': section.fixeMobile }">
     <!-- Barre latérale (ordinateur, tablette) ; tiroir (téléphone) -->
     <aside class="adm-lat" :class="{ ouvert: menuOuvert }" aria-label="Navigation de l’espace fournisseur">
       <div class="ef-lat-tete">
@@ -95,7 +95,7 @@ async function seDeconnecter() {
 
       <nav class="adm-lat-nav">
         <router-link
-          v-for="s in sectionsVisibles" :key="s.id" :to="lienSection(s.id)"
+          v-for="s in sectionsMenu" :key="s.id" :to="lienSection(s.id)"
           class="adm-lat-lien" :class="{ actif: section.id === s.id }" :aria-current="section.id === s.id ? 'page' : undefined"
         >
           <i :class="s.icone" aria-hidden="true"></i><span>{{ s.label }}</span>
@@ -145,14 +145,7 @@ async function seDeconnecter() {
       <div v-if="devis === null" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
 
       <!-- Mon compte : l'entreprise (fiche de l'annuaire) et les identifiants -->
-      <div v-else-if="section.id === 'compte'" class="ef-compte">
-        <div class="adm-segments" role="tablist" aria-label="Mon compte">
-          <button type="button" role="tab" :aria-selected="ongletCompte === 'entreprise'" @click="ongletCompte = 'entreprise'"><i class="fa-solid fa-store" aria-hidden="true"></i> Mon entreprise</button>
-          <button type="button" role="tab" :aria-selected="ongletCompte === 'identifiants'" @click="ongletCompte = 'identifiants'"><i class="fa-solid fa-key" aria-hidden="true"></i> Identifiants</button>
-        </div>
-        <SectionMaFiche v-if="ongletCompte === 'entreprise'" :fiche="fiche" @maj="fiche = $event" />
-        <SectionMonCompte v-else />
-      </div>
+      <SectionCompte v-else-if="section.id === 'compte'" :fiche="fiche" @maj="fiche = $event" />
 
       <component :is="section.composant" v-else :key="section.id" v-bind="section.recherche ? { recherche } : {}" />
     </div>
@@ -194,8 +187,6 @@ async function seDeconnecter() {
 .ef-erreur { align-items: center; }
 .ef-erreur .adm-btn { margin-left: auto; }
 .ef-point { width: 8px; height: 8px; margin-left: auto; border-radius: 50%; background: #f59e0b; }
-.ef-compte { display: flex; flex-direction: column; gap: 18px; }
-.ef-compte > .adm-segments { align-self: flex-start; }
 
 /* Tête du menu et entreprise connectée */
 .ef-lat-tete { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -225,9 +216,6 @@ async function seDeconnecter() {
   .ef-profil > span:nth-child(2), .ef-profil > i { display: none; }
   .ef-profil .adm-avatar { width: 40px; height: 40px; }
   .adm-haut-recherche { order: 2; flex: 1 1 100%; }
-  .ef-compte { gap: 14px; }
-  .ef-compte > .adm-segments { align-self: stretch; }
-  .ef-compte > .adm-segments button { flex: 1; justify-content: center; }
 
   .ef-onglets {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 240; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -252,7 +240,17 @@ async function seDeconnecter() {
   .adm-cadre.ecran-fixe .adm-principal { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; }
   .adm-cadre.ecran-fixe .adm-haut { flex: none; margin-bottom: 18px; }
   .adm-cadre.ecran-fixe .adm-principal > :not(.adm-haut):not(.ef-erreur) { flex: 1; min-height: 0; }
-  .ecran-fixe .ef-compte > :last-child { flex: 1; min-height: 0; }
+}
+/* Téléphone : tableau de bord et validation tiennent aussi dans l'écran, au-dessus des onglets (sinon la page défile) */
+@media (max-width: 767px) and (min-height: 560px) {
+  /* cadre posé sur l'écran et page bloquée : rien ne peut dépasser dessous ni faire défiler */
+  :global(html:has(.ef.fixe-mobile)), :global(html:has(.ef.fixe-mobile) body) { overflow: hidden; overscroll-behavior: none; }
+  .adm-cadre.fixe-mobile { position: fixed; inset: 0; height: auto; grid-template-rows: minmax(0, 1fr); }
+  .adm-cadre.fixe-mobile .adm-principal { display: flex; flex-direction: column; min-height: 0; padding-bottom: 0; }
+  .adm-cadre.fixe-mobile .adm-haut { flex: none; margin-bottom: 10px; }
+  .adm-cadre.fixe-mobile .adm-haut-titre h1 { font-size: 1.25rem; }
+  .adm-cadre.fixe-mobile .ef-erreur { flex: none; }
+  .adm-cadre.fixe-mobile .adm-principal > :not(.adm-haut):not(.ef-erreur) { flex: 1; min-height: 0; }
 }
 @media (min-width: 1024px) and (max-height: 820px) {
   .adm-cadre.ecran-fixe .adm-haut { margin-bottom: 10px; }

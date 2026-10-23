@@ -403,17 +403,17 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac {
   position: fixed; right: 24px; bottom: calc(24px + var(--barre-onglets, 0px)); z-index: 220; display: flex; flex-direction: column; width: min(390px, calc(100vw - 32px));
   max-height: min(640px, calc(100dvh - 48px)); overflow: hidden; border: 1px solid rgba(15, 23, 42, .12); border-radius: 18px;
-  background: #fff; box-shadow: 0 18px 42px rgba(0,0,0,.28); animation: ac-apparaitre .24s ease both;
+  background: var(--carte); box-shadow: 0 18px 42px rgba(0,0,0,.28); animation: ac-apparaitre .24s ease both;
 }
 .ac.minimise { width: min(320px, calc(100vw - 32px)); }
 .ac-barre { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; background: var(--lagon-600); color: #fff; }
-.ac-barre-awa { background: linear-gradient(120deg, var(--lagon-800), var(--lagon-600)); }
-.ac-barre-conseiller { background: var(--ardoise); }
+.ac-barre-awa { background: linear-gradient(120deg, #155e75, #0891b2); } /* bandeau toujours foncé, texte blanc */
+.ac-barre-conseiller { background: var(--encre); }
 .ac-profil { position: relative; flex: none; }
 .ac-barre .ac-avatar { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); transition: background .15s, box-shadow .15s; }
 .ac-barre .ac-avatar:hover, .ac-barre .ac-avatar[aria-expanded="true"] { background: rgba(255,255,255,.3); box-shadow: 0 0 0 2px rgba(255,255,255,.55); }
-.ac-avatar-fleche { position: absolute; right: -3px; bottom: -3px; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%; background: #fff; color: var(--ardoise-2); font-size: .5rem; }
-.ac-options { position: absolute; top: calc(100% + 8px); left: 0; z-index: 2; display: flex; flex-direction: column; width: 240px; padding: 6px; border: 1px solid var(--gris-200); border-radius: 14px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.22); animation: ac-apparaitre .16s ease both; }
+.ac-avatar-fleche { position: absolute; right: -3px; bottom: -3px; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%; background: var(--carte); color: var(--ardoise-2); font-size: .5rem; }
+.ac-options { position: absolute; top: calc(100% + 8px); left: 0; z-index: 2; display: flex; flex-direction: column; width: 240px; padding: 6px; border: 1px solid var(--gris-200); border-radius: 14px; background: var(--carte); box-shadow: 0 12px 28px rgba(15,23,42,.22); animation: ac-apparaitre .16s ease both; }
 .ac-options-qui { display: flex; flex-direction: column; margin: 0 0 4px; padding: 8px 10px 10px; border-bottom: 1px solid var(--gris-200); line-height: 1.3; }
 .ac-options-qui strong { color: var(--ardoise-2); font-size: .86rem; }
 .ac-options-qui small { color: var(--texte-secondaire); font-size: .72rem; }
@@ -431,8 +431,8 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-ligne.client { align-self: flex-end; align-items: flex-end; }
 .ac-qui { display: flex; align-items: center; gap: 6px; margin: 0 0 3px 4px; color: var(--texte-secondaire); font-size: .72rem; font-weight: 700; }
 .ac-qui em { padding: 0 6px; border-radius: 999px; background: var(--lagon-100); color: var(--lagon-800); font-size: .62rem; font-style: normal; }
-.ac-ligne.conseiller .ac-qui em { background: var(--ardoise); color: #fde68a; }
-.ac-bulle { margin: 0; padding: 10px 13px; border-radius: 14px 14px 14px 4px; background: #fff; color: var(--ardoise-2); font-size: .86rem; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
+.ac-ligne.conseiller .ac-qui em { background: var(--encre); color: #fde68a; }
+.ac-bulle { margin: 0; padding: 10px 13px; border-radius: 14px 14px 14px 4px; background: var(--carte); color: var(--ardoise-2); font-size: .86rem; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
 .ac-ligne.client .ac-bulle { border-radius: 14px 14px 4px 14px; background: var(--lagon-600); color: #fff; }
 .ac-ligne.conseiller .ac-bulle { border: 1px solid #fde68a; background: #fffbeb; }
 .ac-bulle.provisoire { opacity: .6; }
@@ -440,14 +440,14 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-vu.lu { color: var(--lagon-600); font-weight: 700; }
 .ac-lien { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0 4px; color: var(--lagon-700); font-size: .82rem; font-weight: 700; }
 .ac-choix { display: flex; flex-wrap: wrap; gap: 6px; }
-.ac-choix button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: #fff; color: var(--lagon-800); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
+.ac-choix button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: var(--carte); color: var(--lagon-800); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
 .ac-choix button:hover:not(:disabled) { border-color: var(--lagon-500); background: var(--lagon-50); }
-.ac-choix a { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: #fff; color: var(--lagon-800); font-size: .8rem; font-weight: 600; }
+.ac-choix a { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: var(--carte); color: var(--lagon-800); font-size: .8rem; font-weight: 600; }
 .ac-choix a:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
 .ac-choix .ac-choix-discret { border-color: transparent; background: transparent; color: var(--texte-secondaire); font-weight: 500; }
 .ac-devis-actions { margin-top: 8px; }
 .ac-systeme { align-self: center; max-width: 92%; margin: 2px 0; color: var(--texte-secondaire); font-size: .74rem; text-align: center; }
-.ac-ecrit { display: flex; gap: 4px; align-self: flex-start; margin: 0; padding: 12px 14px; border-radius: 14px; background: #fff; }
+.ac-ecrit { display: flex; gap: 4px; align-self: flex-start; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--carte); }
 .ac-ecrit span { width: 6px; height: 6px; border-radius: 50%; background: var(--gris-400); animation: ac-points 1s infinite; }
 .ac-ecrit span:nth-child(2) { animation-delay: .15s; }
 .ac-ecrit span:nth-child(3) { animation-delay: .3s; }
@@ -456,11 +456,11 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-coord input { min-height: 38px; padding: 0 12px; border: 1px solid var(--gris-300); border-radius: 10px; font: inherit; font-size: .84rem; }
 .ac-coord > div { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .ac-erreur { display: flex; gap: 6px; margin: 0; padding: 8px 14px; background: #fff1f2; color: var(--erreur); font-size: .78rem; }
-.ac-cloture { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px; border-top: 1px solid var(--gris-200); background: #fff; text-align: center; }
+.ac-cloture { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px; border-top: 1px solid var(--gris-200); background: var(--carte); text-align: center; }
 .ac-cloture p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ardoise-2); font-size: .84rem; font-weight: 600; }
 .ac-cloture p i { color: #047857; }
 .ac-cloture small { color: var(--texte-secondaire); font-size: .76rem; }
-.ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: #fff; }
+.ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: var(--carte); }
 .ac-saisie input { min-width: 0; flex: 1; min-height: 40px; padding: 0 12px; border: 1px solid var(--gris-200); border-radius: 999px; outline: 0; font: inherit; font-size: .86rem; }
 .ac-saisie input:focus { border-color: var(--lagon-500); }
 .ac-saisie button { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--lagon-600); color: #fff; cursor: pointer; }

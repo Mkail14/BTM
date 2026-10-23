@@ -48,7 +48,7 @@ defineProps({
 /* bouton blanc passé dans le slot « action » */
 .bandeau :slotted(.bandeau-action) {
   position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 22px; border-radius: 14px;
-  background: #fff; color: var(--ardoise); font-weight: 700; box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .5); transition: transform var(--transition);
+  background: var(--carte); color: var(--ardoise); font-weight: 700; box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .5); transition: transform var(--transition);
 }
 .bandeau :slotted(.bandeau-action:hover) { transform: translateY(-2px); }
 .bandeau :slotted(.bandeau-action i) { color: var(--lagon-600); }

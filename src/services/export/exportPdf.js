@@ -17,8 +17,11 @@ const propre = (texte) => String(texte).replace(/[  ]/g, ' ').replace(/−/g,
 const euros = (n) => propre(formaterEuros(n))
 const nombre = (n, d) => propre(formaterNombre(n, d))
 
-/** @param {string} [code] code de retrait du projet enregistré (présenté au fournisseur pour retirer et payer) */
-export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }, mode = 'telecharger') {
+/**
+ * @param {string} [code] code de retrait du projet enregistré (présenté au fournisseur pour retirer et payer)
+ * @param {number} [credit] crédit fidélité que le client a choisi d'utiliser : déduit du total
+ */
+export async function exporterEstimationPdf({ nom, resultat, fournisseur, code, credit = 0 }, mode = 'telecharger') {
   const { jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
 
@@ -86,6 +89,7 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   y += 8
   // Matériaux (+ frais de service BTM pour les devis récents)
   const detail = detailPrix(resultat).map((l) => [propre(l.label), euros(l.valeur)])
+  if (credit > 0) detail.push(['Crédit fidélité BTM', euros(-credit)])
   const hauteurPrix = 25 + detail.length * 6.5
   doc.setFillColor(...LAGON_CLAIR)
   doc.roundedRect(marge, y, utile, hauteurPrix, 3, 3, 'F')
@@ -95,7 +99,7 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   doc.text('Coût total', marge + 7, y + 10)
   doc.setFontSize(24)
   doc.setTextColor(...LAGON)
-  doc.text(euros(resultat.total), largeur - marge - 7, y + 12, { align: 'right' })
+  doc.text(euros(resultat.total - credit), largeur - marge - 7, y + 12, { align: 'right' })
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   detail.forEach(([label, valeur], i) => {

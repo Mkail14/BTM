@@ -1,6 +1,7 @@
 <script setup>
 import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 import * as THREE from 'three'
+import { appareilLeger } from '@/composables/useAppareil.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 // « pret » : maquette affichée (ou en échec) — l'écran de chargement du site peut partir
@@ -51,8 +52,8 @@ function setup3DScene() {
   camera = new THREE.PerspectiveCamera(28, width / height, 0.1, 100)
   camera.position.set(0.4, 1.15, 5.6)
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer = new THREE.WebGLRenderer({ antialias: !appareilLeger.value, alpha: true, powerPreference: 'high-performance' })
+  renderer.setPixelRatio(appareilLeger.value ? 1 : Math.min(window.devicePixelRatio, 2))
   renderer.setSize(width, height)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.setClearColor(0x000000, 0)

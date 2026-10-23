@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
 import { ouvrirAuth as ouvrirFenetreAuth, useFenetreAuth } from '@/composables/useFenetreAuth.js'
@@ -12,6 +12,7 @@ import { useContenuSite } from '@/composables/useContenuSite.js'
 import { useCreditFidelite } from '@/composables/useCreditFidelite.js'
 import { useMesRealisations } from '@/composables/useMesRealisations.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
+import { useTheme } from '@/composables/useTheme.js'
 
 const contenu = useContenuSite()
 const route = useRoute()
@@ -68,9 +69,21 @@ watch(() => route.path, () => { creditOuvert.value = false; if (afficherCredit.v
 // barre d'onglets : se cache quand on descend (plus de place pour lire), revient dès qu'on remonte ou en bas de page
 const ongletsCaches = ref(false)
 let dernierY = 0
+// Thème clair : sur un fond clair (toutes les pages, et l'accueil une fois le héros passé), la barre devient du verre
+// clair à texte foncé ; au-dessus du héros de nuit, elle garde son verre sombre à texte blanc.
+const { sombre: themeSombre } = useTheme()
+const surHeros = ref(true)
+const mesurerHeros = () => {
+  const heros = route.path === '/' ? document.getElementById('hero-section') : null
+  surHeros.value = !!heros && heros.getBoundingClientRect().bottom > 72
+}
+const enteteClaire = computed(() => !themeSombre.value && !surHeros.value)
+watch(() => route.path, () => nextTick(mesurerHeros))
+
 const surScroll = () => {
   const y = window.scrollY
   defile.value = y > 24
+  mesurerHeros()
   const bas = y + window.innerHeight >= document.documentElement.scrollHeight - 4
   // saut brusque (ouverture de page, retour arrière, ancre) : ce n'est pas l'utilisateur qui fait défiler, la barre reste
   if (Math.abs(y - dernierY) > 160) { dernierY = y; return }
@@ -84,6 +97,7 @@ onMounted(() => { dernierY = window.scrollY; surScroll(); window.addEventListene
 onBeforeUnmount(() => window.removeEventListener('scroll', surScroll))
 watch(() => route.path, () => { profilOuvert.value = false })
 const { etat: fenetreAuth } = useFenetreAuth()
+const { sombre, basculer: basculerTheme } = useTheme()
 watch([profilOuvert, () => fenetreAuth.ouverte, () => avisOuvert.value], ([profil, auth, avis]) => { document.body.style.overflow = profil || auth || avis ? 'hidden' : '' })
 
 // Téléphone et tablette : barre d'onglets en bas, comme une application. La classe réserve sa place
@@ -182,6 +196,8 @@ function ouvrirAction(action) {
   profilMessage.value = ''
   profilErreur.value = ''
   suppressionConfirmee.value = false
+  // solde à jour avant d'autoriser la suppression (le serveur revérifie)
+  if (action === 'supprimer') chargerCredit()
 }
 
 // ancien mot de passe oublié : un lien reçu par e-mail permet d'en choisir un nouveau (fenêtre de connexion)
@@ -233,7 +249,7 @@ async function supprimerCompte() {
 </script>
 
 <template>
-  <header id="entete-app" class="entete" :class="{ 'entete-defile': defile || route.path !== '/' }">
+  <header id="entete-app" class="entete" :class="{ 'entete-defile': defile || route.path !== '/', 'entete-claire': enteteClaire }">
     <div class="conteneur entete-inner">
       <router-link to="/" class="entete-logo" aria-label="BTM — Accueil">
         <LogoBtm :taille="42" />
@@ -256,6 +272,13 @@ async function supprimerCompte() {
         </nav>
 
         <div class="entete-actions">
+          <!-- thème du site : lune = passer en sombre, soleil = revenir en clair (téléphone compris) -->
+          <button
+            class="entete-theme" type="button" :aria-pressed="sombre" :title="sombre ? 'Passer en mode clair' : 'Passer en mode sombre'"
+            :aria-label="sombre ? 'Passer en mode clair' : 'Passer en mode sombre'" @click="basculerTheme"
+          >
+            <i :class="sombre ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+          </button>
           <template v-if="connecte">
             <div class="entete-compte">
               <button class="entete-utilisateur" type="button" :title="utilisateur?.email" @click="ouvrirProfil">
@@ -421,7 +444,7 @@ async function supprimerCompte() {
             <button class="btn btn-primaire" type="submit">Modifier le mot de passe</button>
           </form>
 
-          <div v-else class="profil-suppression"><h3>Supprimer mon compte</h3><p>Cette action est définitive. Vos informations de compte ne pourront pas être récupérées.</p><label class="profil-checkbox"><input v-model="suppressionConfirmee" type="checkbox" /> Je comprends et je veux supprimer mon compte</label><p v-if="profilErreur" class="profil-retour profil-erreur" role="alert">{{ profilErreur }}</p><button class="btn btn-danger" type="button" :disabled="!suppressionConfirmee" @click="supprimerCompte"><i class="fa-solid fa-trash"></i> Supprimer définitivement</button></div>
+          <div v-else class="profil-suppression"><h3>Supprimer mon compte</h3><p>Cette action est définitive. Vos informations de compte ne pourront pas être récupérées.</p><p v-if="credit.solde > 0" class="profil-retour profil-erreur" role="alert">Il vous reste {{ formaterEuros(credit.solde) }} de crédit fidélité. Utilisez-le chez un fournisseur avant de supprimer votre compte.</p><label v-else class="profil-checkbox"><input v-model="suppressionConfirmee" type="checkbox" /> Je comprends et je veux supprimer mon compte</label><p v-if="profilErreur" class="profil-retour profil-erreur" role="alert">{{ profilErreur }}</p><button class="btn btn-danger" type="button" :disabled="!suppressionConfirmee || credit.solde > 0" @click="supprimerCompte"><i class="fa-solid fa-trash"></i> Supprimer définitivement</button></div>
         </section>
       </div>
     </section>
@@ -441,10 +464,42 @@ async function supprimerCompte() {
   transition: opacity var(--transition);
 }
 .entete-defile, .entete-menu-ouvert {
-  background: rgba(6, 32, 44, .86); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
-  box-shadow: 0 10px 30px rgba(6, 32, 44, .28);
+  /* Verre façon Apple : voile très léger, gros flou, couleurs ravivées ; pas de reflet blanc en haut (ligne disgracieuse) */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .14) 0%, rgba(255, 255, 255, .04) 55%, rgba(255, 255, 255, .02) 100%),
+    rgba(6, 32, 44, .22);
+  backdrop-filter: blur(30px) saturate(200%) brightness(1.05); -webkit-backdrop-filter: blur(30px) saturate(200%) brightness(1.05);
+  border-bottom-color: rgba(255, 255, 255, .22);
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 255, 255, .06),
+    0 8px 32px rgba(6, 32, 44, .18);
+  text-shadow: 0 1px 2px rgba(6, 32, 44, .35);
 }
-.entete-defile::after, .entete-menu-ouvert::after { opacity: .7; }
+.entete-defile::after, .entete-menu-ouvert::after { display: none; }
+/* Sans flou (appareils peu puissants) : fond plein pour garder le texte lisible */
+:global(.appareil-leger .entete-defile) { background: rgba(6, 32, 44, .92); }
+
+/* Thème clair, hors du héros de nuit : verre clair et texte foncé (le verre sombre devenait illisible sur le blanc) */
+.entete.entete-claire {
+  color: var(--encre); text-shadow: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .82), rgba(255, 255, 255, .68)), rgba(245, 247, 249, .4);
+  border-bottom-color: rgba(15, 23, 42, .08);
+  box-shadow: 0 8px 28px rgba(15, 23, 42, .08);
+}
+:global(.appareil-leger .entete.entete-claire) { background: rgba(255, 255, 255, .96); }
+.entete-claire .entete-marque small { color: var(--lagon-700); opacity: 1; }
+.entete.entete-claire .nav-principale { border-color: rgba(15, 23, 42, .1); background: rgba(15, 23, 42, .03); box-shadow: none; }
+.entete-claire .nav-lien { color: rgba(15, 23, 42, .68); }
+.entete-claire .nav-lien:hover, .entete-claire .nav-lien:focus-visible { color: var(--encre); background: rgba(15, 23, 42, .06); }
+.entete-claire .nav-lien.actif { color: #0e7490; background: rgba(8, 145, 178, .1); box-shadow: inset 0 0 0 1px rgba(8, 145, 178, .3); }
+.entete-claire .nav-lien.actif i { color: #0891b2; }
+.entete-claire .entete-connexion, .entete-claire .entete-utilisateur { color: var(--encre); }
+.entete-claire .entete-connexion:hover, .entete-claire .entete-utilisateur:hover { color: var(--encre); background: rgba(15, 23, 42, .06); }
+.entete-claire .entete-compte, .entete-claire .entete-theme { border-color: rgba(15, 23, 42, .12); background: rgba(15, 23, 42, .03); }
+.entete-claire .entete-theme { color: var(--encre); }
+.entete-claire .entete-theme:hover { color: #b45309; background: rgba(15, 23, 42, .07); }
+.entete-claire .entete-deconnexion { color: rgba(15, 23, 42, .55); }
+.entete-claire .entete-credit { background: rgba(245, 158, 11, .16); color: #92400e; }
 .entete-menu-ouvert { background: var(--abysse); }
 
 .entete-inner { height: 100%; display: flex; align-items: center; gap: 16px; position: relative; }
@@ -514,7 +569,7 @@ async function supprimerCompte() {
 .credit { position: relative; }
 .credit-detail {
   position: absolute; top: calc(100% + 10px); right: -40px; z-index: 120; width: 330px; padding: 16px 18px;
-  border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; box-shadow: var(--ombre-lg); color: var(--texte);
+  border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); box-shadow: var(--ombre-lg); color: var(--texte);
   opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .18s ease, transform .18s ease, visibility .18s;
 }
 .credit-detail::before { content: ''; position: absolute; top: -12px; left: 0; right: 0; height: 12px; } /* pont : le survol ne se perd pas entre le bouton et le panneau */
@@ -547,6 +602,13 @@ async function supprimerCompte() {
   background: transparent; color: rgba(255, 255, 255, .7); transition: color var(--transition), background var(--transition);
 }
 .entete-deconnexion:hover { color: var(--corail); background: rgba(251, 113, 133, .12); }
+.entete-theme {
+  display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 50%;
+  background: rgba(255, 255, 255, .05); color: rgba(255, 255, 255, .85); font-size: .95rem;
+  transition: color var(--transition), background var(--transition), transform var(--transition);
+}
+.entete-theme:hover { color: #fcd34d; background: rgba(255, 255, 255, .1); }
+.entete-theme:active { transform: scale(.92); }
 
 /* ---------- Téléphone et tablette : barre d'onglets en bas, comme une application ---------- */
 .onglets { display: none; }
@@ -645,9 +707,9 @@ async function supprimerCompte() {
 .profil-action > i:last-child { margin-left: auto; color: var(--gris-400); font-size: .75rem; }
 .profil-action span { display: flex; flex: 1; flex-direction: column; gap: 3px; font-weight: 700; font-size: .86rem; }
 .profil-action small { color: var(--gris-500); font-size: .72rem; font-weight: 400; }
-.profil-action:hover, .profil-action.actif { border-color: var(--lagon-200); background: #fff; }
+.profil-action:hover, .profil-action.actif { border-color: var(--lagon-200); background: var(--carte); }
 .profil-action-danger > i:first-child, .profil-action-danger span { color: var(--erreur); }
-.profil-contenu { min-height: 360px; padding: 26px; border: 1px solid var(--gris-200); border-radius: var(--rayon); background: #fff; }
+.profil-contenu { min-height: 360px; padding: 26px; border: 1px solid var(--gris-200); border-radius: var(--rayon); background: var(--carte); }
 .profil-contenu h3, .profil-suppression h3 { margin-bottom: 8px; color: var(--ardoise); font-size: 1.45rem; }
 .profil-oubli { padding: 0; border: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 600; cursor: pointer; }
 .profil-oubli:hover { text-decoration: underline; text-underline-offset: 3px; }
@@ -747,7 +809,7 @@ async function supprimerCompte() {
 
   /* liste des rubriques */
   .profil-actions { gap: 22px; padding: 0; border: 0; background: none; }
-  .profil-carte { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--gris-200); border-radius: 18px; background: #fff; }
+  .profil-carte { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--gris-200); border-radius: 18px; background: var(--carte); }
   .profil-carte-avatar {
     width: 54px; height: 54px; flex: none; display: grid; place-items: center; border-radius: 50%;
     background: linear-gradient(135deg, var(--lagon-400), var(--lagon-700)); color: #fff; font: 700 1.45rem var(--font-display);
@@ -757,8 +819,8 @@ async function supprimerCompte() {
   .profil-carte-texte strong { color: var(--ardoise); font-size: 1.08rem; }
   .profil-carte-texte small { color: var(--gris-500); font-size: .82rem; }
   .profil-carte-credit { flex: none; padding: 5px 10px; border-radius: 999px; background: #fef3c7; color: #b45309; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .profil-groupe { display: block; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 16px; background: #fff; }
-  .profil-groupe .profil-action { min-height: 62px; padding: 10px 16px; border: 0; border-radius: 0; background: #fff; -webkit-tap-highlight-color: transparent; }
+  .profil-groupe { display: block; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 16px; background: var(--carte); }
+  .profil-groupe .profil-action { min-height: 62px; padding: 10px 16px; border: 0; border-radius: 0; background: var(--carte); -webkit-tap-highlight-color: transparent; }
   .profil-groupe .profil-action + .profil-action { border-top: 1px solid var(--gris-100); }
   .profil-groupe .profil-action:active { background: var(--gris-100); }
   .profil-action > i:first-child { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--lagon-50); font-size: .95rem; }
@@ -770,7 +832,7 @@ async function supprimerCompte() {
   .profil-contenu { padding: 6px 0 0; border: 0; background: none; animation: profil-glisse .24s cubic-bezier(.22, .61, .36, 1); }
   .profil-contenu h3, .profil-contenu :deep(h3), .profil-retour-lien, .profil-intro-infos { display: none; }
   .profil-contenu-intro, .profil-suppression > p { margin: 0 4px 16px; font-size: .9rem; }
-  .profil-infos-liste { margin-bottom: 22px; padding: 0 16px; border: 1px solid var(--gris-200); border-radius: 16px; background: #fff; }
+  .profil-infos-liste { margin-bottom: 22px; padding: 0 16px; border: 1px solid var(--gris-200); border-radius: 16px; background: var(--carte); }
   .profil-infos-liste div { padding: 15px 0; border-color: var(--gris-100); }
   .profil-infos-liste div:last-child { border-bottom: 0; }
   .profil-contenu .btn { width: 100%; min-height: 50px; justify-content: center; border-radius: 999px; }
@@ -784,7 +846,7 @@ async function supprimerCompte() {
 .feuille {
   display: flex; flex-direction: column; align-items: center; width: min(100%, 520px);
   padding: 10px 20px calc(18px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0;
-  background: #fff; text-align: center; animation: feuille-monte .28s cubic-bezier(.22, .61, .36, 1);
+  background: var(--carte); text-align: center; animation: feuille-monte .28s cubic-bezier(.22, .61, .36, 1);
 }
 .feuille-poignee { width: 38px; height: 5px; margin-bottom: 18px; border-radius: 999px; background: var(--gris-200); }
 .feuille-icone { width: 52px; height: 52px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 16px; background: #fef3c7; color: #f59e0b; font-size: 1.3rem; }
@@ -794,7 +856,7 @@ async function supprimerCompte() {
 .feuille-option {
   /* text-align explicite : un <button> centre son texte par défaut (« Sur BTM »), un <a> non (« Sur Trustpilot ») */
   display: flex; align-items: center; gap: 14px; width: 100%; min-height: 66px; padding: 10px 16px; text-align: left;
-  border: 0; background: #fff; color: var(--ardoise); font: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  border: 0; background: var(--carte); color: var(--ardoise); font: inherit; text-decoration: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .feuille-option + .feuille-option { border-top: 1px solid var(--gris-100); }
 .feuille-option:active { background: var(--gris-50); }

@@ -90,6 +90,7 @@ function ajouterFraisService(resultat, tauxFrais) {
 /**
  * Code promo (choisi par l'admin) : réduction en % ou en €, sur tout le devis (`total`)
  * ou sur les seuls frais de service BTM (`frais`). Jamais plus que la base réduite.
+ * La remise est payée par BTM : déduite de la commission du fournisseur, ou remboursée par BTM si elle la dépasse.
  * @param {object|null} code { code, type: 'pourcentage'|'montant', valeur, portee: 'total'|'frais' }
  */
 function appliquerRemise(resultat, code) {
@@ -181,7 +182,7 @@ export const formaterEuros = (n) =>
 export const formaterNombre = (n, decimales = 2) =>
   new Intl.NumberFormat('fr-FR', { maximumFractionDigits: decimales }).format(Number(n) || 0)
 
-const UNITES_EN_TOUTES_LETTRES = { u: ['unité', 'unités'], sac: ['sac', 'sacs'], t: ['tonne', 'tonnes'], carreau: ['carreau', 'carreaux'] }
+const UNITES_EN_TOUTES_LETTRES = { u: ['unité', 'unités'], sac: ['sac', 'sacs'], t: ['tonne', 'tonnes'], carreau: ['carreau', 'carreaux'], carton: ['carton', 'cartons'] }
 
 /** « 13 sacs », « 1,5 tonne », « 3,2 m³ » — quantité lisible pour un particulier */
 export function formaterQuantite(quantite, unite) {

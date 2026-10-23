@@ -14,7 +14,8 @@ onMounted(() => charger(['avis'], { force: true }))
 const filtre = ref('tous')
 const note = ref(0)
 const tous = computed(() => donnees.avis || [])
-const publies = computed(() => tous.value.filter((a) => a.visible))
+// synthèse : les avis sur BTM seulement (les avis sur les fournisseurs ont leur propre note dans l'annuaire)
+const publies = computed(() => tous.value.filter((a) => a.visible && a.source !== 'fournisseur'))
 const moyenne = computed(() => (publies.value.length ? publies.value.reduce((s, a) => s + a.note, 0) / publies.value.length : 0))
 const repartition = computed(() => [5, 4, 3, 2, 1].map((n) => {
   const nombre = publies.value.filter((a) => a.note === n).length
@@ -22,23 +23,25 @@ const repartition = computed(() => [5, 4, 3, 2, 1].map((n) => {
 }))
 const compte = computed(() => ({
   tous: tous.value.length,
-  visibles: publies.value.length,
-  masques: tous.value.length - publies.value.length,
+  visibles: tous.value.filter((a) => a.visible).length,
+  masques: tous.value.filter((a) => !a.visible).length,
   trustpilot: tous.value.filter((a) => a.source === 'trustpilot').length,
+  fournisseurs: tous.value.filter((a) => a.source === 'fournisseur').length,
   demo: tous.value.filter((a) => a.demo).length
 }))
 const liste = computed(() => tous.value.filter((a) =>
   (filtre.value === 'tous' || (filtre.value === 'visibles' && a.visible) || (filtre.value === 'masques' && !a.visible)
-    || (filtre.value === 'trustpilot' && a.source === 'trustpilot') || (filtre.value === 'demo' && a.demo))
+    || (filtre.value === 'trustpilot' && a.source === 'trustpilot') || (filtre.value === 'fournisseurs' && a.source === 'fournisseur') || (filtre.value === 'demo' && a.demo))
   && (!note.value || a.note === note.value)
   && correspond(recherche.value, a.nom, a.ville, a.commentaire)))
 
 async function basculer(a) {
-  await executer(async () => { await api.definirAvisVisible(a.id, !a.visible); a.visible = !a.visible }, a.visible ? 'Avis masqué de la page d’accueil.' : 'Avis de nouveau publié.')
+  const ou = a.source === 'fournisseur' ? 'de l’annuaire' : 'de la page d’accueil'
+  await executer(async () => { await api.definirAvisVisible(a.id, !a.visible, a.table); a.visible = !a.visible }, a.visible ? `Avis masqué ${ou}.` : 'Avis de nouveau publié.')
 }
 async function supprimer(a) {
   if (!(await confirmer({ titre: `Supprimer l’avis de ${a.nom} ?`, texte: 'Suppression définitive. Pour le retirer temporairement, masquez-le plutôt. L’auteur pourra publier un nouvel avis.', libelle: 'Supprimer', danger: true }))) return
-  await executer(async () => { await api.supprimerAvis(a.id); donnees.avis = donnees.avis.filter((x) => x.id !== a.id) }, 'Avis supprimé.')
+  await executer(async () => { await api.supprimerAvis(a.id, a.table); donnees.avis = donnees.avis.filter((x) => x.id !== a.id) }, 'Avis supprimé.')
 }
 
 // ---------- Avis Trustpilot (saisie / correction) ----------
@@ -98,7 +101,7 @@ async function enregistrerTrustpilot() {
       </section>
 
       <div class="adm-pilules avis-filtres" role="group" aria-label="Filtrer les avis">
-        <button v-for="f in [['tous', 'Tous'], ['visibles', 'Publiés'], ['masques', 'Masqués'], ['trustpilot', 'Trustpilot'], ['demo', 'Démonstration']]" :key="f[0]" type="button" class="adm-pilule" :class="{ actif: filtre === f[0] }" :aria-pressed="filtre === f[0]" @click="filtre = f[0]">
+        <button v-for="f in [['tous', 'Tous'], ['visibles', 'Publiés'], ['masques', 'Masqués'], ['trustpilot', 'Trustpilot'], ['fournisseurs', 'Sur les fournisseurs'], ['demo', 'Démonstration']]" :key="f[0]" type="button" class="adm-pilule" :class="{ actif: filtre === f[0] }" :aria-pressed="filtre === f[0]" @click="filtre = f[0]">
           {{ f[1] }} <small>{{ compte[f[0]] }}</small>
         </button>
         <button v-if="note" type="button" class="adm-pilule" @click="note = 0">{{ note }} étoile{{ note > 1 ? 's' : '' }} <i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
@@ -113,6 +116,7 @@ async function enregistrerTrustpilot() {
           <span class="adm-etoiles" :aria-label="`${a.note} sur 5`"><i v-for="n in 5" :key="n" class="fa-solid fa-star" :class="{ eteinte: n > a.note }"></i></span>
           <span v-if="!a.visible" class="adm-badge adm-badge-attention">Masqué</span>
           <span v-if="a.demo" class="adm-badge adm-badge-violet">Démo</span>
+          <span v-if="a.source === 'fournisseur'" class="adm-badge adm-badge-info"><i class="fa-solid fa-store" aria-hidden="true"></i> {{ a.fournisseur_nom }}</span>
           <span v-if="a.source === 'trustpilot'" class="adm-badge avis-badge-trustpilot"><i class="fa-solid fa-star" aria-hidden="true"></i> Trustpilot</span>
           <span v-if="a.modifie_le" class="adm-badge">Modifié le {{ formatDate(a.modifie_le) }}</span>
           <time>{{ formatDate(a.cree_le) }}</time>

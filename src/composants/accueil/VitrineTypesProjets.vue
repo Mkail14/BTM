@@ -1,15 +1,17 @@
 <script setup>
-import { ref } from 'vue'
+import { defineAsyncComponent, ref } from 'vue'
 import { typesProjets } from '@/donnees/typesProjets.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
-import Maquette3D from './Maquette3D.vue'
+// three.js n'est téléchargé que si une maquette s'affiche : un téléphone (vitrine masquée) ouvre l'accueil sans lui
+const Maquette3D = defineAsyncComponent(() => import('./Maquette3D.vue'))
 
 const contenu = useContenuSite()
 const survol = ref(null)
+const telephone = window.matchMedia('(max-width: 639px)').matches
 </script>
 
 <template>
-  <section id="types-projets" class="section vitrine" aria-labelledby="vitrine-titre">
+  <section id="types-projets" class="section section-nuit vitrine" aria-labelledby="vitrine-titre">
     <div class="conteneur">
       <header class="section-entete reveal">
         <span class="section-surtitre">{{ contenu.ouvrages.surtitre }}</span>
@@ -26,7 +28,7 @@ const survol = ref(null)
           @focus="survol = t.id" @blur="survol = null"
         >
           <span class="ouvrage-num">0{{ i + 1 }}</span>
-          <div class="ouvrage-scene"><Maquette3D :type="t.id" :actif="survol === t.id" /></div>
+          <div class="ouvrage-scene"><Maquette3D v-if="!telephone" :type="t.id" :actif="survol === t.id" /></div>
           <div class="ouvrage-pied">
             <div>
               <h3>{{ t.libelle }}</h3>
@@ -41,31 +43,32 @@ const survol = ref(null)
 </template>
 
 <style scoped>
-.vitrine { background: #fff; }
+/* fond de nuit dans la continuité du héros ; cartes à peine plus claires, comme celles des avis */
+.vitrine { background: var(--fond-nuit); }
 .ouvrages { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
 @media (max-width: 1280px) { .ouvrages { grid-template-columns: repeat(3, 1fr); } }
 
 .ouvrage {
   position: relative; display: flex; flex-direction: column; overflow: hidden;
-  background: #f2f0eb; border-radius: 22px; color: inherit;
-  transition: background var(--transition);
+  background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .09); border-radius: 22px; color: #fff;
+  transition: background var(--transition), border-color var(--transition);
 }
-.ouvrage:hover { background: #ebe7df; }
-.ouvrage:focus-visible { outline: 2px solid var(--lagon-600); outline-offset: 3px; }
+.ouvrage:hover { background: rgba(255, 255, 255, .09); border-color: rgba(255, 255, 255, .16); }
+.ouvrage:focus-visible { outline: 2px solid #f7c77a; outline-offset: 3px; }
 
 .ouvrage-num {
   position: absolute; top: 18px; left: 22px; z-index: 1;
-  font-family: var(--font-mono); font-size: .75rem; letter-spacing: .1em; color: var(--gris-400);
+  font-family: var(--font-mono); font-size: .75rem; letter-spacing: .1em; color: rgba(255, 255, 255, .4);
 }
 .ouvrage-scene { position: relative; aspect-ratio: 1 / 1.05; }
 
 .ouvrage-pied { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 0 22px 22px; }
-.ouvrage h3 { font-size: 1.85rem; font-weight: 700; color: var(--ardoise); }
-.ouvrage p { margin: 4px 0 0; font-size: .86rem; color: var(--gris-500); }
+.ouvrage h3 { font-size: 1.85rem; font-weight: 700; color: #fff; }
+.ouvrage p { margin: 4px 0 0; font-size: .86rem; color: rgba(255, 255, 255, .6); }
 
 .ouvrage-fleche {
   flex-shrink: 0; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
-  background: #fff; color: var(--ardoise); font-size: .85rem;
+  background: #fff; color: var(--encre); font-size: .85rem; /* accueil : toujours sur la nuit */
   transition: background var(--transition), color var(--transition), transform var(--transition);
 }
 .ouvrage:hover .ouvrage-fleche, .ouvrage:focus-visible .ouvrage-fleche { background: var(--lagon-600); color: #fff; transform: rotate(-45deg); }
@@ -77,4 +80,13 @@ const survol = ref(null)
 }
 /* Téléphone : les ouvrages sont déjà listés dans le héros, on ne les répète pas */
 @media (max-width: 639px) { .vitrine { display: none; } }
+
+/* Thème clair : cartes blanches sur le fond clair du site */
+:global(html[data-theme="clair"] .ouvrage) { background: #fff; border-color: var(--bordure); color: var(--ardoise); box-shadow: var(--ombre-sm); }
+:global(html[data-theme="clair"] .ouvrage:hover) { background: #fff; border-color: var(--gris-300); box-shadow: var(--ombre); }
+:global(html[data-theme="clair"] .ouvrage:focus-visible) { outline-color: var(--lagon-600); }
+:global(html[data-theme="clair"] .ouvrage-num) { color: var(--gris-400); }
+:global(html[data-theme="clair"] .ouvrage h3) { color: var(--ardoise); }
+:global(html[data-theme="clair"] .ouvrage p) { color: var(--gris-500); }
+:global(html[data-theme="clair"] .ouvrage-fleche) { background: var(--gris-100); }
 </style>

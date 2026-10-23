@@ -3,9 +3,11 @@ import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
 import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
 import { modeSite } from '@/composables/useModeSite.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
+// Accueil livré avec le code principal : première page vue, son titre s'affiche sans attendre un second téléchargement
+import AccueilVue from '@/vues/AccueilVue.vue'
 
 const routes = [
-  { path: '/', name: 'accueil', component: () => import('@/vues/AccueilVue.vue'), meta: { titre: 'Accueil' } },
+  { path: '/', name: 'accueil', component: AccueilVue, meta: { titre: 'Accueil' } },
   { path: '/calculateur', name: 'calculateur', component: () => import('@/vues/CalculateurVue.vue'), meta: { titre: 'Calculateur' } },
   { path: '/resultats', name: 'resultats', component: () => import('@/vues/ResultatsVue.vue'), meta: { titre: 'Résultats' } }, // prix visible sans compte : le compte sert à enregistrer et au code de retrait
   { path: '/fournisseurs', name: 'fournisseurs', component: () => import('@/vues/FournisseursVue.vue'), meta: { titre: 'Fournisseurs' } },

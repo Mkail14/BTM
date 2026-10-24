@@ -100,8 +100,9 @@ watch(() => route.query, (q) => {
   <EnteteApp v-if="!pleinEcran" />
   <main id="contenu-principal">
     <router-view v-slot="{ Component }">
-      <!-- Vers l'espace admin ou fournisseur, pas de fondu : il laissait voir la page quittée (l'accueil) une demi-seconde -->
-      <transition name="fondu" mode="out-in" :css="!pleinEcran">
+      <!-- Vers l'espace admin ou fournisseur, pas de fondu : il laissait voir la page quittée (l'accueil) une demi-seconde.
+           Nom sans CSS plutôt que :css="false" : basculer :css en quittant l'accueil plantait Vue (page blanche à la connexion). -->
+      <transition :name="pleinEcran ? 'sans-fondu' : 'fondu'" mode="out-in">
         <!-- L'accueil reste en mémoire : y revenir ne reconstruit pas ses 5 scènes 3D (≈ 0,6 s de page figée) -->
         <keep-alive include="AccueilVue">
           <component :is="Component" />

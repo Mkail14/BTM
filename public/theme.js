@@ -4,7 +4,7 @@
 (function () {
   var choix = null
   try { choix = localStorage.getItem('btm-theme') || localStorage.getItem('btm-admin-theme') } catch (e) {}
-  var sombre = choix ? choix === 'sombre' : !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  var sombre = choix === 'sombre' // par défaut : clair, le visiteur choisit le sombre lui-même
   document.documentElement.dataset.theme = sombre ? 'sombre' : 'clair'
   document.documentElement.style.colorScheme = sombre ? 'dark' : 'light'
 })()

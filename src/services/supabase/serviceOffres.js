@@ -6,7 +6,7 @@
  */
 import { supabase, supabaseConfigure } from './client.js'
 import { arrondi } from '@/services/calculs/utilitaires.js'
-import { listerCarreauxPublics } from './serviceCarreaux.js'
+import { listerCarreauxPublics, libelleFormat } from './serviceCarreaux.js'
 
 let cache = null
 export async function chargerOffres({ force = false } = {}) {
@@ -19,7 +19,10 @@ export async function chargerOffres({ force = false } = {}) {
     // un modèle de carreau n'est proposé que par le fournisseur qui l'a mis en ligne (ligne « carreau:<id> » du devis)
     ...carreaux.map((c) => ({
       fournisseur_id: c.fournisseur_id, fournisseur_nom: c.fournisseur, commune: c.commune, livraison: c.livraison,
-      materiau_id: `carreau:${c.id}`, prix: c.prix_unitaire, prix_comptoir: c.prix_comptoir ?? c.prix_unitaire, disponible: !c.rupture
+      materiau_id: `carreau:${c.id}`, prix: c.prix_unitaire, prix_comptoir: c.prix_comptoir ?? c.prix_unitaire, disponible: !c.rupture,
+      // « Je sais ce qu'il me faut » : le modèle se cherche par son nom ou par son fournisseur, avec sa photo
+      libelle: `Carreau ${c.nom} · ${libelleFormat(c.format)}`, unite: c.carreaux_par_carton > 1 ? 'carton' : 'carreau',
+      photo_url: c.photo_url || null, description: [c.finition, c.carreaux_par_carton > 1 ? `carton de ${c.carreaux_par_carton} carreaux` : ''].filter(Boolean).join(' · ') || null
     }))
   ]
   return cache

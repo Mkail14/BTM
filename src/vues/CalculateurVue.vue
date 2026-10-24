@@ -44,6 +44,9 @@ async function validerAchat(choix) {
   calc.erreurGlobale.value = ''
   try {
     calc.achatDirect(choix)
+    // fournisseurs choisis sur les photos des offres : présélectionnés dans la comparaison
+    const choisis = [...new Set(choix.map((l) => l.fournisseurId).filter(Boolean))]
+    if (choisis.length) calc.choisirFournisseurs(choisis)
     await allerAuDevis()
   } catch (e) {
     // jamais de clic « sans effet » : le problème s'affiche sous la liste des matériaux et dans la console

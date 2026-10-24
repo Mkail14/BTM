@@ -19,10 +19,11 @@ import * as apiCarreaux from '@/services/supabase/serviceCarreaux.js'
 import { analyserCatalogue, genererModele, telecharger } from '@/services/catalogueCsv.js'
 import AdminPanneau from '@/composants/admin/AdminPanneau.vue'
 import SectionCarreaux from '@/composants/fournisseur/SectionCarreaux.vue'
+import { televerserPhoto } from '@/services/supabase/serviceRealisations.js'
 
 const props = defineProps({ recherche: { type: String, default: '' } })
 const { notifier, confirmer } = useAdmin()
-const { fournisseurLie } = useAuth()
+const { fournisseurLie, utilisateur } = useAuth()
 const { fiche, materiauxBtm, vendCarreaux, catalogue, articles, rechargerCatalogue } = useEspaceFournisseur()
 
 const onglet = ref(vendCarreaux.value ? 'carreaux' : 'produits')
@@ -58,9 +59,9 @@ const vendu = (m) => catalogue.value[m.id]?.vendu !== false
 const produits = computed(() => [
   ...materiaux.value.filter(vendu).map((m) => {
     const c = catalogue.value[m.id]
-    return { cle: `m:${m.id}`, btm: true, id: m.id, libelle: m.libelle, unite: m.unite, reference: m.prix_unitaire, prix: c?.prix_unitaire ?? null, stock: c?.stock ?? null, rupture: !!c?.rupture, vendu: true }
+    return { cle: `m:${m.id}`, btm: true, id: m.id, libelle: m.libelle, unite: m.unite, reference: m.prix_unitaire, prix: c?.prix_unitaire ?? null, stock: c?.stock ?? null, rupture: !!c?.rupture, vendu: true, photo_url: c?.photo_url || '', description: c?.description || '' }
   }),
-  ...articles.value.map((a) => ({ cle: `a:${a.id}`, btm: false, id: a.id, libelle: a.libelle, unite: a.unite, prix: a.prix_unitaire, stock: a.stock, rupture: !!a.rupture, vendu: a.vendu !== false, article: a }))
+  ...articles.value.map((a) => ({ cle: `a:${a.id}`, btm: false, id: a.id, libelle: a.libelle, unite: a.unite, prix: a.prix_unitaire, stock: a.stock, rupture: !!a.rupture, vendu: a.vendu !== false, photo_url: a.photo_url || '', description: a.description || '', article: a }))
 ])
 const liste = computed(() => produits.value.filter((p) => correspond(p.libelle)))
 const enRupture = (p) => p.vendu && (p.rupture || p.stock === 0)
@@ -96,7 +97,23 @@ function ouvrir(p = null, nouveau = !p) {
   erreurForm.value = ''
   formulaire.value = p
     ? { ...p, nouveau, uniteAutre: !UNITES.includes(p.unite), prixTexte: nombre(p.prix), stockTexte: nombre(p.stock) }
-    : { btm: false, nouveau: true, id: null, libelle: '', unite: 'u', uniteAutre: false, prixTexte: '', stockTexte: '', rupture: false, vendu: true }
+    : { btm: false, nouveau: true, id: null, libelle: '', unite: 'u', uniteAutre: false, prixTexte: '', stockTexte: '', rupture: false, vendu: true, photo_url: '', description: '' }
+}
+// Photo du produit : montrée aux clients dans « Je sais ce qu'il me faut », avec le prix et la description
+const envoiPhoto = ref(false)
+async function choisirPhoto(e) {
+  const fichier = e.target.files?.[0]
+  e.target.value = ''
+  if (!fichier) return
+  envoiPhoto.value = true
+  try {
+    const { url } = await televerserPhoto(fichier, `${utilisateur.value.id}/produits`)
+    formulaire.value.photo_url = url
+  } catch (err) {
+    erreurForm.value = err?.message || 'La photo n’a pas pu être envoyée.'
+  } finally {
+    envoiPhoto.value = false
+  }
 }
 async function enregistrer() {
   const f = formulaire.value
@@ -108,8 +125,8 @@ async function enregistrer() {
   if (erreurForm.value) return
   envoi.value = true
   try {
-    if (f.btm) await api.enregistrerCatalogue(fournisseurLie.value, [{ materiau_id: f.id, vendu: true, rupture: f.rupture, prix_unitaire: prix, prix_comptoir: null, stock }])
-    else await api.enregistrerArticle(fournisseurLie.value, { ...f.article, id: f.id, libelle: f.libelle, unite: f.unite, prix_unitaire: prix, prix_comptoir: null, stock, rupture: f.rupture, vendu: f.vendu })
+    if (f.btm) await api.enregistrerCatalogue(fournisseurLie.value, [{ materiau_id: f.id, vendu: true, rupture: f.rupture, prix_unitaire: prix, prix_comptoir: null, stock, photo_url: f.photo_url, description: f.description }])
+    else await api.enregistrerArticle(fournisseurLie.value, { ...f.article, id: f.id, libelle: f.libelle, unite: f.unite, prix_unitaire: prix, prix_comptoir: null, stock, rupture: f.rupture, vendu: f.vendu, photo_url: f.photo_url, description: f.description })
     await rechargerCatalogue()
     notifier(f.nouveau ? `« ${f.libelle.trim()} » ajouté : il est vendu en caisse.` : 'Produit enregistré.')
     formulaire.value = null
@@ -326,6 +343,23 @@ async function importer() {
           <span class="adm-saisie-unite"><input id="pr-stock" v-model="formulaire.stockTexte" inputmode="decimal" placeholder="Non suivi" /><span>{{ libelleUnite(formulaire.unite) }}</span></span>
           <span class="adm-champ-aide"><span>Décompté à chaque vente.</span></span>
         </div>
+        <div class="adm-champ plein">
+          <span class="adm-champ-label">Photo du produit (facultative)</span>
+          <div class="mat-photo">
+            <span class="mat-photo-apercu" aria-hidden="true"><img v-if="formulaire.photo_url" :src="formulaire.photo_url" alt="" /><i v-else class="fa-regular fa-image"></i></span>
+            <label class="adm-btn adm-btn-clair">
+              <span v-if="envoiPhoto" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-camera" aria-hidden="true"></i>
+              {{ formulaire.photo_url ? 'Changer la photo' : 'Ajouter une photo' }}
+              <input type="file" accept="image/jpeg,image/png,image/webp" class="visually-hidden" :disabled="envoiPhoto" @change="choisirPhoto" />
+            </label>
+            <button v-if="formulaire.photo_url" type="button" class="adm-btn adm-btn-clair" @click="formulaire.photo_url = ''">Retirer</button>
+          </div>
+          <span class="adm-champ-aide"><span>Vue par les clients quand ils comparent les fournisseurs pour ce produit.</span></span>
+        </div>
+        <div class="adm-champ plein">
+          <label for="pr-desc">Description (facultative)</label>
+          <textarea id="pr-desc" v-model="formulaire.description" rows="2" maxlength="300" placeholder="Ex. : béton dosé à 350 kg/m³, livré en toupie"></textarea>
+        </div>
         <div class="adm-champ">
           <span class="adm-champ-label">Disponibilité</span>
           <label class="mat-dispo" :class="{ rupture: formulaire.rupture }">
@@ -460,6 +494,10 @@ async function importer() {
 .mat-nom small { color: var(--adm-muet); font-size: .8rem; }
 .mat-option { display: flex; align-items: center; gap: 12px; font-size: .92rem; font-weight: 500; cursor: pointer; }
 /* Disponibilité : même hauteur qu'un champ, rouge quand le produit est en rupture */
+/* Photo du produit (formulaire) */
+.mat-photo { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.mat-photo-apercu { display: grid; place-items: center; width: 64px; height: 64px; overflow: hidden; border: 1px solid var(--adm-ligne); border-radius: 12px; background: var(--adm-ligne-2); color: var(--adm-muet); font-size: 1.3rem; }
+.mat-photo-apercu img { width: 100%; height: 100%; object-fit: cover; }
 .mat-dispo {
   display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border: 1px solid var(--adm-ligne); border-radius: 12px;
   background: var(--adm-champ); font-size: .9rem; font-weight: 500; cursor: pointer;

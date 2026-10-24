@@ -155,9 +155,16 @@ export async function listerMonCatalogue() {
   if (error) throw erreurSql(error, '0014')
   return data.map((c) => ({ ...c, prix_unitaire: c.prix_unitaire == null ? null : Number(c.prix_unitaire), prix_comptoir: c.prix_comptoir == null ? null : Number(c.prix_comptoir), stock: c.stock == null ? null : Number(c.stock) }))
 }
+// Photo et description du produit (migration 20261024010000) : envoyées seulement quand le formulaire du produit les
+// donne, pour qu'un import de fichier ou un simple « rupture » n'efface jamais la photo déjà mise en ligne
+const photoEtDescription = (p) => ({
+  ...('photo_url' in p ? { photo_url: p.photo_url || null } : {}),
+  ...('description' in p ? { description: String(p.description ?? '').trim().slice(0, 300) || null } : {})
+})
 export async function enregistrerCatalogue(fournisseurId, lignes) {
   const { error } = await supabase.from('catalogue_fournisseur').upsert(lignes.map((l) => ({
-    fournisseur_id: fournisseurId, materiau_id: l.materiau_id, vendu: !!l.vendu, rupture: !!l.rupture, prix_unitaire: l.prix_unitaire, prix_comptoir: l.prix_comptoir ?? null, stock: l.stock, mis_a_jour_le: new Date().toISOString()
+    fournisseur_id: fournisseurId, materiau_id: l.materiau_id, vendu: !!l.vendu, rupture: !!l.rupture, prix_unitaire: l.prix_unitaire, prix_comptoir: l.prix_comptoir ?? null, stock: l.stock, mis_a_jour_le: new Date().toISOString(),
+    ...photoEtDescription(l)
   })))
   if (error) throw erreurSql(error, '0014')
 }
@@ -170,7 +177,7 @@ export async function listerArticles() {
   return data.map(versArticle)
 }
 export async function enregistrerArticle(fournisseurId, a) {
-  const champs = { libelle: a.libelle.trim(), unite: a.unite.trim(), prix_unitaire: a.prix_unitaire, prix_comptoir: a.prix_comptoir ?? null, stock: a.stock, rupture: !!a.rupture, vendu: a.vendu !== false, mis_a_jour_le: new Date().toISOString() }
+  const champs = { libelle: a.libelle.trim(), unite: a.unite.trim(), prix_unitaire: a.prix_unitaire, prix_comptoir: a.prix_comptoir ?? null, stock: a.stock, rupture: !!a.rupture, vendu: a.vendu !== false, mis_a_jour_le: new Date().toISOString(), ...photoEtDescription(a) }
   const requete = a.id
     ? supabase.from('articles_fournisseur').update(champs).eq('id', a.id)
     : supabase.from('articles_fournisseur').insert({ ...champs, fournisseur_id: fournisseurId })

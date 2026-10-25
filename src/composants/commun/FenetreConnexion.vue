@@ -83,7 +83,8 @@ const redirectionDemandee = () => props.redirect
 // lu à l'ouverture : la page d'attente disparaît dès que l'admin ou le fournisseur est reconnu
 const reserve = props.partenairesSeuls
 const MESSAGE_RESERVE = 'Le site n’est pas encore ouvert : cet espace est réservé aux fournisseurs partenaires et à l’équipe BTM.'
-const estPartenaire = ({ role, fournisseur_id: fid } = {}) => role === 'admin' || (role === 'fournisseur' && !!fid)
+// partenaire : admin, fournisseur, ou entreprise dont le compte attend la validation de BTM (elle voit sa page d'attente)
+const estPartenaire = ({ role, fournisseur_id: fid, demandeFournisseur } = {}) => role === 'admin' || (role === 'fournisseur' && !!fid) || !!demandeFournisseur
 // Avant l'ouverture : un compte client qui se connecte est aussitôt déconnecté, la fenêtre reste ouverte avec un message
 async function refuserSiClient(compte) {
   if (!reserve || estPartenaire(compte)) return false

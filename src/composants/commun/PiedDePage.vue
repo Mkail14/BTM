@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import LogoBtm from './LogoBtm.vue'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
+import { ouvrirInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
 
 const contenu = useContenuSite()
 const annee = new Date().getFullYear()
@@ -28,6 +29,8 @@ const lienTelephone = computed(() => {
         <router-link to="/calculateur">Calculateur</router-link>
         <router-link to="/fournisseurs">Fournisseurs</router-link>
         <router-link to="/dashboard">Mes projets</router-link>
+        <!-- entreprise qui vend des matériaux : création de son compte fournisseur, validé par BTM -->
+        <a href="#" class="pied-partenaire" @click.prevent="ouvrirInscriptionFournisseur()"><i class="fa-solid fa-handshake" aria-hidden="true"></i> Devenir partenaire</a>
       </nav>
 
       <nav class="pied-nav" aria-label="Types de projets">
@@ -69,6 +72,7 @@ const lienTelephone = computed(() => {
 .pied-nav h4 { color: var(--gris-400); font-family: var(--font-corps); font-size: .74rem; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; margin-bottom: 6px; }
 .pied-nav a { font-size: .95rem; transition: color var(--transition), transform var(--transition); display: inline-flex; gap: 8px; align-items: center; }
 .pied-nav a:hover { color: var(--lagon-300); transform: translateX(4px); }
+.pied-nav a.pied-partenaire { color: #fcd34d; font-weight: 600; }
 .pied-note { font-size: .8rem; opacity: .6; margin-top: 8px; }
 .pied-bas {
   border-top: 1px solid rgba(255,255,255,.1); padding: 20px; display: flex; flex-wrap: wrap; gap: 8px 24px;

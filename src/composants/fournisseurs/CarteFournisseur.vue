@@ -113,7 +113,7 @@ const itineraire = computed(() => {
 .fr-appel:hover i { color: #fff; }
 
 .fr-details { padding: 4px 16px 22px 84px; background: var(--gris-50); animation: apparaitre .2s ease; }
-.fr-avertissement { display: flex; gap: 8px; margin: 0 0 14px; max-width: 580px; padding: 10px 12px; border-radius: 10px; background: #fffbeb; color: #92400e; font-size: .86rem; line-height: 1.5; }
+.fr-avertissement { display: flex; gap: 8px; margin: 0 0 14px; max-width: 580px; padding: 10px 12px; border-radius: 10px; background: var(--alerte-fond); color: var(--alerte-texte); font-size: .86rem; line-height: 1.5; }
 .fr-avertissement i { margin-top: 3px; }
 .fr-description { margin: 0 0 16px; max-width: 580px; color: var(--gris-600); font-size: .92rem; line-height: 1.6; }
 .fr-details dl { display: grid; gap: 8px; margin: 0; }

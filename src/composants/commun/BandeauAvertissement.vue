@@ -24,8 +24,8 @@ const icones = { avertissement: 'fa-solid fa-triangle-exclamation', info: 'fa-so
 .bandeau-avertissement i { color: var(--sable-fonce); }
 .bandeau-info { background: var(--lagon-50); border-color: var(--lagon-200); color: var(--lagon-900); }
 .bandeau-info i { color: var(--lagon-600); }
-.bandeau-erreur { background: var(--erreur-clair); border-color: #fecdd3; color: #881337; }
+.bandeau-erreur { background: var(--erreur-fond); border-color: var(--erreur-bord); color: var(--erreur-texte); }
 .bandeau-erreur i { color: var(--erreur); }
-.bandeau-succes { background: #ecfdf5; border-color: #a7f3d0; color: #064e3b; }
+.bandeau-succes { background: var(--succes-fond); border-color: var(--succes-bord); color: var(--succes-texte); }
 .bandeau-succes i { color: var(--succes); }
 </style>

@@ -24,13 +24,16 @@ export const champsDemande = (f) => ({
   contact_nom: f.contact_nom?.trim() || '',
   horaires: f.horaires?.trim() || '',
   description: f.description?.trim() || '',
-  livraison: !!f.livraison
+  livraison: !!f.livraison,
+  // réponses aux questions (src/donnees/questionnaireFournisseur.js) : seules les réponses données sont gardées
+  questionnaire: Object.fromEntries(Object.entries(f.questionnaire || {}).filter(([, v]) => (Array.isArray(v) ? v.length : v)))
 })
 
 /** Crée le compte du fournisseur ; la demande est enregistrée par la base à la création du compte */
 export async function inscrireFournisseur(infos, motDePasse) {
   const d = champsDemande(infos)
-  return inscription(d.email, motDePasse, { type_profil: 'fournisseur', nom_complet: d.contact_nom, fournisseur: d })
+  // compte au nom de l'entreprise : pas de personne à nommer
+  return inscription(d.email, motDePasse, { type_profil: 'fournisseur', nom_complet: d.entreprise, fournisseur: d })
 }
 
 /** Demande du compte connecté (null : pas de demande, ou migration absente) */

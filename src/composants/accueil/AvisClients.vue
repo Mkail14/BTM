@@ -474,7 +474,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-source { margin-left: auto; width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; color: #5f6368; font-size: .78rem; }
 .avis-trustpilot .avis-source { color: #a3a39b; }
 .avis-trustpilot .avis-source:hover { background: #2c2c2c; color: #00b67a; }
-.avis-source:hover { background: #f1f3f4; color: var(--lagon-800); }
+.avis-source:hover { background: var(--surface-creuse); color: var(--lagon-800); }
 .avis-modal-note { margin: 6px 0 0; color: var(--texte-secondaire); font-size: .9rem; line-height: 1.5; }
 .avis-trustpilot-invitation { align-self: center; margin-top: 160px; }
 .avis-carte.avis-trustpilot-invitation > .avis-trustpilot-marque { position: static; }
@@ -519,7 +519,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-rating-choix button:hover { transform: scale(1.1); }
 .avis-submit { margin-top: 24px; width: 100%; justify-content: center; }
 .avis-succes { padding: 20px 0 4px; text-align: center; }
-.avis-succes-icone { width: 56px; height: 56px; display: grid; place-items: center; margin: 0 auto 16px; border-radius: 50%; background: #d1fae5; color: #047857; font-size: 1.3rem; }
+.avis-succes-icone { width: 56px; height: 56px; display: grid; place-items: center; margin: 0 auto 16px; border-radius: 50%; background: var(--succes-pastille); color: var(--succes-texte); font-size: 1.3rem; }
 .avis-succes p { margin: 8px 0 24px; color: var(--texte-secondaire); }
 
 .avis-modal input.avis-lecture { background: var(--gris-100, #f3f4f6); color: var(--gris-700); cursor: default; }

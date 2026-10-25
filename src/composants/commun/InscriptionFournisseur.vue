@@ -1,16 +1,20 @@
 <script setup>
 /**
- * « Devenir partenaire » : l'entreprise crée elle-même son compte fournisseur, en trois étapes
- * (entreprise, contact, compte). Le SIRET est contrôlé (clé de Luhn) puis cherché dans le registre public,
- * qui remplit le nom et la commune. La demande part en validation chez BTM (Admin → Fournisseurs → Demandes) ;
- * le compte voit sa page d'attente jusqu'à la décision.
- * Mode « correction » (rectification demandée par BTM) : mêmes champs, sans l'étape du compte, puis renvoi.
+ * « Devenir partenaire » : l'entreprise crée elle-même son compte fournisseur. Même fenêtre que la connexion du site
+ * (carte au format téléphone, fond flouté, feuille qui monte du bas sur téléphone) ; un thème par écran, sans défiler :
+ *  1. Entreprise — SIRET contrôlé (clé de Luhn) puis cherché au registre public, qui remplit le nom et la commune ;
+ *  2. Activité — ce qu'elle vend (plusieurs catégories, la première sert de catégorie principale), la taille de l'équipe,
+ *     la livraison sur chantier, le logiciel de caisse ou de stock (import du catalogue) ;
+ *  3. Coordonnées ; 4. Horaires — le même tableau que la fiche du fournisseur (ChampHoraires) ; 5. Compte.
+ * La demande part en validation chez BTM (Admin → Fournisseurs → Demandes) ; le compte voit sa page d'attente.
+ * Mode « correction » (rectification demandée par BTM) : mêmes écrans, sans celui du compte, puis renvoi.
  */
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
 import SaisieMotDePasse from '@/composants/commun/SaisieMotDePasse.vue'
+import ChampHoraires from '@/composants/fournisseur/ChampHoraires.vue'
 import { useInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { useFenetreAuth } from '@/composables/useFenetreAuth.js'
@@ -18,20 +22,36 @@ import { chargerCategories } from '@/services/supabase/serviceFournisseurs.js'
 import { inscrireFournisseur, corrigerMaDemande } from '@/services/supabase/serviceInscriptionFournisseur.js'
 import { siretValide, rechercherSiret, formaterSiret, nettoyerSiret } from '@/services/entreprises.js'
 import { erreurEmail } from '@/services/validation.js'
+import { QUESTIONNAIRE } from '@/donnees/questionnaireFournisseur.js'
+import { COMMUNES, communeMayotte } from '@/donnees/communesMayotte.js'
 
 const { etat, fermerInscriptionFournisseur } = useInscriptionFournisseur()
 const { rechargerRole } = useAuth()
 const { ouvrirAuth } = useFenetreAuth()
 
 const correction = computed(() => etat.correction)
-const ETAPES = computed(() => (correction.value ? ['Entreprise', 'Contact'] : ['Entreprise', 'Contact', 'Compte']))
+const ECRANS = [
+  { cle: 'entreprise', titre: 'Votre entreprise', aide: 'Elle est vérifiée au registre public des entreprises.' },
+  { cle: 'activite', titre: 'Votre activité', aide: 'Pour présenter vos produits aux bons clients.' },
+  { cle: 'contact', titre: 'Vos coordonnées', aide: 'Pour que les clients et BTM joignent l’entreprise.' },
+  { cle: 'horaires', titre: 'Vos horaires', aide: 'Affichés sur votre fiche. Facultatif : vous pourrez les changer plus tard.' },
+  { cle: 'compte', titre: 'Votre compte', aide: 'Pour vous connecter à votre espace fournisseur.' }
+]
+const ETAPES = computed(() => (correction.value ? ECRANS.filter((e) => e.cle !== 'compte') : ECRANS))
 const etape = ref(0)
+const ecran = computed(() => ETAPES.value[etape.value])
 const derniere = computed(() => etape.value === ETAPES.value.length - 1)
 
 const d = correction.value || {}
+const q = d.questionnaire || {}
 const f = ref({
-  siret: d.siret ? formaterSiret(d.siret) : '', entreprise: d.entreprise || '', categorie_id: d.categorie_id || '', commune: d.commune || '', adresse: d.adresse || '',
-  contact_nom: d.contact_nom || '', telephone: d.telephone || '', email: d.email || '', horaires: d.horaires || '', livraison: !!d.livraison, description: d.description || ''
+  siret: d.siret ? formaterSiret(d.siret) : '', entreprise: d.entreprise || '', commune: d.commune || '', adresse: d.adresse || '',
+  livraison: d.livraison ?? null,
+  contact_nom: d.contact_nom || '', telephone: d.telephone || '', email: d.email || '', horaires: d.horaires || '', description: d.description || '',
+  questionnaire: {
+    categories: q.categories || (d.categorie_id ? [d.categorie_id] : []),
+    equipe: q.equipe || '', logiciel: q.logiciel || ''
+  }
 })
 const telephoneValide = ref(!!d.telephone)
 const motDePasse = ref('')
@@ -44,8 +64,29 @@ const termine = ref(null) // { email, confirmation } une fois le compte créé
 
 const categories = ref([])
 onMounted(async () => { categories.value = await chargerCategories() })
+const repondre = (question, valeur) => { f.value.questionnaire[question] = valeur; retirer(question) }
+const vend = (id) => f.value.questionnaire.categories.includes(id)
+function basculerCategorie(id) {
+  const liste = f.value.questionnaire.categories
+  f.value.questionnaire.categories = vend(id) ? liste.filter((c) => c !== id) : [...liste, id]
+  retirer('categories')
+}
+const retirer = (cle) => { if (erreurs.value[cle]) { const { [cle]: _, ...reste } = erreurs.value; erreurs.value = reste } }
 
-// ---------- SIRET : contrôle puis registre public (remplit le nom et la commune) ----------
+// ---------- SIRET : espacé pendant la frappe (356 000 000 00048), contrôlé puis cherché au registre public ----------
+// les espaces se placent tout seuls après le 3e, 6e et 9e chiffre ; le curseur reste derrière le chiffre tapé
+function saisirSiret(e) {
+  const champ = e.target
+  const chiffresAvant = champ.value.slice(0, champ.selectionStart).replace(/\D/g, '').length
+  const chiffres = champ.value.replace(/\D/g, '').slice(0, 14)
+  const espace = chiffres.replace(/^(\d{3})(\d{0,3})(\d{0,3})(\d{0,5}).*$/, (_, a, b, c, d) => [a, b, c, d].filter(Boolean).join(' '))
+  f.value.siret = chiffres.length > 3 ? espace : chiffres
+  champ.value = f.value.siret
+  let pos = 0
+  for (let n = 0; pos < champ.value.length && n < chiffresAvant; pos++) if (/\d/.test(champ.value[pos])) n++
+  champ.setSelectionRange(pos, pos)
+  retirer('siret')
+}
 const registre = ref({ etat: '', donnees: null }) // '' | 'recherche' | 'trouvee' | 'inconnue' | 'indisponible'
 let derniereRecherche = ''
 watch(() => f.value.siret, async (v) => {
@@ -59,57 +100,64 @@ watch(() => f.value.siret, async (v) => {
     if (nettoyerSiret(f.value.siret) !== s) return
     registre.value = r ? { etat: 'trouvee', donnees: r } : { etat: 'inconnue', donnees: null }
     if (r && !f.value.entreprise.trim()) f.value.entreprise = r.nom
-    // registre en majuscules (« MAMOUDZOU ») : écrit comme un nom de commune
-    if (r?.commune && !f.value.commune.trim()) f.value.commune = r.commune.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_, a, l) => a + l.toUpperCase())
+    // commune du registre (« MAMOUDZOU ») reprise seulement si c'est une commune de Mayotte, bien écrite
+    if (r?.commune && !f.value.commune.trim() && communeMayotte(r.commune)) f.value.commune = communeMayotte(r.commune)
   } catch {
     registre.value = { etat: 'indisponible', donnees: null }
   }
 }, { immediate: true })
 
-// ---------- Étapes ----------
+// ---------- Écrans ----------
 function verifier() {
   const e = {}
   const v = f.value
-  if (etape.value === 0) {
-    if (!siretValide(v.siret)) e.siret = 'Numéro SIRET invalide : 14 chiffres, sur votre extrait Kbis ou vos factures.'
-    if (v.entreprise.trim().length < 2) e.entreprise = 'Indiquez le nom de l’entreprise.'
-    if (!v.categorie_id) e.categorie_id = 'Choisissez ce que vous vendez.'
-    if (v.commune.trim().length < 2) e.commune = 'Indiquez la commune.'
-  } else if (etape.value === 1) {
-    if (v.contact_nom.trim().length < 2) e.contact_nom = 'Indiquez votre nom.'
+  const cle = ecran.value.cle
+  if (cle === 'entreprise') {
+    if (!siretValide(v.siret)) e.siret = 'Numéro SIRET invalide : 14 chiffres, sur votre extrait Kbis.'
+    else if (v.entreprise.trim().length < 2) e.entreprise = 'Indiquez le nom de l’entreprise.'
+    else if (!communeMayotte(v.commune)) e.commune = v.commune.trim() ? 'Choisissez une commune de Mayotte dans la liste.' : 'Indiquez la commune.'
+  } else if (cle === 'activite') {
+    if (!v.questionnaire.categories.length) e.categories = 'Choisissez au moins une catégorie.'
+    else if (v.livraison === null) e.livraison = 'Indiquez si vous livrez sur les chantiers.'
+  } else if (cle === 'contact') {
     if (!telephoneValide.value) e.telephone = 'Indiquez un numéro de téléphone valide.'
-    const em = erreurEmail(v.email.trim())
-    if (em) e.email = em
+    else if (erreurEmail(v.email.trim())) e.email = erreurEmail(v.email.trim())
+  } else if (cle === 'horaires') {
+    if (v.horaires.length > 120) e.horaires = 'Horaires trop variés : regroupez les jours qui ont les mêmes heures.'
   } else {
     if (motDePasse.value.length < 8) e.motDePasse = '8 caractères minimum.'
     else if (confirmation.value !== motDePasse.value) e.confirmation = 'Les deux mots de passe sont différents.'
-    if (!cgu.value) e.cgu = 'Acceptez les conditions pour créer votre compte.'
+    else if (!cgu.value) e.cgu = 'Acceptez les conditions pour créer votre compte.'
   }
   erreurs.value = e
   return !Object.keys(e).length
 }
+// une seule ligne d'erreur par écran, sous ses champs
+const erreurEcran = computed(() => Object.values(erreurs.value)[0] || '')
 function suivant() {
   erreurGlobale.value = ''
   if (!verifier()) return focaliserErreur()
   if (!derniere.value) { etape.value++; nextTick(focaliser); return }
   envoyer()
 }
-function precedent() { erreurs.value = {}; if (etape.value) etape.value-- }
+function precedent() { erreurs.value = {}; erreurGlobale.value = ''; if (etape.value) etape.value-- }
 
 const fenetre = ref(null)
-const focaliser = () => fenetre.value?.querySelector('.ifo-corps input, .ifo-corps select')?.focus()
+// focus sur le premier champ à taper ; les écrans de choix n'en ont pas (un choix entouré semblerait déjà coché)
+const focaliser = () => fenetre.value?.querySelector('.ifo-corps input:not([type="checkbox"])')?.focus()
 const focaliserErreur = () => nextTick(() => fenetre.value?.querySelector('[aria-invalid="true"]')?.focus())
 
 async function envoyer() {
   envoi.value = true
+  const infos = { ...f.value, categorie_id: f.value.questionnaire.categories[0], livraison: !!f.value.livraison }
   try {
     if (correction.value) {
-      await corrigerMaDemande(f.value)
+      await corrigerMaDemande(infos)
       await rechargerRole()
       fermerInscriptionFournisseur()
       return
     }
-    const { confirmationRequise } = await inscrireFournisseur(f.value, motDePasse.value)
+    const { confirmationRequise } = await inscrireFournisseur(infos, motDePasse.value)
     if (!confirmationRequise) await rechargerRole()
     termine.value = { email: f.value.email.trim(), confirmation: confirmationRequise }
   } catch (e) {
@@ -127,7 +175,7 @@ onMounted(() => nextTick(focaliser))
 
 <template>
   <div class="ifo-voile" @click.self="fermer" @keydown.esc="fermer">
-    <section ref="fenetre" class="ifo" role="dialog" aria-modal="true" aria-labelledby="ifo-titre">
+    <section ref="fenetre" class="ifo" :class="{ 'ifo-large': !termine && ecran.cle === 'horaires' }" role="dialog" aria-modal="true" aria-labelledby="ifo-titre">
       <button type="button" class="ifo-fermer" aria-label="Fermer" @click="fermer"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
 
       <!-- Compte créé -->
@@ -140,7 +188,7 @@ onMounted(() => nextTick(focaliser))
           <li><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Vérification par l’équipe BTM</li>
           <li><i class="fa-solid fa-store" aria-hidden="true"></i> Ouverture de votre espace fournisseur</li>
         </ol>
-        <p class="ifo-note">En attendant la validation, votre espace affiche l’avancement de votre demande. BTM peut vous demander de corriger une information.</p>
+        <p class="ifo-note">En attendant, votre espace affiche l’avancement de votre demande.</p>
         <div class="ifo-actions">
           <BoutonBase variante="secondaire" @click="fermer">Fermer</BoutonBase>
           <BoutonBase v-if="termine.confirmation" variante="primaire" bloc icone="fa-solid fa-right-to-bracket" @click="seConnecter">J’ai confirmé, me connecter</BoutonBase>
@@ -148,155 +196,259 @@ onMounted(() => nextTick(focaliser))
       </div>
 
       <form v-else novalidate class="ifo-form" @submit.prevent="suivant">
+        <!-- avancement : un segment par écran, comme les étapes de l'inscription du site -->
+        <div class="ifo-avancement" role="progressbar" :aria-valuenow="etape + 1" aria-valuemin="1" :aria-valuemax="ETAPES.length" :aria-label="`Étape ${etape + 1} sur ${ETAPES.length}`">
+          <span v-for="(e, i) in ETAPES" :key="e.cle" :class="{ faite: i < etape, active: i === etape }"></span>
+        </div>
         <header class="ifo-tete">
-          <span class="ifo-icone" aria-hidden="true"><i :class="correction ? 'fa-solid fa-pen-to-square' : 'fa-solid fa-handshake'"></i></span>
-          <div>
-            <h2 id="ifo-titre" class="ifo-titre">{{ correction ? 'Corriger mes informations' : 'Devenir partenaire' }}</h2>
-            <p class="ifo-intro">{{ correction ? 'Modifiez ce que BTM vous a demandé, puis renvoyez votre demande.' : 'Créez votre compte fournisseur : BTM vérifie vos informations avant d’ouvrir votre espace.' }}</p>
-          </div>
+          <p class="ifo-surtitre">{{ correction ? 'Corriger ma demande' : 'Devenir partenaire' }} · {{ etape + 1 }}/{{ ETAPES.length }}</p>
+          <h2 id="ifo-titre" class="ifo-titre">{{ ecran.titre }}</h2>
+          <p class="ifo-intro">{{ ecran.aide }}</p>
         </header>
-        <p v-if="correction?.message_admin" class="ifo-message"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i> <span><strong>Demande de BTM :</strong> {{ correction.message_admin }}</span></p>
-
-        <ol class="ifo-etapes" :aria-label="`Étape ${etape + 1} sur ${ETAPES.length}`">
-          <li v-for="(e, i) in ETAPES" :key="e" :class="{ active: i === etape, faite: i < etape }">
-            <span><i v-if="i < etape" class="fa-solid fa-check" aria-hidden="true"></i><template v-else>{{ i + 1 }}</template></span>{{ e }}
-          </li>
-        </ol>
+        <p v-if="correction?.message_admin && etape === 0" class="ifo-message"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i> <span><strong>Demande de BTM :</strong> {{ correction.message_admin }}</span></p>
 
         <div class="ifo-corps">
           <!-- 1. Entreprise -->
-          <template v-if="etape === 0">
+          <template v-if="ecran.cle === 'entreprise'">
             <div class="champ">
               <label for="ifo-siret">Numéro SIRET</label>
-              <input id="ifo-siret" v-model="f.siret" class="mono" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="123 456 789 00012" :aria-invalid="!!erreurs.siret" @blur="f.siret = formaterSiret(f.siret)" />
-              <p v-if="erreurs.siret" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.siret }}</p>
-              <p v-else-if="registre.etat === 'recherche'" class="champ-aide"><span class="spinner" aria-hidden="true"></span> Recherche de l’entreprise…</p>
-              <p v-else-if="registre.etat === 'inconnue'" class="champ-aide">Introuvable dans le registre public : vérifiez-le (BTM le contrôlera).</p>
-              <p v-else-if="registre.etat !== 'trouvee'" class="champ-aide">14 chiffres, sur votre extrait Kbis ou vos factures.</p>
+              <input id="ifo-siret" :value="f.siret" class="mono" inputmode="numeric" maxlength="17" autocomplete="off" placeholder="123 456 789 00012" :aria-invalid="!!erreurs.siret" @input="saisirSiret" />
+              <p v-if="registre.etat === 'trouvee'" class="ifo-registre" :class="{ ferme: !registre.donnees.active }">
+                <i :class="registre.donnees.active ? 'fa-solid fa-circle-check' : 'fa-solid fa-triangle-exclamation'" aria-hidden="true"></i>
+                <span>{{ registre.donnees.nom }} · {{ registre.donnees.active ? 'établissement actif' : 'établissement fermé' }}</span>
+              </p>
+              <p v-else-if="registre.etat === 'recherche'" class="champ-aide"><span class="spinner" aria-hidden="true"></span> Recherche au registre…</p>
+              <p v-else-if="registre.etat === 'inconnue'" class="champ-aide">Introuvable au registre : vérifiez-le (BTM le contrôlera).</p>
+              <p v-else class="champ-aide">14 chiffres, sur votre extrait Kbis.</p>
             </div>
-            <div v-if="registre.etat === 'trouvee'" class="ifo-registre" :class="{ ferme: !registre.donnees.active }">
-              <i :class="registre.donnees.active ? 'fa-solid fa-building-circle-check' : 'fa-solid fa-triangle-exclamation'" aria-hidden="true"></i>
-              <span><strong>{{ registre.donnees.nom }}</strong><small>{{ registre.donnees.commune || 'Registre des entreprises' }} · {{ registre.donnees.active ? 'établissement actif' : 'établissement fermé' }}</small></span>
-            </div>
-            <div class="ifo-grille">
-              <div class="champ plein"><label for="ifo-nom">Nom de l’entreprise</label><input id="ifo-nom" v-model="f.entreprise" maxlength="120" autocomplete="organization" placeholder="Nom affiché aux clients" :aria-invalid="!!erreurs.entreprise" /><p v-if="erreurs.entreprise" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.entreprise }}</p></div>
+            <div class="champ"><label for="ifo-nom">Nom de l’entreprise</label><input id="ifo-nom" v-model="f.entreprise" maxlength="120" autocomplete="organization" placeholder="Nom affiché aux clients" :aria-invalid="!!erreurs.entreprise" @input="retirer('entreprise')" /></div>
+            <div class="ifo-duo">
+              <!-- seules les 17 communes de Mayotte : proposées pendant la frappe, bien écrites en quittant le champ -->
               <div class="champ">
-                <label for="ifo-cat">Vous vendez</label>
-                <select id="ifo-cat" v-model="f.categorie_id" :aria-invalid="!!erreurs.categorie_id">
-                  <option value="" disabled>Choisir…</option>
-                  <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.libelle }}</option>
-                </select>
-                <p v-if="erreurs.categorie_id" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.categorie_id }}</p>
+                <label for="ifo-com">Commune</label>
+                <input
+                  id="ifo-com" v-model="f.commune" list="ifo-communes" maxlength="60" autocomplete="off" placeholder="Mamoudzou" :aria-invalid="!!erreurs.commune"
+                  @input="retirer('commune')" @blur="f.commune = communeMayotte(f.commune) || f.commune"
+                />
+                <datalist id="ifo-communes"><option v-for="c in COMMUNES" :key="c" :value="c" /></datalist>
               </div>
-              <div class="champ"><label for="ifo-com">Commune</label><input id="ifo-com" v-model="f.commune" maxlength="60" autocomplete="address-level2" placeholder="Mamoudzou" :aria-invalid="!!erreurs.commune" /><p v-if="erreurs.commune" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.commune }}</p></div>
-              <div class="champ plein"><label for="ifo-adr">Adresse <small class="texte-secondaire">(facultative)</small></label><input id="ifo-adr" v-model="f.adresse" maxlength="160" autocomplete="street-address" placeholder="Rue, quartier" /></div>
+              <div class="champ"><label for="ifo-adr">Adresse <small class="texte-secondaire">(facultative)</small></label><input id="ifo-adr" v-model="f.adresse" maxlength="160" autocomplete="street-address" placeholder="Rue, quartier" /></div>
             </div>
           </template>
 
-          <!-- 2. Contact -->
-          <template v-else-if="etape === 1">
-            <div class="ifo-grille">
-              <div class="champ"><label for="ifo-contact">Votre nom</label><input id="ifo-contact" v-model="f.contact_nom" maxlength="120" autocomplete="name" placeholder="Prénom Nom" :aria-invalid="!!erreurs.contact_nom" /><p v-if="erreurs.contact_nom" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.contact_nom }}</p></div>
-              <ChampTelephone id="ifo-tel" v-model="f.telephone" v-model:valide="telephoneValide" label="Téléphone de l’entreprise" pays-fixe="YT" requis :erreur="erreurs.telephone" />
-              <div class="champ plein"><label for="ifo-mail">E-mail de l’entreprise</label><input id="ifo-mail" v-model="f.email" type="email" maxlength="254" autocomplete="email" placeholder="contact@entreprise.yt" :aria-invalid="!!erreurs.email" :disabled="!!correction" /><p v-if="erreurs.email" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.email }}</p><p v-else class="champ-aide">{{ correction ? 'Adresse de connexion du compte.' : 'Elle sert aussi à vous connecter à votre espace.' }}</p></div>
-              <div class="champ plein"><label for="ifo-hor">Horaires <small class="texte-secondaire">(facultatifs)</small></label><input id="ifo-hor" v-model="f.horaires" maxlength="120" placeholder="Lun–Ven 7h–17h · Sam 7h–12h" /></div>
-              <div class="champ plein"><label for="ifo-desc">Votre activité <small class="texte-secondaire">(facultatif)</small></label><textarea id="ifo-desc" v-model="f.description" rows="2" maxlength="400" placeholder="Ciment, parpaings, fer… ce que vous proposez aux clients"></textarea></div>
-              <label class="ifo-case plein"><input v-model="f.livraison" type="checkbox" /> Vous livrez sur les chantiers</label>
-            </div>
+          <!-- 2. Activité : des choix à toucher, pas de texte à taper -->
+          <template v-else-if="ecran.cle === 'activite'">
+            <fieldset class="ifo-question">
+              <legend>Ce que vous vendez <small class="texte-secondaire">(plusieurs choix possibles)</small></legend>
+              <div class="ifo-choix ifo-pastilles">
+                <button
+                  v-for="c in categories" :key="c.id" type="button" role="checkbox" class="ifo-pastille ifo-coche" :aria-checked="vend(c.id)"
+                  :aria-invalid="!!erreurs.categories" @click="basculerCategorie(c.id)"
+                ><i :class="vend(c.id) ? 'fa-solid fa-check' : 'fa-solid fa-plus'" aria-hidden="true"></i>{{ c.libelle }}</button>
+              </div>
+            </fieldset>
+            <fieldset class="ifo-question">
+              <legend>{{ QUESTIONNAIRE.equipe.libelle }} <small class="texte-secondaire">(facultatif)</small></legend>
+              <div class="ifo-choix ifo-pastilles" role="radiogroup">
+                <button
+                  v-for="o in QUESTIONNAIRE.equipe.options" :key="o.valeur" type="button" role="radio" class="ifo-pastille"
+                  :aria-checked="f.questionnaire.equipe === o.valeur" @click="repondre('equipe', o.valeur)"
+                >{{ o.libelle }}</button>
+              </div>
+            </fieldset>
+            <fieldset class="ifo-question">
+              <legend>Livrez-vous sur les chantiers ?</legend>
+              <div class="ifo-choix ifo-pastilles" role="radiogroup">
+                <button v-for="v in [true, false]" :key="String(v)" type="button" role="radio" class="ifo-pastille" :aria-checked="f.livraison === v" :aria-invalid="!!erreurs.livraison" @click="f.livraison = v; retirer('livraison')">{{ v ? 'Oui' : 'Non' }}</button>
+              </div>
+            </fieldset>
+            <fieldset class="ifo-question">
+              <legend>{{ QUESTIONNAIRE.logiciel.libelle }} <small class="texte-secondaire">(facultatif)</small></legend>
+              <div class="ifo-choix ifo-pastilles" role="radiogroup">
+                <button v-for="o in QUESTIONNAIRE.logiciel.options" :key="o.valeur" type="button" role="radio" class="ifo-pastille" :aria-checked="f.questionnaire.logiciel === o.valeur" @click="repondre('logiciel', o.valeur)">{{ o.libelle }}</button>
+              </div>
+            </fieldset>
           </template>
 
-          <!-- 3. Compte -->
+          <!-- 3. Coordonnées -->
+          <template v-else-if="ecran.cle === 'contact'">
+            <ChampTelephone id="ifo-tel" v-model="f.telephone" v-model:valide="telephoneValide" label="Téléphone de l’entreprise" pays-fixe="YT" />
+            <div class="champ"><label for="ifo-mail">E-mail de l’entreprise</label><input id="ifo-mail" v-model="f.email" type="email" maxlength="254" autocomplete="email" placeholder="contact@entreprise.yt" :aria-invalid="!!erreurs.email" :disabled="!!correction" @input="retirer('email')" /></div>
+          </template>
+
+          <!-- 4. Horaires : un interrupteur par jour, heures dans des listes -->
+          <div v-else-if="ecran.cle === 'horaires'" class="ifo-horaires">
+            <ChampHoraires v-model="f.horaires" @update:model-value="retirer('horaires')" />
+          </div>
+
+          <!-- 5. Compte -->
           <template v-else>
-            <p class="ifo-rappel"><i class="fa-solid fa-store" aria-hidden="true"></i> <span><strong>{{ f.entreprise }}</strong> · {{ f.email }}</span></p>
-            <div class="champ"><label for="ifo-mdp">Mot de passe</label><SaisieMotDePasse id="ifo-mdp" v-model="motDePasse" autocomplete="new-password" placeholder="8 caractères minimum" :aria-invalid="!!erreurs.motDePasse" /><p v-if="erreurs.motDePasse" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.motDePasse }}</p></div>
-            <div class="champ"><label for="ifo-conf">Confirmer le mot de passe</label><SaisieMotDePasse id="ifo-conf" v-model="confirmation" autocomplete="new-password" :aria-invalid="!!erreurs.confirmation" /><p v-if="erreurs.confirmation" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.confirmation }}</p></div>
-            <div>
-              <label class="ifo-case"><input v-model="cgu" type="checkbox" :aria-invalid="!!erreurs.cgu" /> J’accepte les <router-link to="/conditions" target="_blank" rel="noopener">conditions générales d’utilisation</router-link></label>
-              <p v-if="erreurs.cgu" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.cgu }}</p>
-            </div>
+            <dl class="ifo-recap">
+              <div><dt>Entreprise</dt><dd>{{ f.entreprise }}</dd></div>
+              <div><dt>Connexion</dt><dd>{{ f.email }}</dd></div>
+            </dl>
+            <div class="champ"><label for="ifo-mdp">Mot de passe</label><SaisieMotDePasse id="ifo-mdp" v-model="motDePasse" autocomplete="new-password" placeholder="8 caractères minimum" :aria-invalid="!!erreurs.motDePasse" /></div>
+            <div class="champ"><label for="ifo-conf">Confirmer le mot de passe</label><SaisieMotDePasse id="ifo-conf" v-model="confirmation" autocomplete="new-password" :aria-invalid="!!erreurs.confirmation" /></div>
+            <label class="ifo-case"><input v-model="cgu" type="checkbox" :aria-invalid="!!erreurs.cgu" /> J’accepte les <router-link to="/conditions" target="_blank" rel="noopener">conditions d’utilisation</router-link></label>
           </template>
+
+          <p v-if="erreurEcran" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurEcran }}</p>
         </div>
 
         <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
         <div class="ifo-actions">
           <BoutonBase v-if="etape > 0" type="button" variante="secondaire" icone="fa-solid fa-arrow-left" @click="precedent">Retour</BoutonBase>
-          <BoutonBase type="submit" variante="primaire" bloc :chargement="envoi" :icone-droite="derniere ? '' : 'fa-solid fa-arrow-right'" :icone="derniere ? (correction ? 'fa-solid fa-paper-plane' : 'fa-solid fa-user-plus') : ''">
-            {{ !derniere ? 'Continuer' : correction ? 'Renvoyer ma demande' : 'Créer mon compte fournisseur' }}
+          <BoutonBase type="submit" bloc :chargement="envoi" :icone-droite="derniere ? '' : 'fa-solid fa-arrow-right'" :icone="derniere ? (correction ? 'fa-solid fa-paper-plane' : 'fa-solid fa-user-plus') : ''">
+            {{ !derniere ? 'Continuer' : correction ? 'Renvoyer ma demande' : 'Créer mon compte' }}
           </BoutonBase>
         </div>
-        <p v-if="!correction" class="ifo-bascule">Déjà un compte ? <button type="button" @click="seConnecter">Se connecter</button></p>
+        <p v-if="!correction && etape === 0" class="ifo-bascule">Déjà un compte ? <button type="button" @click="seConnecter">Se connecter</button></p>
       </form>
     </section>
   </div>
 </template>
 
 <style scoped>
-/* même voile que la fenêtre de connexion ; carte claire qui suit le thème du site */
+/* Même fenêtre que la connexion du site (FenetreConnexion) : voile flouté, carte au format téléphone sur fond gris clair,
+   titre en Barlow, champs et boutons du site. Chaque écran tient sans défiler. */
 .ifo-voile {
   position: fixed; inset: 0; z-index: 260; display: grid; place-items: center; padding: 24px;
   background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: ifo-fondu .2s ease;
 }
 @keyframes ifo-fondu { from { opacity: 0; } }
 .ifo {
-  position: relative; width: min(100%, 600px); max-height: calc(100dvh - 48px); overflow: hidden auto; overscroll-behavior: contain;
-  padding: 30px 32px 24px; border-radius: 26px; background: var(--carte); color: var(--ardoise); box-shadow: var(--ombre-lg);
-  animation: ifo-monter .3s cubic-bezier(.22, .61, .36, 1);
+  position: relative; width: min(100%, 460px); max-height: calc(100dvh - 48px); overflow: hidden auto; overscroll-behavior: contain;
+  padding: 26px 32px 24px; border-radius: 28px; background: var(--gris-50); color: var(--ardoise);
+  box-shadow: 0 30px 80px rgba(6, 32, 44, .45); animation: ifo-monter .34s cubic-bezier(.22, .61, .36, 1);
 }
 @keyframes ifo-monter { from { transform: translateY(18px); opacity: 0; } }
-.ifo-fermer { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 38px; height: 38px; border: 0; border-radius: 50%; background: var(--gris-100); color: var(--ardoise); cursor: pointer; }
-.ifo-tete { display: flex; align-items: flex-start; gap: 14px; padding-right: 36px; }
-.ifo-icone { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, var(--lagon-400), #0e7490); color: #fff; font-size: 1.2rem; box-shadow: 0 10px 22px -10px rgba(6, 182, 212, .7); }
-.ifo-titre { margin: 0; font-family: var(--font-display); font-size: 1.9rem; line-height: 1.1; color: var(--ardoise); }
-.ifo-intro { margin: 4px 0 0; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.45; }
-.ifo-message { display: flex; gap: 10px; margin: 16px 0 0; padding: 12px 14px; border-radius: 14px; background: rgba(245, 158, 11, .12); color: var(--ardoise); font-size: .9rem; line-height: 1.5; }
-.ifo-message i { margin-top: 3px; color: #d97706; }
+/* écran des horaires : plus large, pour qu'un jour avec pause tienne sur une ligne */
+.ifo-large { width: min(100%, 620px); }
+.ifo-fermer {
+  position: absolute; top: 16px; right: 16px; z-index: 2; display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%;
+  background: var(--gris-100); color: var(--ardoise); font-size: 1.05rem; cursor: pointer; transition: background .15s;
+}
+.ifo-fermer:hover { background: var(--gris-200); }
 .ifo-form { display: flex; flex-direction: column; gap: 18px; }
-.ifo-etapes { display: flex; gap: 8px; margin: 2px 0 0; padding: 0; list-style: none; }
-.ifo-etapes li { display: flex; flex: 1; align-items: center; gap: 8px; padding-top: 10px; border-top: 3px solid var(--gris-200); color: var(--gris-500); font-size: .82rem; font-weight: 600; }
-.ifo-etapes li span { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--gris-100); font-size: .75rem; }
-.ifo-etapes li.active { border-color: var(--lagon-600); color: var(--ardoise); }
-.ifo-etapes li.active span { background: var(--lagon-600); color: #fff; }
-.ifo-etapes li.faite { border-color: var(--lagon-400); color: var(--lagon-700); }
-.ifo-corps { display: flex; flex-direction: column; gap: 14px; }
-.ifo-grille { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
-.ifo-grille > * { min-width: 0; }
-.ifo-grille .plein { grid-column: 1 / -1; }
-.ifo-corps input, .ifo-corps select, .ifo-corps textarea { width: 100%; font-family: var(--font-corps); }
-.ifo-corps textarea { padding: 12px 16px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); background: var(--carte); color: var(--texte); resize: vertical; }
-.ifo-corps select { padding: 13px 16px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); background: var(--carte); color: var(--texte); }
+
+/* avancement : segments comme les étapes de l'inscription */
+.ifo-avancement { display: flex; gap: 6px; margin-right: 52px; padding-top: 12px; }
+.ifo-avancement span { flex: 1; height: 4px; border-radius: 999px; background: var(--gris-200); transition: background .25s; }
+.ifo-avancement span.faite { background: var(--lagon-400); }
+.ifo-avancement span.active { background: var(--lagon-600); }
+.ifo-surtitre { margin: 0 0 4px; color: var(--lagon-700); font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.ifo-titre { margin: 0; font-family: var(--font-display); font-size: 2.1rem; line-height: 1.1; color: var(--ardoise); }
+.ifo-intro { margin: 4px 0 0; color: var(--texte-secondaire); font-size: .92rem; }
+.ifo-message { display: flex; gap: 10px; margin: 0; padding: 12px 14px; border-radius: var(--rayon); background: rgba(245, 158, 11, .12); color: var(--ardoise); font-size: .88rem; line-height: 1.5; }
+.ifo-message i { margin-top: 3px; color: #d97706; }
+
+.ifo-corps { display: flex; flex-direction: column; gap: 16px; }
+.ifo-corps .champ input { width: 100%; font-family: var(--font-corps); }
+.ifo-corps .champ input.mono { font-family: var(--font-mono); }
 .ifo-corps small { font-weight: 400; }
-.ifo-registre { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid rgba(16, 185, 129, .35); border-radius: 14px; background: rgba(16, 185, 129, .08); }
-.ifo-registre i { color: #059669; font-size: 1.2rem; }
-.ifo-registre.ferme { border-color: rgba(225, 29, 72, .35); background: rgba(225, 29, 72, .07); }
-.ifo-registre.ferme i { color: #e11d48; }
-.ifo-registre span { display: flex; flex-direction: column; }
-.ifo-registre small { color: var(--texte-secondaire); font-size: .8rem; }
+.ifo-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ifo-duo > * { min-width: 0; }
+.ifo-registre { display: flex; align-items: center; gap: 6px; margin: 0; color: #047857; font-size: .82rem; font-weight: 600; }
+.ifo-registre span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ifo-registre.ferme { color: var(--erreur); }
+
+/* questions à choix : pastilles à toucher */
+.ifo-question { display: flex; flex-direction: column; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.ifo-question legend { margin-bottom: 8px; padding: 0; color: var(--gris-700); font-weight: 600; font-size: .95rem; }
+.ifo-choix { display: grid; gap: 8px; }
+.ifo-pastille:hover { border-color: var(--lagon-500); }
+.ifo-pastilles { display: flex; flex-wrap: wrap; gap: 8px; }
+.ifo-pastille {
+  min-height: 40px; padding: 0 16px; border: 1.5px solid var(--gris-200); border-radius: 999px; background: var(--carte); color: var(--ardoise);
+  font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; transition: border-color var(--transition), background var(--transition);
+}
+.ifo-pastille[aria-checked="true"] { border-color: var(--lagon-600); background: var(--lagon-600); color: #fff; }
+/* choix multiple : un « + » devient une coche */
+.ifo-coche { display: inline-flex; align-items: center; gap: 8px; padding-left: 14px; }
+.ifo-coche i { color: var(--gris-400); font-size: .78rem; }
+.ifo-coche[aria-checked="true"] i { color: #fff; }
+
+/* horaires : ChampHoraires vient de l'espace fournisseur (jetons --adm-*) ; ici ses jetons suivent ceux du site, clair ou sombre,
+   et ses lignes sont resserrées pour que la semaine tienne dans la fenêtre */
+.ifo-horaires {
+  --adm-ligne: var(--gris-200); --adm-ligne-2: var(--gris-100); --adm-ligne-forte: var(--gris-300); --adm-champ: var(--carte);
+  --adm-encre: var(--ardoise); --adm-encre-2: var(--texte-secondaire); --adm-muet: var(--gris-400); --adm-accent: var(--lagon-600);
+  --adm-attention-texte: #b45309; --adm-baisse: var(--erreur);
+}
+.ifo-horaires :deep(.adm-interrupteur) {
+  position: relative; width: 42px; height: 24px; flex: none; border: 0; border-radius: 999px; background: var(--gris-300); cursor: pointer; transition: background var(--transition);
+}
+.ifo-horaires :deep(.adm-interrupteur)::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .25); transition: transform var(--transition);
+}
+.ifo-horaires :deep(.adm-interrupteur[aria-checked="true"]) { background: var(--lagon-600); }
+.ifo-horaires :deep(.adm-interrupteur[aria-checked="true"])::after { transform: translateX(18px); }
+.ifo-horaires :deep(.hor-ligne) { grid-template-columns: auto 78px 1fr; gap: 10px; min-height: 46px; padding: 4px 12px; }
+.ifo-horaires :deep(.hor-plages), .ifo-horaires :deep(.hor-ferme) { grid-column: auto; }
+.ifo-horaires :deep(.hor-plage select) { min-height: 32px; padding: 2px 4px; }
+
+.ifo-recap { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 14px 16px; border: 1px solid var(--gris-200); border-radius: var(--rayon-sm); background: var(--carte); }
+.ifo-recap div { display: flex; justify-content: space-between; gap: 16px; }
+.ifo-recap dt { color: var(--texte-secondaire); font-size: .88rem; }
+.ifo-recap dd { margin: 0; color: var(--ardoise); font-weight: 600; text-align: right; overflow-wrap: anywhere; }
 .ifo-case { display: flex; align-items: center; gap: 10px; color: var(--gris-700); font-size: .92rem; cursor: pointer; }
 .ifo-case input { width: 18px; height: 18px; accent-color: var(--lagon-600); }
 .ifo-case a { color: var(--lagon-700); font-weight: 600; text-decoration: underline; }
-.ifo-rappel { display: flex; align-items: center; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--gris-50); font-size: .9rem; }
-.ifo-rappel i { color: var(--lagon-600); }
-.ifo-actions { display: flex; gap: 12px; }
-.ifo-actions :deep(.btn) { min-height: 50px; border-radius: 999px; }
+
+.ifo-actions { display: flex; gap: 12px; margin-top: 2px; }
 .ifo-actions .btn-bloc { flex: 1; }
-.ifo-bascule { margin: -4px 0 0; color: var(--texte-secondaire); font-size: .92rem; text-align: center; }
+.ifo :deep(.btn) { min-height: 50px; border-radius: 999px; }
+.ifo-bascule { margin: -6px 0 0; color: var(--texte-secondaire); font-size: .95rem; text-align: center; }
 .ifo-bascule button { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
-.ifo-fini { display: flex; flex-direction: column; gap: 14px; }
+
+.ifo-fini { display: flex; flex-direction: column; gap: 14px; padding-top: 30px; }
 .ifo-fini p { margin: 0; color: var(--texte-secondaire); line-height: 1.6; }
 .ifo-fini-icone { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: rgba(16, 185, 129, .12); color: #059669; font-size: 1.6rem; }
-.ifo-suite { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 14px 16px; border-radius: 16px; background: var(--gris-50); list-style: none; }
+.ifo-suite { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 14px 16px; border-radius: var(--rayon); background: var(--carte); list-style: none; }
 .ifo-suite li { display: flex; align-items: center; gap: 10px; color: var(--texte-secondaire); font-size: .92rem; }
 .ifo-suite li i { width: 18px; color: var(--gris-400); text-align: center; }
 .ifo-suite li.fait { color: var(--ardoise); font-weight: 600; }
 .ifo-suite li.fait i { color: #059669; }
 .ifo-note { font-size: .86rem; }
 
-/* téléphone : feuille qui monte du bas, un champ par ligne */
+/* écran peu haut (portable, affichage agrandi) : mêmes écrans, espacements resserrés, comme la connexion */
+@media (min-width: 640px) and (max-height: 760px) {
+  .ifo { padding: 20px 30px 18px; }
+  .ifo-form { gap: 14px; }
+  .ifo-corps { gap: 12px; }
+  .ifo-titre { font-size: 1.75rem; }
+  .ifo-corps .champ { gap: 4px; }
+  .ifo-corps .champ input, .ifo-corps :deep(.tel input) { padding-top: 10px; padding-bottom: 10px; }
+  .ifo-question legend { margin-bottom: 4px; }
+  .ifo :deep(.btn) { min-height: 46px; }
+}
+@media (min-width: 640px) and (max-height: 640px) {
+  .ifo-surtitre, .ifo-intro { display: none; }
+  .ifo-form { gap: 12px; }
+  .ifo-pastille { min-height: 36px; }
+}
+
+/* téléphone : feuille qui monte du bas, comme la connexion */
 @media (max-width: 639px) {
   .ifo-voile { place-items: end center; padding: 0; }
-  .ifo { width: 100%; max-height: calc(100dvh - 12px); padding: 22px 18px calc(18px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; }
-  .ifo-titre { font-size: 1.6rem; }
-  .ifo-grille { grid-template-columns: 1fr; }
-  .ifo-etapes li { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .ifo { width: 100%; max-height: calc(100dvh - 12px); padding: 16px 20px calc(16px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }
+  .ifo-form { gap: 14px; }
+  .ifo-corps { gap: 12px; }
+  .ifo-titre { font-size: 1.7rem; }
+  .ifo-intro { font-size: .85rem; }
+  .ifo-corps .champ { gap: 4px; }
+  .ifo-corps .champ input, .ifo-corps :deep(.tel input) { font-size: 1rem; padding-top: 11px; padding-bottom: 11px; } /* 16 px : pas de zoom sur iPhone */
+  .ifo-question legend { margin-bottom: 4px; font-size: .9rem; }
+  .ifo-pastille { padding: 0 13px; }
+  .ifo :deep(.btn) { min-height: 48px; }
+  .ifo-horaires :deep(.hor-ligne) { grid-template-columns: auto 66px 1fr; gap: 8px; padding: 4px 10px; }
+  .ifo-horaires :deep(.hor-jour) { font-size: .82rem; }
+}
+/* petit téléphone : l'avancement suffit, la phrase d'aide s'efface */
+@media (max-width: 639px) and (max-height: 720px) {
+  .ifo-surtitre, .ifo-intro { display: none; }
+  .ifo-form { gap: 12px; }
+  .ifo-question legend { margin-bottom: 2px; }
 }
 </style>

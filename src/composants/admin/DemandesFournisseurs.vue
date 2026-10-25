@@ -6,11 +6,14 @@
  *  - Demander une rectification : message au fournisseur, qui corrige et renvoie sa demande ;
  *  - Refuser : avec un motif, affiché au fournisseur.
  */
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useAdmin, initiales } from '@/composables/useAdmin.js'
 import AdminPanneau from './AdminPanneau.vue'
 import { statuerDemande } from '@/services/supabase/serviceInscriptionFournisseur.js'
 import { formaterSiret, lienAnnuaire, siretValide } from '@/services/entreprises.js'
+import { reponse } from '@/donnees/questionnaireFournisseur.js'
+import DossierAdminFournisseur from './DossierAdminFournisseur.vue'
+import { supabase } from '@/services/supabase/client.js'
 
 const props = defineProps({
   demandes: { type: Array, default: null }, // null : chargement
@@ -28,9 +31,30 @@ const STATUTS = {
 const filtre = ref('a_traiter')
 const liste = computed(() => (props.demandes || []).filter((d) => filtre.value === 'toutes' || ['en_attente', 'a_corriger'].includes(d.statut)))
 const nomCategorie = (id) => props.categories.find((c) => c.id === id)?.libelle || '—'
+// toutes les catégories cochées à l'inscription (la première est la principale) ; anciennes demandes : la seule catégorie
+const nomsCategories = (d) => (d.questionnaire?.categories?.length ? d.questionnaire.categories : [d.categorie_id]).map(nomCategorie).join(', ')
 const date = (t) => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 
 // ---------- Décision ----------
+// ---------- Dossier de chaque demande : messages non lus de l'entreprise, pièces à vérifier (pastilles) ----------
+const dossier = ref(null) // { demande, onglet }
+const suivi = ref({}) // { [demande_id]: { messages, aVerifier } }
+async function chargerSuivi() {
+  const ids = (props.demandes || []).map((d) => d.id)
+  if (!ids.length) return
+  const [m, docs] = await Promise.all([
+    supabase.from('messages_demande_fournisseur').select('demande_id').in('demande_id', ids).eq('auteur', 'fournisseur').is('lu_le', null),
+    supabase.from('documents_demande_fournisseur').select('demande_id, statut').in('demande_id', ids)
+  ])
+  const s = {}
+  for (const l of m.data || []) (s[l.demande_id] ||= { messages: 0, aVerifier: 0, documents: 0 }).messages++
+  for (const l of docs.data || []) { const x = (s[l.demande_id] ||= { messages: 0, aVerifier: 0, documents: 0 }); x.documents++; if (l.statut === 'envoye') x.aVerifier++ }
+  suivi.value = s
+}
+onMounted(chargerSuivi)
+watch(() => props.demandes, chargerSuivi)
+const demandeDossier = computed(() => (dossier.value ? (props.demandes || []).find((d) => d.id === dossier.value.demande.id) || dossier.value.demande : null))
+
 const decision = ref(null) // { demande, type: 'valider' | 'corriger' | 'refuser', message, categorie, visible }
 const erreur = ref('')
 const envoi = ref(false)
@@ -79,7 +103,7 @@ async function confirmer() {
           <span class="adm-avatar dem-avatar">{{ initiales(d.entreprise) }}</span>
           <span class="dem-titre">
             <strong>{{ d.entreprise }}</strong>
-            <small>{{ nomCategorie(d.categorie_id) }} · {{ d.commune || 'commune non renseignée' }}</small>
+            <small>{{ nomsCategories(d) }} · {{ d.commune || 'commune non renseignée' }}</small>
           </span>
           <span class="adm-badge" :class="STATUTS[d.statut]?.classe">{{ STATUTS[d.statut]?.libelle }}</span>
         </header>
@@ -94,12 +118,15 @@ async function confirmer() {
             </dd>
             <dd v-else class="dem-alerte">non renseigné</dd>
           </div>
-          <div><dt>Contact</dt><dd>{{ d.contact_nom || '—' }}</dd></div>
+          <div v-if="d.contact_nom"><dt>Contact</dt><dd>{{ d.contact_nom }}</dd></div>
           <div><dt>Téléphone</dt><dd>{{ d.telephone || '—' }}</dd></div>
           <div><dt>E-mail</dt><dd><a :href="`mailto:${d.email}`" class="dem-lien">{{ d.email }}</a></dd></div>
           <div><dt>Adresse</dt><dd>{{ d.adresse || '—' }}</dd></div>
           <div><dt>Horaires</dt><dd>{{ d.horaires || '—' }}</dd></div>
           <div><dt>Livraison</dt><dd>{{ d.livraison ? 'Oui, sur les chantiers' : 'Non' }}</dd></div>
+          <!-- questionnaire de l'inscription : équipe, logiciel (import du catalogue) -->
+          <div><dt>Équipe</dt><dd>{{ reponse('equipe', d.questionnaire?.equipe) }}</dd></div>
+          <div><dt>Logiciel</dt><dd>{{ reponse('logiciel', d.questionnaire?.logiciel) }}</dd></div>
           <div v-if="d.description" class="plein"><dt>Activité</dt><dd>{{ d.description }}</dd></div>
         </dl>
 
@@ -111,6 +138,12 @@ async function confirmer() {
         <footer class="dem-pied">
           <small>Demande du {{ date(d.cree_le) }}<template v-if="d.mis_a_jour_le !== d.cree_le"> · mise à jour le {{ date(d.mis_a_jour_le) }}</template></small>
           <span v-if="d.statut !== 'validee'" class="dem-actions">
+            <!-- dossier : messages, pièces demandées et contrat signé -->
+            <button type="button" class="adm-btn adm-btn-clair dem-dossier" @click="dossier = { demande: d, onglet: suivi[d.id]?.aVerifier ? 'documents' : 'messages' }">
+              <i class="fa-solid fa-folder-open" aria-hidden="true"></i> Dossier
+              <b v-if="(suivi[d.id]?.messages || 0) + (suivi[d.id]?.aVerifier || 0)" class="dem-pastille">{{ (suivi[d.id]?.messages || 0) + (suivi[d.id]?.aVerifier || 0) }}</b>
+              <i v-if="d.contrat_signe_le" class="fa-solid fa-file-signature dem-signe" title="Contrat signé" aria-label="Contrat signé"></i>
+            </button>
             <button v-if="d.statut !== 'refusee'" type="button" class="adm-btn adm-btn-clair" @click="ouvrir(d, 'corriger')"><i class="fa-solid fa-pen" aria-hidden="true"></i> Demander une rectification</button>
             <button v-if="d.statut !== 'refusee'" type="button" class="adm-btn adm-btn-danger" @click="ouvrir(d, 'refuser')">Refuser</button>
             <button type="button" class="adm-btn adm-btn-noir" @click="ouvrir(d, 'valider')"><i class="fa-solid fa-check" aria-hidden="true"></i> Valider</button>
@@ -118,6 +151,8 @@ async function confirmer() {
         </footer>
       </li>
     </ul>
+
+    <DossierAdminFournisseur v-if="dossier" :demande="demandeDossier" :onglet="dossier.onglet" @fermer="dossier = null; chargerSuivi()" @maj="chargerSuivi" />
 
     <AdminPanneau v-if="decision" :titre="TITRES[decision.type]" :sous-titre="decision.demande.entreprise" @fermer="decision = null">
       <form id="form-decision" class="adm-grille-form" novalidate @submit.prevent="confirmer">
@@ -128,6 +163,7 @@ async function confirmer() {
             <select id="dec-cat" v-model="decision.categorie"><option v-for="c in categories" :key="c.id" :value="c.id">{{ c.libelle }}</option></select>
           </div>
           <label class="plein dem-option"><button type="button" role="switch" class="adm-interrupteur" :aria-checked="decision.visible" @click="decision.visible = !decision.visible"></button> Visible dans l’annuaire dès maintenant</label>
+          <p v-if="!decision.demande.contrat_signe_le" class="plein adm-alerte dem-sans-contrat"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Le contrat de partenariat n’est pas encore signé par l’entreprise.</p>
         </template>
         <div v-else class="adm-champ plein">
           <label for="dec-msg">{{ decision.type === 'corriger' ? 'Ce que le fournisseur doit corriger *' : 'Motif du refus (facultatif)' }}</label>
@@ -173,6 +209,10 @@ async function confirmer() {
 .dem-pied { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding-top: 12px; border-top: 1px solid var(--adm-ligne); }
 .dem-pied small { color: var(--adm-muet); font-size: .78rem; }
 .dem-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dem-dossier { position: relative; }
+.dem-pastille { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #f59e0b; color: #fff; font-size: .72rem; font-weight: 800; }
+.dem-signe { color: var(--adm-ok-texte); }
+.dem-sans-contrat { margin: 0; }
 .dem-explication { margin: 0; color: var(--adm-encre-2); font-size: .9rem; line-height: 1.55; }
 .dem-option { display: flex; align-items: center; gap: 10px; color: var(--adm-encre); font-size: .9rem; }
 @media (max-width: 700px) {

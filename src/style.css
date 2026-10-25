@@ -88,13 +88,27 @@
   /* fond toujours foncé (pied de page, bandeaux, pastilles), quel que soit le thème : --ardoise, elle, s'éclaircit
      en thème sombre car elle sert surtout de couleur de texte */
   --encre: #0f172a;
+
+  /* ---------- Rôles : ce qu'il faut écrire dans les composants ----------
+     --blanc, --gris-*, --ardoise sont des TONS, inversés en thème sombre (--blanc y devient presque noir). Pour un
+     fond ou un texte, écrire le RÔLE, jamais une couleur en dur (#fff, pastel) : il suit le thème tout seul.
+     Surfaces : --fond (page), --carte (cartes, fenêtres), --surface-douce (zones, champs), --surface-creuse (puces).
+     Textes : --texte, --texte-secondaire. Bordures : --bordure.
+     Statuts : -fond (encadré), -pastille (icône, badge), -bord, -texte (lisible sur les trois). */
+  --surface-douce: var(--gris-50);
+  --surface-creuse: var(--gris-100);
+  --succes-fond: #ecfdf5; --succes-pastille: #d1fae5; --succes-bord: #a7f3d0; --succes-texte: #047857;
+  --alerte-fond: #fffbeb; --alerte-pastille: #fef3c7; --alerte-bord: #fde68a; --alerte-texte: #92400e;
+  --erreur-fond: var(--erreur-clair); --erreur-pastille: #fee2e2; --erreur-bord: #fecdd3; --erreur-texte: #9f1239;
 }
 
 /* ---------- Thème sombre (bouton lune de l'en-tête, composables/useTheme.js) ----------
    Les neutres sont inversés : ce qui était un fond clair (gris-50 à 200, blanc) devient un fond sombre, ce qui était
    un texte foncé (gris-500 à 900, ardoise) devient un texte clair. Les teintes de lagon pâles (fonds de survol,
-   pastilles) passent en lagon profond. L'accueil garde sa nuit dans les deux thèmes. */
-html[data-theme="sombre"] {
+   pastilles) passent en lagon profond. L'accueil garde sa nuit dans les deux thèmes.
+   .theme-nuit : les mêmes couleurs pour un seul bloc, quel que soit le thème (fenêtres ouvertes sur une page de nuit,
+   comme le dossier de la page d'attente) ; les jetons dérivés (texte, carte, bordure) y sont recalculés. */
+html[data-theme="sombre"], .theme-nuit {
   --ardoise:   #eef2f6;
   --ardoise-2: #d9e0e7;
   --ardoise-3: #b5c0ca;
@@ -120,13 +134,27 @@ html[data-theme="sombre"] {
   --erreur-clair: #3a1a22;
   --fond: #0e151b;
   --carte: var(--blanc);
+  --bordure: var(--gris-200);
+  --texte: var(--gris-900);
+  --texte-secondaire: var(--gris-600);
+  --primaire-clair: var(--lagon-100);
+  --surface-douce: var(--gris-50);
+  --surface-creuse: var(--gris-100);
+  /* statuts : la teinte fondue dans la carte sombre, texte éclairci */
+  --succes-fond: color-mix(in srgb, #10b981 12%, var(--carte)); --succes-pastille: color-mix(in srgb, #10b981 22%, var(--carte));
+  --succes-bord: color-mix(in srgb, #10b981 40%, var(--carte)); --succes-texte: #6ee7b7;
+  --alerte-fond: color-mix(in srgb, #f59e0b 12%, var(--carte)); --alerte-pastille: color-mix(in srgb, #f59e0b 22%, var(--carte));
+  --alerte-bord: color-mix(in srgb, #f59e0b 40%, var(--carte)); --alerte-texte: #fcd34d;
+  --erreur-fond: var(--erreur-clair); --erreur-pastille: color-mix(in srgb, #f43f5e 22%, var(--carte));
+  --erreur-bord: color-mix(in srgb, #f43f5e 40%, var(--carte)); --erreur-texte: #fda4af;
   --ombre-sm: 0 1px 2px rgba(0, 0, 0, .3), 0 1px 3px rgba(0, 0, 0, .25);
   --ombre: 0 4px 16px rgba(0, 0, 0, .35), 0 1px 3px rgba(0, 0, 0, .3);
   --ombre-lg: 0 20px 50px rgba(0, 0, 0, .5);
 }
 html[data-theme="sombre"] .section-surtitre:not(.section-nuit *) { color: var(--lagon-400); }
 html[data-theme="sombre"] .btn-danger:hover:not(:disabled) { background: #4a1f2a; }
-html[data-theme="sombre"] .btn-primaire { background: #0e7490; } /* texte blanc : le lagon foncé d'origine */
+.theme-nuit { color-scheme: dark; } /* cases à cocher et barres de défilement sombres */
+html[data-theme="sombre"] .btn-primaire, .theme-nuit .btn-primaire { background: #0e7490; } /* texte blanc : le lagon foncé d'origine */
 /* puces de filtre actives (annuaire, mes projets) : lagon plutôt qu'une pastille blanche qui éblouit */
 html[data-theme="sombre"] .filtres-puces button.actif, html[data-theme="sombre"] .tdb-puces button.actif { border-color: var(--lagon-500); background: rgba(6, 182, 212, .16); color: var(--lagon-800); }
 html[data-theme="sombre"] .badge-vert { background: rgba(16, 185, 129, .16); color: #6ee7b7; }

@@ -248,7 +248,7 @@ async function confirmerSuppression() {
   background: var(--carte); color: var(--ardoise); font-weight: 600; transition: border-color var(--transition), transform var(--transition);
 }
 .tdb-raccourcis a:hover { border-color: var(--teinte); transform: translateY(-2px); }
-.tdb-raccourcis i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--teinte) 14%, #fff); color: var(--teinte); font-size: .85rem; }
+.tdb-raccourcis i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--teinte) 14%, var(--carte)); color: var(--teinte); font-size: .85rem; }
 
 .modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(6,32,44,.45); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
 .modale { background: var(--carte); border-radius: var(--rayon-lg); padding: 28px; width: 100%; max-width: 420px; box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }

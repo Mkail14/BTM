@@ -10,6 +10,7 @@ import ProfilTypeCompte from './ProfilTypeCompte.vue'
 import { formaterTelephone } from '@/services/telephone.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import { useCreditFidelite } from '@/composables/useCreditFidelite.js'
+import { ouvrirFidelite } from '@/composables/useFenetreFidelite.js'
 import { useMesRealisations } from '@/composables/useMesRealisations.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 import { useTheme } from '@/composables/useTheme.js'
@@ -57,14 +58,11 @@ const pseudo = computed(() => utilisateur.value?.user_metadata?.pseudo || utilis
 const initiale = computed(() => pseudo.value.charAt(0).toUpperCase() || '?')
 
 // Crédit fidélité à côté du nom (clients particuliers et pros ; un compte fournisseur n'en gagne pas).
-// Relu à chaque page : un achat validé au comptoir le fait évoluer.
+// Relu à chaque page : un achat validé au comptoir le fait évoluer. Un clic ouvre la fenêtre « Fidélité BTM ».
 const { credit, charger: chargerCredit } = useCreditFidelite()
 const afficherCredit = computed(() => connecte.value && !fournisseurLie.value)
-const creditOuvert = ref(false)
-// Gain pour 100 € d'achat : la part de la commission BTM (réglée dans l'admin) rendue au client
-const creditPour100 = computed(() => (100 * contenu.frais.taux / 100) * (contenu.frais.fidelite / 100))
 onMounted(() => { if (afficherCredit.value) chargerCredit() })
-watch(() => route.path, () => { creditOuvert.value = false; if (afficherCredit.value) chargerCredit() })
+watch(() => route.path, () => { if (afficherCredit.value) chargerCredit() })
 
 // barre d'onglets : se cache quand on descend (plus de place pour lire), revient dès qu'on remonte ou en bas de page
 const ongletsCaches = ref(false)
@@ -285,32 +283,10 @@ async function supprimerCompte() {
                 <span class="entete-avatar" aria-hidden="true">{{ initiale }}</span>
                 <span class="entete-pseudo">{{ pseudo }}</span>
               </button>
-              <!-- Crédit fidélité : survol (ou appui sur téléphone/tablette) = à quoi il sert, comment en gagner et l'utiliser -->
-              <div v-if="afficherCredit" class="credit" :class="{ ouvert: creditOuvert }" @mouseleave="creditOuvert = false" @keydown.esc="creditOuvert = false">
-                <button type="button" class="entete-credit" :aria-expanded="creditOuvert" aria-controls="credit-detail" @click="creditOuvert = !creditOuvert">
-                  <i class="fa-solid fa-coins" aria-hidden="true"></i><span class="visually-hidden">Crédit fidélité :</span> {{ formaterEuros(credit.solde) }}
-                </button>
-                <div id="credit-detail" class="credit-detail" role="dialog" aria-label="Crédit fidélité BTM">
-                  <p class="credit-tete"><span><i class="fa-solid fa-coins" aria-hidden="true"></i> Crédit fidélité BTM</span><strong>{{ formaterEuros(credit.solde) }}</strong></p>
-                  <dl class="credit-infos">
-                    <dt>À quoi ça sert ?</dt>
-                    <dd>C’est un bon d’achat offert par BTM : le fournisseur le <strong>déduit de votre prochain retrait</strong> au comptoir.</dd>
-                    <dt>Comment en gagner ?</dt>
-                    <dd>Chaque achat payé avec le code de retrait d’une estimation enregistrée vous rapporte environ <strong>{{ formaterEuros(creditPour100) }} pour 100 €</strong> d’achat.</dd>
-                    <dt>Comment l’utiliser ?</dt>
-                    <dd>Au comptoir, donnez votre code de retrait et demandez à utiliser votre crédit.</dd>
-                  </dl>
-                  <template v-if="credit.mouvements.length">
-                    <p class="credit-sous-titre">Derniers mouvements</p>
-                    <ul class="credit-mouvements">
-                      <li v-for="(m, i) in credit.mouvements" :key="i"><span>{{ m.libelle }}</span><strong :class="{ plus: m.montant > 0 }">{{ m.montant > 0 ? '+' : '' }}{{ formaterEuros(m.montant) }}</strong></li>
-                    </ul>
-                  </template>
-                  <p v-else class="credit-vide">Aucun mouvement pour l’instant : votre premier achat avec un code de retrait lancera votre cagnotte.</p>
-                  <router-link to="/calculateur" class="credit-action">Faire une estimation <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></router-link>
-                  <p class="credit-note">Ni échangeable ni remboursable en espèces.</p>
-                </div>
-              </div>
+              <!-- Crédit fidélité : un clic ouvre la fenêtre « Fidélité BTM » (solde, façons de l'utiliser, mouvements) -->
+              <button v-if="afficherCredit" type="button" class="entete-credit" aria-haspopup="dialog" title="Fidélité BTM" @click="ouvrirFidelite">
+                <i class="fa-solid fa-coins" aria-hidden="true"></i><span class="visually-hidden">Crédit fidélité :</span> {{ formaterEuros(credit.solde) }}
+              </button>
               <button class="entete-deconnexion" type="button" title="Déconnexion" aria-label="Déconnexion" @click="deconnexion">
                 <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i>
               </button>
@@ -398,9 +374,6 @@ async function supprimerCompte() {
             <button class="profil-action" :class="{ actif: profilVue === 'infos' || profilVue === 'modifier' }" type="button" @click="ouvrirAction('infos')"><i class="fa-solid fa-user"></i><span>Infos du compte<small>Voir mes informations</small></span><i class="fa-solid fa-chevron-right"></i></button>
             <button class="profil-action" :class="{ actif: profilVue === 'type' }" type="button" @click="ouvrirAction('type')"><i class="fa-solid fa-briefcase"></i><span>Type de compte<small>{{ libelleTypeCompte }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
             <button class="profil-action" :class="{ actif: profilVue === 'mot-de-passe' }" type="button" @click="ouvrirAction('mot-de-passe')"><i class="fa-solid fa-lock"></i><span>Modifier le mot de passe<small>Sécuriser mon accès</small></span><i class="fa-solid fa-chevron-right"></i></button>
-          </div>
-          <div class="profil-groupe">
-            <button class="profil-action" type="button" @click="fermerProfil(); router.push('/dashboard')"><i class="fa-solid fa-folder-open"></i><span>Mes archives de projet<small>Retrouver mes estimations</small></span><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
           </div>
           <div class="profil-groupe">
             <button class="profil-action" type="button" @click="fermerProfil(); deconnexion()"><i class="fa-solid fa-arrow-right-from-bracket"></i><span>Se déconnecter<small>{{ utilisateur?.email }}</small></span><i class="fa-solid fa-chevron-right"></i></button>
@@ -563,35 +536,7 @@ async function supprimerCompte() {
   transition: background var(--transition);
 }
 .entete-credit { border: 0; cursor: pointer; }
-.entete-credit:hover, .credit.ouvert .entete-credit { background: rgba(253, 230, 138, .24); }
-
-/* Détail du crédit : au survol ou au focus clavier (ordinateur), à l'appui (écran tactile) */
-.credit { position: relative; }
-.credit-detail {
-  position: absolute; top: calc(100% + 10px); right: -40px; z-index: 120; width: 330px; padding: 16px 18px;
-  border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); box-shadow: var(--ombre-lg); color: var(--texte);
-  opacity: 0; visibility: hidden; transform: translateY(-4px); transition: opacity .18s ease, transform .18s ease, visibility .18s;
-}
-.credit-detail::before { content: ''; position: absolute; top: -12px; left: 0; right: 0; height: 12px; } /* pont : le survol ne se perd pas entre le bouton et le panneau */
-.credit.ouvert .credit-detail, .credit:focus-within .credit-detail { opacity: 1; visibility: visible; transform: none; }
-@media (hover: hover) { .credit:hover .credit-detail { opacity: 1; visibility: visible; transform: none; } }
-.credit-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px solid var(--gris-200); color: var(--ardoise); font-weight: 700; }
-.credit-tete i { color: #d97706; margin-right: 4px; }
-.credit-tete strong { color: #b45309; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
-.credit-infos { margin: 0; font-size: .84rem; line-height: 1.5; }
-.credit-infos dt { margin-top: 8px; color: var(--ardoise); font-weight: 700; }
-.credit-infos dt:first-child { margin-top: 0; }
-.credit-infos dd { margin: 2px 0 0; color: var(--texte-secondaire); }
-.credit-infos strong { color: var(--ardoise); }
-.credit-sous-titre { margin: 14px 0 6px; color: var(--texte-secondaire); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.credit-mouvements { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; font-size: .82rem; }
-.credit-mouvements li { display: flex; justify-content: space-between; gap: 10px; color: var(--gris-700); }
-.credit-mouvements strong { color: var(--ardoise); white-space: nowrap; }
-.credit-mouvements strong.plus { color: #047857; }
-.credit-vide { margin: 14px 0 0; padding: 10px 12px; border-radius: var(--rayon); background: #fffbeb; color: #92400e; font-size: .82rem; line-height: 1.45; }
-.credit-action { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; color: var(--lagon-700); font-size: .86rem; font-weight: 700; }
-.credit-action:hover { text-decoration: underline; text-underline-offset: 3px; }
-.credit-note { margin: 10px 0 0; color: var(--gris-500); font-size: .74rem; }
+.entete-credit:hover { background: rgba(253, 230, 138, .24); }
 .entete-avatar {
   display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%;
   background: linear-gradient(135deg, var(--lagon-400), var(--lagon-700)); color: #fff;
@@ -616,7 +561,6 @@ async function supprimerCompte() {
   /* en haut : le logo, et le crédit fidélité d'un compte connecté ; tout le reste passe dans les onglets */
   .entete-actions { display: flex; margin-left: auto; }
   .entete-utilisateur, .entete-deconnexion, .entete-connexion, .entete-cta { display: none; }
-  .credit-detail { right: 0; width: min(330px, calc(100vw - 32px)); }
 
   /* barre d'application, comme YouTube : toute la largeur du bas, sans bordure, verre fumé flouté ;
      icône + petit libellé ; elle glisse hors de l'écran quand on descend et revient quand on remonte */
@@ -689,7 +633,7 @@ async function supprimerCompte() {
 .profil-aide { color: var(--gris-500); font-size: .76rem; }
 .profil-enregistrer { align-self: flex-end; }
 .profil-retour { padding: 10px 12px; border-radius: var(--rayon-sm); font-size: .86rem; }
-.profil-succes { background: #dcfce7; color: #166534; }
+.profil-succes { background: var(--succes-pastille); color: var(--succes-texte); }
 .profil-erreur { background: var(--erreur-clair); color: var(--erreur); }
 .profil-identite { margin-top: 26px; border-top: 1px solid var(--gris-200); padding-top: 18px; }
 .profil-identite-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0; border: 0; background: transparent; color: var(--ardoise-2); font-weight: 700; cursor: pointer; text-align: left; }
@@ -796,7 +740,7 @@ async function supprimerCompte() {
   }
   .profil-barre h2 { margin: 0; overflow: hidden; color: var(--ardoise); font: 700 1.05rem var(--font-corps); white-space: nowrap; text-overflow: ellipsis; }
   .profil-barre .profil-barre-grand { margin-top: 10px; font-family: var(--font-display); font-size: 2.1rem; }
-  .profil-detail .profil-barre { justify-content: center; border-bottom: 1px solid var(--gris-200); background: rgba(255, 255, 255, .94); }
+  .profil-detail .profil-barre { justify-content: center; border-bottom: 1px solid var(--gris-200); background: color-mix(in srgb, var(--carte) 94%, transparent); }
   .profil-detail .profil-barre h2 { padding: 0 44px; }
   .profil-barre-retour {
     position: absolute; left: 8px; bottom: 8px; width: 40px; height: 40px; display: grid; place-items: center;
@@ -818,7 +762,7 @@ async function supprimerCompte() {
   .profil-carte-texte strong, .profil-carte-texte small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   .profil-carte-texte strong { color: var(--ardoise); font-size: 1.08rem; }
   .profil-carte-texte small { color: var(--gris-500); font-size: .82rem; }
-  .profil-carte-credit { flex: none; padding: 5px 10px; border-radius: 999px; background: #fef3c7; color: #b45309; font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .profil-carte-credit { flex: none; padding: 5px 10px; border-radius: 999px; background: var(--alerte-pastille); color: var(--alerte-texte); font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
   .profil-groupe { display: block; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 16px; background: var(--carte); }
   .profil-groupe .profil-action { min-height: 62px; padding: 10px 16px; border: 0; border-radius: 0; background: var(--carte); -webkit-tap-highlight-color: transparent; }
   .profil-groupe .profil-action + .profil-action { border-top: 1px solid var(--gris-100); }
@@ -849,7 +793,7 @@ async function supprimerCompte() {
   background: var(--carte); text-align: center; animation: feuille-monte .28s cubic-bezier(.22, .61, .36, 1);
 }
 .feuille-poignee { width: 38px; height: 5px; margin-bottom: 18px; border-radius: 999px; background: var(--gris-200); }
-.feuille-icone { width: 52px; height: 52px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 16px; background: #fef3c7; color: #f59e0b; font-size: 1.3rem; }
+.feuille-icone { width: 52px; height: 52px; display: grid; place-items: center; margin-bottom: 12px; border-radius: 16px; background: var(--alerte-pastille); color: #f59e0b; font-size: 1.3rem; }
 .feuille h2 { margin: 0; color: var(--ardoise); font-size: 1.45rem; }
 .feuille p { max-width: 360px; margin: 6px 0 20px; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.5; }
 .feuille-options { width: 100%; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; text-align: left; }

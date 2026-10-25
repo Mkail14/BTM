@@ -122,7 +122,7 @@ function choisir(f) {
 .cf-identite { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cf-identite strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ardoise); }
 .cf-identite small { color: var(--texte-secondaire); font-size: .8rem; }
-.cf-meilleur { padding: 1px 8px; border-radius: 999px; background: #dcfce7; color: #166534; font-style: normal; font-size: .7rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
+.cf-meilleur { padding: 1px 8px; border-radius: 999px; background: var(--succes-pastille); color: var(--succes-texte); font-style: normal; font-size: .7rem; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; }
 .cf-dispo { font-weight: 600; color: #b45309 !important; }
 .cf-prix { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; text-align: right; }
 .cf-prix strong { font-size: 1.15rem; color: var(--ardoise); font-variant-numeric: tabular-nums; }

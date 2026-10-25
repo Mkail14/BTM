@@ -60,6 +60,11 @@ export async function deconnexion() {
   if (!supabaseConfigure) return
   await supabase.auth.signOut()
 }
+/** Ferme la session de cet appareil seulement (déconnexion après inactivité : les autres appareils restent connectés) */
+export async function deconnexionAppareil() {
+  if (!supabaseConfigure) return
+  await supabase.auth.signOut({ scope: 'local' })
+}
 /** Ferme la session sur tous les appareils du compte (téléphone perdu, ordinateur prêté), celui-ci compris */
 export async function deconnexionPartout() {
   if (!supabaseConfigure) return

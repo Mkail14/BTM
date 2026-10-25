@@ -53,7 +53,7 @@ onBeforeUnmount(() => requete.removeEventListener('change', suivre))
   .selecteur-grille { grid-template-columns: 1fr; gap: 10px; }
   .selecteur-option { display: grid; grid-template-columns: 52px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 14px; row-gap: 2px; align-items: center; min-height: 76px; padding: 12px 40px 12px 12px; text-align: left; }
   .selecteur-option:hover { transform: none; }
-  .selecteur-icone { grid-row: 1 / 3; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: color-mix(in srgb, var(--couleur) 14%, #fff); color: var(--couleur); font-size: 1.35rem; }
+  .selecteur-icone { grid-row: 1 / 3; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: color-mix(in srgb, var(--couleur) 14%, var(--carte)); color: var(--couleur); font-size: 1.35rem; }
   .selecteur-libelle { align-self: end; font-size: 1.3rem; line-height: 1.1; }
   .selecteur-desc { align-self: start; font-size: .82rem; line-height: 1.35; }
   .selecteur-coche { top: 50%; right: 12px; margin-top: -.65rem; }

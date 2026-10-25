@@ -13,12 +13,12 @@ import { regrouperAvis } from '@/services/supabase/serviceAvisFournisseurs.js'
 import { useEspaceFournisseur } from '@/composables/useEspaceFournisseur.js'
 import CarteFournisseur from '@/composants/fournisseurs/CarteFournisseur.vue'
 import ChampHoraires from '@/composants/fournisseur/ChampHoraires.vue'
+import { COMMUNES } from '@/donnees/communesMayotte.js'
 
 const props = defineProps({ fiche: { type: Object, default: null } })
 const emit = defineEmits(['maj'])
 const { executer } = useAdmin()
 
-const COMMUNES = ['Acoua', 'Bandraboua', 'Bandrélé', 'Bouéni', 'Chiconi', 'Chirongui', 'Dembéni', 'Dzaoudzi', 'Kani-Kéli', 'Koungou', 'Mamoudzou', 'Mtsamboro', 'M’Tsangamouji', 'Ouangani', 'Pamandzi', 'Sada', 'Tsingoni']
 // horaires et description ont leur propre fenêtre : le brouillon ne les porte pas
 const CHAMPS = ['telephone', 'email', 'adresse', 'commune', 'site_web', 'logo_url', 'livraison', 'livraison_payante', 'livraison_tarif']
 const BOOLEENS = ['livraison', 'livraison_payante']

@@ -581,7 +581,7 @@ const recapitulatif = computed(() => {
 .calc-modes small { color: var(--texte-secondaire); font-size: .8rem; }
 .calc-pro { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0 0 16px; padding: 12px 16px; border-radius: var(--rayon); background: var(--encre); color: #fff; font-size: .9rem; }
 .calc-pro a { margin-left: auto; color: #fcd34d; font-weight: 700; }
-.calc-pro-badge { padding: 2px 10px; border-radius: 999px; background: #fcd34d; color: var(--ardoise); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.calc-pro-badge { padding: 2px 10px; border-radius: 999px; background: #fcd34d; color: var(--encre); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 /* Téléphone : deux onglets côte à côte, sans le sous-titre, pour laisser la place au contenu */
 @media (max-width: 560px) {
   .calc-modes { gap: 8px; margin-bottom: 18px; }

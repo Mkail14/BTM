@@ -6,6 +6,7 @@
 import { supabase, supabaseConfigure, SITE_PUBLIC } from './client.js'
 import { normaliserResultat } from '@/services/calculs/moteurCalculs.js'
 import { televerserPhoto, supprimerPhotos } from './serviceRealisations.js'
+import { lireMaDemande } from './serviceInscriptionFournisseur.js'
 
 const verifier = () => { if (!supabaseConfigure) throw new Error('Backend Supabase non configuré') }
 const ok = ({ data, error }) => { if (error) throw traduire(error); return data }
@@ -30,7 +31,10 @@ export async function lireRoleCompte(utilisateurId) {
   if (!supabaseConfigure || !utilisateurId) return { role: null, fournisseur_id: null, type_profil: null, pro: null, banni: false }
   const { data, error } = await supabase.from('profils').select('*').eq('id', utilisateurId).maybeSingle()
   if (error || !data) return { role: null, fournisseur_id: null, type_profil: null, pro: null, banni: false }
+  // compte créé par une entreprise, pas encore validé par BTM (migration 20261024030000)
+  const demandeFournisseur = data.type_profil === 'fournisseur' && !data.fournisseur_id ? await lireMaDemande(utilisateurId) : null
   return {
+    demandeFournisseur,
     role: data.role, fournisseur_id: data.fournisseur_id || null, type_profil: data.type_profil || 'particulier',
     banni: banActif(data), // compte banni (migration 0022) : le site le déconnecte
     bannieJusqua: data.banni_jusqua || null,

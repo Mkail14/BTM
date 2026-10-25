@@ -11,6 +11,7 @@ const admin = ref(false)
 const fournisseurLie = ref(null) // fiche de l'annuaire d'un compte fournisseur (sinon null)
 const typeProfil = ref(null)   // 'particulier' | 'professionnel' | 'fournisseur'
 const demandePro = ref(null)   // { statut: 'en_attente'|'verifie'|'refuse', raisonSociale, siret, motif } ou null
+const demandeFournisseur = ref(null) // compte fournisseur pas encore validé par BTM : sa demande (demandes_fournisseur)
 
 /** Relit le rôle et le type du compte connecté (après une demande de vérification pro, par exemple) */
 async function chargerRole(id = utilisateur.value?.id) {
@@ -30,6 +31,7 @@ async function chargerRole(id = utilisateur.value?.id) {
   fournisseurLie.value = r.role === 'fournisseur' ? r.fournisseur_id : null
   typeProfil.value = r.type_profil
   demandePro.value = r.pro
+  demandeFournisseur.value = r.demandeFournisseur || null
 }
 let initialise = false
 
@@ -83,7 +85,7 @@ export function useAuth() {
 // Pendant la vérification (« en_attente »), le compte est bien professionnel mais ses outils pro restent fermés.
 const estPro = computed(() => demandePro.value?.statut === 'verifie' || !!fournisseurLie.value)
   return {
-    utilisateur, connecte, pret, admin, fournisseurLie, typeProfil, demandePro, estPro, rechargerRole: () => chargerRole(), backendDisponible: supabaseConfigure,
+    utilisateur, connecte, pret, admin, fournisseurLie, typeProfil, demandePro, demandeFournisseur, estPro, rechargerRole: () => chargerRole(), backendDisponible: supabaseConfigure,
     connexion: auth.connexion, inscription: auth.inscription,
     mettreAJourProfil: auth.mettreAJourProfil, supprimerCompte: auth.supprimerCompte,
     deconnexion: async () => { await auth.deconnexion(); utilisateur.value = null },

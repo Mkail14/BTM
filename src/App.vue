@@ -14,6 +14,7 @@ import { PAGES_ESPACE } from '@/routeur/index.js'
 import { modeSite, quitterModeSite } from '@/composables/useModeSite.js'
 import { useOuverture, PAGES_LIBRES, LIBELLES_ENVIRONNEMENT } from '@/composables/useOuverture.js'
 import BientotVue from '@/vues/BientotVue.vue'
+import { useInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
 
 // L'espace admin a sa propre mise en page (barre latérale) : pas d'en-tête ni de pied du site
 const route = useRoute()
@@ -30,7 +31,7 @@ const PAGES_SANS_PIED = ['calculateur']
 // publique (connexion dans un autre onglet…), il rejoint son espace.
 // Au premier chargement, le rôle peut être connu avant la page demandée : on attend le routeur, sinon un administrateur
 // arrivant par le lien « mot de passe oublié » de l'e-mail était envoyé dans son espace sans choisir son mot de passe.
-const { admin, fournisseurLie } = useAuth()
+const { admin, fournisseurLie, demandeFournisseur } = useAuth()
 watch(admin, async (estAdmin) => {
   if (!estAdmin) return
   await router.isReady()
@@ -59,6 +60,12 @@ const { environnement, partenaires, mode: modeOuverture, enAttente } = useOuvert
 const pageChargee = computed(() => route.matched.length > 0)
 // Un compte fournisseur n'y échappe pas : tant que le site n'est pas en ligne, « Voir le site » ne l'ouvre pas non plus
 const pageAttente = computed(() => pageChargee.value && enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value)
+// Compte fournisseur créé par une entreprise, pas encore validé par BTM : la page d'attente (robot) suit sa demande,
+// site ouvert ou non (pages légales exceptées). Validé, le compte devient fournisseur et rejoint son espace.
+const pageValidation = computed(() => pageChargee.value && !!demandeFournisseur.value && !admin.value && !fournisseurLie.value && !PAGES_LIBRES.includes(route.name))
+const InscriptionFournisseur = defineAsyncComponent(() => import('@/composants/commun/InscriptionFournisseur.vue'))
+const { etat: inscriptionFournisseur } = useInscriptionFournisseur()
+watch(() => inscriptionFournisseur.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
 // fournisseur resté en « Voir le site » (onglet ouvert avant la fermeture du site) : retour à son espace
 watch([enAttente, modeSite, fournisseurLie], ([attente, visite, fid]) => {
   if (attente !== true || !visite || !fid) return
@@ -92,7 +99,10 @@ watch(() => route.query, (q) => {
 
 <template>
   <!-- En ligne, avant l'ouverture : page d'attente (rien pendant la vérification, pour ne pas montrer le site une seconde) -->
-  <template v-if="pageAttente">
+  <template v-if="pageValidation">
+    <BientotVue :demande="demandeFournisseur" />
+  </template>
+  <template v-else-if="pageAttente">
     <BientotVue v-if="enAttente" :partenaires="partenaires || 0" :maintenance="modeOuverture === 'maintenance'" />
   </template>
   <template v-else-if="pageChargee">
@@ -124,6 +134,8 @@ watch(() => route.query, (q) => {
     :partenaires-seuls="pageAttente"
     @fermer="fermerAuth" @changer-mode="fenetreAuth.mode = $event"
   />
+  <!-- « Devenir partenaire » : création du compte fournisseur (page d'attente, pied de page…) -->
+  <InscriptionFournisseur v-if="inscriptionFournisseur.ouverte" />
   <!-- Repère de version (develop, locale) : jamais sur btm.yt -->
   <span v-if="environnement !== 'en-ligne'" class="repere-version" :class="environnement" :title="`Version ${LIBELLES_ENVIRONNEMENT[environnement].toLowerCase()} du site`">{{ LIBELLES_ENVIRONNEMENT[environnement] }}</span>
   <div v-if="visiteFournisseur" class="visite-fournisseur" role="region" aria-label="Visite du site">

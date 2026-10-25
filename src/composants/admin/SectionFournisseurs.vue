@@ -1,11 +1,13 @@
 <script setup>
-/** Fournisseurs (annuaire public) et catégories de l'annuaire */
+/** Fournisseurs (annuaire public), demandes de comptes fournisseur et catégories de l'annuaire */
 import { computed, onMounted, ref } from 'vue'
 import { useAdmin, initiales, correspond } from '@/composables/useAdmin.js'
 import AdminPanneau from './AdminPanneau.vue'
 import PanneauAccesFournisseur from './PanneauAccesFournisseur.vue'
 import ChampHoraires from '@/composants/fournisseur/ChampHoraires.vue'
 import { listerTousCarreaux } from '@/services/supabase/serviceCarreaux.js'
+import DemandesFournisseurs from './DemandesFournisseurs.vue'
+import { listerDemandes } from '@/services/supabase/serviceInscriptionFournisseur.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
 onMounted(() => charger(['fournisseurs', 'categories', 'profils'], { force: true }))
@@ -20,6 +22,20 @@ onMounted(chargerAcces)
 const accesDe = computed(() => Object.fromEntries((accesListe.value || []).map((a) => [a.fournisseur_id, a])))
 const panneauAcces = ref(null) // fournisseur dont on gère l'accès
 function apresAcces() { chargerAcces(); charger(['profils'], { force: true }) }
+
+// ---------- Demandes de comptes fournisseur (« Devenir partenaire ») ----------
+const demandes = ref(null)
+const erreurDemandes = ref('')
+async function chargerDemandes() {
+  try { demandes.value = await listerDemandes(); erreurDemandes.value = '' } catch (e) { demandes.value = []; erreurDemandes.value = e?.message || '' }
+}
+onMounted(chargerDemandes)
+const nbDemandes = computed(() => (demandes.value || []).filter((d) => d.statut === 'en_attente').length)
+// une validation crée la fiche et lie le compte : l'annuaire et les accès sont relus
+function apresDemande(validee) {
+  chargerDemandes()
+  if (validee) { charger(['fournisseurs', 'profils'], { force: true }); chargerAcces() }
+}
 
 const onglet = ref('fournisseurs')
 const filtreCategorie = ref('')
@@ -132,14 +148,21 @@ async function supprimerCategorie(c) {
     <div class="adm-section-tete">
       <div class="adm-segments" role="tablist" aria-label="Annuaire">
         <button type="button" role="tab" :aria-selected="onglet === 'fournisseurs'" @click="onglet = 'fournisseurs'">Fournisseurs <small>{{ donnees.fournisseurs?.length ?? '' }}</small></button>
+        <button type="button" role="tab" :aria-selected="onglet === 'demandes'" @click="onglet = 'demandes'">Demandes <b v-if="nbDemandes" class="four-pastille" :aria-label="`${nbDemandes} à examiner`">{{ nbDemandes }}</b></button>
         <button type="button" role="tab" :aria-selected="onglet === 'categories'" @click="onglet = 'categories'">Catégories <small>{{ donnees.categories?.length ?? '' }}</small></button>
       </div>
       <button v-if="onglet === 'fournisseurs'" type="button" class="adm-btn adm-btn-noir" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter un fournisseur</button>
-      <button v-else type="button" class="adm-btn adm-btn-noir" @click="ouvrirCategorie()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle catégorie</button>
+      <button v-else-if="onglet === 'categories'" type="button" class="adm-btn adm-btn-noir" @click="ouvrirCategorie()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle catégorie</button>
     </div>
 
+    <!-- ===================== Demandes de comptes fournisseur ===================== -->
+    <template v-if="onglet === 'demandes'">
+      <p v-if="erreurDemandes" class="adm-alerte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurDemandes }}</p>
+      <DemandesFournisseurs :demandes="demandes" :categories="donnees.categories || []" @maj="apresDemande" />
+    </template>
+
     <!-- ===================== Fournisseurs ===================== -->
-    <template v-if="onglet === 'fournisseurs'">
+    <template v-else-if="onglet === 'fournisseurs'">
       <!-- Chiffres clés -->
       <div class="four-stats">
         <div class="adm-carte four-stat"><span class="four-stat-icone"><i class="fa-solid fa-truck" aria-hidden="true"></i></span><span><strong>{{ donnees.fournisseurs?.length ?? '—' }}</strong><small>Fournisseurs</small></span></div>
@@ -215,7 +238,7 @@ async function supprimerCategorie(c) {
     </template>
 
     <!-- ===================== Catégories ===================== -->
-    <ul v-else class="cats">
+    <ul v-else-if="onglet === 'categories'" class="cats">
       <li v-for="c in donnees.categories || []" :key="c.id" class="adm-carte cat">
         <span class="cat-icone"><i :class="c.icone || 'fa-solid fa-tag'" aria-hidden="true"></i></span>
         <span class="cat-texte"><strong>{{ c.libelle }}</strong><small>{{ parCategorie[c.id] || 0 }} fournisseur{{ (parCategorie[c.id] || 0) > 1 ? 's' : '' }} · position {{ c.ordre }}</small></span>
@@ -290,6 +313,7 @@ async function supprimerCategorie(c) {
 .four { display: flex; flex-direction: column; gap: 16px; }
 .four .adm-section-tete { margin: 0; }
 .adm-segments small { margin-left: 4px; opacity: .6; font-weight: 500; }
+.four-pastille { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #f59e0b; color: #fff; font-size: .72rem; font-weight: 800; }
 /* Chiffres clés */
 .four-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .four-stat { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }

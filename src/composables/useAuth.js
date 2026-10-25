@@ -89,6 +89,7 @@ const estPro = computed(() => demandePro.value?.statut === 'verifie' || !!fourni
     connexion: auth.connexion, inscription: auth.inscription,
     mettreAJourProfil: auth.mettreAJourProfil, supprimerCompte: auth.supprimerCompte,
     deconnexion: async () => { await auth.deconnexion(); utilisateur.value = null },
+    deconnexionAppareil: async () => { await auth.deconnexionAppareil(); utilisateur.value = null },
     deconnexionPartout: async () => { await auth.deconnexionPartout(); utilisateur.value = null },
     envoyerLienMotDePasse: auth.envoyerLienMotDePasse
   }

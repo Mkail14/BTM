@@ -77,9 +77,9 @@ const manque = computed(() => props.carreau && !props.carreau.rupture && props.c
 }
 .cc-visuel img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .cc-standard { background-color: var(--gris-100); color: var(--gris-500); font-size: 2rem; }
-.cc-badge { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 999px; background: #fff7ed; color: #9a3412; font-style: normal; font-size: .7rem; font-weight: 800; }
+.cc-badge { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--alerte-pastille); color: var(--alerte-texte); font-style: normal; font-size: .7rem; font-weight: 800; }
 .cc-badge i { margin-right: 2px; }
-.cc-badge-rupture { background: #fee2e2; color: #991b1b; text-transform: uppercase; }
+.cc-badge-rupture { background: var(--erreur-pastille); color: var(--erreur-texte); text-transform: uppercase; }
 .cc-texte { display: flex; flex-direction: column; gap: 3px; min-width: 0; padding: 12px 14px 14px; flex: 1; }
 .cc-texte strong { color: var(--ardoise); line-height: 1.25; }
 .cc-texte small { color: var(--texte-secondaire); font-size: .8rem; }

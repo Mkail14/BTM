@@ -434,7 +434,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-ligne.conseiller .ac-qui em { background: var(--encre); color: #fde68a; }
 .ac-bulle { margin: 0; padding: 10px 13px; border-radius: 14px 14px 14px 4px; background: var(--carte); color: var(--ardoise-2); font-size: .86rem; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
 .ac-ligne.client .ac-bulle { border-radius: 14px 14px 4px 14px; background: var(--lagon-600); color: #fff; }
-.ac-ligne.conseiller .ac-bulle { border: 1px solid #fde68a; background: #fffbeb; }
+.ac-ligne.conseiller .ac-bulle { border: 1px solid var(--alerte-bord); background: var(--alerte-fond); }
 .ac-bulle.provisoire { opacity: .6; }
 .ac-heure { margin: 2px 6px 0; color: var(--gris-400); font-size: .66rem; }
 .ac-vu.lu { color: var(--lagon-600); font-weight: 700; }
@@ -451,11 +451,11 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-ecrit span { width: 6px; height: 6px; border-radius: 50%; background: var(--gris-400); animation: ac-points 1s infinite; }
 .ac-ecrit span:nth-child(2) { animation-delay: .15s; }
 .ac-ecrit span:nth-child(3) { animation-delay: .3s; }
-.ac-coord { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #fde68a; border-radius: 14px; background: #fffbeb; }
-.ac-coord p { margin: 0; color: #78350f; font-size: .8rem; line-height: 1.45; }
+.ac-coord { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--alerte-bord); border-radius: 14px; background: var(--alerte-fond); }
+.ac-coord p { margin: 0; color: var(--alerte-texte); font-size: .8rem; line-height: 1.45; }
 .ac-coord input { min-height: 38px; padding: 0 12px; border: 1px solid var(--gris-300); border-radius: 10px; font: inherit; font-size: .84rem; }
 .ac-coord > div { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.ac-erreur { display: flex; gap: 6px; margin: 0; padding: 8px 14px; background: #fff1f2; color: var(--erreur); font-size: .78rem; }
+.ac-erreur { display: flex; gap: 6px; margin: 0; padding: 8px 14px; background: var(--erreur-fond); color: var(--erreur); font-size: .78rem; }
 .ac-cloture { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px; border-top: 1px solid var(--gris-200); background: var(--carte); text-align: center; }
 .ac-cloture p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ardoise-2); font-size: .84rem; font-weight: 600; }
 .ac-cloture p i { color: #047857; }

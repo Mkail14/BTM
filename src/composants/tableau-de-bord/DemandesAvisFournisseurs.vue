@@ -116,12 +116,12 @@ async function decliner(a) {
 <style scoped>
 .da { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
 .da-carte { display: flex; flex-direction: column; gap: 16px; padding: 20px 22px; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); }
-.da-demande { border-color: #fde68a; background: linear-gradient(180deg, #fffbeb, #fff 70%); }
+.da-demande { border-color: var(--alerte-bord); background: linear-gradient(180deg, var(--alerte-fond), var(--carte) 70%); }
 .da-tete { display: flex; align-items: flex-start; gap: 14px; }
 .da-tete strong { display: block; color: var(--ardoise); font-size: 1.02rem; }
 .da-tete p { margin: 4px 0 0; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.5; }
-.da-icone { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: #fef3c7; color: #d97706; }
-.da-publie .da-icone { background: #d1fae5; color: #047857; }
+.da-icone { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--alerte-pastille); color: #d97706; }
+.da-publie .da-icone { background: var(--succes-pastille); color: var(--succes-texte); }
 .da-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .da-lien { padding: 6px 0; border: 0; background: none; color: var(--texte-secondaire); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; }
 .da-lien:hover { color: var(--ardoise); text-decoration: underline; text-underline-offset: 3px; }

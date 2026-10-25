@@ -188,7 +188,7 @@ function modifierAdresse() {
 .mo-pied { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; margin-top: 22px; font-size: .95rem; }
 .mo-fini { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 24px 0; text-align: center; }
 .mo-icone { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; font-size: 1.5rem; }
-.mo-icone-ok { background: #d1fae5; color: #047857; }
+.mo-icone-ok { background: var(--succes-pastille); color: var(--succes-texte); }
 .mo-icone-mail { background: var(--lagon-100); color: var(--lagon-700); }
 @media (max-width: 480px) { .mo-titre { font-size: 1.9rem; } }
 </style>

@@ -801,7 +801,7 @@ function traduire(m = '') {
 .auth-profil-icone { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: var(--gris-100); color: var(--ardoise); font-size: 1.2rem; }
 .auth-profil.pro .auth-profil-icone { background: var(--encre); color: #fcd34d; }
 .auth-profil-suite { margin-top: auto; padding-top: 8px; color: var(--lagon-700); font-size: .88rem; font-weight: 700; }
-.auth-profil-badge { position: absolute; top: 14px; right: 14px; padding: 2px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.auth-profil-badge { position: absolute; top: 14px; right: 14px; padding: 2px 10px; border-radius: 999px; background: var(--alerte-pastille); color: var(--alerte-texte); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 
 /* Civilité */
 .auth-civilite { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
@@ -836,11 +836,11 @@ function traduire(m = '') {
 
 /* Entreprise reconnue */
 .auth-siret { font-size: 1.1rem; letter-spacing: .08em; }
-.auth-entreprise-carte { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--rayon); background: #ecfdf5; color: #065f46; }
+.auth-entreprise-carte { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--rayon); background: var(--succes-fond); color: var(--succes-texte); }
 .auth-entreprise-carte i { font-size: 1.3rem; }
 .auth-entreprise-carte span { display: flex; flex-direction: column; }
 .auth-entreprise-carte small { color: #047857; font-size: .82rem; }
-.auth-entreprise-carte.inactive { background: #fffbeb; color: #92400e; }
+.auth-entreprise-carte.inactive { background: var(--alerte-fond); color: var(--alerte-texte); }
 .auth-entreprise-carte.inactive small { color: #b45309; }
 /* Un profil par ligne (icône, texte, flèche), sur tous les écrans : la carte a la largeur d'un téléphone */
 .auth-profils { grid-template-columns: 1fr; gap: 10px; }

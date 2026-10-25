@@ -15,6 +15,8 @@ import { modeSite, quitterModeSite } from '@/composables/useModeSite.js'
 import { useOuverture, PAGES_LIBRES, LIBELLES_ENVIRONNEMENT } from '@/composables/useOuverture.js'
 import BientotVue from '@/vues/BientotVue.vue'
 import { useInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
+import { useFenetreFidelite } from '@/composables/useFenetreFidelite.js'
+import { surveillerInactivite } from '@/services/session.js'
 
 // L'espace admin a sa propre mise en page (barre latérale) : pas d'en-tête ni de pied du site
 const route = useRoute()
@@ -66,6 +68,9 @@ const pageValidation = computed(() => pageChargee.value && !!demandeFournisseur.
 const InscriptionFournisseur = defineAsyncComponent(() => import('@/composants/commun/InscriptionFournisseur.vue'))
 const { etat: inscriptionFournisseur } = useInscriptionFournisseur()
 watch(() => inscriptionFournisseur.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
+const FenetreFidelite = defineAsyncComponent(() => import('@/composants/commun/FenetreFidelite.vue'))
+const { etat: fidelite } = useFenetreFidelite()
+watch(() => fidelite.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
 // fournisseur resté en « Voir le site » (onglet ouvert avant la fermeture du site) : retour à son espace
 watch([enAttente, modeSite, fournisseurLie], ([attente, visite, fid]) => {
   if (attente !== true || !visite || !fid) return
@@ -95,6 +100,28 @@ watch(() => route.query, (q) => {
   const { connexion: _c, inscription: _i, redirect: _r, suspendu: _s, profil: _p, oubli: _o, ...reste } = q
   router.replace({ query: reste, hash: route.hash })
 }, { immediate: true })
+
+// Déconnexion après inactivité (tous onglets confondus) : 30 min pour un administrateur, 1 h pour un client.
+// Jamais pour un fournisseur (validé ou en attente). Fermer le site déconnecte aussi (services/session.js).
+const { utilisateur, typeProfil, deconnexionAppareil } = useAuth()
+const delaiInactivite = () => {
+  if (!utilisateur.value) return null
+  if (!typeProfil.value) return undefined // rôle pas encore lu : on ne sait pas encore si c'est un fournisseur
+  if (fournisseurLie.value || demandeFournisseur.value || typeProfil.value === 'fournisseur') return null
+  return (admin.value ? 30 : 60) * 60000
+}
+let expiration = false
+surveillerInactivite(delaiInactivite, async () => {
+  if (expiration) return
+  expiration = true
+  const duree = admin.value ? '30 min' : '1 h'
+  const page = route.fullPath
+  const reservee = !!route.meta.necessiteConnexion
+  try { await deconnexionAppareil() } catch { /* session déjà fermée par un autre onglet */ }
+  if (reservee) await router.replace({ name: 'accueil' })
+  ouvrirAuth('connexion', { redirect: reservee ? page : null, message: `Déconnecté après ${duree} sans activité : reconnectez-vous pour continuer.` })
+  expiration = false
+})
 </script>
 
 <template>
@@ -136,6 +163,8 @@ watch(() => route.query, (q) => {
   />
   <!-- « Devenir partenaire » : création du compte fournisseur (page d'attente, pied de page…) -->
   <InscriptionFournisseur v-if="inscriptionFournisseur.ouverte" />
+  <!-- « Fidélité BTM » : clic sur le crédit à côté du nom -->
+  <FenetreFidelite v-if="fidelite.ouverte" />
   <!-- Repère de version (develop, locale) : jamais sur btm.yt -->
   <span v-if="environnement !== 'en-ligne'" class="repere-version" :class="environnement" :title="`Version ${LIBELLES_ENVIRONNEMENT[environnement].toLowerCase()} du site`">{{ LIBELLES_ENVIRONNEMENT[environnement] }}</span>
   <div v-if="visiteFournisseur" class="visite-fournisseur" role="region" aria-label="Visite du site">

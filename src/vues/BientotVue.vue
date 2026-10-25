@@ -8,7 +8,7 @@
  * Avec `demande` : la même page devient l'écran du compte fournisseur en attente de validation par BTM
  * (en attente, rectification demandée, ou refusée) ; elle se met à jour seule quand BTM valide le compte.
  */
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import LogoBtm from '@/composants/commun/LogoBtm.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import HeroPaysage from '@/composants/accueil/HeroPaysage.vue'
@@ -20,6 +20,8 @@ import { useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import { SEUIL_FOURNISSEURS } from '@/composables/useOuverture.js'
 import { ouvrirInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
 import { useAuth } from '@/composables/useAuth.js'
+import { listerMessages, listerDocuments } from '@/services/supabase/serviceDossierFournisseur.js'
+const DossierFournisseur = defineAsyncComponent(() => import('@/composants/commun/DossierFournisseur.vue'))
 
 const props = defineProps({
   partenaires: { type: Number, default: 0 },
@@ -39,13 +41,39 @@ onBeforeUnmount(() => { document.documentElement.classList.remove('page-fixe') }
 // ---------- Compte fournisseur en attente de validation ----------
 // la décision de BTM est relue toutes les 30 s (page visible) : validé, le compte rejoint aussitôt son espace
 const statut = computed(() => props.demande?.statut || '')
+// Dossier de validation : messages de BTM non lus et pièces à fournir (pastilles des deux boutons)
+const dossier = ref('') // '' | 'messages' | 'documents' : fenêtre ouverte sur cet onglet
+const nonLus = ref(0)
+const aFournir = ref(0)
+// dossier complet : toutes les pièces demandées validées par BTM et contrat signé ; il ne reste que la validation du compte
+const dossierComplet = ref(false)
+async function compterDossier() {
+  if (!props.demande) return
+  try {
+    const [messages, documents] = await Promise.all([listerMessages(props.demande.id), listerDocuments(props.demande.id)])
+    nonLus.value = messages.filter((m) => m.auteur === 'btm' && !m.lu_le).length
+    aFournir.value = documents.filter((d) => ['a_fournir', 'refuse'].includes(d.statut)).length + (props.demande.contrat_signe_le ? 0 : 1)
+    dossierComplet.value = documents.length > 0 && documents.every((d) => d.statut === 'valide') && !!props.demande.contrat_signe_le
+  } catch { /* dossier pas encore activé : pas de pastille */ }
+}
 let minuterie = null
 onMounted(() => {
   if (!props.demande) return
-  minuterie = setInterval(() => { if (document.visibilityState === 'visible') rechargerRole() }, 30000)
+  compterDossier()
+  minuterie = setInterval(() => { if (document.visibilityState === 'visible') { rechargerRole(); if (!dossier.value) compterDossier() } }, 30000)
 })
 onBeforeUnmount(() => clearInterval(minuterie))
-const ETAPES_VALIDATION = ['Compte créé', 'Vérification par BTM', 'Espace fournisseur ouvert']
+// avancement : compte créé → vérification du dossier → ouverture de l'espace (validation du compte par BTM)
+const ETAPES_VALIDATION = computed(() => {
+  const complet = dossierComplet.value && statut.value === 'en_attente'
+  return [
+    { libelle: 'Compte créé', etat: 'fait', icone: 'fa-solid fa-check' },
+    statut.value === 'a_corriger'
+      ? { libelle: 'Corrections demandées', etat: 'encours', icone: 'fa-solid fa-pen' }
+      : complet ? { libelle: 'Documents validés', etat: 'fait', icone: 'fa-solid fa-check' } : { libelle: 'Vérification par BTM', etat: 'encours', icone: 'fa-solid fa-hourglass-half' },
+    { libelle: complet ? 'Ouverture de votre espace' : 'Espace fournisseur ouvert', etat: complet ? 'encours' : '', icone: complet ? 'fa-solid fa-hourglass-half' : 'fa-solid fa-store' }
+  ]
+})
 const corriger = () => ouvrirInscriptionFournisseur(props.demande)
 const seDeconnecter = () => deconnexion()
 </script>
@@ -79,6 +107,10 @@ const seDeconnecter = () => deconnexion()
             <h1 class="bientot-titre">Demande non retenue.</h1>
             <p class="bientot-desc">BTM ne peut pas ouvrir d’espace fournisseur pour {{ demande.entreprise }} pour le moment. Une question ? Écrivez-nous à <a href="mailto:contact@btm.yt">contact@btm.yt</a>.</p>
           </template>
+          <template v-else-if="dossierComplet">
+            <h1 class="bientot-titre">Votre dossier est complet.</h1>
+            <p class="bientot-desc">Vos documents sont validés et votre contrat est signé. Votre compte sera ouvert dès que l’équipe BTM l’aura validé : cette page se met à jour toute seule.</p>
+          </template>
           <template v-else>
             <h1 class="bientot-titre">Votre compte est en cours de validation.</h1>
             <p class="bientot-desc">L’équipe BTM vérifie les informations de {{ demande.entreprise }}. Votre espace fournisseur s’ouvre dès la validation : cette page se met à jour toute seule.</p>
@@ -88,9 +120,9 @@ const seDeconnecter = () => deconnexion()
             <span><strong>Message de BTM</strong>{{ demande.message_admin }}</span>
           </p>
           <ol v-if="statut !== 'refusee'" class="bientot-validation" aria-label="Avancement de votre demande">
-            <li v-for="(e, i) in ETAPES_VALIDATION" :key="e" :class="{ fait: i === 0, encours: i === 1 }">
-              <span><i :class="i === 0 ? 'fa-solid fa-check' : i === 1 ? (statut === 'a_corriger' ? 'fa-solid fa-pen' : 'fa-solid fa-hourglass-half') : 'fa-solid fa-store'" aria-hidden="true"></i></span>
-              {{ i === 1 && statut === 'a_corriger' ? 'Corrections demandées' : e }}
+            <li v-for="e in ETAPES_VALIDATION" :key="e.libelle" :class="e.etat">
+              <span><i :class="e.icone" aria-hidden="true"></i></span>
+              {{ e.libelle }}
             </li>
           </ol>
         </template>
@@ -115,9 +147,17 @@ const seDeconnecter = () => deconnexion()
         </div>
 
         <div class="bientot-actions">
-          <template v-if="demande">
+          <!-- compte en attente : écrire à BTM (ce qui manque pour valider) et déposer les pièces demandées, contrat compris -->
+          <template v-if="demande && statut !== 'refusee'">
             <BoutonBase v-if="statut === 'a_corriger'" variante="primaire" icone="fa-solid fa-pen-to-square" @click="corriger">Corriger mes informations</BoutonBase>
-            <BoutonBase v-else-if="statut === 'en_attente'" variante="contour-clair" icone="fa-solid fa-pen-to-square" @click="corriger">Modifier mes informations</BoutonBase>
+            <button type="button" class="bientot-dossier principal" @click="dossier = 'documents'">
+              <i class="fa-solid fa-folder-open" aria-hidden="true"></i> Documents à fournir
+              <b v-if="aFournir" class="bientot-pastille">{{ aFournir }}</b>
+            </button>
+            <button type="button" class="bientot-dossier" @click="dossier = 'messages'">
+              <i class="fa-solid fa-comments" aria-hidden="true"></i> Écrire à BTM
+              <b v-if="nonLus" class="bientot-pastille">{{ nonLus }}</b>
+            </button>
           </template>
           <BoutonBase v-else variante="primaire" icone-droite="fa-solid fa-arrow-right" @click="ouvrirInscriptionFournisseur()">Devenir partenaire</BoutonBase>
         </div>
@@ -131,6 +171,7 @@ const seDeconnecter = () => deconnexion()
       <span><router-link to="/conditions">Conditions</router-link> · <router-link to="/confidentialite">Confidentialité</router-link></span>
     </footer>
 
+    <DossierFournisseur v-if="dossier && demande" :demande="demande" :onglet="dossier" @fermer="dossier = ''; compterDossier()" @maj="compterDossier" />
   </div>
 </template>
 
@@ -181,6 +222,16 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 .bientot-avancement span.fait { background: var(--lagon-400); }
 .bientot-avancement small { margin-left: 8px; color: var(--beton); font-size: .85rem; }
 .bientot-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; animation: apparaitre .7s .28s ease both; }
+/* boutons du dossier de validation (même forme que les boutons du site, sur la nuit du héros) */
+.bientot-dossier {
+  position: relative; display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border: 1.5px solid rgba(255, 255, 255, .35);
+  border-radius: var(--rayon-sm); background: transparent; color: #fff; font: inherit; font-weight: 600; font-size: .95rem; cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.bientot-dossier:hover { border-color: #fff; background: rgba(255, 255, 255, .06); }
+.bientot-dossier.principal { border-color: #0e7490; background: #0e7490; }
+.bientot-dossier.principal:hover { background: #155e75; }
+.bientot-pastille { position: absolute; top: -8px; right: -8px; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #f59e0b; color: #0a0f14; font-size: .74rem; font-weight: 800; box-shadow: 0 0 0 3px #0a0f14; }
 
 .bientot-pied {
   flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding-top: 14px; padding-bottom: 16px;

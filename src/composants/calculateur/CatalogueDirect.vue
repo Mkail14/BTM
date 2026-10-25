@@ -352,7 +352,7 @@ const valider = () => { if (choisis.value.length) emit('valider', choisis.value)
 .cdo-onglet-nom { display: flex; align-items: center; gap: 6px; font-size: .85rem; font-weight: 700; white-space: nowrap; }
 .cdo-onglet-nom i { color: var(--lagon-600); }
 .cdo-onglet-prix { color: var(--texte-secondaire); font-size: .82rem; font-variant-numeric: tabular-nums; }
-.cdo-moins-cher { position: absolute; top: -9px; right: 10px; padding: 1px 8px; border-radius: 999px; background: #d1fae5; color: #065f46; font-style: normal; font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+.cdo-moins-cher { position: absolute; top: -9px; right: 10px; padding: 1px 8px; border-radius: 999px; background: var(--succes-pastille); color: var(--succes-texte); font-style: normal; font-size: .66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
 
 /* l'offre : la photo du fournisseur, puis ce qu'il propose */
 .cdo-offre { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 24px; padding: 18px 24px; overflow-y: auto; }

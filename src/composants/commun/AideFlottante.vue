@@ -338,7 +338,7 @@ onBeforeUnmount(() => {
   .aide-feuille-ligne small { overflow: hidden; color: var(--gris-500); font-size: .8rem; white-space: nowrap; text-overflow: ellipsis; }
   .aide-feuille-ligne > i { flex: none; color: var(--gris-400); font-size: .8rem; }
   .aide-feuille-icone { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--lagon-100); color: var(--lagon-700); font-size: 1.05rem; }
-  .aide-feuille-whatsapp { background: #dcfce7; color: #16a34a; font-size: 1.25rem; }
+  .aide-feuille-whatsapp { background: var(--succes-pastille); color: #16a34a; font-size: 1.25rem; }
   .aide-feuille-email { background: var(--gris-100); color: var(--ardoise); }
   .aide-feuille-fermer { width: 100%; min-height: 48px; margin-top: 10px; border: 0; border-radius: 999px; background: none; color: var(--gris-600); font: 600 .95rem var(--font-corps); cursor: pointer; }
   .aide-feuille-fermer:active { background: var(--gris-100); }

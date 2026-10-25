@@ -387,15 +387,15 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
 /* Code promo */
 .resultats-remise {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 0; padding: 8px 8px 8px 14px;
-  border-radius: var(--rayon); background: #ecfdf5; color: #047857; font-size: .9rem; font-weight: 600; text-align: left;
+  border-radius: var(--rayon); background: var(--succes-fond); color: var(--succes-texte); font-size: .9rem; font-weight: 600; text-align: left;
 }
 .resultats-remise i { margin-right: 6px; }
 .resultats-remise-droite { display: flex; align-items: center; gap: 6px; }
-.resultats-remise strong { color: #047857; font-size: .98rem; }
-.resultats-remise-retirer { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #047857; }
-.resultats-remise-retirer:hover:not(:disabled) { background: #d1fae5; }
-.resultats-remise-credit { padding-right: 14px; background: #fffbeb; color: #92400e; }
-.resultats-remise-credit strong { color: #92400e; }
+.resultats-remise strong { color: var(--succes-texte); font-size: .98rem; }
+.resultats-remise-retirer { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--succes-texte); }
+.resultats-remise-retirer:hover:not(:disabled) { background: var(--succes-pastille); }
+.resultats-remise-credit { padding-right: 14px; background: var(--alerte-fond); color: var(--alerte-texte); }
+.resultats-remise-credit strong { color: var(--alerte-texte); }
 .resultats-code-info { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; color: #b45309; font-size: .85rem; text-align: left; }
 .resultats-code { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .resultats-code input {
@@ -463,8 +463,8 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
 .resultats-retrait small { color: var(--texte-secondaire); font-size: .82rem; }
 
 /* Crédit fidélité : un interrupteur */
-.resultats-credit { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: #fffbeb; color: var(--ardoise); font-size: .92rem; text-align: left; cursor: pointer; }
-.resultats-credit i { margin-right: 4px; color: #b45309; }
+.resultats-credit { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: var(--alerte-fond); color: var(--ardoise); font-size: .92rem; text-align: left; cursor: pointer; }
+.resultats-credit i { margin-right: 4px; color: var(--alerte-texte); }
 .resultats-credit input {
   appearance: none; position: relative; width: 44px; height: 26px; flex: none; margin: 0; border-radius: 999px; background: var(--gris-300);
   cursor: pointer; transition: background var(--transition);

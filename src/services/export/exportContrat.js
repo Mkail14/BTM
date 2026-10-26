@@ -5,11 +5,7 @@
  */
 import { livrerPdf } from './livrerPdf.js'
 import { DATE_VERSION, IDENTITE_BTM } from '@/donnees/contratPartenaire.js'
-
-const OCEAN = [11, 58, 77]
-const LAGON = [8, 145, 178]
-const GRIS = [100, 116, 139]
-const ENCRE = [30, 41, 59]
+import { NOIR, CREME, GRIS, ENCRE, chargerLogo, dessinerLogo } from './charte.js'
 const propre = (texte) => String(texte ?? '').replace(/[  ]/g, ' ').replace(/−/g, '-')
 
 /**
@@ -22,6 +18,7 @@ const propre = (texte) => String(texte ?? '').replace(/[  ]/g, ' ').replace(/
  */
 export async function creerContratPdf({ entreprise, articles, signature = null }) {
   const { jsPDF } = await import('jspdf')
+  const logo = await chargerLogo()
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   doc.setProperties({ title: `Contrat de partenariat BTM — ${propre(entreprise)}` })
   const largeur = doc.internal.pageSize.getWidth()
@@ -33,18 +30,19 @@ export async function creerContratPdf({ entreprise, articles, signature = null }
   const place = (h) => { if (y + h > bas) { doc.addPage(); y = 22 } }
 
   // ---- En-tête
-  doc.setFillColor(...OCEAN)
+  doc.setFillColor(...NOIR)
   doc.rect(0, 0, largeur, 30, 'F')
-  doc.setFillColor(...LAGON)
-  doc.rect(0, 30, largeur, 1.6, 'F')
-  doc.setTextColor(255, 255, 255)
+  doc.setFillColor(...CREME)
+  doc.rect(0, 30, largeur, 1.2, 'F')
+  doc.setTextColor(...CREME)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(15)
   doc.text('Contrat de partenariat fournisseur', marge, 14)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.text(propre(`${IDENTITE_BTM.nom}  •  ${entreprise}`), marge, 21.5)
-  doc.text(propre(`Version du ${DATE_VERSION}`), largeur - marge, 14, { align: 'right' })
+  const logoPose = dessinerLogo(doc, logo, largeur - marge - 12 * 343 / 160, 5, 12)
+  doc.text(propre(`Version du ${DATE_VERSION}`), largeur - marge, logoPose ? 24.5 : 14, { align: 'right' })
   y = 44
 
   // ---- Articles
@@ -52,7 +50,7 @@ export async function creerContratPdf({ entreprise, articles, signature = null }
     place(16)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(11)
-    doc.setTextColor(...OCEAN)
+    doc.setTextColor(...NOIR)
     doc.text(propre(a.titre), marge, y)
     y += 6
     doc.setFont('helvetica', 'normal')
@@ -78,7 +76,7 @@ export async function creerContratPdf({ entreprise, articles, signature = null }
   y += 8
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.setTextColor(...OCEAN)
+  doc.setTextColor(...NOIR)
   doc.text(propre(`Pour ${entreprise}`), marge, y)
   y += 6
   doc.setFont('helvetica', 'normal')

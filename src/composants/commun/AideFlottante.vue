@@ -316,7 +316,7 @@ onBeforeUnmount(() => {
 /* ---------- Téléphone : feuille du bas à la place des deux grandes cartes ---------- */
 .aide-feuille { display: none; }
 @media (max-width: 639px) {
-  .aide-overlay { display: flex; align-items: flex-end; padding: 0; overflow: hidden; backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(17, 17, 17, .5); }
+  .aide-overlay { display: flex; align-items: flex-end; padding: 0; overflow: hidden; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background: rgba(17, 17, 17, .5); }
   .aide-dialogue, .aide-fermer { display: none; }
   .aide-feuille {
     display: flex; flex-direction: column; align-items: center; width: 100%; max-height: 92dvh; overflow-y: auto;

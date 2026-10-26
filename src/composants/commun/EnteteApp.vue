@@ -792,7 +792,7 @@ async function supprimerCompte() {
 /* ---------- Feuille « Laisser un avis » : monte du bas de l'écran, par-dessus la barre d'onglets ---------- */
 .feuille-fond {
   position: fixed; inset: 0; z-index: 280; display: flex; align-items: flex-end; justify-content: center;
-  background: rgba(17, 17, 17, .5); animation: feuille-fondu .2s ease;
+  background: rgba(17, 17, 17, .5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); animation: feuille-fondu .2s ease;
 }
 .feuille {
   display: flex; flex-direction: column; align-items: center; width: min(100%, 520px);

@@ -6,11 +6,7 @@
 import { livrerPdf } from './livrerPdf.js'
 import { formaterEuros, formaterQuantite } from '@/services/calculs/moteurCalculs.js'
 import { MOYENS } from '@/services/supabase/serviceEspaceFournisseur.js'
-
-const LAGON = [8, 145, 178]
-const OCEAN = [11, 58, 77]
-const GRIS = [100, 116, 139]
-const LAGON_CLAIR = [236, 254, 255]
+import { NOIR, CREME, CREME_CLAIR, GRIS, chargerLogo } from './charte.js'
 const propre = (texte) => String(texte ?? '').replace(/[  ]/g, ' ').replace(/−/g, '-')
 const euros = (n) => propre(formaterEuros(n))
 const horodatage = (d) => new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Indian/Mayotte' }).format(new Date(d))
@@ -23,18 +19,19 @@ const horodatage = (d) => new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', 
 export async function exporterRecuPdf({ paiement: p, fiche, encaissePar }, mode = 'telecharger') {
   const { jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
+  const logoB = await chargerLogo('/logo-b-noir.png')
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const largeur = doc.internal.pageSize.getWidth()
   const marge = 16
   const utile = largeur - marge * 2
-  const tableau = { margin: { left: marge, right: marge }, styles: { fontSize: 9.5, cellPadding: 2.4 }, headStyles: { fillColor: LAGON, textColor: 255, fontStyle: 'bold' } }
+  const tableau = { margin: { left: marge, right: marge }, styles: { fontSize: 9.5, cellPadding: 2.4 }, headStyles: { fillColor: NOIR, textColor: CREME, fontStyle: 'bold' } }
 
   // ---- En-tête : le fournisseur (émetteur du reçu)
-  doc.setFillColor(...OCEAN)
+  doc.setFillColor(...NOIR)
   doc.rect(0, 0, largeur, 34, 'F')
-  doc.setFillColor(...LAGON)
-  doc.rect(0, 34, largeur, 2, 'F')
-  doc.setTextColor(255, 255, 255)
+  doc.setFillColor(...CREME)
+  doc.rect(0, 34, largeur, 1.2, 'F')
+  doc.setTextColor(...CREME)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
   doc.text(propre(fiche?.nom || 'Fournisseur'), marge, 14)
@@ -63,7 +60,7 @@ export async function exporterRecuPdf({ paiement: p, fiche, encaissePar }, mode 
   ]
   autoTable(doc, {
     ...tableau, startY: y, theme: 'plain', body: infos.map(([a, b]) => [propre(a), propre(b)]),
-    styles: { fontSize: 10, cellPadding: 1.8 }, columnStyles: { 0: { textColor: GRIS, cellWidth: 48 }, 1: { textColor: OCEAN, fontStyle: 'bold' } }
+    styles: { fontSize: 10, cellPadding: 1.8 }, columnStyles: { 0: { textColor: GRIS, cellWidth: 48 }, 1: { textColor: NOIR, fontStyle: 'bold' } }
   })
   y = doc.lastAutoTable.finalY + 8
 
@@ -102,19 +99,19 @@ export async function exporterRecuPdf({ paiement: p, fiche, encaissePar }, mode 
     ...(p.moyen === 'especes' && p.montant_recu != null ? [['Espèces reçues', euros(p.montant_recu)], ['Monnaie rendue', euros(p.rendu || 0)]] : [])
   ]
   const hauteur = 20 + totaux.length * 6.5
-  doc.setFillColor(...LAGON_CLAIR)
+  doc.setFillColor(...CREME_CLAIR)
   doc.roundedRect(marge, y, utile, hauteur, 3, 3, 'F')
   doc.setFontSize(10)
   totaux.forEach(([a, b], i) => {
     doc.setTextColor(...GRIS)
     doc.text(a, marge + 7, y + 8 + i * 6.5)
-    doc.setTextColor(...OCEAN)
+    doc.setTextColor(...NOIR)
     doc.text(b, largeur - marge - 7, y + 8 + i * 6.5, { align: 'right' })
   })
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(13)
   doc.text('Total payé', marge + 7, y + hauteur - 5)
-  doc.setTextColor(...LAGON)
+  doc.setTextColor(...NOIR)
   doc.setFontSize(16)
   doc.text(euros(p.montant_devis), largeur - marge - 7, y + hauteur - 5, { align: 'right' })
   y += hauteur + 12
@@ -132,8 +129,11 @@ export async function exporterRecuPdf({ paiement: p, fiche, encaissePar }, mode 
     doc.setFontSize(8.5)
   }
   doc.text(doc.splitTextToSize(propre(`Prix TTC, sans frais pour le client. Reçu émis via la plateforme BTM (Bâtiment & Travaux Mayotte) et enregistré au journal des opérations du fournisseur. Conservez-le : le n° ${p.numero_recu || ''} et le code ${p.code_retrait || ''} permettent de retrouver cette opération.`), utile), marge, y)
+  // pied : le « b » du logo BTM devant la mention de la plateforme
   doc.setFontSize(8)
-  doc.text(`BTM — reçu ${p.numero_recu || ''}`, largeur / 2, 290, { align: 'center' })
+  const pied = `BTM — reçu ${p.numero_recu || ''}`
+  if (logoB) doc.addImage(logoB, 'PNG', largeur / 2 - doc.getTextWidth(pied) / 2 - 6, 286.4, 4.6, 4.6)
+  doc.text(pied, largeur / 2, 290, { align: 'center' })
 
   const fichier = `Recu_${p.numero_recu || 'BTM'}.pdf`
   return livrerPdf(doc, fichier, mode) // téléchargement direct ou aperçu (ApercuPdf)

@@ -3,91 +3,59 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#1f1f1f" />
+    <meta name="theme-color" content="#0d0d0d" />
     <meta name="description" content="BTM — Estimez gratuitement les matériaux de votre projet BTP en 2 minutes et comparez les fournisseurs de Mayotte. Calculateur mur, dalle, fondation, terrasse, carrelage et annuaire des fournisseurs locaux." />
     <link rel="icon" href="/favicon.png?v=2" type="image/png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>BTM — Bâtiment & Travaux Mayotte</title>
     <script src="/theme.js"></script>
     <!-- Écran de chargement : affiché dès le premier octet, retiré quand la première page est prête (useEcranChargement.js) -->
+    <link rel="preload" as="image" href="/apple-touch-icon.png" />
     <style>
+      /* Écran de lancement (téléphone) : fond noir, le « b » du logo se remplit de bas en haut au rythme du
+         chargement réel du site (--p, de 0 à 1, posé par ecran-chargement.js), puis grandit un peu et s'efface. */
       #ecran-chargement {
-        position: fixed; inset: 0; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; overflow: hidden;
-        /* le ciel du héros de l'accueil (HeroPaysage.vue) : l'écran se fond dans le site au lieu de le contraster */
-        background: linear-gradient(180deg, #070b10 0%, #0c141b 40%, #261c1b 74%, #5a3522 100%);
-        color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
-        -webkit-font-smoothing: antialiased;
-        transition: opacity 1s cubic-bezier(.4, 0, .2, 1), visibility 1s;
+        position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; background: #0d0d0d;
+        transition: opacity .7s cubic-bezier(.4, 0, .2, 1), visibility .7s;
       }
       #ecran-chargement.fini { opacity: 0; visibility: hidden; pointer-events: none; }
       /* écran réservé au téléphone (même seuil que l'accueil, SectionHero.vue) : ordinateur et tablette ne l'affichent jamais */
       @media (min-width: 640px) { #ecran-chargement { display: none; } }
-      /* Fond vivant façon Canva : des nappes de lumière aux couleurs BTM (lagon, turquoise, ambre, orange, corail)
-         qui dérivent et changent de teinte. Deux calques seulement, chacun peint une fois avec plusieurs dégradés,
-         puis seulement déplacés et fondus (transform, opacity) : léger pour la mémoire graphique d'un téléphone. */
-      #ecran-chargement .fond { position: absolute; inset: 0; }
-      #ecran-chargement .fond i { position: absolute; inset: -20%; }
-      #ecran-chargement .fond i:nth-child(1) {
-        background:
-          radial-gradient(38% 30% at 25% 22%, rgb(6 182 212 / .75), rgb(6 182 212 / 0) 70%),
-          radial-gradient(34% 28% at 78% 30%, rgb(245 158 11 / .6), rgb(245 158 11 / 0) 70%),
-          radial-gradient(40% 30% at 30% 80%, rgb(251 113 133 / .45), rgb(251 113 133 / 0) 70%),
-          radial-gradient(36% 30% at 80% 78%, rgb(8 145 178 / .8), rgb(8 145 178 / 0) 70%);
-        animation: nappe-a 16s ease-in-out infinite alternate;
-      }
-      #ecran-chargement .fond i:nth-child(2) {
-        background:
-          radial-gradient(36% 30% at 28% 25%, rgb(252 211 77 / .6), rgb(252 211 77 / 0) 70%),
-          radial-gradient(38% 30% at 75% 28%, rgb(34 211 238 / .65), rgb(34 211 238 / 0) 70%),
-          radial-gradient(40% 32% at 25% 78%, rgb(14 116 144 / .85), rgb(14 116 144 / 0) 70%),
-          radial-gradient(34% 28% at 78% 80%, rgb(249 115 22 / .6), rgb(249 115 22 / 0) 70%);
-        animation: nappe-b 19s ease-in-out infinite alternate, teinte 9s ease-in-out infinite alternate;
-      }
-      /* le second calque apparaît et s'efface : les couleurs passent de l'un à l'autre */
-      @keyframes teinte { from { opacity: 0; } to { opacity: 1; } }
-      @keyframes nappe-a { 50% { transform: translate(8%, 6%) scale(1.08) rotate(6deg); } 100% { transform: translate(-6%, 9%) scale(.96) rotate(-4deg); } }
-      @keyframes nappe-b { 50% { transform: translate(-9%, -5%) scale(1.1) rotate(-7deg); } 100% { transform: translate(7%, -8%) scale(1) rotate(5deg); } }
       /* Sécurité : quoi qu'il arrive au script, l'écran s'efface seul au bout de 9 s */
       #ecran-chargement { animation: ecran-secours .6s 9s forwards; }
       @keyframes ecran-secours { to { opacity: 0; visibility: hidden; } }
-      /* voile au centre : les phrases restent lisibles quelle que soit la couleur qui passe derrière */
-      #ecran-chargement .voile { position: absolute; inset: 0; background: radial-gradient(ellipse 60% 40% at center, rgb(7 11 16 / .45), rgb(7 11 16 / 0) 70%); }
       /* pas de barre de défilement derrière l'écran de chargement */
       html.chargement, html.chargement body { overflow: hidden; scrollbar-width: none; }
       html.chargement::-webkit-scrollbar, html.chargement body::-webkit-scrollbar { display: none; }
-      /* une phrase = une ligne, quelle que soit la largeur de l'écran */
-      #ecran-chargement .phrases { position: relative; width: 100%; height: 1.25em; font-size: clamp(1.3rem, 5.4vw, 3.6rem); font-weight: 700; letter-spacing: -.04em; text-align: center; white-space: nowrap; transition: filter .8s; }
-      #ecran-chargement .phrases span {
-        position: absolute; inset: 0; opacity: 0; filter: blur(12px); transform: translateY(14px);
-        transition: opacity 1s ease, filter 1s ease, transform 1.1s cubic-bezier(.16, 1, .3, 1);
+
+      #ecran-chargement .logo { position: relative; width: 84px; height: 84px; transition: transform .7s cubic-bezier(.22, 1, .36, 1); }
+      #ecran-chargement .logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+      /* le logo en filigrane, puis le même logo, plein, découvert de bas en haut */
+      #ecran-chargement .logo .ombre { opacity: .14; }
+      #ecran-chargement .logo .plein {
+        clip-path: inset(calc((1 - var(--p, 0)) * 100%) 0 0 0);
+        transition: clip-path .45s cubic-bezier(.22, 1, .36, 1);
       }
-      #ecran-chargement .phrases span.active { opacity: 1; filter: blur(0); transform: none; }
-      #ecran-chargement .phrases span.sortie { opacity: 0; filter: blur(12px); transform: translateY(-14px); }
-      /* même dégradé ambre que les mots animés du titre de l'accueil */
-      #ecran-chargement .phrases em { font-style: normal; padding-bottom: .14em; background: linear-gradient(100deg, #fcd34d, #f59e0b 60%, #fb923c); -webkit-background-clip: text; background-clip: text; color: transparent; }
-      #ecran-chargement.fini .phrases { filter: blur(10px); }
-      /* Ligne de chargement : elle avance avec le chargement réel du site, sans chiffre et sans boucle */
-      #ecran-chargement .ligne { position: relative; width: 88px; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, .12); overflow: hidden; }
-      #ecran-chargement .ligne b { position: absolute; inset: 0; border-radius: 2px; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #fcd34d, #f59e0b 60%, #fb923c); box-shadow: 0 0 14px rgba(245, 158, 11, .7); transition: transform .45s cubic-bezier(.22, 1, .36, 1); }
+      /* lueur crème qui respire derrière le logo pendant l'attente */
+      #ecran-chargement .logo::before {
+        content: ""; position: absolute; inset: -60%; border-radius: 50%;
+        background: radial-gradient(closest-side, rgb(244 233 219 / .12), rgb(244 233 219 / 0));
+        animation: respire 2.4s ease-in-out infinite;
+      }
+      @keyframes respire { 50% { transform: scale(1.15); opacity: .55; } }
+      #ecran-chargement.fini .logo { transform: scale(1.12); }
       @media (prefers-reduced-motion: reduce) {
-        #ecran-chargement .fond i { animation: none; }
-        #ecran-chargement .phrases span { transition: opacity .3s; filter: none; transform: none; }
+        #ecran-chargement .logo::before { animation: none; }
+        #ecran-chargement .logo, #ecran-chargement .logo .plein { transition: none; }
       }
     </style>
   </head>
   <body>
-    <div id="ecran-chargement" role="status" aria-live="polite">
-      <div class="fond" aria-hidden="true">
-        <i></i><i></i>
+    <div id="ecran-chargement" role="status" aria-label="Chargement de BTM">
+      <div class="logo" aria-hidden="true">
+        <img class="ombre" src="/apple-touch-icon.png" alt="" />
+        <img class="plein" src="/apple-touch-icon.png" alt="" />
       </div>
-      <div class="voile" aria-hidden="true"></div>
-      <div class="phrases">
-        <span class="active">Bienvenue sur <em>BTM</em>.</span>
-        <span>Vos devis, <em>gratuitement</em>.</span>
-        <span>Vos fournisseurs, <em>à Mayotte</em>.</span>
-        <span>Vos matériaux, <em>au bon prix</em>.</span>
-      </div>
-      <div class="ligne" aria-hidden="true"><b></b></div>
     </div>
     <script src="/ecran-chargement.js"></script>
     <div id="app"></div>

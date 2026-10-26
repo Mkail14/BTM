@@ -1,7 +1,7 @@
-// Écran de chargement (téléphone) : phrases, ligne de chargement et retrait quand le site est prêt.
+// Écran de chargement (téléphone) : le logo se remplit au rythme du chargement, puis l'écran s'efface quand le site est prêt.
 // Fichier à part et non script dans la page : la politique de sécurité du site (vercel.json, script-src 'self')
 // bloque les scripts écrits dans le HTML. Chargé sans defer : il s'exécute avant l'application.
-// Première visite de la session : on laisse le temps de lire « Bienvenue » ; ensuite (rechargements),
+// Première visite de la session : le logo a le temps de se remplir ; ensuite (rechargements),
 // l'écran disparaît dès que le site est prêt.
 (function () {
   var ecran = document.getElementById('ecran-chargement')
@@ -12,24 +12,14 @@
       return
     }
     document.documentElement.classList.add('chargement')
-    var phrases = ecran.querySelectorAll('.phrases span')
     var premiereVisite = true
     try { premiereVisite = !sessionStorage.getItem('btm-accueilli'); sessionStorage.setItem('btm-accueilli', '1') } catch (e) {}
-    var dureeMin = premiereVisite ? 1800 : 0
-    var debut = Date.now(), dernierChangement = debut, i = 0
-    var minuterie = setInterval(function () {
-      var sortante = phrases[i]
-      sortante.className = 'sortie'
-      setTimeout(function () { sortante.className = '' }, 900)
-      i = (i + 1) % phrases.length
-      phrases[i].className = 'active'
-      dernierChangement = Date.now()
-    }, 1600)
-    // Ligne de chargement : chaque étape réelle (script, page, polices, 3D) fixe un palier ; entre deux paliers
-    // la ligne avance doucement sans jamais l'atteindre, pour ne pas sembler figée.
-    var barre = ecran.querySelector('.ligne b')
+    var dureeMin = premiereVisite ? 1400 : 0
+    var debut = Date.now()
+    // Remplissage : chaque étape réelle (script, page, polices, 3D) fixe un palier ; entre deux paliers
+    // le logo monte doucement sans jamais l'atteindre, pour ne pas sembler figé.
     var progres = 0, palier = 0.15
-    function dessiner() { barre.style.transform = 'scaleX(' + progres + ')' }
+    function dessiner() { ecran.style.setProperty('--p', progres.toFixed(3)) }
     var glissement = setInterval(function () { progres += (palier - progres) * 0.08; dessiner() }, 120)
     window.__btmProgres = function (v) {
       if (v <= palier) return
@@ -44,16 +34,13 @@
       clearInterval(glissement)
       progres = 1
       dessiner()
+      // le logo finit de se remplir, puis l'écran s'efface
       setTimeout(function () {
-        // une phrase qui vient d'apparaître reste lisible avant le fondu (jamais coupée en pleine entrée)
-        clearInterval(minuterie)
-        setTimeout(function () {
-          ecran.classList.add('fini')
-          // la barre de défilement revient pendant le fondu : le léger décalage reste masqué par l'écran
-          document.documentElement.classList.remove('chargement')
-          setTimeout(function () { ecran.remove() }, 1000)
-        }, i === 0 ? 0 : Math.max(0, 900 - (Date.now() - dernierChangement)))
-      }, Math.max(500, dureeMin - (Date.now() - debut))) // la ligne a le temps d'arriver au bout
+        ecran.classList.add('fini')
+        // la barre de défilement revient pendant le fondu : le léger décalage reste masqué par l'écran
+        document.documentElement.classList.remove('chargement')
+        setTimeout(function () { ecran.remove() }, 800)
+      }, Math.max(450, dureeMin - (Date.now() - debut)))
     }
     // filet de sécurité : jamais bloqué derrière l'écran si le site plante au démarrage
     setTimeout(window.__btmPret, 8000)

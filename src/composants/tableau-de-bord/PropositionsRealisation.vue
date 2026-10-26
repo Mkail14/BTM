@@ -92,9 +92,17 @@ async function envoyer(r) {
   }
 }
 
+// « Non merci » : confirmation dans la carte elle-même (pas de fenêtre du navigateur)
+const aConfirmer = ref(null) // id de la réalisation dont le refus attend confirmation
+const refus = ref(false)
+const erreurRefus = ref('')
+function demanderRefus(r) { aConfirmer.value = r.id; erreurRefus.value = '' }
 async function decliner(r) {
-  if (!window.confirm('Ne pas publier ce projet sur la page d’accueil ?')) return
-  try { remplacer(await declinerRealisation(r.id)) } catch (e) { erreur.value = e?.message || 'Action impossible.' }
+  refus.value = true
+  erreurRefus.value = ''
+  try { remplacer(await declinerRealisation(r.id)); aConfirmer.value = null }
+  catch (e) { erreurRefus.value = e?.message || 'Action impossible pour le moment.' }
+  finally { refus.value = false }
 }
 </script>
 
@@ -127,11 +135,22 @@ async function decliner(r) {
 
       <blockquote v-if="r.statut === 'proposee' && r.message_admin" class="pr-message">{{ r.message_admin }}</blockquote>
 
-      <div class="pr-actions">
+      <div v-if="aConfirmer === r.id" class="pr-confirmer" role="group" aria-label="Confirmer le refus">
+        <p>
+          <strong>{{ r.statut === 'soumise' ? 'Retirer votre demande ?' : 'Ne pas mettre ce projet en avant ?' }}</strong>
+          {{ r.statut === 'soumise' ? 'Votre photo et vos infos ne seront pas publiées.' : 'Il ne sera pas publié sur la page d’accueil.' }}
+        </p>
+        <div class="pr-actions">
+          <BoutonBase variante="secondaire" :chargement="refus" @click="decliner(r)">{{ r.statut === 'soumise' ? 'Oui, retirer' : 'Oui, ne pas publier' }}</BoutonBase>
+          <button type="button" class="pr-lien" :disabled="refus" @click="aConfirmer = null">Annuler</button>
+        </div>
+        <p v-if="erreurRefus" class="pr-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ erreurRefus }}</p>
+      </div>
+      <div v-else class="pr-actions">
         <BoutonBase v-if="r.statut === 'proposee'" icone="fa-solid fa-camera" @click="ouvrir(r)">Ajouter ma photo et mes infos</BoutonBase>
         <BoutonBase v-if="r.statut === 'soumise'" variante="secondaire" icone="fa-solid fa-pen" @click="ouvrir(r)">Modifier</BoutonBase>
         <BoutonBase v-if="r.statut === 'publiee'" variante="secondaire" to="/#realisations" icone-droite="fa-solid fa-arrow-right">Voir sur l’accueil</BoutonBase>
-        <button v-if="r.statut === 'proposee' || r.statut === 'soumise'" type="button" class="pr-lien" @click="decliner(r)">Non merci</button>
+        <button v-if="r.statut === 'proposee' || r.statut === 'soumise'" type="button" class="pr-lien" @click="demanderRefus(r)">{{ r.statut === 'soumise' ? 'Retirer ma demande' : 'Non merci' }}</button>
       </div>
     </article>
 
@@ -211,17 +230,22 @@ async function decliner(r) {
 .pr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .pr-lien { padding: 6px 0; border: 0; background: none; color: var(--texte-secondaire); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; }
 .pr-lien:hover { color: var(--ardoise); text-decoration: underline; text-underline-offset: 3px; }
+.pr-lien:disabled { opacity: .5; cursor: default; text-decoration: none; }
+/* confirmation du refus, dans la carte */
+.pr-confirmer { display: flex; flex-direction: column; gap: 12px; padding: 14px 16px; border: 1px solid var(--bordure); border-radius: 12px; background: var(--surface-douce); animation: pr-fondu .2s ease; }
+.pr-confirmer > p { margin: 0; color: var(--texte-secondaire); font-size: .9rem; line-height: 1.5; }
+.pr-confirmer > p strong { display: block; color: var(--ardoise); }
 
 /* ---------- Fenêtre : voile flouté par-dessus la page ---------- */
 .pr-voile {
   position: fixed; inset: 0; z-index: 260; display: grid; place-items: center; padding: 24px;
-  background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: pr-fondu .2s ease;
+  background: rgba(17, 17, 17, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: pr-fondu .2s ease;
 }
 @keyframes pr-fondu { from { opacity: 0; } }
 .pr-fenetre {
   position: relative; display: flex; flex-direction: column; gap: 18px; width: min(100%, 820px); max-height: calc(100dvh - 48px); overflow: hidden auto; overscroll-behavior: contain;
   padding: 24px 28px 22px; border-radius: 28px; background: var(--carte); color: var(--ardoise);
-  box-shadow: 0 30px 80px rgba(6, 32, 44, .45); animation: pr-monter .34s cubic-bezier(.22, .61, .36, 1);
+  box-shadow: 0 30px 80px rgba(17, 17, 17, .45); animation: pr-monter .34s cubic-bezier(.22, .61, .36, 1);
   scrollbar-width: none; /* tout tient dans l'écran ; sur un très petit écran, la fenêtre défile sans barre */
 }
 .pr-fenetre::-webkit-scrollbar { display: none; }
@@ -249,7 +273,7 @@ async function decliner(r) {
 }
 .pr-depot i { display: block; margin: 0 auto 8px; font-size: 1.6rem; color: var(--lagon-600); }
 .pr-depot:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
-.pr-depot:focus-within { outline: 3px solid var(--lagon-400); outline-offset: 2px; }
+.pr-depot:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
 /* sous la photo : zoom et changement de photo */
 .pr-outils { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .pr-outils-aide { display: none; margin: 0; color: var(--texte-secondaire); font-size: .8rem; line-height: 1.4; }
@@ -260,7 +284,7 @@ async function decliner(r) {
   color: var(--texte-secondaire); font-size: .82rem; font-weight: 600; cursor: pointer; transition: border-color var(--transition), color var(--transition);
 }
 .pr-changer:hover { border-color: var(--lagon-500); color: var(--ardoise); }
-.pr-changer:focus-within { outline: 3px solid var(--lagon-400); outline-offset: 2px; }
+.pr-changer:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
 .pr-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; align-content: start; }
 .pr-champs .champ { gap: 4px; }
 .pr-champs .champ label { font-size: .88rem; }

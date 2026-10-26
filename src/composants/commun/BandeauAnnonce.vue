@@ -42,7 +42,7 @@ function fermer() {
 .annonce {
   position: fixed; left: 24px; bottom: calc(24px + var(--barre-onglets, 0px)); z-index: 170; display: flex; align-items: center; gap: 12px;
   max-width: min(520px, calc(100vw - 110px)); padding: 12px 10px 12px 16px; border-radius: 16px;
-  background: rgba(15, 23, 42, .92); color: #fff; box-shadow: 0 18px 40px rgba(6, 32, 44, .28);
+  background: rgba(15, 23, 42, .92); color: #fff; box-shadow: 0 18px 40px rgba(17, 17, 17, .28);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: .9rem; line-height: 1.45;
 }
 .annonce > i { flex: none; font-size: 1rem; }

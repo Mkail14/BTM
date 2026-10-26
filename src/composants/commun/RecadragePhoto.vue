@@ -145,7 +145,7 @@ defineExpose({ exporter })
   cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .rp.glisse { cursor: grabbing; }
-.rp:focus-visible { outline: 3px solid var(--lagon-400); outline-offset: 2px; }
+.rp:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .rp img { position: absolute; top: 0; left: 0; max-width: none; transform-origin: 0 0; pointer-events: none; }
 /* grille des tiers pendant le geste */
 .rp::after {
@@ -158,7 +158,7 @@ defineExpose({ exporter })
 .rp.glisse::after { opacity: 1; }
 .rp-aide {
   position: absolute; left: 50%; bottom: 10px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
-  background: rgba(6, 32, 44, .72); color: #fff; font-size: .78rem; font-weight: 600; white-space: nowrap; pointer-events: none;
+  background: rgba(17, 17, 17, .72); color: #fff; font-size: .78rem; font-weight: 600; white-space: nowrap; pointer-events: none;
   transform: translateX(-50%); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 @container (max-width: 180px) { .rp-aide span { display: none; } } /* petit cadre : l'icône seule */

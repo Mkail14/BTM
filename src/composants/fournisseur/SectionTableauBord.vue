@@ -1,7 +1,7 @@
 <script setup>
 /**
  * Tableau de bord fournisseur, sur la période choisie (aujourd'hui, 7 jours, 30 jours, 12 mois ou dates libres) :
- * encaissé, nombre de reçus et panier moyen, évolution des ventes, répartition par moyen de paiement,
+ * encaissé, remboursement BTM (codes promo BTM et crédit fidélité pris en charge), évolution des ventes, répartition par moyen de paiement,
  * derniers encaissements ; plus les devis en attente, le reste à reverser à BTM et les ruptures de stock.
  * Tient sur un écran d'ordinateur (les listes défilent dans leur carte).
  */
@@ -58,8 +58,8 @@ const chiffres = computed(() => {
   const liste = periodePaiements.value
   return {
     encaisse: somme(liste),
-    recus: liste.length,
-    panier: liste.length ? somme(liste) / liste.length : 0,
+    // ce que BTM prend à sa charge : codes promo BTM et crédit fidélité du client (commission − revenu BTM de chaque vente)
+    rembourse: Math.round(liste.reduce((s, p) => s + Math.max(0, (Number(p.commission) || 0) - (Number(p.revenu_btm) || 0)), 0) * 100) / 100,
     attente: enAttente.value.reduce((s, d) => s + d.cout_total, 0)
   }
 })
@@ -131,9 +131,9 @@ const repartition = computed(() => {
         <small>{{ libellePeriode }}</small>
       </li>
       <li class="adm-carte adm-carte-pad tb-kpi">
-        <span><i class="fa-solid fa-receipt" aria-hidden="true"></i> Reçus émis</span>
-        <strong>{{ chiffres.recus }}</strong>
-        <small>panier moyen {{ formaterEuros(chiffres.panier) }}</small>
+        <span><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> Remboursement BTM</span>
+        <strong>{{ formaterEuros(chiffres.rembourse) }}</strong>
+        <small>codes promo BTM et crédit fidélité de vos clients</small>
       </li>
       <li>
         <router-link :to="lienValider()" class="adm-carte adm-carte-pad tb-kpi tb-kpi-lien">
@@ -233,8 +233,8 @@ const repartition = computed(() => {
 .tb-kpi span { display: inline-flex; align-items: center; gap: 8px; color: var(--adm-encre-2); font-size: .88rem; font-weight: 500; }
 .tb-kpi strong { font-size: clamp(1.6rem, 2.6vw, 2.2rem); font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .tb-kpi small { color: var(--adm-muet); font-size: .82rem; }
-.tb-kpi-noir { background: var(--adm-noir); color: #fff; }
-.tb-kpi-noir span, .tb-kpi-noir small { color: rgba(255, 255, 255, .65); }
+.tb-kpi-noir { background: var(--adm-noir); color: var(--adm-sur-noir); }
+.tb-kpi-noir span, .tb-kpi-noir small { color: color-mix(in srgb, currentColor 65%, transparent); }
 .tb-kpi-lien { color: inherit; text-decoration: none; transition: box-shadow var(--transition), transform var(--transition); }
 .tb-kpi-lien:hover { box-shadow: 0 0 0 1px var(--adm-muet), var(--adm-ombre); transform: translateY(-1px); }
 .tb-kpi-alerte strong { color: var(--adm-attention-texte); }

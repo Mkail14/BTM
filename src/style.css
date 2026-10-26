@@ -1,29 +1,29 @@
 /* =============================================================================
-   BTM — Design system « Lagon de Mayotte »
-   Couleurs turquoise / sable / corail, typographies Barlow Condensed + Inter +
-   JetBrains Mono (section 14 du cahier des charges, palette adaptée au thème lagon)
+   BTM — Design system « Noir & crème » (couleurs du logo)
+   Noir #111 et crème #f4e9db du logo (les jetons --lagon-* gardent leur nom), sable / corail, typographies Barlow Condensed + Inter +
+   JetBrains Mono (section 14 du cahier des charges, palette reprise du logo)
    ============================================================================= */
 
 :root {
   /* Lagon */
-  --lagon-50:  #ecfeff;
-  --lagon-100: #cffafe;
-  --lagon-200: #a5f3fc;
-  --lagon-300: #67e8f9;
-  --lagon-400: #22d3ee;
-  --lagon-500: #06b6d4;
-  --lagon-600: #0891b2;
-  --lagon-700: #0e7490;
-  --lagon-800: #155e75;
-  --lagon-900: #164e63;
-  --ocean:     #0b3a4d;
-  --abysse:    #06202c;
-  --ardoise:   #0f172a;
-  --ardoise-2: #1e293b;
-  --ardoise-3: #334155;
-  --beton:     #cbd5e1;
-  --beton-clair: #e8edf2;
-  --ligne-plan: rgba(103, 232, 249, .09);
+  --lagon-50:  #f7f3ee;
+  --lagon-100: #efe7dc;
+  --lagon-200: #e3d6c4;
+  --lagon-300: #f4e9db;
+  --lagon-400: #e8dccb;
+  --lagon-500: #2a2a2a;
+  --lagon-600: #111111;
+  --lagon-700: #1f1f1f;
+  --lagon-800: #171717;
+  --lagon-900: #111111;
+  --ocean:     #1a1a1a;
+  --abysse:    #111111;
+  --ardoise:   #111111;
+  --ardoise-2: #262626;
+  --ardoise-3: #404040;
+  --beton:     #d6d3d1;
+  --beton-clair: #ece8e3;
+  --ligne-plan: rgba(244, 233, 219, .09);
 
   /* Accents */
   --sable:     #fde68a;
@@ -35,16 +35,16 @@
 
   /* Neutres */
   --blanc: #ffffff;
-  --ecume: #f0fdff;
-  --gris-50: #f8fafc;
-  --gris-100: #f1f5f9;
-  --gris-200: #e2e8f0;
-  --gris-300: #cbd5e1;
-  --gris-400: #94a3b8;
-  --gris-500: #64748b;
-  --gris-600: #475569;
-  --gris-700: #334155;
-  --gris-900: #0f172a;
+  --ecume: #faf7f2;
+  --gris-50: #fafaf9;
+  --gris-100: #f5f5f4;
+  --gris-200: #e7e5e4;
+  --gris-300: #d6d3d1;
+  --gris-400: #a8a29e;
+  --gris-500: #78716c;
+  --gris-600: #57534e;
+  --gris-700: #44403c;
+  --gris-900: #111111;
 
   /* Sémantique */
   --primaire: var(--lagon-600);
@@ -56,10 +56,10 @@
   --succes: var(--vert-mangrove);
   --texte: var(--gris-900);
   --texte-secondaire: var(--gris-600);
-  --fond: #f5f7f9;
+  --fond: #f7f5f2;
   /* Accueil : les sections prolongent la nuit du héros (couleur du sol de HeroPaysage), d'un seul ton : elles se
      séparent par l'espace, sans bande de couleur */
-  --fond-nuit: #131d25;
+  --fond-nuit: #111111;
   --carte: var(--blanc);
   --bordure: var(--gris-200);
 
@@ -72,9 +72,9 @@
   --rayon: 10px;
   --rayon-sm: 6px;
   --rayon-lg: 14px;
-  --ombre-sm: 0 1px 2px rgba(11, 58, 77, .06), 0 1px 3px rgba(11, 58, 77, .08);
-  --ombre: 0 4px 16px rgba(11, 58, 77, .08), 0 1px 3px rgba(11, 58, 77, .06);
-  --ombre-lg: 0 20px 50px rgba(11, 58, 77, .16);
+  --ombre-sm: 0 1px 2px rgba(17, 17, 17, .06), 0 1px 3px rgba(17, 17, 17, .08);
+  --ombre: 0 4px 16px rgba(17, 17, 17, .08), 0 1px 3px rgba(17, 17, 17, .06);
+  --ombre-lg: 0 20px 50px rgba(17, 17, 17, .16);
   --transition: 240ms cubic-bezier(.22, .61, .36, 1);
   --transition-lente: 480ms cubic-bezier(.22, .61, .36, 1);
   /* Gabarit commun à toutes les pages : marge latérale (≈ 100 px sur un écran de 1920 px, 20 px sur téléphone)
@@ -87,7 +87,10 @@
   --barre-onglets: 0px;
   /* fond toujours foncé (pied de page, bandeaux, pastilles), quel que soit le thème : --ardoise, elle, s'éclaircit
      en thème sombre car elle sert surtout de couleur de texte */
-  --encre: #0f172a;
+  --encre: #111111;
+  /* texte posé sur un fond --lagon-600 / 500 (boutons, puces actives) : blanc sur le noir, noir sur la crème */
+  --sur-primaire: #fff;
+  --focus: #111; /* contour clavier : noir sur fond clair, crème en sombre */
 
   /* ---------- Rôles : ce qu'il faut écrire dans les composants ----------
      --blanc, --gris-*, --ardoise sont des TONS, inversés en thème sombre (--blanc y devient presque noir). Pour un
@@ -109,30 +112,35 @@
    .theme-nuit : les mêmes couleurs pour un seul bloc, quel que soit le thème (fenêtres ouvertes sur une page de nuit,
    comme le dossier de la page d'attente) ; les jetons dérivés (texte, carte, bordure) y sont recalculés. */
 html[data-theme="sombre"], .theme-nuit {
-  --ardoise:   #eef2f6;
-  --ardoise-2: #d9e0e7;
-  --ardoise-3: #b5c0ca;
-  --beton-clair: #24313b;
-  --blanc: #151f27;
-  --ecume: #10262d;
-  --gris-50: #121a21;
-  --gris-100: #18222a;
-  --gris-200: #26323c;
-  --gris-300: #364450;
-  --gris-400: #6b7a88;
-  --gris-500: #8d9aa7;
-  --gris-600: #a9b4bf;
-  --gris-700: #c4cdd5;
-  --gris-900: #eef2f6;
-  --lagon-50: #0f2a31;
-  --lagon-100: #12363f;
+  --ardoise:   #f4efe8;
+  --ardoise-2: #e3ddd5;
+  --ardoise-3: #bfb8ae;
+  --beton-clair: #2b2a28;
+  --blanc: #1a1a1a;
+  --ecume: #161514;
+  --gris-50: #151515;
+  --gris-100: #1f1e1d;
+  --gris-200: #2e2c2a;
+  --gris-300: #3f3c39;
+  --gris-400: #77716a;
+  --gris-500: #9a938a;
+  --gris-600: #b8b0a6;
+  --gris-700: #d3ccc2;
+  --gris-900: #f4efe8;
+  --lagon-50: #23211e;
+  /* en sombre, l'action principale passe en crème (texte noir) : un gris foncé ressemblait à un bouton désactivé */
+  --lagon-500: #ffffff;
+  --lagon-600: #f4e9db;
+  --sur-primaire: #111;
+  --focus: #f4e9db;
+  --lagon-100: #2c2925;
   /* lagon foncé : couleurs de texte (liens, titres, boutons clairs), éclaircies pour rester lisibles sur fond sombre */
-  --lagon-700: #2bb6d6;
-  --lagon-800: #67e8f9;
-  --lagon-900: #a5f3fc;
-  --ocean: #a5f3fc;
+  --lagon-700: #e8dccb;
+  --lagon-800: #f4e9db;
+  --lagon-900: #e3d6c4;
+  --ocean: #e3d6c4;
   --erreur-clair: #3a1a22;
-  --fond: #0e151b;
+  --fond: #0d0d0d;
   --carte: var(--blanc);
   --bordure: var(--gris-200);
   --texte: var(--gris-900);
@@ -154,9 +162,8 @@ html[data-theme="sombre"], .theme-nuit {
 html[data-theme="sombre"] .section-surtitre:not(.section-nuit *) { color: var(--lagon-400); }
 html[data-theme="sombre"] .btn-danger:hover:not(:disabled) { background: #4a1f2a; }
 .theme-nuit { color-scheme: dark; } /* cases à cocher et barres de défilement sombres */
-html[data-theme="sombre"] .btn-primaire, .theme-nuit .btn-primaire { background: #0e7490; } /* texte blanc : le lagon foncé d'origine */
 /* puces de filtre actives (annuaire, mes projets) : lagon plutôt qu'une pastille blanche qui éblouit */
-html[data-theme="sombre"] .filtres-puces button.actif, html[data-theme="sombre"] .tdb-puces button.actif { border-color: var(--lagon-500); background: rgba(6, 182, 212, .16); color: var(--lagon-800); }
+html[data-theme="sombre"] .filtres-puces button.actif, html[data-theme="sombre"] .tdb-puces button.actif { border-color: var(--lagon-500); background: rgba(17, 17, 17, .16); color: var(--lagon-800); }
 html[data-theme="sombre"] .badge-vert { background: rgba(16, 185, 129, .16); color: #6ee7b7; }
 html[data-theme="sombre"] .badge-sable { background: rgba(245, 158, 11, .18); color: #fcd34d; }
 html[data-theme="sombre"] .spinner-grand { border-color: var(--gris-200); border-top-color: var(--lagon-400); }
@@ -190,7 +197,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 }
 
 :focus-visible {
-  outline: 3px solid var(--lagon-400);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -212,6 +219,8 @@ ul { margin: 0; padding: 0; list-style: none; }
 .section-titre { font-size: clamp(2rem, 4vw, 2.9rem); font-weight: 700; color: var(--ardoise); }
 .section-sous-titre { color: var(--texte-secondaire); margin-top: 12px; font-size: 1.05rem; }
 /* Section sur fond de nuit (accueil) : titres blancs, surtitre ambre comme celui du héros */
+/* héros : toujours nuit, l'action principale y est crème (texte noir) */
+.hero { --lagon-600: #f4e9db; --lagon-500: #fff; --sur-primaire: #111; }
 .section-nuit { color: #fff; }
 .section-nuit .section-surtitre { color: #f7c77a; }
 .section-nuit .section-surtitre::before { background: #f59e0b; }
@@ -235,8 +244,8 @@ html[data-theme="clair"] .section-nuit .section-sous-titre { color: var(--texte-
 }
 .btn i { font-size: .9em; }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
-.btn-primaire { color: #fff; background: var(--lagon-700); }
-.btn-primaire:hover:not(:disabled) { background: #155e75; box-shadow: 0 6px 18px rgba(14,116,144,.28); }
+.btn-primaire { color: var(--sur-primaire); background: var(--lagon-600); }
+.btn-primaire:hover:not(:disabled) { background: var(--lagon-500); box-shadow: 0 6px 18px rgba(0, 0, 0, .28); }
 .btn-secondaire { color: var(--ardoise); background: transparent; border-color: var(--gris-300); }
 .btn-secondaire:hover:not(:disabled) { border-color: var(--ardoise); background: var(--carte); }
 .btn-ghost { color: var(--ardoise-2); background: transparent; padding-inline: 14px; }
@@ -272,7 +281,7 @@ html[data-theme="clair"] .section-nuit .section-sous-titre { color: var(--texte-
 }
 .champ select { font-family: var(--font-corps); }
 .champ input:focus, .champ select:focus {
-  outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .18);
+  outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .18);
 }
 .champ input[aria-invalid="true"] { border-color: var(--erreur); background: var(--erreur-clair); }
 .champ-unite {
@@ -365,7 +374,7 @@ html[data-theme="clair"] .section-nuit .section-sous-titre { color: var(--texte-
 .tableau th { font-family: var(--font-display); text-transform: uppercase; letter-spacing: .06em; font-size: .8rem; color: var(--gris-500); font-weight: 600; }
 .tableau td.num, .tableau th.num { text-align: right; }
 .tableau tbody tr:hover { background: var(--lagon-50); }
-.tableau tfoot td { font-weight: 700; border-bottom: none; border-top: 2px solid var(--lagon-200); }
+.tableau tfoot td { font-weight: 700; border-bottom: none; border-top: 2px solid var(--ardoise); }
 .tableau-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 /* ---------- Accessibilité : mouvement réduit ---------- */

@@ -161,7 +161,7 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
 <style scoped>
 .hero {
   position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; overflow: hidden;
-  color: #fff; padding: calc(var(--hauteur-entete) + 48px) 0 0; isolation: isolate; background: #0a0f14;
+  color: #fff; padding: calc(var(--hauteur-entete) + 48px) 0 0; isolation: isolate; background: #0d0d0d;
   /* réduction au défilement (script) : le bas reste en place, le héros rétrécit vers lui ; les coins s'arrondissent */
   transform-origin: 50% 100%; will-change: transform;
   border-radius: calc(var(--cadre, 0) * 44px);
@@ -200,7 +200,7 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
   font-size: .72rem; letter-spacing: .1em; border: 1px solid currentColor;
 }
 .hero-compte i { font-size: .7rem; }
-.hero-compte-particulier { color: #67e8f9; background: rgba(6, 182, 212, .14); }
+.hero-compte-particulier { color: #f4e9db; background: rgba(17, 17, 17, .14); }
 .hero-compte-pro { color: #fcd34d; background: rgba(245, 158, 11, .14); }
 .hero-compte-fournisseur { color: #6ee7b7; background: rgba(16, 185, 129, .14); }
 .hero-titre {
@@ -262,9 +262,9 @@ onBeforeUnmount(() => { debrancherScroll(); arreterMots() })
   display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 0 16px; color: #fff; font-size: 1.02rem; font-weight: 600;
   transition: background var(--transition);
 }
-.hero-raccourcis a:active { background: rgba(6, 182, 212, .2); }
+.hero-raccourcis a:active { background: rgba(17, 17, 17, .2); }
 .hero-raccourcis a span { flex: 1; }
-.hero-raccourcis i:first-child { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 10px; background: rgba(6, 182, 212, .2); color: #67e8f9; font-size: .95rem; }
+.hero-raccourcis i:first-child { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 10px; background: rgba(17, 17, 17, .2); color: #f4e9db; font-size: .95rem; }
 .hero-raccourci-fleche { color: rgba(255, 255, 255, .4); font-size: .8rem; }
 @media (min-width: 900px) { .hero-texte { justify-self: start; } .hero-visuel { justify-self: end; transform: translateY(26px); } }
 @media (min-width: 1800px) {

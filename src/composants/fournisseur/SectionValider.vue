@@ -477,7 +477,7 @@ async function recuPdf(mode) {
 .val-etapes li { display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre); color: var(--adm-muet); font-size: .88rem; font-weight: 600; }
 .val-etape-num { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--adm-ligne-2); font-size: .8rem; }
 .val-etapes li.active { color: var(--adm-encre); }
-.val-etapes li.active .val-etape-num { background: var(--adm-noir); color: #fff; }
+.val-etapes li.active .val-etape-num { background: var(--adm-noir); color: var(--adm-sur-noir); }
 .val-etapes li.faite { color: var(--adm-ok-texte); }
 .val-etapes li.faite .val-etape-num { background: var(--adm-ok-fond); }
 
@@ -489,14 +489,14 @@ async function recuPdf(mode) {
 .val-code { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding-block: 36px; }
 .val-code h2 { margin: 6px 0 0; font-family: var(--font-corps); font-size: 1.25rem; font-weight: 600; }
 .val-code > p { margin: 0 0 8px; max-width: 380px; color: var(--adm-encre-2); font-size: .9rem; }
-.val-code-icone { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--adm-noir); color: #fff; font-size: 1.5rem; }
+.val-code-icone { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--adm-noir); color: var(--adm-sur-noir); font-size: 1.5rem; }
 .val-code-champ {
   width: 100%; max-width: 340px; height: 68px; padding: 0 16px; border: 2px solid var(--adm-ligne); border-radius: 16px; background: var(--adm-champ); color: var(--adm-encre);
   font-family: var(--font-mono); font-size: 2rem; font-weight: 700; letter-spacing: .14em; text-align: center; text-transform: uppercase; color: var(--adm-encre);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 .val-code-champ::placeholder { color: var(--adm-muet); }
-.val-code-champ:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 5px rgba(8, 145, 178, .14); }
+.val-code-champ:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 5px rgba(17, 17, 17, .14); }
 .val-code-champ[aria-invalid="true"] { border-color: var(--adm-baisse); }
 .val-code-btn { width: 100%; max-width: 340px; min-height: 48px; margin-top: 4px; }
 .val-attente { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
@@ -528,7 +528,7 @@ async function recuPdf(mode) {
 .val-quantite { display: inline-flex; align-items: center; gap: 6px; }
 .val-quantite .adm-saisie-unite { width: 118px; }
 .val-quantite input { width: 100%; min-height: 38px; padding: 6px 40px 6px 12px; border: 1px solid var(--adm-ligne); border-radius: 10px; font: inherit; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
-.val-quantite input:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 3px rgba(8, 145, 178, .14); }
+.val-quantite input:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 3px rgba(17, 17, 17, .14); }
 .val-ligne-prix { text-align: right; }
 .val-extra { background: var(--adm-violet-fond); border-radius: 12px; }
 .val-credit { display: flex; gap: 10px; margin: 0; padding: 12px; border-radius: 12px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); font-size: .86rem; }
@@ -567,7 +567,7 @@ async function recuPdf(mode) {
 }
 .val-moyen i { font-size: 1.5rem; }
 .val-moyen:hover { border-color: var(--adm-muet); color: var(--adm-encre); }
-.val-moyen[aria-checked="true"] { border-color: var(--adm-noir); background: var(--adm-noir); color: #fff; }
+.val-moyen[aria-checked="true"] { border-color: var(--adm-noir); background: var(--adm-noir); color: var(--adm-sur-noir); }
 .val-saisie { display: flex; flex-direction: column; gap: 16px; margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--adm-ligne-2); }
 .val-consignes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 20px; color: var(--adm-encre-2); font-size: .9rem; line-height: 1.5; }
 .val-avertissement { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .88rem; }
@@ -580,22 +580,22 @@ async function recuPdf(mode) {
 
 .val-terminal {
   position: sticky; top: 16px; display: flex; flex-direction: column; gap: 6px; padding: 24px; border-radius: 28px;
-  background: var(--adm-noir); color: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, .25);
+  background: var(--adm-noir); color: var(--adm-sur-noir); box-shadow: 0 20px 50px rgba(15, 23, 42, .25);
 }
-.val-terminal-tete { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; color: rgba(255, 255, 255, .55); font-family: var(--font-mono); font-size: .8rem; }
-.val-terminal-libelle { color: rgba(255, 255, 255, .6); font-size: .85rem; }
-.val-terminal-montant { font-size: clamp(2.2rem, 3.4vw, 2.8rem); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; color: #67e8f9; }
-:global(.adm-sombre .val-terminal-montant) { color: #fff; }
-.val-terminal-detail { color: rgba(255, 255, 255, .55); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.val-terminal-moyen { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .1); font-size: .84rem; }
+.val-terminal-tete { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; color: color-mix(in srgb, currentColor 55%, transparent); font-family: var(--font-mono); font-size: .8rem; }
+.val-terminal-libelle { color: color-mix(in srgb, currentColor 60%, transparent); font-size: .85rem; }
+.val-terminal-montant { font-size: clamp(2.2rem, 3.4vw, 2.8rem); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; color: inherit; }
+:global(.adm-sombre .val-terminal-montant) { color: inherit; }
+.val-terminal-detail { color: color-mix(in srgb, currentColor 55%, transparent); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.val-terminal-moyen { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, currentColor 10%, transparent); font-size: .84rem; }
 .val-terminal-valider {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; margin-top: 22px; border: 0; border-radius: 16px;
   background: #10b981; color: #fff; font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background var(--transition), opacity var(--transition);
 }
 .val-terminal-valider:hover:not(:disabled) { background: #059669; }
 .val-terminal-valider:disabled { opacity: .35; cursor: not-allowed; }
-.val-terminal-retour { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; border: 0; background: none; color: rgba(255, 255, 255, .6); font: inherit; font-size: .86rem; cursor: pointer; }
-.val-terminal-retour:hover:not(:disabled) { color: #fff; }
+.val-terminal-retour { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; border: 0; background: none; color: color-mix(in srgb, currentColor 60%, transparent); font: inherit; font-size: .86rem; cursor: pointer; }
+.val-terminal-retour:hover:not(:disabled) { color: inherit; }
 
 /* 4. Reçu */
 .val-recu { display: flex; flex-direction: column; align-items: center; gap: 12px; padding-block: 40px; text-align: center; }

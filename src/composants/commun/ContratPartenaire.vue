@@ -150,7 +150,7 @@ async function signer() {
 
 /* ---------- Carte du contrat ---------- */
 .ctr-doc { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 14px; border: 1.5px solid var(--gris-200); border-radius: var(--rayon); background: var(--carte); }
-.ctr-doc-icone { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: rgba(8, 145, 178, .14); color: var(--lagon-700); font-size: 1.05rem; }
+.ctr-doc-icone { display: grid; place-items: center; flex: none; width: 40px; height: 40px; border-radius: 12px; background: rgba(17, 17, 17, .14); color: var(--lagon-700); font-size: 1.05rem; }
 .ctr-doc-texte { display: flex; flex: 1; flex-direction: column; min-width: 0; }
 .ctr-doc-texte strong { color: var(--ardoise); font-size: .9rem; line-height: 1.3; }
 .ctr-doc-texte small { color: var(--texte-secondaire); font-size: .78rem; }
@@ -161,7 +161,7 @@ async function signer() {
   background: transparent; color: var(--ardoise); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; transition: border-color var(--transition), background var(--transition);
 }
 .ctr-bouton:hover:not(:disabled) { border-color: var(--lagon-500); }
-.ctr-bouton.actif { border-color: var(--lagon-600); background: rgba(8, 145, 178, .14); }
+.ctr-bouton.actif { border-color: var(--lagon-600); background: rgba(17, 17, 17, .14); }
 .ctr-bouton:disabled { opacity: .6; cursor: default; }
 
 /* ---------- Signature ---------- */

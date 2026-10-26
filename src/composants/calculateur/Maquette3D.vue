@@ -46,13 +46,13 @@ const M = {
   acier: new THREE.MeshStandardMaterial({ color: 0xb4532a, roughness: .6, metalness: .5 }),
   terre: new THREE.MeshStandardMaterial({ color: 0x9a6b43, roughness: 1 }),
   herbe: new THREE.MeshStandardMaterial({ color: 0x6aa84f, roughness: 1 }),
-  cadre: new THREE.MeshStandardMaterial({ color: 0x0b3a4d, roughness: .5 }),
-  vitre: new THREE.MeshStandardMaterial({ color: 0x67e8f9, roughness: .1, transparent: true, opacity: .7 }),
+  cadre: new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: .5 }),
+  vitre: new THREE.MeshStandardMaterial({ color: 0xd9dee0, roughness: .1, transparent: true, opacity: .7 }),
   bois: new THREE.MeshStandardMaterial({ color: 0x8a5a33, roughness: .8 }),
-  toile: new THREE.MeshStandardMaterial({ color: 0x06b6d4, roughness: .7, side: THREE.DoubleSide }),
+  toile: new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: .7, side: THREE.DoubleSide }),
   colle: new THREE.MeshStandardMaterial({ color: 0xe8e6e1, roughness: 1 }),
   carreau: new THREE.MeshStandardMaterial({ color: 0xe9e5de, roughness: .3 }),
-  personne: new THREE.MeshStandardMaterial({ color: 0x475569, roughness: .8, transparent: true, opacity: .85 })
+  personne: new THREE.MeshStandardMaterial({ color: 0x57534e, roughness: .8, transparent: true, opacity: .85 })
 }
 
 const nb = (v, defaut) => {
@@ -119,10 +119,10 @@ function etiquette(texte) {
   c.width = w; c.height = h
   ctx.font = '600 44px Inter, "Segoe UI", Arial, sans-serif'
   ctx.fillStyle = 'rgba(255,255,255,.96)'
-  ctx.strokeStyle = '#0e7490'; ctx.lineWidth = 4
+  ctx.strokeStyle = '#1f1f1f'; ctx.lineWidth = 4
   ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(3, 3, w - 6, h - 6, 22); else ctx.rect(3, 3, w - 6, h - 6)
   ctx.fill(); ctx.stroke()
-  ctx.fillStyle = '#0b3a4d'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#111111'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
   ctx.fillText(texte, w / 2, h / 2 + 2)
   const t = new THREE.CanvasTexture(c)
   t.colorSpace = THREE.SRGBColorSpace
@@ -134,8 +134,8 @@ function etiquette(texte) {
   return s
 }
 
-const matCote = new THREE.LineBasicMaterial({ color: 0x0e7490, depthTest: false, transparent: true })
-const matActif = new THREE.LineBasicMaterial({ color: 0x22d3ee, depthTest: false, transparent: true })
+const matCote = new THREE.LineBasicMaterial({ color: 0x8a837a, depthTest: false, transparent: true })
+const matActif = new THREE.LineBasicMaterial({ color: 0xf59e0b, depthTest: false, transparent: true })
 
 /** Ligne de cote entre a et b (avec repères aux extrémités) + étiquette au milieu */
 function cote(annot, a, b, texte, tick) {
@@ -425,7 +425,7 @@ function reconstruire() {
     // quadrillage d'échelle : 1 m (ou 5 m si le projet est grand)
     const pas = Math.max(taille.x, taille.z) > 30 ? 5 : 1
     const demiCote = Math.ceil((Math.max(taille.x, taille.z) + 8) / pas / 2) * 2 * pas
-    const grille = new THREE.GridHelper(demiCote, demiCote / pas, 0x0e7490, 0x0e7490)
+    const grille = new THREE.GridHelper(demiCote, demiCote / pas, 0x8a837a, 0x8a837a)
     grille.material.transparent = true
     grille.material.opacity = .2
     grille.position.set(centre.x, .008, centre.z)
@@ -603,18 +603,18 @@ onBeforeUnmount(() => {
 .maquette-astuce { white-space: nowrap; }
 .maquette-vue {
   position: absolute; top: 10px; right: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px;
-  border: 1px solid var(--lagon-200, #a5f3fc); border-radius: 999px; background: color-mix(in srgb, var(--carte) 92%, transparent); color: var(--lagon-800, #0b3a4d);
+  border: 1px solid var(--lagon-200, #e3d6c4); border-radius: 999px; background: color-mix(in srgb, var(--carte) 92%, transparent); color: var(--lagon-800, #111111);
   font: inherit; font-size: .78rem; font-weight: 600; cursor: pointer; transition: background var(--transition), border-color var(--transition);
 }
 .maquette-vue:hover { background: var(--carte); border-color: var(--lagon-500); }
 .maquette-placement, .maquette-placement:active { cursor: crosshair; }
 .maquette-consigne {
   position: absolute; top: 52px; left: 50%; z-index: 2; transform: translateX(-50%); max-width: calc(100% - 20px); padding: 7px 14px; border-radius: 999px;
-  background: #0e7490; color: #fff; font-size: .8rem; font-weight: 600; text-align: center; pointer-events: none;
-  box-shadow: 0 8px 20px rgba(14, 116, 144, .35); animation: consigne 1.6s ease-in-out infinite;
+  background: #1f1f1f; color: #fff; font-size: .8rem; font-weight: 600; text-align: center; pointer-events: none;
+  box-shadow: 0 8px 20px rgba(17, 17, 17, .35); animation: consigne 1.6s ease-in-out infinite;
 }
 .maquette-consigne i { margin-right: 4px; }
-@keyframes consigne { 50% { box-shadow: 0 8px 26px rgba(34, 211, 238, .55); } }
+@keyframes consigne { 50% { box-shadow: 0 8px 26px rgba(244, 233, 219, .55); } }
 @media (prefers-reduced-motion: reduce) { .maquette-consigne { animation: none; } }
 /* téléphone : maquette plus basse, la consigne passe en bas pour ne pas cacher le mur */
 @media (max-width: 639px) { .maquette-consigne { top: auto; bottom: 10px; padding: 6px 12px; font-size: .74rem; } }

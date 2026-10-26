@@ -313,13 +313,13 @@ onMounted(() => nextTick(focaliser))
    titre en Barlow, champs et boutons du site. Chaque écran tient sans défiler. */
 .ifo-voile {
   position: fixed; inset: 0; z-index: 260; display: grid; place-items: center; padding: 24px;
-  background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: ifo-fondu .2s ease;
+  background: rgba(17, 17, 17, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: ifo-fondu .2s ease;
 }
 @keyframes ifo-fondu { from { opacity: 0; } }
 .ifo {
   position: relative; width: min(100%, 460px); max-height: calc(100dvh - 48px); overflow: hidden auto; overscroll-behavior: contain;
   padding: 26px 32px 24px; border-radius: 28px; background: var(--gris-50); color: var(--ardoise);
-  box-shadow: 0 30px 80px rgba(6, 32, 44, .45); animation: ifo-monter .34s cubic-bezier(.22, .61, .36, 1);
+  box-shadow: 0 30px 80px rgba(17, 17, 17, .45); animation: ifo-monter .34s cubic-bezier(.22, .61, .36, 1);
 }
 @keyframes ifo-monter { from { transform: translateY(18px); opacity: 0; } }
 /* écran des horaires : plus large, pour qu'un jour avec pause tienne sur une ligne */
@@ -334,7 +334,7 @@ onMounted(() => nextTick(focaliser))
 /* avancement : segments comme les étapes de l'inscription */
 .ifo-avancement { display: flex; gap: 6px; margin-right: 52px; padding-top: 12px; }
 .ifo-avancement span { flex: 1; height: 4px; border-radius: 999px; background: var(--gris-200); transition: background .25s; }
-.ifo-avancement span.faite { background: var(--lagon-400); }
+.ifo-avancement span.faite { background: color-mix(in srgb, var(--lagon-600) 45%, transparent); }
 .ifo-avancement span.active { background: var(--lagon-600); }
 .ifo-surtitre { margin: 0 0 4px; color: var(--lagon-700); font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .ifo-titre { margin: 0; font-family: var(--font-display); font-size: 2.1rem; line-height: 1.1; color: var(--ardoise); }
@@ -362,7 +362,7 @@ onMounted(() => nextTick(focaliser))
   min-height: 40px; padding: 0 16px; border: 1.5px solid var(--gris-200); border-radius: 999px; background: var(--carte); color: var(--ardoise);
   font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; transition: border-color var(--transition), background var(--transition);
 }
-.ifo-pastille[aria-checked="true"] { border-color: var(--lagon-600); background: var(--lagon-600); color: #fff; }
+.ifo-pastille[aria-checked="true"] { border-color: var(--lagon-600); background: var(--lagon-600); color: var(--sur-primaire); }
 /* choix multiple : un « + » devient une coche */
 .ifo-coche { display: inline-flex; align-items: center; gap: 8px; padding-left: 14px; }
 .ifo-coche i { color: var(--gris-400); font-size: .78rem; }

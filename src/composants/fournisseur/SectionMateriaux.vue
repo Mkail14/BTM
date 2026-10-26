@@ -510,7 +510,7 @@ async function importer() {
 .mat-vide { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 44px 24px; text-align: center; }
 .mat-vide h2 { margin: 6px 0 0; font-family: var(--font-corps); font-size: 1.15rem; font-weight: 600; }
 .mat-vide p { margin: 0 0 8px; max-width: 460px; color: var(--adm-encre-2); font-size: .92rem; }
-.mat-vide-icone { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 16px; background: var(--adm-noir); color: #fff; font-size: 1.3rem; }
+.mat-vide-icone { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 16px; background: var(--adm-noir); color: var(--adm-sur-noir); font-size: 1.3rem; }
 .mat-vide-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 
 /* Import */

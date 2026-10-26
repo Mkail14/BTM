@@ -95,7 +95,7 @@ const message = computed(() => props.erreur || (formatInvalide.value ? `Numéro 
   position: relative; display: flex; align-items: stretch; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm);
   background: var(--blanc); transition: border-color var(--transition), box-shadow var(--transition);
 }
-.tel-groupe:focus-within { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .18); }
+.tel-groupe:focus-within { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .18); }
 .tel-groupe.tel-invalide { border-color: var(--erreur); background: var(--erreur-clair); }
 .tel-groupe.tel-ok { border-color: var(--succes, #16a34a); }
 

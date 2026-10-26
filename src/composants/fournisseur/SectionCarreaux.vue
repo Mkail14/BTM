@@ -271,7 +271,7 @@ async function supprimer(c) {
 .car-vide { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 24px; text-align: center; }
 .car-vide h2 { margin: 6px 0 0; font-family: var(--font-corps); font-size: 1.2rem; font-weight: 600; }
 .car-vide p { margin: 0 0 8px; max-width: 460px; color: var(--adm-encre-2); font-size: .92rem; }
-.car-vide-icone { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--adm-noir); color: #fff; font-size: 1.4rem; }
+.car-vide-icone { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--adm-noir); color: var(--adm-sur-noir); font-size: 1.4rem; }
 
 .car-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
 .car-carte { display: flex; flex-direction: column; padding: 0; overflow: hidden; }

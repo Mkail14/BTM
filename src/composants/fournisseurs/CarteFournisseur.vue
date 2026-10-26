@@ -154,8 +154,8 @@ const itineraire = computed(() => {
   .fr-nom .fr-badge { gap: 0; }
   .fr-infos { font-size: .8rem; }
   .fr-chevron { display: none; }
-  .fr-appel { width: 44px; padding: 0; justify-content: center; border: 0; background: var(--lagon-600); box-shadow: 0 6px 14px -6px rgba(8, 145, 178, .7); }
-  .fr-appel i { color: #fff; font-size: .9rem; }
+  .fr-appel { width: 44px; padding: 0; justify-content: center; border: 0; background: var(--lagon-600); box-shadow: 0 6px 14px -6px rgba(17, 17, 17, .7); }
+  .fr-appel i { color: var(--sur-primaire); font-size: .9rem; }
   .fr-appel span { display: none; }
   .fr-appel:active { background: var(--lagon-700); }
 

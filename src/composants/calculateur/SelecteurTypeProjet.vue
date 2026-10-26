@@ -40,8 +40,8 @@ onBeforeUnmount(() => requete.removeEventListener('change', suivre))
   background: var(--blanc); border: 2px solid var(--bordure); border-radius: var(--rayon-lg); text-align: center;
   transition: transform var(--transition), border-color var(--transition), box-shadow var(--transition);
 }
-.selecteur-option:hover { transform: translateY(-4px); border-color: var(--lagon-300); box-shadow: var(--ombre); }
-.selecteur-option:has(input:focus-visible) { outline: 3px solid var(--lagon-400); outline-offset: 2px; }
+.selecteur-option:hover { transform: translateY(-4px); border-color: var(--gris-400); box-shadow: var(--ombre); }
+.selecteur-option:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
 .selecteur-option.actif { border-color: var(--lagon-600); box-shadow: var(--ombre); }
 .selecteur-scene { display: block; height: 170px; margin: 0 -6px 4px; border-radius: var(--rayon); background: radial-gradient(circle at 50% 60%, var(--lagon-50), transparent 70%); }
 .selecteur-libelle { font-family: var(--font-display); font-size: 1.5rem; font-weight: 700; color: var(--ardoise); }

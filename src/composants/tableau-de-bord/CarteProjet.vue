@@ -23,8 +23,8 @@ const type = computed(() => {
 })
 // palette pastel par ouvrage (teintes claires du site) : haut du dégradé, bas du dégradé, accent
 const PALETTES = {
-  mur: ['#f2fbfd', '#bfe9f2', '#0e7490'],
-  dalle: ['#f1faf7', '#c3e8dc', '#0f766e'],
+  mur: ['#f2fbfd', '#bfe9f2', '#1f1f1f'],
+  dalle: ['#f1faf7', '#c3e8dc', '#2a2a2a'],
   fondation: ['#f5f7fa', '#d3dce8', '#334155'],
   terrasse: ['#fffaf0', '#f5dfb3', '#b45309'],
   carrelage: ['#f7f5fb', '#ddd6ee', '#6d28d9']
@@ -112,7 +112,7 @@ async function copierCode() {
 .cp-actions button:hover { background: var(--carte); }
 .cp-actions .cp-suppr:hover { color: var(--erreur); }
 
-.cp-icone { width: 58px; height: 58px; display: grid; place-items: center; margin-bottom: 18px; border-radius: 18px; background: var(--voile); color: var(--teinte); font-size: 1.45rem; box-shadow: 0 6px 18px -8px rgba(11, 58, 77, .35); }
+.cp-icone { width: 58px; height: 58px; display: grid; place-items: center; margin-bottom: 18px; border-radius: 18px; background: var(--voile); color: var(--teinte); font-size: 1.45rem; box-shadow: 0 6px 18px -8px rgba(17, 17, 17, .35); }
 .cp-nom { margin: 0; font-size: 1.75rem; font-weight: 700; line-height: 1.1; overflow-wrap: anywhere; }
 .cp-texte { margin: 12px 0 0; max-width: 260px; font-size: .9rem; line-height: 1.5; color: var(--gris-600); }
 .cp-texte span { font-size: .82rem; opacity: .8; }
@@ -131,10 +131,10 @@ async function copierCode() {
 .cp-voir {
   width: 100%; min-height: 48px; margin-top: 18px; border: 0; border-radius: 14px; background: var(--carte); color: var(--ardoise);
   font-family: var(--font-mono); font-size: .86rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; cursor: pointer;
-  box-shadow: 0 8px 20px -10px rgba(11, 58, 77, .45); transition: transform var(--transition), box-shadow var(--transition);
+  box-shadow: 0 8px 20px -10px rgba(17, 17, 17, .45); transition: transform var(--transition), box-shadow var(--transition);
 }
-.cp-voir:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -10px rgba(11, 58, 77, .55); }
-.cp-voir:focus-visible { outline: 3px solid var(--lagon-400); outline-offset: 2px; }
+.cp-voir:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -10px rgba(17, 17, 17, .55); }
+.cp-voir:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .cp-nuit .cp-voir { background: var(--ardoise); color: var(--encre); } /* reste un bouton clair sur la carte sombre */
 @media (hover: none) { .cp-actions { opacity: 1; } }
 

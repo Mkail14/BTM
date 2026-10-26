@@ -187,13 +187,13 @@ watch(vue, (v) => { erreur.value = ''; papier.value = false; if (v === 'messages
 <style scoped>
 .dos-voile {
   position: fixed; inset: 0; z-index: 260; display: flex; align-items: center; justify-content: center; gap: 20px; padding: 24px;
-  background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: dos-fondu .2s ease;
+  background: rgba(17, 17, 17, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: dos-fondu .2s ease;
 }
 @keyframes dos-fondu { from { opacity: 0; } }
 /* hauteur fixe : seuls la discussion et le texte du contrat défilent, dans leur cadre */
 .dos {
   position: relative; display: flex; flex-direction: column; gap: 14px; width: min(100%, 540px); height: min(680px, calc(100dvh - 48px));
-  padding: 24px 28px 22px; border-radius: 28px; background: var(--gris-50); color: var(--ardoise); box-shadow: 0 30px 80px rgba(6, 32, 44, .45);
+  padding: 24px 28px 22px; border-radius: 28px; background: var(--gris-50); color: var(--ardoise); box-shadow: 0 30px 80px rgba(17, 17, 17, .45);
   animation: dos-monter .34s cubic-bezier(.22, .61, .36, 1);
 }
 @keyframes dos-monter { from { transform: translateY(18px); opacity: 0; } }
@@ -216,7 +216,7 @@ watch(vue, (v) => { erreur.value = ''; papier.value = false; if (v === 'messages
 .dos-vide { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: auto; padding: 20px; color: var(--texte-secondaire); font-size: .9rem; text-align: center; line-height: 1.5; }
 .dos-vide i { color: var(--lagon-600); font-size: 1.6rem; }
 .dos-message { max-width: 82%; padding: 10px 14px; border-radius: 16px 16px 16px 4px; background: var(--carte); box-shadow: var(--ombre-sm); }
-.dos-message.fournisseur { align-self: flex-end; border-radius: 16px 16px 4px 16px; background: #0e7490; color: #fff; }
+.dos-message.fournisseur { align-self: flex-end; border-radius: 16px 16px 4px 16px; background: #1f1f1f; color: #fff; }
 .dos-message p { margin: 0; font-size: .92rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .dos-message small { display: block; margin-top: 4px; font-size: .72rem; opacity: .7; }
 .dos-saisie { display: flex; align-items: flex-end; gap: 8px; }
@@ -224,8 +224,8 @@ watch(vue, (v) => { erreur.value = ''; papier.value = false; if (v === 'messages
   flex: 1; min-height: 48px; max-height: 120px; padding: 13px 16px; border: 1.5px solid var(--gris-300); border-radius: 24px; background: var(--carte);
   color: var(--texte); font: inherit; font-size: .95rem; resize: none; field-sizing: content;
 }
-.dos-saisie textarea:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .18); }
-.dos-envoyer { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border: 0; border-radius: 50%; background: #0e7490; color: #fff; cursor: pointer; }
+.dos-saisie textarea:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .18); }
+.dos-envoyer { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border: 0; border-radius: 50%; background: #1f1f1f; color: #fff; cursor: pointer; }
 .dos-envoyer:disabled { opacity: .45; cursor: default; }
 
 /* documents */
@@ -245,7 +245,7 @@ watch(vue, (v) => { erreur.value = ''; papier.value = false; if (v === 'messages
   display: inline-grid; place-items: center; flex: none; min-width: 92px; min-height: 38px; padding: 0 14px; border: 1.5px solid var(--gris-300); border-radius: 999px;
   background: var(--carte); color: var(--ardoise); font: inherit; font-size: .85rem; font-weight: 700; cursor: pointer;
 }
-.dos-deposer.principal { border-color: #0e7490; background: #0e7490; color: #fff; }
+.dos-deposer.principal { border-color: #1f1f1f; background: #1f1f1f; color: #fff; }
 .dos-note { display: flex; gap: 8px; margin: 0; color: var(--texte-secondaire); font-size: .88rem; line-height: 1.5; }
 .dos-note i { margin-top: 3px; color: var(--lagon-600); }
 .dos-note.petite { font-size: .78rem; }

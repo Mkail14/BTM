@@ -9,7 +9,6 @@
  * (en attente, rectification demandée, ou refusée) ; elle se met à jour seule quand BTM valide le compte.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import LogoBtm from '@/composants/commun/LogoBtm.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import HeroPaysage from '@/composants/accueil/HeroPaysage.vue'
 import { defineAsyncComponent } from 'vue'
@@ -86,8 +85,7 @@ const seDeconnecter = () => deconnexion()
     <header class="bientot-entete">
       <div class="conteneur bientot-entete-inner">
         <span class="bientot-logo">
-          <LogoBtm :taille="42" />
-          <span class="bientot-marque"><strong>BTM</strong><small>Bâtiment &amp; Travaux Mayotte</small></span>
+          <img src="/logo-groupe-btm.png" alt="Groupe BTM" width="86" height="40" />
         </span>
         <button v-if="demande" type="button" class="bientot-connexion" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Se déconnecter</button>
         <button v-else type="button" class="bientot-connexion" @click="ouvrirAuth('connexion')">Espace partenaires</button>
@@ -184,17 +182,14 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 /* même cadre que le héros de l'accueil : fond sombre, décor du Choungui, texte blanc */
 .bientot {
   position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; isolation: isolate;
-  background: #0a0f14; color: #fff;
+  background: #0d0d0d; color: #fff;
 }
 
 /* ---------- En-tête (repris d'EnteteApp) ---------- */
 .bientot-entete { flex: none; height: var(--hauteur-entete); }
 .bientot-entete-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .bientot-logo { display: flex; align-items: center; gap: 10px; }
-.bientot-logo :deep(.logo-btm) { width: 38px; height: 38px; }
-.bientot-marque { display: flex; flex-direction: column; gap: 3px; line-height: 1; }
-.bientot-marque strong { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; letter-spacing: .08em; }
-.bientot-marque small { font-size: .62rem; color: var(--lagon-200); opacity: .8; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+.bientot-logo img { display: block; width: auto; height: 40px; }
 .bientot-connexion {
   height: 40px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; background: transparent;
   color: rgba(255, 255, 255, .85); font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; transition: color var(--transition), border-color var(--transition);
@@ -229,9 +224,9 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
   transition: border-color var(--transition), background var(--transition);
 }
 .bientot-dossier:hover { border-color: #fff; background: rgba(255, 255, 255, .06); }
-.bientot-dossier.principal { border-color: #0e7490; background: #0e7490; }
-.bientot-dossier.principal:hover { background: #155e75; }
-.bientot-pastille { position: absolute; top: -8px; right: -8px; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #f59e0b; color: #0a0f14; font-size: .74rem; font-weight: 800; box-shadow: 0 0 0 3px #0a0f14; }
+.bientot-dossier.principal { border-color: #1f1f1f; background: #1f1f1f; }
+.bientot-dossier.principal:hover { background: #171717; }
+.bientot-pastille { position: absolute; top: -8px; right: -8px; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #f59e0b; color: #0d0d0d; font-size: .74rem; font-weight: 800; box-shadow: 0 0 0 3px #0d0d0d; }
 
 .bientot-pied {
   flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding-top: 14px; padding-bottom: 16px;
@@ -253,7 +248,7 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 .bientot-validation li { display: flex; align-items: center; gap: 10px; color: rgba(255, 255, 255, .55); font-size: .9rem; font-weight: 600; }
 .bientot-validation li span { display: grid; place-items: center; width: 30px; height: 30px; border: 1.5px solid rgba(255, 255, 255, .2); border-radius: 50%; font-size: .78rem; }
 .bientot-validation li.fait { color: #fff; }
-.bientot-validation li.fait span { border-color: var(--lagon-400); background: var(--lagon-400); color: #0a0f14; }
+.bientot-validation li.fait span { border-color: var(--lagon-400); background: var(--lagon-400); color: #0d0d0d; }
 .bientot-validation li.encours { color: #fcd34d; }
 .bientot-validation li.encours span { border-color: #f59e0b; animation: bientot-pouls 2s ease-in-out infinite; }
 @keyframes bientot-pouls { 50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, .18); } }
@@ -261,7 +256,6 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 
 @media (max-width: 639px) {
   .bientot-surtitre { font-size: .7rem; letter-spacing: .12em; margin-bottom: 14px; }
-  .bientot-marque small { display: none; }
   .bientot-validation { flex-direction: column; gap: 8px; }
   .bientot-pied { justify-content: center; text-align: center; }
 }

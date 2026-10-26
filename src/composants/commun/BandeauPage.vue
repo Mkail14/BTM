@@ -33,7 +33,7 @@ defineProps({
 .bandeau {
   position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 20px;
   padding: 34px 36px; overflow: hidden; border-radius: 28px; color: #fff;
-  background: radial-gradient(90% 140% at 100% 0%, rgba(34, 211, 238, .28), transparent 55%), linear-gradient(135deg, #0b1f2a 0%, #0f3b4d 60%, #0e5566 100%);
+  background: radial-gradient(90% 140% at 100% 0%, rgba(244, 233, 219, .14), transparent 55%), linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 60%, #2a2723 100%);
 }
 .bandeau::after { content: ''; position: absolute; right: -60px; bottom: -80px; width: 260px; height: 260px; border-radius: 50%; border: 40px solid rgba(255, 255, 255, .05); pointer-events: none; }
 .bandeau-surtitre { display: inline-flex; align-items: center; gap: 10px; color: #f7c77a; font-size: .74rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; }
@@ -42,16 +42,16 @@ defineProps({
 .bandeau-texte > p { margin: 10px 0 0; max-width: 620px; color: rgba(255, 255, 255, .72); line-height: 1.55; }
 .bandeau-pastilles { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; padding: 0; list-style: none; }
 .bandeau-pastilles li { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 999px; background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .78); font-size: .88rem; backdrop-filter: blur(6px); }
-.bandeau-pastilles i { color: #67e8f9; font-size: .8rem; }
+.bandeau-pastilles i { color: #f4e9db; font-size: .8rem; }
 .bandeau-pastilles strong { color: #fff; }
 
 /* bouton blanc passé dans le slot « action » */
 .bandeau :slotted(.bandeau-action) {
   position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 10px; min-height: 50px; padding: 0 22px; border-radius: 14px;
-  background: var(--carte); color: var(--ardoise); font-weight: 700; box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .5); transition: transform var(--transition);
+  background: #f4e9db; color: #111; font-weight: 700; box-shadow: 0 10px 24px -10px rgba(0, 0, 0, .5); transition: transform var(--transition);
 }
 .bandeau :slotted(.bandeau-action:hover) { transform: translateY(-2px); }
-.bandeau :slotted(.bandeau-action i) { color: var(--lagon-600); }
+.bandeau :slotted(.bandeau-action i) { color: #111; }
 
 @media (max-width: 760px) {
   .bandeau { padding: 26px 22px; border-radius: 22px; }

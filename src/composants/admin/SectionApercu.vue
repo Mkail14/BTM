@@ -459,7 +459,7 @@ const erreurGlobale = computed(() => Object.values(erreurs)[0])
   font: inherit; font-size: .86rem; text-align: left; cursor: pointer; transition: background var(--transition), color var(--transition);
 }
 .calendrier-raccourcis button:hover { background: var(--adm-ligne-2); color: var(--adm-encre); }
-.calendrier-raccourcis button.actif { background: var(--adm-noir); color: #fff; }
+.calendrier-raccourcis button.actif { background: var(--adm-noir); color: var(--adm-sur-noir); }
 .calendrier-saisie { display: flex; flex-direction: column; gap: 12px; padding: 10px 8px 8px 16px; }
 .calendrier-titre { margin: 0; font-size: .9rem; font-weight: 600; }
 .calendrier-saisie input { min-height: 40px; }
@@ -483,16 +483,16 @@ const erreurGlobale = computed(() => Object.values(erreurs)[0])
 .kpi-evolution { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; font-weight: 600; }
 .kpi-evolution.hausse { color: var(--adm-hausse); }
 .kpi-evolution.baisse { color: var(--adm-baisse); }
-.kpi.sombre { position: relative; overflow: hidden; background: var(--adm-noir); color: #fff; }
-.kpi.sombre::after { content: ''; position: absolute; right: -40px; top: -60px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(34, 211, 238, .18), transparent 70%); pointer-events: none; }
-.kpi.sombre .kpi-label { color: rgba(255, 255, 255, .72); }
-.kpi.sombre .kpi-pied { color: rgba(255, 255, 255, .6); }
+.kpi.sombre { position: relative; overflow: hidden; background: var(--adm-noir); color: var(--adm-sur-noir); }
+.kpi.sombre::after { content: ''; position: absolute; right: -40px; top: -60px; width: 200px; height: 200px; border-radius: 50%; background: radial-gradient(circle, rgba(244, 233, 219, .18), transparent 70%); pointer-events: none; }
+.kpi.sombre .kpi-label { color: color-mix(in srgb, currentColor 72%, transparent); }
+.kpi.sombre .kpi-pied { color: color-mix(in srgb, currentColor 60%, transparent); }
 .kpi.sombre .kpi-evolution.hausse { color: #6ee7b7; }
 .kpi.sombre .kpi-evolution.baisse { color: #fda4af; }
 .kpi.sombre .kpi-squelette { opacity: .15; }
 .kpi-historique {
   position: relative; z-index: 1; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; padding: 5px 10px;
-  border: 0; border-radius: 999px; background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-size: .76rem; font-weight: 600; cursor: pointer;
+  border: 0; border-radius: 999px; background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; font: inherit; font-size: .76rem; font-weight: 600; cursor: pointer;
   transition: background var(--transition);
 }
 .kpi-historique:hover:not(:disabled) { background: rgba(255, 255, 255, .22); }
@@ -504,8 +504,8 @@ const erreurGlobale = computed(() => Object.values(erreurs)[0])
 .fonds-resume dt { font-size: .76rem; color: var(--adm-muet); }
 .fonds-resume dd { margin: 4px 0 2px; font-size: 1.1rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .fonds-resume small { font-size: .74rem; color: var(--adm-muet); }
-.fonds-resume .total { background: var(--adm-noir); color: #fff; }
-.fonds-resume .total dt, .fonds-resume .total small { color: rgba(255, 255, 255, .7); }
+.fonds-resume .total { background: var(--adm-noir); color: var(--adm-sur-noir); }
+.fonds-resume .total dt, .fonds-resume .total small { color: color-mix(in srgb, currentColor 70%, transparent); }
 .fonds-liste { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .fonds-liste > li { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 12px 0; border-top: 1px solid var(--adm-ligne-2); }
 .fonds-icone { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--adm-survol); color: var(--adm-encre-2); }

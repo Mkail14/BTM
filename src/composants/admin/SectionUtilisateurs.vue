@@ -520,7 +520,7 @@ const totalCredits = computed(() => credits.value.reduce((t, c) => ({ gagne: t.g
 .utils-role i { font-size: 1.05rem; }
 .utils-role strong { font-weight: 600; }
 .utils-role:hover:not(:disabled) { border-color: var(--adm-ligne-forte); color: var(--adm-encre); }
-.utils-role.actif { border-color: var(--adm-noir); background: var(--adm-noir); color: #fff; }
+.utils-role.actif { border-color: var(--adm-noir); background: var(--adm-noir); color: var(--adm-sur-noir); }
 .utils-role:disabled { cursor: not-allowed; opacity: .55; }
 .utils-role.actif:disabled { opacity: 1; }
 @media (max-width: 560px) { .utils-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

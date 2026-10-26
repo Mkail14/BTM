@@ -113,7 +113,7 @@ function effacer() {
 .cgu-sommaire a:hover { color: var(--lagon-600); text-decoration: underline; }
 .cgu-section { padding-bottom: 26px; scroll-margin-top: calc(var(--hauteur-entete) + 20px); }
 .cgu-section h2 { display: flex; align-items: center; gap: 12px; font-size: 1.25rem; color: var(--ardoise); margin-bottom: 10px; }
-.cgu-num { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--lagon-600); color: #fff; font-size: .9rem; flex: none; }
+.cgu-num { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--lagon-600); color: var(--sur-primaire); font-size: .9rem; flex: none; }
 .cgu-section p { line-height: 1.7; color: var(--gris-700); margin-bottom: 10px; }
 .cgu-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--gris-200, #e5e7eb); }
 

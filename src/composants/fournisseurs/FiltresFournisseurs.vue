@@ -41,7 +41,7 @@ const emit = defineEmits(['update:recherche', 'update:categorie', 'update:livrai
 
 <style scoped>
 /* une seule barre blanche, comme sur « Mes projets » : recherche, catégories, livraison */
-.filtres { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: var(--carte); box-shadow: 0 6px 20px -14px rgba(11, 58, 77, .3); }
+.filtres { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: var(--carte); box-shadow: 0 6px 20px -14px rgba(17, 17, 17, .3); }
 
 .filtres-recherche { position: relative; flex: 1 1 280px; display: flex; align-items: center; }
 .filtres-recherche > i { position: absolute; left: 16px; color: var(--gris-400); pointer-events: none; }
@@ -50,7 +50,7 @@ const emit = defineEmits(['update:recherche', 'update:categorie', 'update:livrai
   font: inherit; font-size: .95rem; color: var(--ardoise); transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
 .filtres-recherche input::placeholder { color: var(--gris-400); }
-.filtres-recherche input:focus { outline: none; background: var(--carte); border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .14); }
+.filtres-recherche input:focus { outline: none; background: var(--carte); border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .14); }
 .filtres-recherche input::-webkit-search-cancel-button { display: none; }
 .filtres-recherche button {
   position: absolute; right: 8px; width: 36px; height: 36px; display: grid; place-items: center;

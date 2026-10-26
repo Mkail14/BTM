@@ -277,7 +277,7 @@ const etiquetteType = (p) => [TYPES[p.type]?.libelle, p.annee].filter(Boolean).j
   filter: saturate(.8) brightness(.85); transition: transform 1.2s cubic-bezier(.2, .7, .2, 1), filter .6s ease;
 }
 .re-carte.visee .re-photo { transform: scale(1); filter: none; }
-.re-visuel { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(160deg, var(--lagon-700), var(--ardoise)); font-size: 4rem; color: rgba(255,255,255,.85); }
+.re-visuel { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(160deg, #2a2723, #111); font-size: 4rem; color: rgba(255,255,255,.85); }
 .re-voile { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.3) 0%, transparent 24%, transparent 42%, rgba(4,12,18,.6) 66%, rgba(4,12,18,.92) 100%); }
 
 .re-type {

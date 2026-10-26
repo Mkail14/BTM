@@ -153,7 +153,7 @@ const nbOuverts = computed(() => jours.value.filter((j) => j.ouvert).length)
   color: var(--adm-encre); font: inherit; font-size: .88rem; font-variant-numeric: tabular-nums; cursor: pointer;
 }
 .hor-plage select:hover { border-color: var(--adm-ligne-forte); }
-.hor-plage select:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 3px rgba(8, 145, 178, .14); }
+.hor-plage select:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 3px rgba(17, 17, 17, .14); }
 .hor-lien, .hor-icone { border: 0; background: none; color: var(--adm-encre-2); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
 .hor-lien { display: inline-flex; align-items: center; gap: 5px; padding: 6px 2px; }
 .hor-lien:hover, .hor-icone:hover { color: var(--adm-accent); }

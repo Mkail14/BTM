@@ -365,13 +365,13 @@ async function confirmerAnnulation() {
 .pai { display: flex; flex-direction: column; gap: 18px; }
 /* Reversement à BTM */
 .rev { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; padding: 18px 22px; }
-.rev-icone { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--adm-noir); color: #fff; font-size: 1.1rem; }
+.rev-icone { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--adm-noir); color: var(--adm-sur-noir); font-size: 1.1rem; }
 .rev-texte { flex: 1 1 260px; display: flex; flex-direction: column; min-width: 0; }
 .rev-texte > span { color: var(--adm-encre-2); font-size: .86rem; }
 .rev-texte strong { font-size: 1.6rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .rev-texte small { color: var(--adm-muet); font-size: .8rem; }
 .rev-panneau { display: flex; flex-direction: column; gap: 18px; }
-.rev-rib { display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #0f172a 0%, #164e63 100%); }
+.rev-rib { display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #0f172a 0%, #111111 100%); }
 .rev-rib-banque { font-size: .85rem; color: rgba(255, 255, 255, .75); }
 .rev-rib-banque i { margin-right: 6px; }
 .rev-rib-ligne { display: flex; align-items: center; gap: 12px; }
@@ -403,8 +403,8 @@ async function confirmerAnnulation() {
 
 .pai-totaux { display: grid; grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
 .pai-totaux > li { display: flex; }
-.pai-total-general { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; background: var(--adm-noir); color: #fff; }
-.pai-total-general span, .pai-total-general small { color: rgba(255, 255, 255, .6); font-size: .84rem; }
+.pai-total-general { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; background: var(--adm-noir); color: var(--adm-sur-noir); }
+.pai-total-general span, .pai-total-general small { color: color-mix(in srgb, currentColor 60%, transparent); font-size: .84rem; }
 .pai-total-general strong { font-size: 1.7rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .pai-moyen {
   flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px; padding: 16px 18px; border: 0;

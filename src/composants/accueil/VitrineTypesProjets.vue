@@ -71,7 +71,7 @@ const telephone = window.matchMedia('(max-width: 639px)').matches
   background: #fff; color: var(--encre); font-size: .85rem; /* accueil : toujours sur la nuit */
   transition: background var(--transition), color var(--transition), transform var(--transition);
 }
-.ouvrage:hover .ouvrage-fleche, .ouvrage:focus-visible .ouvrage-fleche { background: var(--lagon-600); color: #fff; transform: rotate(-45deg); }
+.ouvrage:hover .ouvrage-fleche, .ouvrage:focus-visible .ouvrage-fleche { background: var(--lagon-600); color: var(--sur-primaire); transform: rotate(-45deg); }
 
 @media (max-width: 1080px) { .ouvrages { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) {

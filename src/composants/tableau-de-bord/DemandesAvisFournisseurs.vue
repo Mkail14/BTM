@@ -134,7 +134,7 @@ async function decliner(a) {
 .da-note { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: none; color: var(--gris-300); font-size: 1.6rem; cursor: pointer; transition: color var(--transition), transform var(--transition); }
 .da-note.allumee { color: #f59e0b; }
 .da-note:hover { transform: scale(1.08); }
-.da-note:focus-visible { outline: 3px solid var(--lagon-400); outline-offset: 2px; }
+.da-note:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .da-form textarea, .da-form input { font-family: var(--font-corps); } /* .champ est en chasse fixe (chiffres du calculateur) */
 .da-form .champ label small { color: var(--gris-500); font-weight: 400; }
 .da-nom { max-width: 280px; }

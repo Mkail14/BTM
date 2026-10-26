@@ -303,7 +303,7 @@ const valider = () => { if (choisis.value.length) emit('valider', choisis.value)
 .cd-materiau.choisi { border-color: var(--lagon-600); background: var(--lagon-50); }
 .cd-ligne { display: flex; align-items: center; gap: 12px; }
 .cd-icone { width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--gris-100); color: var(--ardoise); }
-.cd-materiau.choisi .cd-icone { background: var(--lagon-600); color: #fff; }
+.cd-materiau.choisi .cd-icone { background: var(--lagon-600); color: var(--sur-primaire); }
 .cd-texte { flex: 1; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
 .cd-texte strong { color: var(--ardoise); font-size: .95rem; }
 .cd-texte small { color: var(--texte-secondaire); font-size: .8rem; }
@@ -315,7 +315,7 @@ const valider = () => { if (choisis.value.length) emit('valider', choisis.value)
 .cd-quantite button { width: 34px; height: 34px; border: 1px solid var(--gris-300); border-radius: 10px; background: var(--carte); color: var(--ardoise); cursor: pointer; }
 .cd-quantite button:disabled { opacity: .4; cursor: default; }
 .cd-quantite input { width: 78px; min-height: 36px; padding: 0 30px 0 8px; border: 1px solid var(--gris-300); border-radius: 10px; background: var(--carte); color: var(--ardoise); font: inherit; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
-.cd-quantite input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 3px rgba(6, 182, 212, .15); }
+.cd-quantite input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 3px rgba(17, 17, 17, .15); }
 .cd-unite { position: absolute; right: 44px; font-size: .72rem; color: var(--gris-500); pointer-events: none; }
 /* unité longue (carreau, carton, palette…) : le champ s'élargit pour qu'elle ne recouvre pas le chiffre */
 .unite-longue input { width: 118px; padding-right: 60px; }
@@ -324,11 +324,11 @@ const valider = () => { if (choisis.value.length) emit('valider', choisis.value)
    Fond flouté ; carte large sur ordinateur (photo à gauche, offre à droite), feuille qui monte du bas sur téléphone. */
 .cdo-fond {
   position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 24px;
-  background: rgba(6, 32, 44, .55); backdrop-filter: blur(10px) saturate(120%); -webkit-backdrop-filter: blur(10px) saturate(120%);
+  background: rgba(17, 17, 17, .55); backdrop-filter: blur(10px) saturate(120%); -webkit-backdrop-filter: blur(10px) saturate(120%);
 }
 .cdo {
   display: flex; flex-direction: column; width: min(880px, 100%); max-height: calc(100dvh - 48px); overflow: hidden;
-  border-radius: 24px; background: var(--carte); color: var(--ardoise); box-shadow: 0 30px 80px rgba(6, 32, 44, .4);
+  border-radius: 24px; background: var(--carte); color: var(--ardoise); box-shadow: 0 30px 80px rgba(17, 17, 17, .4);
 }
 .cdo-tete { display: flex; align-items: center; gap: 14px; padding: 20px 20px 16px 24px; border-bottom: 1px solid var(--bordure); }
 .cdo-icone { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 12px; background: var(--lagon-50); color: var(--lagon-700); }

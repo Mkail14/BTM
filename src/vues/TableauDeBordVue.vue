@@ -206,14 +206,14 @@ async function confirmerSuppression() {
 
 /* Outils */
 /* une seule barre blanche : recherche, types, tri */
-.tdb-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 24px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: var(--carte); box-shadow: 0 6px 20px -14px rgba(11, 58, 77, .3); }
+.tdb-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 24px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: var(--carte); box-shadow: 0 6px 20px -14px rgba(17, 17, 17, .3); }
 .tdb-recherche { position: relative; flex: 1 1 260px; display: flex; align-items: center; }
 .tdb-recherche > i { position: absolute; left: 16px; color: var(--gris-400); pointer-events: none; }
 .tdb-recherche input {
   width: 100%; min-height: 44px; padding: 0 16px 0 44px; border: 0; border-radius: 12px; background: var(--gris-50);
   font: inherit; color: var(--ardoise); transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
-.tdb-recherche input:focus { outline: none; background: var(--carte); border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .14); }
+.tdb-recherche input:focus { outline: none; background: var(--carte); border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .14); }
 .tdb-tri { position: relative; display: flex; align-items: center; }
 .tdb-tri i { position: absolute; left: 14px; color: var(--gris-400); font-size: .85rem; pointer-events: none; }
 .tdb-tri select { min-height: 44px; padding: 0 16px 0 38px; border: 1px solid var(--gris-200); border-radius: 14px; background: var(--carte); font: inherit; font-size: .92rem; color: var(--ardoise); cursor: pointer; }
@@ -250,7 +250,7 @@ async function confirmerSuppression() {
 .tdb-raccourcis a:hover { border-color: var(--teinte); transform: translateY(-2px); }
 .tdb-raccourcis i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--teinte) 14%, var(--carte)); color: var(--teinte); font-size: .85rem; }
 
-.modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(6,32,44,.45); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
+.modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(17, 17, 17,.45); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
 .modale { background: var(--carte); border-radius: var(--rayon-lg); padding: 28px; width: 100%; max-width: 420px; box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
 .modale h2 { font-size: 1.4rem; color: var(--ardoise); word-break: break-word; }
 .modale p { margin: 10px 0 0; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.5; }
@@ -276,7 +276,7 @@ async function confirmerSuppression() {
   .tdb-tete .prix { color: var(--ardoise); font-weight: 700; }
   .tdb-nouveau {
     width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 50%;
-    background: var(--lagon-600); color: #fff; font-size: 1.1rem; box-shadow: 0 6px 16px -6px rgba(8, 145, 178, .6);
+    background: var(--lagon-600); color: var(--sur-primaire); font-size: 1.1rem; box-shadow: 0 6px 16px -6px rgba(17, 17, 17, .6);
   }
   .tdb-nouveau:active { transform: scale(.95); }
 

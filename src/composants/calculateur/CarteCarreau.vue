@@ -65,7 +65,7 @@ const manque = computed(() => props.carreau && !props.carreau.rupture && props.c
 }
 .cc:hover { border-color: var(--lagon-500); }
 .cc:focus-visible { outline: 3px solid var(--lagon-500); outline-offset: 2px; }
-.cc.actif { border-color: var(--lagon-600); box-shadow: 0 0 0 3px rgba(6, 182, 212, .18); }
+.cc.actif { border-color: var(--lagon-600); box-shadow: 0 0 0 3px rgba(17, 17, 17, .18); }
 .cc.rupture { cursor: not-allowed; opacity: .55; }
 .cc-coche { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--carte); color: var(--lagon-600); font-size: 1.5rem; }
 /* aperçu : la teinte du modèle, quadrillée comme un sol carrelé (ou sa photo) */

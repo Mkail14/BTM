@@ -342,7 +342,7 @@ async function supprimerCategorie(c) {
 .four-categorie select option { background: var(--adm-carte); color: var(--adm-encre); }
 .four-categorie-fleche { position: absolute; right: 16px; color: var(--adm-muet); font-size: .7rem; pointer-events: none; }
 .four-statut { flex: none; }
-.four-statut button[aria-pressed="true"] { background: var(--adm-noir); color: #fff; }
+.four-statut button[aria-pressed="true"] { background: var(--adm-noir); color: var(--adm-sur-noir); }
 
 /* Fiches fournisseur */
 .fiches { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
@@ -425,5 +425,5 @@ async function supprimerCategorie(c) {
 .cat-icones > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .cat-icone-choix { width: 46px; height: 46px; display: grid; place-items: center; border: 1px solid var(--adm-ligne); border-radius: 12px; background: var(--adm-carte); color: var(--adm-encre-2); cursor: pointer; transition: all var(--transition); }
 .cat-icone-choix:hover { border-color: var(--adm-encre); color: var(--adm-encre); }
-.cat-icone-choix.actif { background: var(--adm-noir); border-color: var(--adm-noir); color: #fff; }
+.cat-icone-choix.actif { background: var(--adm-noir); border-color: var(--adm-noir); color: var(--adm-sur-noir); }
 </style>

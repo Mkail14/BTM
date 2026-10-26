@@ -115,10 +115,10 @@ function choisir(f) {
   background: var(--carte); font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color var(--transition), box-shadow var(--transition);
 }
 .cf-carte:hover { border-color: var(--lagon-500); }
-.cf-carte.actif { border-color: var(--lagon-600); background: var(--lagon-50); box-shadow: 0 0 0 3px rgba(6, 182, 212, .15); }
+.cf-carte.actif { border-color: var(--lagon-600); background: var(--lagon-50); box-shadow: 0 0 0 3px rgba(17, 17, 17, .15); }
 /* case à cocher (plusieurs choix possibles) */
 .cf-choix { width: 24px; height: 24px; flex: none; display: grid; place-items: center; border: 2px solid var(--gris-300); border-radius: 7px; font-size: .72rem; }
-.cf-carte.actif .cf-choix { border-color: var(--lagon-600); background: var(--lagon-600); color: #fff; }
+.cf-carte.actif .cf-choix { border-color: var(--lagon-600); background: var(--lagon-600); color: var(--sur-primaire); }
 .cf-identite { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cf-identite strong { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: var(--ardoise); }
 .cf-identite small { color: var(--texte-secondaire); font-size: .8rem; }

@@ -232,7 +232,7 @@ async function seDeconnecter() {
   }
   .ef-onglet-icone { position: relative; display: grid; place-items: center; width: 52px; height: 30px; border-radius: 999px; font-size: 1.05rem; transition: background var(--transition); }
   .ef-onglets .actif { color: var(--adm-encre); }
-  .ef-onglets .actif .ef-onglet-icone { background: var(--adm-noir); color: #fff; }
+  .ef-onglets .actif .ef-onglet-icone { background: var(--adm-noir); color: var(--adm-sur-noir); }
   .ef-onglet-pastille { position: absolute; top: -4px; right: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #f59e0b; color: #0f172a; font-size: .66rem; font-weight: 700; line-height: 18px; text-align: center; }
   .ef-onglet-point { position: absolute; top: 1px; right: 10px; width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 2px var(--adm-carte); }
 }

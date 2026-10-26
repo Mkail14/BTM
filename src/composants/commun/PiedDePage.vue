@@ -1,6 +1,5 @@
 <script setup>
 import { computed } from 'vue'
-import LogoBtm from './LogoBtm.vue'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
 import { ouvrirInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
@@ -18,7 +17,7 @@ const lienTelephone = computed(() => {
   <footer id="pied-de-page" class="pied">
     <div class="conteneur pied-grille">
       <section class="pied-marque">
-        <router-link to="/" class="pied-logo"><LogoBtm :taille="46" /> <span>BTM</span></router-link>
+        <router-link to="/" class="pied-logo" aria-label="BTM — Accueil"><img src="/logo-groupe-btm.png" alt="Groupe BTM" width="112" height="52" /></router-link>
         <p>{{ contenu.pied.description }}</p>
         <p class="pied-localisation"><i class="fa-solid fa-location-dot"></i> {{ contenu.contact.localisation }}</p>
       </section>
@@ -65,7 +64,8 @@ const lienTelephone = computed(() => {
 }
 @media (min-width: 640px) { .pied-grille { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 900px) { .pied-grille { grid-template-columns: 1.6fr 1fr 1fr 1.2fr; padding-inline: 32px; } }
-.pied-logo { display: inline-flex; align-items: center; gap: 12px; font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; letter-spacing: .06em; color: #fff; margin-bottom: 14px; }
+.pied-logo { display: inline-flex; margin-bottom: 14px; }
+.pied-logo img { display: block; width: auto; height: 52px; }
 .pied-marque p { max-width: 380px; font-size: .95rem; line-height: 1.6; }
 .pied-localisation { margin-top: 12px !important; color: var(--lagon-300); }
 .pied-nav { display: flex; flex-direction: column; gap: 10px; }

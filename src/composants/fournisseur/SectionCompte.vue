@@ -85,7 +85,7 @@ const logoCasse = ref(false)
 .cp-entreprise { display: flex; align-items: center; gap: 12px; padding: 4px 4px 18px; border-bottom: 1px solid var(--adm-ligne-2); }
 .cp-logo {
   width: 48px; height: 48px; flex: none; display: grid; place-items: center; overflow: hidden; border-radius: 14px;
-  background: var(--adm-noir); color: #fff; font-size: .95rem; font-weight: 700;
+  background: var(--adm-noir); color: var(--adm-sur-noir); font-size: .95rem; font-weight: 700;
 }
 .cp-logo img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
 .cp-entreprise-texte { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
@@ -194,7 +194,7 @@ const logoCasse = ref(false)
 .cp-fenetre-horaires { max-height: calc(100dvh - 32px); }
 /* Aperçu de l'annuaire : une petite fenêtre de navigateur (barre d'adresse, page, carte), aux couleurs du thème choisi */
 .cp-apercu-page {
-  --gris-300: #cbd5e1; --gris-400: #94a3b8; --lagon-300: #67e8f9; --blanc: #fff; --texte: var(--gris-900);
+  --gris-300: #cbd5e1; --gris-400: #94a3b8; --lagon-300: #f4e9db; --blanc: #fff; --texte: var(--gris-900);
   --ap-fond: linear-gradient(160deg, var(--lagon-50), var(--gris-100) 55%); --ap-barre: #fff; --ap-carte: #fff; --ap-bouton: #fff;
   margin-top: 12px; overflow: hidden; border-radius: 18px; color: var(--ardoise); background: var(--ap-fond);
   box-shadow: 0 0 0 1px var(--adm-ligne), 0 24px 48px -28px rgba(2, 6, 23, .55);
@@ -203,8 +203,8 @@ const logoCasse = ref(false)
 .adm-sombre .cp-apercu-page {
   --ardoise: var(--adm-encre); --gris-50: var(--adm-ligne-2); --gris-100: var(--adm-ligne-2); --gris-200: var(--adm-ligne);
   --gris-400: var(--adm-muet); --gris-500: var(--adm-muet); --gris-600: var(--adm-encre-2); --gris-900: var(--adm-encre);
-  --lagon-50: rgba(34, 211, 238, .12); --lagon-100: rgba(34, 211, 238, .16); --lagon-800: #67e8f9;
-  --ap-fond: linear-gradient(160deg, rgba(34, 211, 238, .07), var(--adm-toile) 55%); --ap-barre: var(--adm-champ); --ap-carte: var(--adm-carte); --ap-bouton: var(--adm-champ);
+  --lagon-50: rgba(244, 233, 219, .12); --lagon-100: rgba(244, 233, 219, .16); --lagon-800: #f4e9db;
+  --ap-fond: linear-gradient(160deg, rgba(244, 233, 219, .07), var(--adm-toile) 55%); --ap-barre: var(--adm-champ); --ap-carte: var(--adm-carte); --ap-bouton: var(--adm-champ);
   box-shadow: 0 0 0 1px var(--adm-ligne);
 }
 .cp-apercu-barre { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-bottom: 1px solid var(--gris-200); background: var(--ap-barre); }
@@ -215,7 +215,7 @@ const logoCasse = ref(false)
 .cp-apercu-corps { padding: 16px 18px 18px; }
 /* présentation dans l'aperçu : trois lignes au plus, l'aperçu garde sa hauteur */
 .cp-apercu-page .cp-apercu .fr-description { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; margin-bottom: 12px; }
-.cp-apercu { margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 16px; background: var(--ap-carte); box-shadow: 0 10px 28px -16px rgba(11, 58, 77, .35); }
+.cp-apercu { margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--gris-200); border-radius: 16px; background: var(--ap-carte); box-shadow: 0 10px 28px -16px rgba(17, 17, 17, .35); }
 /* carte dépliée sur un fond uni (sur le site elle grise au survol) */
 .cp-apercu-page .cp-apercu .fr.ouvert .fr-ligne, .cp-apercu-page .cp-apercu .fr .fr-details { background: var(--ap-carte); }
 .cp-apercu-page .cp-apercu .fr .fr-details { border-top: 1px solid var(--gris-100); padding-top: 14px; padding-bottom: 16px; }
@@ -230,7 +230,7 @@ const logoCasse = ref(false)
 .cp-apercu-page .cp-apercu .fr-chevron { display: none; }
 @container (max-width: 460px) {
   .cp-apercu-page .cp-apercu .fr-appel { width: 44px; padding: 0; justify-content: center; border: 0; background: var(--lagon-600); }
-  .cp-apercu-page .cp-apercu .fr-appel i { color: #fff; font-size: .9rem; }
+  .cp-apercu-page .cp-apercu .fr-appel i { color: var(--sur-primaire); font-size: .9rem; }
   .cp-apercu-page .cp-apercu .fr-appel span { display: none; }
   .cp-apercu-page .cp-apercu .fr-details { padding-left: 16px; }
 }

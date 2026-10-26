@@ -8,6 +8,8 @@
   {{ .Email }}            adresse du compte
 
   Mise en page en tableaux et styles en ligne : c'est ce que les messageries affichent de façon fiable.
+  Couleurs du logo, comme le site : noir #111 et crème #f4e9db. Logo chargé depuis https://btm.yt/logo-groupe-btm.png
+  (texte « BTM » à la place si la messagerie bloque les images).
 -->
 <!doctype html>
 <html lang="fr">
@@ -15,24 +17,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
   <title>Votre mot de passe BTM</title>
 </head>
-<body style="margin:0;padding:0;background-color:#eef0f3;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#0f172a;">
+<body style="margin:0;padding:0;background-color:#f4e9db;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#111111;">
   <!-- aperçu affiché à côté de l'objet dans la boîte de réception -->
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Cliquez sur le lien pour choisir un nouveau mot de passe BTM. Il est valable 1 heure.</div>
 
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#eef0f3;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f4e9db;">
     <tr>
       <td align="center" style="padding:32px 16px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
 
-          <!-- En-tête -->
+          <!-- En-tête : logo « Groupe BTM » crème sur noir -->
           <tr>
-            <td style="padding:26px 32px;background-color:#0f172a;border-radius:20px 20px 0 0;">
+            <td style="padding:24px 32px;background-color:#111111;border-radius:20px 20px 0 0;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:26px;font-weight:800;letter-spacing:4px;color:#ffffff;line-height:1;">BTM</td>
-                  <td style="padding-left:14px;border-left:2px solid #0891b2;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#67e8f9;line-height:1.4;">B&acirc;timent &amp;<br>Travaux Mayotte</td>
+                  <td style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:26px;font-weight:800;letter-spacing:4px;color:#f4e9db;line-height:1;">
+                    <img src="https://btm.yt/logo-groupe-btm.png" width="94" height="44" alt="BTM" style="display:block;border:0;width:94px;height:44px;color:#f4e9db;font-size:26px;font-weight:800;letter-spacing:4px;">
+                  </td>
+                  <td style="padding-left:16px;border-left:2px solid #f4e9db;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#f4e9db;line-height:1.4;">B&acirc;timent &amp;<br>Travaux Mayotte</td>
                 </tr>
               </table>
             </td>
@@ -41,25 +46,25 @@
           <!-- Message -->
           <tr>
             <td style="padding:36px 32px 8px;background-color:#ffffff;">
-              <h1 style="margin:0 0 14px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;font-weight:700;line-height:1.25;color:#0f172a;">Choisissez un nouveau mot de passe</h1>
-              <p style="margin:0;font-size:15px;line-height:1.6;color:#475569;">
-                Vous avez demand&eacute; &agrave; changer le mot de passe du compte BTM <strong style="color:#0f172a;">{{ .Email }}</strong>.
+              <h1 style="margin:0 0 14px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;font-weight:700;line-height:1.25;color:#111111;">Choisissez un nouveau mot de passe</h1>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:#57534e;">
+                Vous avez demand&eacute; &agrave; changer le mot de passe du compte BTM <strong style="color:#111111;">{{ .Email }}</strong>.
                 Cliquez sur le bouton ci-dessous pour en choisir un nouveau&nbsp;:
               </p>
             </td>
           </tr>
 
-          <!-- Bouton -->
+          <!-- Bouton : noir, texte crème (action principale du site sur fond clair) -->
           <tr>
             <td align="center" style="padding:28px 32px 8px;background-color:#ffffff;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td align="center" style="border-radius:14px;background-color:#0e7490;">
-                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:16px 30px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">Choisir mon nouveau mot de passe</a>
+                  <td align="center" style="border-radius:14px;background-color:#111111;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:16px 30px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#f4e9db;text-decoration:none;border-radius:14px;">Choisir mon nouveau mot de passe</a>
                   </td>
                 </tr>
               </table>
-              <p style="margin:14px 0 0;font-size:13px;line-height:1.5;color:#8a94a6;">Valable 1 heure &middot; utilisable une seule fois</p>
+              <p style="margin:14px 0 0;font-size:13px;line-height:1.5;color:#78716c;">Valable 1 heure &middot; utilisable une seule fois</p>
             </td>
           </tr>
 
@@ -68,9 +73,9 @@
             <td style="padding:24px 32px 8px;background-color:#ffffff;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td style="padding:16px 18px;background-color:#f1f3f6;border-radius:14px;font-size:13px;line-height:1.55;color:#475569;word-break:break-all;">
+                  <td style="padding:16px 18px;background-color:#f7f3ee;border-radius:14px;font-size:13px;line-height:1.55;color:#57534e;word-break:break-all;">
                     Le bouton ne fonctionne pas&nbsp;? Copiez ce lien dans votre navigateur&nbsp;:<br>
-                    <a href="{{ .ConfirmationURL }}" style="color:#0e7490;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+                    <a href="{{ .ConfirmationURL }}" style="color:#111111;text-decoration:underline;">{{ .ConfirmationURL }}</a>
                   </td>
                 </tr>
               </table>
@@ -80,7 +85,7 @@
           <!-- Sécurité -->
           <tr>
             <td style="padding:20px 32px 34px;background-color:#ffffff;border-radius:0 0 20px 20px;">
-              <p style="margin:0;padding-top:20px;border-top:1px solid #e6e9ee;font-size:13px;line-height:1.6;color:#8a94a6;">
+              <p style="margin:0;padding-top:20px;border-top:1px solid #e7e5e4;font-size:13px;line-height:1.6;color:#78716c;">
                 Vous n&rsquo;&ecirc;tes pas &agrave; l&rsquo;origine de cette demande&nbsp;? Ignorez cet e-mail&nbsp;: votre mot de passe reste inchang&eacute;.
                 Ne transmettez jamais ce lien, l&rsquo;&eacute;quipe BTM ne vous le demandera pas.
               </p>
@@ -89,10 +94,10 @@
 
           <!-- Pied -->
           <tr>
-            <td align="center" style="padding:22px 16px 0;font-size:12px;line-height:1.6;color:#8a94a6;">
+            <td align="center" style="padding:22px 16px 0;font-size:12px;line-height:1.6;color:#57534e;">
               BTM &mdash; B&acirc;timent &amp; Travaux Mayotte<br>
-              <a href="https://btm.yt" style="color:#8a94a6;text-decoration:underline;">btm.yt</a> &middot;
-              <a href="mailto:contact@btm.yt" style="color:#8a94a6;text-decoration:underline;">contact@btm.yt</a>
+              <a href="https://btm.yt" style="color:#57534e;text-decoration:underline;">btm.yt</a> &middot;
+              <a href="mailto:contact@btm.yt" style="color:#57534e;text-decoration:underline;">contact@btm.yt</a>
             </td>
           </tr>
 

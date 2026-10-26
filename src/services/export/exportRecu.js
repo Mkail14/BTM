@@ -132,7 +132,7 @@ export async function exporterRecuPdf({ paiement: p, fiche, encaissePar }, mode 
   // pied : le « b » du logo BTM devant la mention de la plateforme
   doc.setFontSize(8)
   const pied = `BTM — reçu ${p.numero_recu || ''}`
-  if (logoB) doc.addImage(logoB, 'PNG', largeur / 2 - doc.getTextWidth(pied) / 2 - 6, 286.4, 4.6, 4.6)
+  if (logoB) doc.addImage(logoB, 'PNG', largeur / 2 - doc.getTextWidth(pied) / 2 - 6, 286.4, 4.6, 4.6, undefined, 'FAST')
   doc.text(pied, largeur / 2, 290, { align: 'center' })
 
   const fichier = `Recu_${p.numero_recu || 'BTM'}.pdf`

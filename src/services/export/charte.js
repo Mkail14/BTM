@@ -28,6 +28,6 @@ export async function chargerLogo(chemin = '/logo-groupe-btm.png') {
 /** « Groupe BTM » crème (343 × 160) posé sur le bandeau noir, hauteur h en mm */
 export function dessinerLogo(doc, logo, x, y, h) {
   if (!logo) return false
-  doc.addImage(logo, 'PNG', x, y, h * 343 / 160, h)
+  doc.addImage(logo, 'PNG', x, y, h * 343 / 160, h, undefined, 'FAST') // FAST : PNG recompressé (sinon ~1 Mo par logo)
   return true
 }

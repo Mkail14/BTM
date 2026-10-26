@@ -31,8 +31,8 @@ const exemple = (lettre, categorie_id, categorie, commune, description, couleur)
 })
 
 export const fournisseurs = [
-  exemple('a', 'beton-granulats', 'Béton & granulats', 'Koungou', 'centrale à béton et granulats', '#0e7490'),
-  exemple('b', 'beton-granulats', 'Béton & granulats', 'Koungou', 'béton et agrégats', '#0891b2'),
+  exemple('a', 'beton-granulats', 'Béton & granulats', 'Koungou', 'centrale à béton et granulats', '#1f1f1f'),
+  exemple('b', 'beton-granulats', 'Béton & granulats', 'Koungou', 'béton et agrégats', '#111111'),
   exemple('c', 'materiaux-generaux', 'Matériaux généraux', 'Mamoudzou', 'négoce de matériaux généraux', '#b45309')
 ]
 
@@ -61,6 +61,6 @@ export function normaliserFournisseur(ligne) {
     latitude: ligne.latitude ?? null,
     longitude: ligne.longitude ?? null,
     logo: ligne.logo_url || `/logos/${ligne.slug}.svg`,
-    couleur: '#0891b2'
+    couleur: '#111111'
   }
 }

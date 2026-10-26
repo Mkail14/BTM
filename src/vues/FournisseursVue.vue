@@ -167,7 +167,7 @@ ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 
   .annuaire-barre { margin: 16px 2px 8px; }
   .annuaire-liste { display: flex; flex-direction: column; gap: 10px; overflow: visible; border: 0; border-radius: 0; background: none; }
-  .annuaire-liste > :deep(li) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; background: var(--carte); box-shadow: 0 4px 14px -10px rgba(11, 58, 77, .25); }
+  .annuaire-liste > :deep(li) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; background: var(--carte); box-shadow: 0 4px 14px -10px rgba(17, 17, 17, .25); }
   ul.annuaire-liste[aria-busy] { margin-top: 16px; }
   .annuaire-squelette, .annuaire-squelette:last-child { border: 1px solid var(--gris-200); border-radius: 18px; background: var(--carte); }
 

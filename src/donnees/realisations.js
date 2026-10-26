@@ -10,7 +10,7 @@ export const realisations = [
   {
     id: 'r1', titre: 'Maison familiale', type: 'mur', auteur: 'Amina M.',
     commune: 'Mamoudzou', quartier: 'Kawéni', fournisseur: 'Fournisseur exemple C', annee: 2026,
-    detail: '68 m² de murs en parpaings', photo: '/realisations/maison-kaweni.jpg', teintes: ['#0e7490', '#164e63']
+    detail: '68 m² de murs en parpaings', photo: '/realisations/maison-kaweni.jpg', teintes: ['#1f1f1f', '#111111']
   },
   {
     id: 'r2', titre: 'Dalle de garage', type: 'dalle', auteur: 'Youssouf B.',
@@ -20,7 +20,7 @@ export const realisations = [
   {
     id: 'r3', titre: 'Terrasse vue lagon', type: 'terrasse', auteur: 'Sarah A.',
     commune: 'Dzaoudzi', quartier: 'Labattoir', fournisseur: 'Fournisseur exemple C', annee: 2026,
-    detail: '24 m² carrelés', photo: '/realisations/terrasse-labattoir.jpg', teintes: ['#0891b2', '#0f766e']
+    detail: '24 m² carrelés', photo: '/realisations/terrasse-labattoir.jpg', teintes: ['#111111', '#2a2a2a']
   },
   {
     id: 'r4', titre: 'Fondations d’extension', type: 'fondation', auteur: 'Nassim R.',

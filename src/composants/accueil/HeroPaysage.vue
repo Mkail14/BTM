@@ -2,10 +2,12 @@
 /**
  * HeroPaysage — décor animé de l'accueil : crépuscule sur Mayotte.
  * Soleil couchant, silhouette du mont Choungui, lagon qui scintille,
- * grue à tour qui déplace sa charge et immeuble en chantier aux fenêtres allumées.
+ * grue à tour qui déplace sa charge et immeuble en chantier.
+ * Jour ou nuit suit le bouton clair / sombre : le soir, les fenêtres s'allument ; le jour, elles sont éteintes.
  * Les plans bougent légèrement avec la souris (parallaxe via --px / --py).
  */
-import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
+import { useTheme } from '@/composables/useTheme.js'
 
 const racine = ref(null)
 const zoneSommet = ref(null)
@@ -40,7 +42,7 @@ function animer() {
 }
 
 // Immeuble en chantier : façade de 5 étages × 4 travées, toutes les fenêtres sont dans la façade.
-// Quelques-unes allumées (certaines clignotent), les autres éteintes pour dessiner la trame.
+// La nuit, quelques-unes s'allument (certaines clignotent), les autres restent éteintes pour dessiner la trame.
 const IMMEUBLE = { x: 1228, sol: 292, largeur: 76, etage: 22, etages: 5 }
 IMMEUBLE.haut = IMMEUBLE.sol - IMMEUBLE.etage * IMMEUBLE.etages // 182 : dalle du dernier étage fini
 const fenetres = []
@@ -58,6 +60,7 @@ const dalles = Array.from({ length: IMMEUBLE.etages - 1 }, (_, i) => IMMEUBLE.so
 // ---------- Soleil et lune à l'heure de Mayotte ----------
 // Le jour, le soleil suit un arc d'est en ouest entre ses vrais lever et coucher à Mayotte (calcul solaire NOAA
 // simplifié) ; la nuit, il passe derrière la crête et la lune prend sa place, dans sa phase du jour.
+// Le thème choisit jour (clair) ou nuit (sombre) : si l'heure réelle ne correspond pas, l'astre prend une place fixe sur l'arc.
 const LATITUDE = -12.78, LONGITUDE = 45.23, FUSEAU = 3 // Mamoudzou, UTC+3 toute l'année
 const RAD = Math.PI / 180
 function heuresSoleil(maintenant) {
@@ -85,18 +88,20 @@ function cheminLune(p, r = RAYON_LUNE) {
   const d = `M0 ${-r} A${r} ${r} 0 0 1 0 ${r} A${(Math.abs(k) * r).toFixed(2)} ${r} 0 0 ${k > 0 ? 0 : 1} 0 ${-r}Z`
   return { d, miroir: p < 0.5 }
 }
+const { sombre } = useTheme()
 const astre = ref(calculerAstre())
 function calculerAstre() {
   const maintenant = new Date()
   const heure = ((maintenant.getTime() / 36e5 + FUSEAU) % 24 + 24) % 24
   const { lever, coucher } = heuresSoleil(maintenant)
-  const jour = heure >= lever && heure < coucher
-  const t = jour ? (heure - lever) / (coucher - lever) : ((heure - coucher + 24) % 24) / (24 - (coucher - lever))
+  const jour = !sombre.value
+  const t = (heure >= lever && heure < coucher) !== jour ? 0.35 : jour ? (heure - lever) / (coucher - lever) : ((heure - coucher + 24) % 24) / (24 - (coucher - lever))
   const x = EST + t * (OUEST - EST)
   const y = HORIZON - Math.sin(Math.PI * t) * HAUTEUR_ARC
   return { jour, x, y, lune: cheminLune(phaseLune(maintenant)) }
 }
 let minuterieAstre = null
+watch(sombre, () => { astre.value = calculerAstre() })
 
 // Décor hors de l'écran (on a défilé plus bas) : ses animations s'arrêtent, rien n'est repeint pour rien
 const aLEcran = ref(true)
@@ -286,7 +291,8 @@ onBeforeUnmount(debrancher)
 /* nuit : lueur de l'horizon refroidie, chantier à l'arrêt (la grue ne bouge plus) */
 .paysage.nuit { background: linear-gradient(180deg, #05080d 0%, #0a121a 45%, #111c26 78%, #1a2733 100%); }
 .paysage.nuit .paysage-halo { opacity: .35; filter: hue-rotate(170deg) saturate(.5); }
-.paysage.nuit .fenetre.allumee { opacity: 1; }
+.paysage.nuit .fenetre.allumee { fill: #f7b955; opacity: 1; }
+.paysage.nuit .fenetre.clignote { animation: clignoter 6s steps(1) infinite; }
 
 @media (max-width: 639px) { .chantier { display: none; } }
 .chariot { animation: chariot 16s ease-in-out infinite; }
@@ -304,9 +310,7 @@ onBeforeUnmount(debrancher)
 .sommet-nom { font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .18em; fill: rgba(255, 255, 255, .78); }
 .sommet-info { font-family: var(--font-corps); font-size: 8px; font-style: italic; fill: rgba(255, 213, 138, .6); }
 
-.fenetre { fill: #16242b; }
-.fenetre.allumee { fill: #f7b955; opacity: .85; }
-.fenetre.clignote { animation: clignoter 6s steps(1) infinite; }
+.fenetre { fill: #16242b; } /* éteintes le jour, allumées la nuit (voir .paysage.nuit) */
 
 /* Grain photographique léger */
 .paysage-grain {

@@ -406,8 +406,8 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
   background: var(--carte); box-shadow: 0 18px 42px rgba(0,0,0,.28); animation: ac-apparaitre .24s ease both;
 }
 .ac.minimise { width: min(320px, calc(100vw - 32px)); }
-.ac-barre { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; background: var(--lagon-600); color: #fff; }
-.ac-barre-awa { background: linear-gradient(120deg, #155e75, #0891b2); } /* bandeau toujours foncé, texte blanc */
+.ac-barre { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; background: #111; color: #fff; }
+.ac-barre-awa { background: linear-gradient(120deg, #171717, #111111); } /* bandeau toujours foncé, texte blanc */
 .ac-barre-conseiller { background: var(--encre); }
 .ac-profil { position: relative; flex: none; }
 .ac-barre .ac-avatar { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); transition: background .15s, box-shadow .15s; }
@@ -433,7 +433,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-qui em { padding: 0 6px; border-radius: 999px; background: var(--lagon-100); color: var(--lagon-800); font-size: .62rem; font-style: normal; }
 .ac-ligne.conseiller .ac-qui em { background: var(--encre); color: #fde68a; }
 .ac-bulle { margin: 0; padding: 10px 13px; border-radius: 14px 14px 14px 4px; background: var(--carte); color: var(--ardoise-2); font-size: .86rem; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
-.ac-ligne.client .ac-bulle { border-radius: 14px 14px 4px 14px; background: var(--lagon-600); color: #fff; }
+.ac-ligne.client .ac-bulle { border-radius: 14px 14px 4px 14px; background: var(--lagon-600); color: var(--sur-primaire); }
 .ac-ligne.conseiller .ac-bulle { border: 1px solid var(--alerte-bord); background: var(--alerte-fond); }
 .ac-bulle.provisoire { opacity: .6; }
 .ac-heure { margin: 2px 6px 0; color: var(--gris-400); font-size: .66rem; }
@@ -463,7 +463,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: var(--carte); }
 .ac-saisie input { min-width: 0; flex: 1; min-height: 40px; padding: 0 12px; border: 1px solid var(--gris-200); border-radius: 999px; outline: 0; font: inherit; font-size: .86rem; }
 .ac-saisie input:focus { border-color: var(--lagon-500); }
-.ac-saisie button { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--lagon-600); color: #fff; cursor: pointer; }
+.ac-saisie button { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--lagon-600); color: var(--sur-primaire); cursor: pointer; }
 .ac-saisie button:disabled { opacity: .45; cursor: default; }
 .ac-lien-bouton { display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
 .ac-lien-bouton:hover { text-decoration: underline; text-underline-offset: 3px; }

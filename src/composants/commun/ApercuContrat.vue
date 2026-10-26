@@ -73,7 +73,7 @@ onBeforeUnmount(liberer)
 /* même carte que le dossier (DossierFournisseur fixe sa taille) ; le PDF occupe tout le reste */
 .apc {
   display: flex; flex-direction: column; overflow: hidden; border-radius: 28px; background: var(--gris-50); color: var(--ardoise);
-  box-shadow: 0 30px 80px rgba(6, 32, 44, .45); animation: apc-entrer .32s cubic-bezier(.22, .61, .36, 1);
+  box-shadow: 0 30px 80px rgba(17, 17, 17, .45); animation: apc-entrer .32s cubic-bezier(.22, .61, .36, 1);
 }
 @keyframes apc-entrer { from { transform: translateX(-24px); opacity: 0; } }
 .apc-barre { display: flex; align-items: center; gap: 10px; min-height: 60px; padding: 10px 14px 10px 22px; border-bottom: 1px solid var(--gris-200); }
@@ -95,13 +95,13 @@ onBeforeUnmount(liberer)
   width: 100%; max-width: 620px; margin: 0 auto; padding: 32px 30px 36px; border-radius: 2px; background: #fff; color: #1f2937;
   box-shadow: 0 2px 10px rgba(0, 0, 0, .45); font-family: Helvetica, Arial, sans-serif; font-size: .78rem; line-height: 1.6;
 }
-.apc-feuille-tete { margin: -32px -30px 18px; padding: 20px 30px 16px; background: #0b3a4d; border-bottom: 4px solid #0891b2; color: #fff; }
+.apc-feuille-tete { margin: -32px -30px 18px; padding: 20px 30px 16px; background: #111111; border-bottom: 4px solid #111111; color: #fff; }
 .apc-feuille-tete h3 { margin: 0; font-family: Helvetica, Arial, sans-serif; font-size: 1.05rem; letter-spacing: 0; color: #fff; }
 .apc-feuille-tete p { margin: 2px 0 0; color: rgba(255, 255, 255, .8); font-size: .72rem; }
-.apc-feuille h4 { margin: 12px 0 4px; color: #0b3a4d; font-family: Helvetica, Arial, sans-serif; font-size: .84rem; letter-spacing: 0; }
+.apc-feuille h4 { margin: 12px 0 4px; color: #111111; font-family: Helvetica, Arial, sans-serif; font-size: .84rem; letter-spacing: 0; }
 .apc-feuille section p { margin: 0 0 5px; }
 .apc-feuille-signature { display: flex; flex-direction: column; gap: 4px; margin-top: 22px; padding-top: 14px; border-top: 1px solid #cbd5e1; }
-.apc-feuille-signature strong { color: #0b3a4d; }
+.apc-feuille-signature strong { color: #111111; }
 .apc-feuille-signature small { color: #475569; font-size: .72rem; }
 .apc-trace { width: 160px; height: 54px; }
 .apc-trace path { fill: none; stroke: #1e293b; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }

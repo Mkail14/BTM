@@ -212,7 +212,7 @@ async function seDeconnecter() {
 .profil-site.ouvert { background: #22c55e; }
 .profil-site.maintenance { background: #ef4444; }
 .adm-lat-pastille-alerte { background: #f59e0b !important; }
-.adm-lat-pastille { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: var(--adm-accent); color: #fff; font-size: .74rem; text-align: center; }
+.adm-lat-pastille { margin-left: auto; min-width: 22px; padding: 1px 7px; border-radius: 999px; background: #f59e0b; color: #111; font-weight: 700; font-size: .74rem; text-align: center; }
 /* Tablette et petit ordinateur : barre réduite aux icônes, la pastille se pose en coin de l'icône */
 @media (min-width: 768px) and (max-width: 1279px) {
   .adm-lat-pastille { position: absolute; top: 4px; right: 3px; min-width: 18px; margin: 0; padding: 0 5px; font-size: .64rem; line-height: 18px; box-shadow: 0 0 0 2px var(--adm-lat); }

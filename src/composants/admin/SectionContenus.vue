@@ -153,13 +153,13 @@ async function retablir() {
   font: inherit; text-align: left; cursor: pointer; transition: background var(--transition), color var(--transition), transform var(--transition);
 }
 .contenus-item:hover { transform: translateX(2px); }
-.contenus-item.actif { background: var(--adm-noir); color: #fff; }
+.contenus-item.actif { background: var(--adm-noir); color: var(--adm-sur-noir); }
 .contenus-icone { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-ligne-2); color: var(--adm-encre); }
-.contenus-item.actif .contenus-icone { background: rgba(255, 255, 255, .12); color: #fff; }
+.contenus-item.actif .contenus-icone { background: color-mix(in srgb, currentColor 12%, transparent); color: inherit; }
 .contenus-item-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.35; }
 .contenus-item-texte strong { font-size: .92rem; font-weight: 600; }
 .contenus-item-texte small { font-size: .8rem; color: var(--adm-muet); }
-.contenus-item.actif small { color: rgba(255, 255, 255, .6); }
+.contenus-item.actif small { color: color-mix(in srgb, currentColor 60%, transparent); }
 .contenus-point { position: absolute; right: 16px; width: 8px; height: 8px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 4px rgba(16, 185, 129, .18); }
 .contenus-point-alerte { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, .2); }
 

@@ -16,7 +16,7 @@ export const typesProjets = reactive([
     sujet: 'Votre mur', sujetPluriel: 'Vos murs',
     hypotheses: 'Parpaings 20×20×40 (+5 % de marge), 1 sac de ciment pour 2,5 m², sable 1 m³ pour 10 m².',
     icone: 'fa-solid fa-building',
-    couleur: '#0891b2',
+    couleur: '#111111',
     ordre: 1,
     champs: [
       { nom: 'longueur', question: 'Quelle est la longueur du mur ?', label: 'Longueur du mur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '10', aide: 'Longueur totale en mètres' },
@@ -35,7 +35,7 @@ export const typesProjets = reactive([
     sujet: 'Votre dalle',
     hypotheses: 'Béton 2,4 t/m³, ferraillage 5 kg/m², gravier 0,8 t/m³.',
     icone: 'fa-solid fa-layer-group',
-    couleur: '#06b6d4',
+    couleur: '#2a2a2a',
     ordre: 2,
     champs: [
       { nom: 'longueur', question: 'Quelle est la longueur de la dalle ?', label: 'Longueur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '8' },
@@ -54,7 +54,7 @@ export const typesProjets = reactive([
     sujet: 'Vos fondations',
     hypotheses: 'Béton armé 2,4 t/m³, acier 50 kg/m³.',
     icone: 'fa-solid fa-mountain',
-    couleur: '#0e7490',
+    couleur: '#1f1f1f',
     ordre: 3,
     champs: [
       { nom: 'longueur', question: 'Quelle longueur de tranchées faut-il creuser au total ?', label: 'Longueur totale des tranchées', unite: 'm', min: 0.1, max: 500, pas: 0.1, placeholder: '30', aide: 'Périmètre + refends' },

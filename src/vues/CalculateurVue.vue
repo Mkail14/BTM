@@ -575,7 +575,7 @@ const recapitulatif = computed(() => {
 .calc-modes button:hover { border-color: var(--lagon-500); }
 .calc-modes button[aria-selected="true"] { border-color: var(--lagon-600); background: var(--lagon-50); }
 .calc-modes i { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--gris-100); color: var(--ardoise); }
-.calc-modes button[aria-selected="true"] i { background: var(--lagon-600); color: #fff; }
+.calc-modes button[aria-selected="true"] i { background: var(--lagon-600); color: var(--sur-primaire); }
 .calc-modes span { display: flex; flex-direction: column; }
 .calc-modes strong { color: var(--ardoise); }
 .calc-modes small { color: var(--texte-secondaire); font-size: .8rem; }
@@ -647,7 +647,7 @@ const recapitulatif = computed(() => {
 .assistant-lien:hover { text-decoration: underline; }
 
 .assistant-saisie { display: flex; align-items: center; width: 100%; max-width: 420px; border: 2px solid var(--gris-300); border-radius: var(--rayon); background: var(--carte); transition: border-color .2s, box-shadow .2s; }
-.assistant-saisie:focus-within { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .16); }
+.assistant-saisie:focus-within { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .16); }
 .assistant-saisie.erreur { border-color: var(--erreur); }
 .assistant-saisie input { flex: 1; min-width: 0; padding: 16px 18px; border: 0; outline: 0; background: transparent; color: var(--ardoise); font: 600 1.6rem var(--font-corps); }
 .assistant-saisie span { padding-right: 18px; color: var(--gris-500); font-size: 1.2rem; font-weight: 600; }
@@ -663,7 +663,7 @@ const recapitulatif = computed(() => {
 .assistant-choix.ouv-choix { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; } /* 3 colonnes, téléphone compris */
 .ouv-choix .assistant-choix-bouton, .calc-app .ouv-choix .assistant-choix-bouton { flex-direction: row; align-items: center; justify-content: center; gap: 8px; padding: 12px 10px; font-size: .92rem; text-align: center; }
 .ouv-choix .assistant-choix-bouton.actif { animation: ouv-attente 1.4s ease-in-out infinite; }
-@keyframes ouv-attente { 50% { box-shadow: 0 0 0 4px rgba(6, 182, 212, .2); } }
+@keyframes ouv-attente { 50% { box-shadow: 0 0 0 4px rgba(17, 17, 17, .2); } }
 .ouv-liste { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
 .ouv-liste li { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border: 1px solid var(--bordure); border-radius: var(--rayon); background: var(--carte); }
 .ouv-liste li > i { color: var(--lagon-600); width: 18px; text-align: center; }
@@ -779,7 +779,7 @@ const recapitulatif = computed(() => {
   .calc-app .assistant-maquette {
     order: -1; position: relative; top: auto; flex: none; min-height: 0; height: clamp(120px, calc(var(--zone-visible, 100dvh) * .36), 320px); margin-bottom: 16px;
     border: 0; border-radius: 24px; background: radial-gradient(circle at 50% 60%, var(--carte), var(--lagon-50) 80%);
-    box-shadow: inset 0 0 0 1px rgba(14, 116, 144, .1), 0 14px 30px -18px rgba(14, 116, 144, .45);
+    box-shadow: inset 0 0 0 1px rgba(17, 17, 17, .1), 0 14px 30px -18px rgba(17, 17, 17, .45);
     transition: none;
   }
   .calc-app .assistant-panneau { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; } /* très petit écran : seul le bas défile */
@@ -787,7 +787,7 @@ const recapitulatif = computed(() => {
   .calc-app .assistant-question { font-size: 1.4rem; }
   .calc-app .assistant-aide { margin: 4px 0 14px; }
   .calc-app .assistant-actions { position: static; flex: none; padding: 16px 0 0; background: none; }
-  .calc-app .assistant-actions .btn { min-height: 54px; box-shadow: 0 10px 24px -12px rgba(14, 116, 144, .7); }
+  .calc-app .assistant-actions .btn { min-height: 54px; box-shadow: 0 10px 24px -12px rgba(17, 17, 17, .7); }
   .calc-app .assistant-choix-bouton { padding: 13px 16px; }
 
   /* champ compact : chiffre centré, − et + discrets de chaque côté */

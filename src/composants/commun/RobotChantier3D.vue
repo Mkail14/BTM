@@ -113,7 +113,7 @@ function construire() {
   plateau.add(disque)
   const anneauGeo = new THREE.TorusGeometry(2.05, 0.018, 8, 96)
   nettoyages.push(() => anneauGeo.dispose())
-  const anneau = new THREE.Mesh(anneauGeo, materiau(0x22d3ee, { emissive: 0x0891b2, emissiveIntensity: 1.2 }))
+  const anneau = new THREE.Mesh(anneauGeo, materiau(0x111111, { emissive: 0x0891b2, emissiveIntensity: 1.2 }))
   anneau.rotation.x = Math.PI / 2
   anneau.position.y = SOL
   plateau.add(anneau)
@@ -156,7 +156,7 @@ function construire() {
   const lagon = materiau(0x0891b2, { roughness: 0.4 })
   const sombre = materiau(0x0f172a, { roughness: 0.3, metalness: 0.4 })
   const ambre = materiau(0xf59e0b, { roughness: 0.45 })
-  const yeuxMat = materiau(0x22d3ee, { emissive: 0x22d3ee, emissiveIntensity: 2 })
+  const yeuxMat = materiau(0x111111, { emissive: 0x111111, emissiveIntensity: 2 })
   const voyantMat = materiau(0xf59e0b, { emissive: 0xf59e0b, emissiveIntensity: 2 })
 
   const robot = new THREE.Group()

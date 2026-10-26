@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
   position: fixed; right: var(--aide-marge); bottom: calc(var(--aide-bas) + var(--aide-hauteur, 0px) + var(--decalage-aide, 0px) + var(--barre-onglets, 0px));
   z-index: 180; width: 54px; height: 54px;
   display: grid; place-items: center; border: 1px solid rgba(255,255,255,.28); border-radius: 50%;
-  background: var(--lagon-600); color: #fff; box-shadow: 0 10px 26px rgba(0,0,0,.28);
+  background: var(--lagon-600); color: var(--sur-primaire); box-shadow: 0 10px 26px rgba(0,0,0,.28);
   font-size: 1.25rem; cursor: pointer; transition: transform .2s, background .2s, box-shadow .2s;
   touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
@@ -233,7 +233,7 @@ onBeforeUnmount(() => {
 .aide-bouton:hover, .aide-bouton:focus-visible { transform: translateY(-3px); background: var(--lagon-500); box-shadow: 0 14px 30px rgba(0,0,0,.34); }
 .aide-overlay {
   position: fixed; inset: 0; z-index: 260; display: grid; place-items: center; padding: 24px;
-  background: rgba(6, 32, 44, .62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); overflow-y: auto;
+  background: rgba(17, 17, 17, .62); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); overflow-y: auto;
 }
 .aide-dialogue {
   position: relative;
@@ -261,7 +261,7 @@ onBeforeUnmount(() => {
 }
 .aide-fermer:hover { background: #fff; transform: rotate(90deg); }
 .aide-entete { display: flex; align-items: center; gap: 16px; padding-right: 42px; }
-.aide-icone { width: 52px; height: 52px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(255,255,255,.25); border-radius: 14px; background: rgba(103,232,249,.16); color: var(--lagon-300); font-size: 1.35rem; }
+.aide-icone { width: 52px; height: 52px; display: grid; place-items: center; flex: 0 0 auto; border: 1px solid rgba(255,255,255,.25); border-radius: 14px; background: rgba(244, 233, 219,.16); color: var(--lagon-300); font-size: 1.35rem; }
 .aide-surtitre { color: var(--lagon-300); font-size: .76rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
 .aide-dialogue h2 { margin-top: 4px; color: #fff; font-size: clamp(1.55rem, 3vw, 2.15rem); }
 .aide-intro { margin: 20px 0 26px; color: rgba(255,255,255,.78); }
@@ -316,7 +316,7 @@ onBeforeUnmount(() => {
 /* ---------- Téléphone : feuille du bas à la place des deux grandes cartes ---------- */
 .aide-feuille { display: none; }
 @media (max-width: 639px) {
-  .aide-overlay { display: flex; align-items: flex-end; padding: 0; overflow: hidden; backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(6, 32, 44, .5); }
+  .aide-overlay { display: flex; align-items: flex-end; padding: 0; overflow: hidden; backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(17, 17, 17, .5); }
   .aide-dialogue, .aide-fermer { display: none; }
   .aide-feuille {
     display: flex; flex-direction: column; align-items: center; width: 100%; max-height: 92dvh; overflow-y: auto;

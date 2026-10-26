@@ -403,7 +403,7 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
   font-family: var(--font-mono); font-size: .95rem; letter-spacing: .06em; text-transform: uppercase;
 }
 .resultats-code input::placeholder { font-family: var(--font-corps); letter-spacing: 0; text-transform: none; }
-.resultats-code input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .18); }
+.resultats-code input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .18); }
 .resultats-code input[aria-invalid="true"] { border-color: var(--erreur); }
 .resultats-code-erreur { flex-basis: 100%; margin: 0; color: var(--erreur); font-size: .85rem; text-align: left; }
 
@@ -433,7 +433,7 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
 .resultats-calcul summary:hover { color: var(--lagon-700); text-decoration: underline; }
 .resultats-calcul p { max-width: 72ch; margin: 8px auto 0; line-height: 1.55; }
 
-.modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(6,32,44,.55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
+.modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(17, 17, 17,.55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
 .modale { background: var(--carte); border-radius: var(--rayon-lg); padding: 30px; width: 100%; max-width: 460px; box-shadow: var(--ombre-lg); animation: apparaitre .3s ease; }
 .modale h2 { font-size: 1.7rem; color: var(--ardoise); margin-bottom: 6px; }
 .modale form { margin-top: 20px; display: flex; flex-direction: column; gap: 20px; }

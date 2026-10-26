@@ -400,7 +400,7 @@ const documentHtml = computed(() => {
   // les « target » propres au message sont retirés : tous les liens suivent <base target="_blank"> (un lien qui voudrait
   // s'ouvrir dans le cadre ou la page serait bloqué par l'isolation, et le clic ne ferait rien)
   const corps = html.replace(/(<a\b[^>]*?)\s+target\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '$1')
-  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'; font-src data:"><base target="_blank"><style>body{margin:0;padding:8px 24px 20px 80px;font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#0f172a;word-wrap:break-word}@media (max-width:700px){body{padding:8px 16px 16px}}img{max-width:100%;height:auto}table{max-width:100%}a{color:#0e7490}</style></head><body>${corps}</body></html>`
+  return `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: https: http:; style-src 'unsafe-inline'; font-src data:"><base target="_blank"><style>body{margin:0;padding:8px 24px 20px 80px;font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:14px;line-height:1.55;color:#0f172a;word-wrap:break-word}@media (max-width:700px){body{padding:8px 16px 16px}}img{max-width:100%;height:auto}table{max-width:100%}a{color:#1f1f1f}</style></head><body>${corps}</body></html>`
 })
 
 // Message en texte brut : adresses web et e-mails rendus cliquables (découpage en morceaux, aucun HTML injecté).
@@ -816,7 +816,7 @@ watch(dossier, () => { selection.value = [] })
   .mg-message > .mg-case { display: none; }
   .mg-avatar {
     display: grid; place-items: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%;
-    background: var(--adm-accent); color: #fff; font: inherit; font-size: 1rem; font-weight: 600; cursor: pointer;
+    background: var(--adm-accent); color: var(--sur-primaire); font: inherit; font-size: 1rem; font-weight: 600; cursor: pointer;
   }
   .mg-message-corps { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "de date" "sujet icones"; gap: 2px 10px; align-items: start; min-height: 0; }
   .mg-de { grid-area: de; font-size: .95rem; }

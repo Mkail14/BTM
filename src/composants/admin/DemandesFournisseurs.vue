@@ -186,7 +186,7 @@ async function confirmer() {
 <style scoped>
 .dem { display: flex; flex-direction: column; gap: 14px; }
 .dem-barre { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
-.dem-barre .adm-segments button[aria-pressed="true"] { background: var(--adm-noir); color: #fff; }
+.dem-barre .adm-segments button[aria-pressed="true"] { background: var(--adm-noir); color: var(--adm-sur-noir); }
 .dem-aide { display: flex; gap: 8px; margin: 0; color: var(--adm-muet); font-size: .82rem; }
 .dem-aide i { margin-top: 3px; }
 .dem-liste { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }

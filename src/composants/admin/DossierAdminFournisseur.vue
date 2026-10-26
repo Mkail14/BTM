@@ -166,13 +166,13 @@ watch(vue, (v) => { erreur.value = ''; if (v === 'messages') { chargerMessages()
 <style scoped>
 .doa { display: flex; flex-direction: column; gap: 14px; min-height: 100%; }
 .doa-onglets { align-self: flex-start; }
-.doa-onglets button[aria-selected="true"] { background: var(--adm-noir); color: #fff; }
+.doa-onglets button[aria-selected="true"] { background: var(--adm-noir); color: var(--adm-sur-noir); }
 .doa-onglets i { margin-right: 4px; }
 .doa-signe { color: #10b981; }
 .doa-fil { display: flex; flex-direction: column; gap: 10px; min-height: 260px; max-height: 52vh; overflow-y: auto; padding: 4px 2px; }
 .doa-vide { margin: 12px 0; color: var(--adm-muet); font-size: .88rem; text-align: center; }
 .doa-message { max-width: 80%; padding: 10px 14px; border-radius: 16px 16px 16px 4px; background: var(--adm-ligne-2); color: var(--adm-encre); }
-.doa-message.btm { align-self: flex-end; border-radius: 16px 16px 4px 16px; background: var(--adm-noir); color: #fff; }
+.doa-message.btm { align-self: flex-end; border-radius: 16px 16px 4px 16px; background: var(--adm-noir); color: var(--adm-sur-noir); }
 .doa-message p { margin: 0; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .doa-message small { display: block; margin-top: 4px; font-size: .72rem; opacity: .7; }
 .doa-saisie { display: flex; align-items: flex-end; gap: 8px; }

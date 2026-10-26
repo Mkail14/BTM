@@ -109,13 +109,13 @@ onBeforeUnmount(() => cancelAnimationFrame(animation))
 <style scoped>
 .fid-voile {
   position: fixed; inset: 0; z-index: 260; display: grid; place-items: center; padding: 24px;
-  background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: fid-fondu .2s ease;
+  background: rgba(17, 17, 17, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: fid-fondu .2s ease;
 }
 @keyframes fid-fondu { from { opacity: 0; } }
 .fid {
   position: relative; display: flex; flex-direction: column; width: min(100%, 600px); max-height: calc(100dvh - 48px); overflow: hidden auto; overscroll-behavior: contain;
   padding: 24px 28px 26px; border-radius: 28px; background: var(--gris-50); color: var(--ardoise);
-  box-shadow: 0 30px 80px rgba(6, 32, 44, .45); animation: fid-monter .34s cubic-bezier(.22, .61, .36, 1);
+  box-shadow: 0 30px 80px rgba(17, 17, 17, .45); animation: fid-monter .34s cubic-bezier(.22, .61, .36, 1);
 }
 @keyframes fid-monter { from { transform: translateY(18px); opacity: 0; } }
 .fid:focus { outline: none; }
@@ -131,9 +131,9 @@ onBeforeUnmount(() => cancelAnimationFrame(animation))
   position: relative; overflow: hidden; padding: 20px 24px 18px; border-radius: 22px; color: #fff; isolation: isolate;
   background:
     radial-gradient(110% 130% at 100% 0%, rgba(251, 191, 36, .34), transparent 55%),
-    radial-gradient(90% 120% at 0% 110%, rgba(8, 145, 178, .4), transparent 60%),
-    linear-gradient(135deg, #0b2f3f, #06202c 55%, #03141c);
-  box-shadow: inset 0 0 0 1px rgba(253, 230, 138, .22), 0 18px 40px rgba(6, 32, 44, .3);
+    radial-gradient(90% 120% at 0% 110%, rgba(17, 17, 17, .4), transparent 60%),
+    linear-gradient(135deg, #0b2f3f, #111111 55%, #03141c);
+  box-shadow: inset 0 0 0 1px rgba(253, 230, 138, .22), 0 18px 40px rgba(17, 17, 17, .3);
 }
 /* reflet qui traverse la carte à l'ouverture */
 .fid-carte::after {

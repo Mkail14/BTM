@@ -492,14 +492,14 @@ async function changerMode(mode) {
 .compte-vide i { color: var(--adm-muet); }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-.solde { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 22px; border-radius: 20px; background: var(--adm-noir); color: #fff; }
-.solde-label { font-size: .78rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--lagon-300); }
+.solde { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 22px; border-radius: 20px; background: var(--adm-noir); color: var(--adm-sur-noir); }
+.solde-label { font-size: .78rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--adm-sur-noir); opacity: .7; }
 .solde-montant { font-size: 2.2rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.solde-detail { color: rgba(255, 255, 255, .72); font-size: .88rem; }
+.solde-detail { color: color-mix(in srgb, currentColor 72%, transparent); font-size: .88rem; }
 .solde-detail i { color: #fcd34d; margin-right: 4px; }
-.adm-btn-blanc { background: #fff; color: var(--adm-noir); }
+.adm-btn-blanc { background: #fff; color: #111; }
 .adm-btn-blanc:hover:not(:disabled) { background: #e2e8f0; }
-.adm-btn-contour { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .3); }
+.adm-btn-contour { background: transparent; color: inherit; border-color: color-mix(in srgb, currentColor 30%, transparent); }
 .adm-btn-contour:hover:not(:disabled) { border-color: #fff; }
 
 .chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
@@ -533,7 +533,7 @@ async function changerMode(mode) {
 
 .rib-carte {
   display: flex; flex-direction: column; gap: 8px; padding: 22px; border-radius: 20px; color: #fff;
-  background: linear-gradient(135deg, #0f172a 0%, #164e63 100%); box-shadow: 0 18px 40px rgba(15, 23, 42, .25);
+  background: linear-gradient(135deg, #0f172a 0%, #111111 100%); box-shadow: 0 18px 40px rgba(15, 23, 42, .25);
 }
 .rib-banque { font-size: .85rem; color: rgba(255, 255, 255, .75); }
 .rib-banque i { margin-right: 6px; }
@@ -556,7 +556,7 @@ async function changerMode(mode) {
 .site-mode:disabled { cursor: progress; }
 .site-mode:focus-visible { outline: 2px solid var(--adm-accent); outline-offset: 2px; }
 .site-mode-icone { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-carte); color: var(--adm-encre-2); }
-.site-mode.actif .site-mode-icone { background: var(--adm-noir); color: #fff; }
+.site-mode.actif .site-mode-icone { background: var(--adm-noir); color: var(--adm-sur-noir); }
 .site-mode-texte { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .site-mode-texte small { color: var(--adm-muet); font-size: .82rem; line-height: 1.45; }
 .site-mode-coche { color: var(--adm-noir); font-size: 1.1rem; }

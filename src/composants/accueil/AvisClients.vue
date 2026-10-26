@@ -410,9 +410,9 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 :global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-commentaire) { color: #e2e8f0; }
 :global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-auteur strong) { color: #fff; }
 :global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-auteur small) { color: rgba(255, 255, 255, .55); }
-:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-avatar) { background: rgba(255, 255, 255, .14); color: #a5f3fc; }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-avatar) { background: rgba(255, 255, 255, .14); color: #e3d6c4; }
 :global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-source) { color: rgba(255, 255, 255, .55); }
-:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-source:hover) { background: rgba(255, 255, 255, .08); color: #67e8f9; }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-source:hover) { background: rgba(255, 255, 255, .08); color: #f4e9db; }
 /* Trustpilot en thème sombre : cartes blanches, aux couleurs officielles de Trustpilot (vert sur blanc) */
 :global(html[data-theme="sombre"] .avis-section .avis-carte.avis-trustpilot) { border-color: #e5e5dd; background: #fff; box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .5); }
 :global(html[data-theme="sombre"] .avis-section .avis-trustpilot-marque) { color: #191919; }
@@ -498,7 +498,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-auteur small { color: var(--gris-500); font-size: .78rem; }
 
 /* ---------- Formulaire ---------- */
-.avis-modal-fond { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 20px; background: rgba(6, 32, 44, .62); backdrop-filter: blur(5px); }
+.avis-modal-fond { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 20px; background: rgba(17, 17, 17, .62); backdrop-filter: blur(5px); }
 .avis-fermer {
   position: fixed; top: 22px; right: 24px; z-index: 2; width: 44px; height: 44px; display: grid; place-items: center;
   border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 1.2rem;
@@ -511,7 +511,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-label, .avis-rating legend { display: block; margin: 18px 0 7px; color: var(--ardoise); font-weight: 600; font-size: .86rem; }
 .avis-label span { color: var(--gris-500); font-weight: 400; }
 .avis-modal input, .avis-modal textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); background: var(--carte); color: var(--texte); font: inherit; resize: vertical; }
-.avis-modal input:focus, .avis-modal textarea:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .18); }
+.avis-modal input:focus, .avis-modal textarea:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .18); }
 .avis-rating { border: 0; padding: 0; margin: 0; }
 .avis-rating-choix { display: flex; gap: 6px; }
 .avis-rating-choix button { padding: 2px; border: 0; background: transparent; color: var(--gris-200); font-size: 1.9rem; line-height: 1; cursor: pointer; transition: color .15s, transform .15s; }
@@ -539,7 +539,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
   border: 1.5px solid var(--bordure); border-radius: var(--rayon-sm, 12px); background: var(--carte); color: var(--ardoise);
   font: inherit; text-decoration: none; cursor: pointer; transition: border-color .2s, box-shadow .2s, transform .2s;
 }
-.avis-choix-option:hover, .avis-choix-option:focus-visible { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .12); transform: translateY(-1px); }
+.avis-choix-option:hover, .avis-choix-option:focus-visible { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .12); transform: translateY(-1px); }
 .avis-choix-option strong { display: block; font-size: .88rem; }
 .avis-choix-option small { display: block; margin-top: 2px; color: var(--gris-500); font-size: .72rem; line-height: 1.35; }
 .avis-choix-icone { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 9px; background: var(--lagon-50); color: var(--lagon-800); font-size: .85rem; }

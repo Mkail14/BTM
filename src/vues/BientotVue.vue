@@ -19,6 +19,7 @@ import { useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import { SEUIL_FOURNISSEURS } from '@/composables/useOuverture.js'
 import { ouvrirInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
 import { useAuth } from '@/composables/useAuth.js'
+import { useTheme } from '@/composables/useTheme.js'
 import { listerMessages, listerDocuments } from '@/services/supabase/serviceDossierFournisseur.js'
 const DossierFournisseur = defineAsyncComponent(() => import('@/composants/commun/DossierFournisseur.vue'))
 
@@ -29,6 +30,7 @@ const props = defineProps({
 })
 const { ouvrirAuth } = useFenetreAuth()
 const { deconnexion, rechargerRole } = useAuth()
+const { sombre, basculer: basculerTheme } = useTheme()
 
 const prets = computed(() => Math.min(props.partenaires, SEUIL_FOURNISSEURS))
 const annee = new Date().getFullYear()
@@ -87,8 +89,17 @@ const seDeconnecter = () => deconnexion()
         <span class="bientot-logo">
           <img src="/logo-groupe-btm.png" alt="Groupe BTM" width="86" height="40" />
         </span>
-        <button v-if="demande" type="button" class="bientot-connexion" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Se déconnecter</button>
-        <button v-else type="button" class="bientot-connexion" @click="ouvrirAuth('connexion')">Espace partenaires</button>
+        <!-- même groupe que l'en-tête du site : thème (jour / nuit du décor) puis accès partenaires -->
+        <div class="bientot-entete-actions">
+          <button
+            class="bientot-theme" type="button" :aria-pressed="sombre" :title="sombre ? 'Passer en mode clair' : 'Passer en mode sombre'"
+            :aria-label="sombre ? 'Passer en mode clair' : 'Passer en mode sombre'" @click="basculerTheme"
+          >
+            <i :class="sombre ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+          </button>
+          <button v-if="demande" type="button" class="bientot-connexion" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Se déconnecter</button>
+          <button v-else type="button" class="bientot-connexion" @click="ouvrirAuth('connexion')"><i class="fa-solid fa-store" aria-hidden="true"></i> <span class="bientot-libelle-long">Espace partenaires</span><span class="bientot-libelle-court">Partenaires</span></button>
+        </div>
       </div>
     </header>
 
@@ -183,6 +194,8 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 .bientot {
   position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; isolation: isolate;
   background: #0d0d0d; color: #fff;
+  /* page toujours de nuit, quel que soit le thème : l'action principale y est crème (texte noir), comme sur le héros */
+  --lagon-600: #f4e9db; --lagon-500: #fff; --sur-primaire: #111; --focus: #f4e9db;
 }
 
 /* ---------- En-tête (repris d'EnteteApp) ---------- */
@@ -190,11 +203,28 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 .bientot-entete-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .bientot-logo { display: flex; align-items: center; gap: 10px; }
 .bientot-logo img { display: block; width: auto; height: 40px; }
-.bientot-connexion {
-  height: 40px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; background: transparent;
-  color: rgba(255, 255, 255, .85); font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; transition: color var(--transition), border-color var(--transition);
+/* thème et accès partenaires groupés à droite, alignés sur la marge du texte (même rythme que l'en-tête du site) */
+.bientot-entete-actions { display: flex; align-items: center; gap: 10px; }
+.bientot-theme {
+  display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 50%;
+  background: rgba(255, 255, 255, .05); color: rgba(255, 255, 255, .85); font-size: .95rem; cursor: pointer;
+  transition: color var(--transition), background var(--transition), transform var(--transition);
 }
-.bientot-connexion:hover { color: #fff; border-color: #fff; }
+.bientot-theme:hover { color: #fcd34d; background: rgba(255, 255, 255, .1); }
+.bientot-theme:active { transform: scale(.92); }
+.bientot-connexion {
+  /* bouton secondaire : « Devenir partenaire » reste la seule action pleine de la page */
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px;
+  background: rgba(255, 255, 255, .04); color: #fff; font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+.bientot-connexion i { color: #f4e9db; font-size: .85em; }
+.bientot-connexion { white-space: nowrap; }
+.bientot-libelle-court { display: none; }
+@media (max-width: 420px) { .bientot-libelle-long { display: none; } .bientot-libelle-court { display: inline; } .bientot-connexion { padding: 0 14px; } }
+.bientot-connexion:hover { border-color: #f4e9db; background: rgba(244, 233, 219, .08); }
+.bientot-connexion:active { transform: scale(.97); }
+.bientot-theme:focus-visible, .bientot-connexion:focus-visible { outline: 2px solid #f4e9db; outline-offset: 3px; }
 
 /* ---------- Texte (repris du héros) ---------- */
 .bientot-corps { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; min-height: 0; }

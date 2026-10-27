@@ -432,8 +432,10 @@ async function supprimerCompte() {
 
 <style scoped>
 /* ---------- Barre d'entête : thème lagon sombre, identique sur toutes les pages ---------- */
+/* le fond de la barre remonte de 80 px au-dessus de l'écran : sur iPhone, la page défile aussi sous la barre d'état
+   (heure, batterie) ; sans ce prolongement, on y voyait le contenu coupé au-dessus de la barre */
 .entete {
-  position: fixed; inset: 0 0 auto 0; z-index: 100; height: var(--hauteur-entete); color: #fff;
+  position: fixed; inset: -80px 0 auto 0; z-index: 100; padding-top: 80px; height: calc(var(--hauteur-entete) + 80px); color: #fff;
   transition: background var(--transition), box-shadow var(--transition), border-color var(--transition);
   border-bottom: 1px solid transparent;
 }

@@ -470,6 +470,12 @@ async function supprimerCompte() {
   box-shadow: 0 8px 28px rgba(15, 23, 42, .08);
 }
 :global(.appareil-leger .entete.entete-claire) { background: rgba(255, 255, 255, .96); }
+/* Téléphone : barre presque opaque. Le verre très léger laissait voir la page floutée jusque sous l'heure et la
+   batterie de l'iPhone : la barre semblait s'arrêter avant le haut de l'écran. */
+@media (max-width: 899px) {
+  .entete-defile, .entete-menu-ouvert { background: rgba(13, 13, 13, .9); }
+  .entete.entete-claire { background: rgba(255, 255, 255, .94); }
+}
 /* logo crème sur fond transparent : passé en noir sur l'en-tête claire */
 .entete-claire .entete-logo-image { filter: brightness(0); }
 .entete.entete-claire .nav-principale { border-color: rgba(15, 23, 42, .1); background: rgba(15, 23, 42, .03); box-shadow: none; }

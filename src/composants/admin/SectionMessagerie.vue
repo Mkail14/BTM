@@ -133,6 +133,31 @@ const toutRecharger = () => actualiser(liste.value.page)
 function actualiserEnFond() {
   if (!document.hidden && !chargementListe.value) actualiser(liste.value.page, { discret: true })
 }
+// Téléphone : tirer la liste vers le bas depuis le haut de la page recharge la boîte, comme dans Gmail
+const SEUIL_TIRAGE = 64 // distance (après amortissement) qui déclenche l'actualisation
+const tirage = ref(0) // position de la pastille qui descend avec le doigt
+const tirageEnCours = ref(false) // actualisation lancée par un tirage : la pastille tourne jusqu'à la fin
+let departTirage = null
+function debutTirage(e) {
+  const possible = window.matchMedia('(max-width: 1023px)').matches && !ouvert.value && !brouillon.value && !tiroir.value && !tirageEnCours.value && window.scrollY <= 0
+  departTirage = possible ? e.touches[0].clientY : null
+}
+function suiviTirage(e) {
+  if (departTirage === null) return
+  const ecart = e.touches[0].clientY - departTirage
+  tirage.value = ecart > 0 && window.scrollY <= 0 ? Math.min(110, ecart * 0.5) : 0
+}
+async function finTirage() {
+  if (departTirage === null) return
+  departTirage = null
+  if (tirage.value < SEUIL_TIRAGE) { tirage.value = 0; return }
+  tirage.value = SEUIL_TIRAGE
+  tirageEnCours.value = true
+  await actualiser(1)
+  tirageEnCours.value = false
+  tirage.value = 0
+}
+
 let minuterie
 onMounted(() => {
   actualiser() // la liste en mémoire reste affichée pendant l'actualisation
@@ -141,12 +166,20 @@ onMounted(() => {
   document.addEventListener('visibilitychange', actualiserEnFond)
   window.addEventListener('focus', actualiserEnFond)
   window.addEventListener('keydown', raccourci)
+  window.addEventListener('touchstart', debutTirage, { passive: true })
+  window.addEventListener('touchmove', suiviTirage, { passive: true })
+  window.addEventListener('touchend', finTirage)
+  window.addEventListener('touchcancel', finTirage)
 })
 onBeforeUnmount(() => {
   clearInterval(minuterie)
   document.removeEventListener('visibilitychange', actualiserEnFond)
   window.removeEventListener('focus', actualiserEnFond)
   window.removeEventListener('keydown', raccourci)
+  window.removeEventListener('touchstart', debutTirage)
+  window.removeEventListener('touchmove', suiviTirage)
+  window.removeEventListener('touchend', finTirage)
+  window.removeEventListener('touchcancel', finTirage)
 })
 
 function choisirDossier(chemin) {
@@ -625,6 +658,11 @@ watch(dossier, () => { selection.value = [] })
       </div>
     </section>
 
+    <!-- Téléphone : pastille du « tirer pour actualiser » -->
+    <div v-if="tirage" class="mg-tirage" :class="{ pret: tirage >= SEUIL_TIRAGE }" :style="{ transform: `translate(-50%, ${tirage}px)` }" aria-hidden="true">
+      <i class="fa-solid fa-rotate-right" :class="{ 'fa-spin': tirageEnCours }" :style="tirageEnCours ? null : { transform: `rotate(${tirage * 4}deg)` }"></i>
+    </div>
+
     <!-- Téléphone : bouton flottant « Nouveau », comme dans Gmail -->
     <button v-if="!ouvert && !brouillon && !tiroir" type="button" class="mg-fab" @click="nouveau"><i class="fa-solid fa-pen" aria-hidden="true"></i> Nouveau</button>
 
@@ -830,6 +868,13 @@ watch(dossier, () => { selection.value = [] })
   .mg-pages { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px; color: var(--adm-muet); font-size: .84rem; }
   .mg-vide, .mg-erreur { border-radius: var(--adm-rayon-sm); background: var(--adm-carte); }
   .mg-erreur { margin: 0 0 8px; background: var(--adm-danger-fond); }
+
+  /* Tirer pour actualiser : pastille qui descend du haut de l'écran */
+  .mg-tirage {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) - 28px); left: 50%; z-index: 250; display: grid; place-items: center;
+    width: 40px; height: 40px; border-radius: 50%; background: var(--adm-carte); color: var(--adm-muet); box-shadow: 0 2px 10px rgba(15, 23, 42, .22);
+  }
+  .mg-tirage.pret { color: var(--adm-accent); }
 
   /* Bouton flottant « Nouveau » */
   .mg-fab {

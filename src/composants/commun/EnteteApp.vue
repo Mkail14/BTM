@@ -84,6 +84,10 @@ const mesurerHeros = () => {
   surHeros.value = heros.getBoundingClientRect().bottom > basBarre
 }
 const enteteClaire = computed(() => !themeSombre.value && !surHeros.value)
+// couleur de la zone de l'heure pour les navigateurs qui lisent theme-color : celle de la barre
+watch(enteteClaire, (claire) => {
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', claire ? '#f9f8f6' : '#161616')
+}, { immediate: true })
 // remesure après l'affichage, puis après la transition et le retour à la position de défilement
 watch(() => route.path, () => { essaisHeros = 0; nextTick(mesurerHeros); setTimeout(mesurerHeros, 450) })
 
@@ -434,10 +438,10 @@ async function supprimerCompte() {
 
 <style scoped>
 /* ---------- Barre d'entête : thème lagon sombre, identique sur toutes les pages ---------- */
-/* le fond de la barre remonte de 80 px au-dessus de l'écran : sur iPhone, la page défile aussi sous la barre d'état
-   (heure, batterie) ; sans ce prolongement, on y voyait le contenu coupé au-dessus de la barre */
+/* barre collée au bord haut (top: 0) : Safari (iPhone) ne colore la zone de l'heure qu'à partir d'une barre fixée tout en haut ;
+   sur iPhone, son contenu commence sous l'heure (padding = zone de l'heure, viewport-fit=cover dans index.html) */
 .entete {
-  position: fixed; inset: -80px 0 auto 0; z-index: 100; padding-top: calc(80px + env(safe-area-inset-top, 0px)); height: calc(var(--hauteur-entete) + 80px); color: #fff;
+  position: fixed; inset: 0 0 auto 0; z-index: 100; padding-top: env(safe-area-inset-top, 0px); height: var(--hauteur-entete); color: #fff;
   transition: background var(--transition), box-shadow var(--transition), border-color var(--transition);
   border-bottom: 1px solid transparent;
 }
@@ -470,6 +474,12 @@ async function supprimerCompte() {
   box-shadow: 0 8px 28px rgba(15, 23, 42, .08);
 }
 :global(.appareil-leger .entete.entete-claire) { background: rgba(255, 255, 255, .96); }
+/* Téléphone : couleur pleine. Safari (iPhone) ne laisse pas le site dessiner sous l'heure ; il y reprend la couleur
+   de la barre fixée en haut, seulement si elle est pleine (sinon il montre la page floutée, coupée sous l'heure). */
+@media (max-width: 899px) {
+  .entete-defile, .entete-menu-ouvert { background: #161616; }
+  .entete.entete-claire { background: #f9f8f6; }
+}
 /* logo crème sur fond transparent : passé en noir sur l'en-tête claire */
 .entete-claire .entete-logo-image { filter: brightness(0); }
 .entete.entete-claire .nav-principale { border-color: rgba(15, 23, 42, .1); background: rgba(15, 23, 42, .03); box-shadow: none; }

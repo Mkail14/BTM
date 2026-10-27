@@ -34,10 +34,7 @@ Deno.serve(async (req) => {
 
     const corps = await req.json();
 
-    /**
-     * Profil d'une adresse e-mail, seulement si c'est bien l'adresse de connexion du compte (auth.users) :
-     * profils.email ne suffit pas (un compte pouvait y écrire l'adresse d'un autre pour recevoir ses accès).
-     */
+    /** Profil d'une adresse e-mail, vérifiée sur l'adresse de connexion du compte */
     async function profilParEmail(email: string, colonnes: string) {
       const { data: lignes } = await admin.from("profils").select(colonnes).eq("email", email).limit(5);
       for (const p of (lignes || []) as unknown as { id: string }[]) {
@@ -166,18 +163,19 @@ Deno.serve(async (req) => {
       const { data: u, error: eU } = await admin.auth.admin.getUserById(cibleId);
       if (eU || !u?.user?.email) return json({ erreur: "Compte introuvable." }, 404);
       const cible = u.user;
+      const emailCible = u.user.email;
       const origine = origineDe(corps.origine);
 
       // Renvoie l'e-mail : invitation si le compte n'est pas activé, sinon réinitialisation du mot de passe
       if (corps.action === "relancer_fournisseur") {
         const { error } = actif(cible)
-          ? await auth.auth.resetPasswordForEmail(cible.email, versMotDePasse(origine))
-          : await admin.auth.admin.inviteUserByEmail(cible.email, versMotDePasse(origine));
+          ? await auth.auth.resetPasswordForEmail(emailCible, versMotDePasse(origine))
+          : await admin.auth.admin.inviteUserByEmail(emailCible, versMotDePasse(origine));
         if (!error) return json({ ok: true, envoye: true, acces: statutAcces(cible) });
-        return json({ ok: true, envoye: false, lien: await lienDeSecours(cible.email, actif(cible), origine), acces: statutAcces(cible) });
+        return json({ ok: true, envoye: false, lien: await lienDeSecours(emailCible, actif(cible), origine), acces: statutAcces(cible) });
       }
       if (corps.action === "lien_fournisseur") {
-        return json({ ok: true, lien: await lienDeSecours(cible.email, actif(cible), origine) });
+        return json({ ok: true, lien: await lienDeSecours(emailCible, actif(cible), origine) });
       }
       // Retrait : un compte jamais activé est supprimé ; un compte actif redevient un compte particulier
       if (!actif(cible)) {

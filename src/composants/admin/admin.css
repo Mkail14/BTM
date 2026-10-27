@@ -407,3 +407,13 @@
 @media (max-width: 767px) {
   .adm :is(input:not([type=checkbox], [type=radio], [type=color], [type=file]), select, textarea) { font-size: max(16px, 1em); }
 }
+
+/* ---------- iPhone : zone de l'heure et de la batterie (viewport-fit=cover, index.html) ----------
+   env(safe-area-inset-top) vaut 0 ailleurs : ces règles ne changent rien sur ordinateur ni sur Android. */
+.adm-cadre { padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
+@media (min-width: 768px) and (max-width: 1279px) { .adm-cadre { padding-top: calc(12px + env(safe-area-inset-top, 0px)); } }
+@media (max-width: 767px) {
+  .adm-cadre { padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+  .adm-lat { top: calc(12px + env(safe-area-inset-top, 0px)); }
+}
+@media (max-width: 640px) { .adm-cadre { padding-top: calc(10px + env(safe-area-inset-top, 0px)); } }

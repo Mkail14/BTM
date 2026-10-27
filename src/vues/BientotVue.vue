@@ -199,7 +199,7 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 }
 
 /* ---------- En-tête (repris d'EnteteApp) ---------- */
-.bientot-entete { flex: none; height: var(--hauteur-entete); }
+.bientot-entete { flex: none; height: var(--hauteur-entete); padding-top: env(safe-area-inset-top, 0px); }
 .bientot-entete-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .bientot-logo { display: flex; align-items: center; gap: 10px; }
 .bientot-logo img { display: block; width: auto; height: 40px; }

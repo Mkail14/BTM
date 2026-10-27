@@ -769,7 +769,7 @@ watch(dossier, () => { selection.value = [] })
 
   /* Dossiers : tiroir glissant depuis la gauche */
   .mg-dossiers {
-    position: fixed; top: 0; bottom: 0; left: 0; z-index: 290; width: min(300px, 86vw); padding: 14px 12px calc(14px + env(safe-area-inset-bottom));
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 290; width: min(300px, 86vw); padding: calc(14px + env(safe-area-inset-top, 0px)) 12px calc(14px + env(safe-area-inset-bottom));
     border-radius: 0 22px 22px 0; overflow-y: auto; overscroll-behavior: contain;
     transform: translateX(-105%); visibility: hidden; transition: transform .28s cubic-bezier(.22, .61, .36, 1), visibility 0s .28s;
   }

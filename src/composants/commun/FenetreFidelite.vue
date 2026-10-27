@@ -219,7 +219,7 @@ onBeforeUnmount(() => cancelAnimationFrame(animation))
 /* téléphone : feuille qui monte du bas, façons en lignes (icône, texte, état) */
 @media (max-width: 639px) {
   .fid-voile { place-items: end center; padding: 0; }
-  .fid { width: 100%; max-height: calc(100dvh - 12px); padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }
+  .fid { width: 100%; max-height: calc(100dvh - 12px - env(safe-area-inset-top, 0px)); padding: 14px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }
   .fid-fermer { top: 24px; right: 26px; }
   .fid-carte { padding: 18px 18px 16px; }
   .fid-solde strong { font-size: 3rem; }

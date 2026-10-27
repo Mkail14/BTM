@@ -79,7 +79,9 @@ const mesurerHeros = () => {
   // sinon elle passait en clair au-dessus du héros jusqu'au prochain défilement
   if (!heros) { surHeros.value = true; if (essaisHeros++ < 120) requestAnimationFrame(mesurerHeros); return }
   essaisHeros = 0
-  surHeros.value = heros.getBoundingClientRect().bottom > 72
+  // bas de la barre : 72 px, plus la zone de l'heure sur iPhone
+  const basBarre = document.querySelector('#entete-app .entete-inner')?.getBoundingClientRect().bottom || 72
+  surHeros.value = heros.getBoundingClientRect().bottom > basBarre
 }
 const enteteClaire = computed(() => !themeSombre.value && !surHeros.value)
 // remesure après l'affichage, puis après la transition et le retour à la position de défilement
@@ -435,7 +437,7 @@ async function supprimerCompte() {
 /* le fond de la barre remonte de 80 px au-dessus de l'écran : sur iPhone, la page défile aussi sous la barre d'état
    (heure, batterie) ; sans ce prolongement, on y voyait le contenu coupé au-dessus de la barre */
 .entete {
-  position: fixed; inset: -80px 0 auto 0; z-index: 100; padding-top: 80px; height: calc(var(--hauteur-entete) + 80px); color: #fff;
+  position: fixed; inset: -80px 0 auto 0; z-index: 100; padding-top: calc(80px + env(safe-area-inset-top, 0px)); height: calc(var(--hauteur-entete) + 80px); color: #fff;
   transition: background var(--transition), box-shadow var(--transition), border-color var(--transition);
   border-bottom: 1px solid transparent;
 }

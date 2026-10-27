@@ -432,7 +432,7 @@ onMounted(() => nextTick(focaliser))
 /* téléphone : feuille qui monte du bas, comme la connexion */
 @media (max-width: 639px) {
   .ifo-voile { place-items: end center; padding: 0; }
-  .ifo { width: 100%; max-height: calc(100dvh - 12px); padding: 16px 20px calc(16px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }
+  .ifo { width: 100%; max-height: calc(100dvh - 12px - env(safe-area-inset-top, 0px)); padding: 16px 20px calc(16px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }
   .ifo-form { gap: 14px; }
   .ifo-corps { gap: 12px; }
   .ifo-titre { font-size: 1.7rem; }

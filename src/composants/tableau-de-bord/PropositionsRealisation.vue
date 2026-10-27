@@ -321,7 +321,7 @@ async function decliner(r) {
 /* téléphone : feuille qui monte du bas */
 @media (max-width: 639px) {
   .pr-voile { place-items: end center; padding: 0; }
-  .pr-fenetre { gap: 14px; width: 100%; max-height: calc(100dvh - 12px); padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }
+  .pr-fenetre { gap: 14px; width: 100%; max-height: calc(100dvh - 12px - env(safe-area-inset-top, 0px)); padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 26px 26px 0 0; }
   .pr-fenetre h2 { font-size: 1.05rem; }
   .pr-fenetre .pr-tete p { display: none; }
   .pr-fermer { top: 14px; right: 14px; }

@@ -82,7 +82,8 @@
   --gouttiere: clamp(20px, 5.2vw, 100px);
   --largeur-max: 1720px;
   --largeur-conteneur: calc(var(--largeur-max) + 2 * var(--gouttiere));
-  --hauteur-entete: 72px;
+  /* + zone de l'heure et de la batterie sur iPhone (viewport-fit=cover, index.html) ; 0 ailleurs */
+  --hauteur-entete: calc(72px + env(safe-area-inset-top, 0px));
   /* barre d'onglets du bas (téléphone et tablette, voir EnteteApp) : 0 ailleurs */
   --barre-onglets: 0px;
   /* fond toujours foncé (pied de page, bandeaux, pastilles), quel que soit le thème : --ardoise, elle, s'éclaircit

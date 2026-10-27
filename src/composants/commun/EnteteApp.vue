@@ -84,10 +84,6 @@ const mesurerHeros = () => {
   surHeros.value = heros.getBoundingClientRect().bottom > basBarre
 }
 const enteteClaire = computed(() => !themeSombre.value && !surHeros.value)
-// couleur de la zone de l'heure pour les navigateurs qui lisent theme-color : celle de la barre
-watch(enteteClaire, (claire) => {
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', claire ? '#f9f8f6' : '#161616')
-}, { immediate: true })
 // remesure après l'affichage, puis après la transition et le retour à la position de défilement
 watch(() => route.path, () => { essaisHeros = 0; nextTick(mesurerHeros); setTimeout(mesurerHeros, 450) })
 
@@ -263,6 +259,8 @@ async function supprimerCompte() {
 </script>
 
 <template>
+  <!-- bande qui remplit la zone de l'heure sur iPhone (voir .entete-zone-heure) : même état que la barre -->
+  <div class="entete-zone-heure" :class="{ verre: defile || route.path !== '/', claire: enteteClaire }" aria-hidden="true"></div>
   <header id="entete-app" class="entete" :class="{ 'entete-defile': defile || route.path !== '/', 'entete-claire': enteteClaire }">
     <div class="conteneur entete-inner">
       <router-link to="/" class="entete-logo" aria-label="BTM — Accueil">
@@ -474,11 +472,24 @@ async function supprimerCompte() {
   box-shadow: 0 8px 28px rgba(15, 23, 42, .08);
 }
 :global(.appareil-leger .entete.entete-claire) { background: rgba(255, 255, 255, .96); }
-/* Téléphone : couleur pleine. Safari (iPhone) ne laisse pas le site dessiner sous l'heure ; il y reprend la couleur
-   de la barre fixée en haut, seulement si elle est pleine (sinon il montre la page floutée, coupée sous l'heure). */
+/* Zone de l'heure (iPhone) : Safari n'y affiche jamais d'élément fixe, mais il y montre la page qui défile. Cette bande
+   fait partie de la page (sticky) et reste accrochée juste au-dessus de l'écran : elle remplit cette zone avec le même
+   verre que la barre, au lieu du contenu coupé. Invisible ailleurs (elle est toujours au-dessus de l'écran). */
+.entete-zone-heure { display: none; }
 @media (max-width: 899px) {
-  .entete-defile, .entete-menu-ouvert { background: #161616; }
-  .entete.entete-claire { background: #f9f8f6; }
+  .entete-zone-heure {
+    display: block; position: sticky; top: -120px; z-index: 99; height: 120px; margin-top: -120px; pointer-events: none;
+    transition: background var(--transition);
+  }
+  .entete-zone-heure.verre {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, .14) 0%, rgba(255, 255, 255, .04) 55%, rgba(255, 255, 255, .02) 100%),
+      rgba(17, 17, 17, .22);
+    backdrop-filter: blur(30px) saturate(200%) brightness(1.05); -webkit-backdrop-filter: blur(30px) saturate(200%) brightness(1.05);
+  }
+  .entete-zone-heure.verre.claire {
+    background: linear-gradient(180deg, rgba(255, 255, 255, .82), rgba(255, 255, 255, .68)), rgba(245, 247, 249, .4);
+  }
 }
 /* logo crème sur fond transparent : passé en noir sur l'en-tête claire */
 .entete-claire .entete-logo-image { filter: brightness(0); }

@@ -84,6 +84,10 @@ const mesurerHeros = () => {
   surHeros.value = heros.getBoundingClientRect().bottom > basBarre
 }
 const enteteClaire = computed(() => !themeSombre.value && !surHeros.value)
+// couleur de la zone de l'heure (navigateurs qui lisent theme-color) : celle de la barre
+watch(enteteClaire, (claire) => {
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', claire ? '#ffffff' : '#0d0d0d')
+}, { immediate: true })
 // remesure après l'affichage, puis après la transition et le retour à la position de défilement
 watch(() => route.path, () => { essaisHeros = 0; nextTick(mesurerHeros); setTimeout(mesurerHeros, 450) })
 
@@ -472,9 +476,11 @@ async function supprimerCompte() {
 :global(.appareil-leger .entete.entete-claire) { background: rgba(255, 255, 255, .96); }
 /* Téléphone : barre presque opaque. Le verre très léger laissait voir la page floutée jusque sous l'heure et la
    batterie de l'iPhone : la barre semblait s'arrêter avant le haut de l'écran. */
+/* Safari (iPhone) ne dessine pas la page sous l'heure : il y prolonge la couleur de la barre fixée en haut
+   seulement si elle est totalement opaque ; sinon il y montre la page floutée. */
 @media (max-width: 899px) {
-  .entete-defile, .entete-menu-ouvert { background: rgba(13, 13, 13, .9); }
-  .entete.entete-claire { background: rgba(255, 255, 255, .94); }
+  .entete-defile, .entete-menu-ouvert { background: #0d0d0d; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .entete.entete-claire { background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none; }
 }
 /* logo crème sur fond transparent : passé en noir sur l'en-tête claire */
 .entete-claire .entete-logo-image { filter: brightness(0); }

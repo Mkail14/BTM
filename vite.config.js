@@ -29,6 +29,8 @@ export default defineConfig({
     }
   },
   server: { port: 5173, host: true },
+  // supabase/tests : tests de la base (node --test, npm run test:base), pas des tests vitest
+  test: { exclude: ['**/node_modules/**', 'supabase/tests/**'] },
   build: {
     outDir: 'dist',
     sourcemap: false,

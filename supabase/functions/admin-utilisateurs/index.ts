@@ -34,12 +34,25 @@ Deno.serve(async (req) => {
 
     const corps = await req.json();
 
+    /**
+     * Profil d'une adresse e-mail, seulement si c'est bien l'adresse de connexion du compte (auth.users) :
+     * profils.email ne suffit pas (un compte pouvait y écrire l'adresse d'un autre pour recevoir ses accès).
+     */
+    async function profilParEmail(email: string, colonnes: string) {
+      const { data: lignes } = await admin.from("profils").select(colonnes).eq("email", email).limit(5);
+      for (const p of (lignes || []) as unknown as { id: string }[]) {
+        const { data: u } = await admin.auth.admin.getUserById(p.id);
+        if (u?.user?.email?.toLowerCase() === email) return p as unknown as Record<string, unknown> & { id: string; role?: string; fournisseur_id?: string | null };
+      }
+      return null;
+    }
+
     /** Compte BTM (vitrine, particulier) : celui de l'e-mail de contact configuré dans /admin, créé s'il n'existe pas */
     async function compteBtm() {
       const { data: contenu } = await admin.from("contenus_site").select("valeur").eq("cle", "contact").maybeSingle();
       const email = String((contenu?.valeur as { email?: string } | null)?.email || "contact@btm.yt").trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new Error("E-mail de contact invalide (Contenu du site → Coordonnées).");
-      const { data: existant } = await admin.from("profils").select("id, role").eq("email", email).maybeSingle();
+      const existant = await profilParEmail(email, "id, role");
       if (existant) return { ...existant, email };
       const motDePasse = crypto.randomUUID() + crypto.randomUUID(); // jamais utilisé : connexion par lien uniquement
       const { data: cree, error: eCree } = await admin.auth.admin.createUser({
@@ -111,7 +124,7 @@ Deno.serve(async (req) => {
       const { data: fiche } = await admin.from("fournisseurs").select("id, nom").eq("id", fournisseurId).maybeSingle();
       if (!fiche) return json({ erreur: "Fournisseur introuvable dans l’annuaire." }, 404);
 
-      const { data: existant } = await admin.from("profils").select("id, role, fournisseur_id").eq("email", email).maybeSingle();
+      const existant = await profilParEmail(email, "id, role, fournisseur_id");
       if (existant?.role === "admin") return json({ erreur: "Cette adresse appartient à un administrateur." }, 400);
       if (existant?.role === "fournisseur" && existant.fournisseur_id && existant.fournisseur_id !== fiche.id) {
         return json({ erreur: "Cette adresse est déjà l’accès d’un autre fournisseur." }, 400);

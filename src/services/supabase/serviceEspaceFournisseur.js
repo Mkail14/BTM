@@ -76,6 +76,8 @@ export async function listerJournal() {
 export async function trouverDevisParCode(code) {
   const { data, error } = await supabase.rpc('trouver_devis_par_code', { p_code: code })
   if (error) throw erreurSql(error, '0013')
+  // code inconnu : la base répond null (l'essai est compté contre la devinette des codes)
+  if (!data) throw new Error('Aucun devis ne correspond à ce code.')
   return { ...data, cout_total: Number(data.cout_total), resultat: normaliserResultat(data.resultat), paiement: versPaiement(data.paiement), credit_disponible: Number(data.credit_disponible) || 0, utiliser_credit: !!data.utiliser_credit, commission: Number(data.commission) || 0 }
 }
 

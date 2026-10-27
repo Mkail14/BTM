@@ -23,3 +23,11 @@ Le plus simple, avec la CLI Supabase (mot de passe de la base dans Project Setti
 ```bash
 npx supabase db dump --db-url "postgresql://postgres:<mot de passe>@db.<projet>.supabase.co:5432/postgres" -f supabase/schema.sql
 ```
+
+## Tests de sécurité de la base
+
+`npm run test:base` recrée la base en local (PGlite, sans connexion à Supabase) à partir de `schema.sql` et de
+`migrations/`, puis joue des attaques en tant que visiteur, client, fournisseur et admin : lecture des données d'un
+autre compte, élévation de rôle, faux statut pro, devinette des codes de retrait, encaissement à un faux prix,
+photo externe, rafales de devis, de fichiers et de messages. Toute nouvelle migration doit garder ces tests au vert.
+Ils ne remplacent pas un test sur la vraie base : Auth, Storage et les fonctions Edge y sont simulés.

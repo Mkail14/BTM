@@ -85,14 +85,16 @@ const icones = { parpaing: 'fa-solid fa-cube', ciment: 'fa-solid fa-sack-xmark',
 // ---------- PDF ----------
 const nomProjet = ref('')
 const exportEnCours = ref('') // 'visualiser' | 'telecharger' pendant la génération
+const erreurPdf = ref('')
 
 async function pdf(mode) {
   exportEnCours.value = mode
+  erreurPdf.value = ''
   try {
     await exporterEstimationPdf({ nom: nomProjet.value.trim(), resultat: resultat.value, fournisseur: fournisseur.value, code: codeRetrait.value, credit: creditApplique.value }, mode)
   } catch (e) {
     console.error(e)
-    alert('Impossible de générer le PDF. Réessayez.')
+    erreurPdf.value = 'Impossible de générer le PDF. Réessayez.'
   } finally {
     exportEnCours.value = ''
   }
@@ -237,6 +239,7 @@ const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.val
             <BoutonBase v-else class="resultats-action-principale" icone="fa-solid fa-file-pdf" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" @click="pdf('visualiser')">Voir le PDF</BoutonBase>
             <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
           </div>
+          <p v-if="erreurPdf" class="resultats-code-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ erreurPdf }}</p>
           </div>
 
           <div class="resultats-pied">

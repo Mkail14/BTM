@@ -481,15 +481,13 @@ async function supprimerCompte() {
     display: block; position: sticky; top: -120px; z-index: 99; height: 120px; margin-top: -120px; pointer-events: none;
     transition: background var(--transition);
   }
-  .entete-zone-heure.verre {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, .14) 0%, rgba(255, 255, 255, .04) 55%, rgba(255, 255, 255, .02) 100%),
-      rgba(17, 17, 17, .22);
+  /* un seul verre de haut en bas : la bande et la barre ont la même teinte unie (sans dégradé qui redémarrerait
+     à leur jonction) et le même flou */
+  .entete-zone-heure.verre, .entete-defile, .entete-menu-ouvert {
+    background: rgba(24, 24, 24, .3);
     backdrop-filter: blur(30px) saturate(200%) brightness(1.05); -webkit-backdrop-filter: blur(30px) saturate(200%) brightness(1.05);
   }
-  .entete-zone-heure.verre.claire {
-    background: linear-gradient(180deg, rgba(255, 255, 255, .82), rgba(255, 255, 255, .68)), rgba(245, 247, 249, .4);
-  }
+  .entete-zone-heure.verre.claire, .entete.entete-claire { background: rgba(250, 249, 247, .78); }
 }
 /* logo crème sur fond transparent : passé en noir sur l'en-tête claire */
 .entete-claire .entete-logo-image { filter: brightness(0); }

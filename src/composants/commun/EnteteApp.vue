@@ -470,13 +470,6 @@ async function supprimerCompte() {
   box-shadow: 0 8px 28px rgba(15, 23, 42, .08);
 }
 :global(.appareil-leger .entete.entete-claire) { background: rgba(255, 255, 255, .96); }
-/* Téléphone : Safari (iPhone) ne laisse pas le site dessiner sous l'heure et la batterie ; il y prolonge la couleur
-   de la barre fixée en haut, mais seulement si elle est pleine (sinon il y montre la page floutée, coupée sous l'heure).
-   Mêmes teintes que le verre, en couleur pleine. */
-@media (max-width: 899px) {
-  .entete-defile, .entete-menu-ouvert { background: #161616; }
-  .entete.entete-claire { background: #f9f8f6; }
-}
 /* logo crème sur fond transparent : passé en noir sur l'en-tête claire */
 .entete-claire .entete-logo-image { filter: brightness(0); }
 .entete.entete-claire .nav-principale { border-color: rgba(15, 23, 42, .1); background: rgba(15, 23, 42, .03); box-shadow: none; }

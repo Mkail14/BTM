@@ -1,8 +1,8 @@
 // Écran de chargement (téléphone) : le logo se remplit au rythme du chargement, puis l'écran s'efface quand le site est prêt.
 // Fichier à part et non script dans la page : la politique de sécurité du site (vercel.json, script-src 'self')
 // bloque les scripts écrits dans le HTML. Chargé sans defer : il s'exécute avant l'application.
-// Première visite de la session : le logo a le temps de se remplir ; ensuite (rechargements),
-// l'écran disparaît dès que le site est prêt.
+// Le remplissage dure toujours un minimum (plus long à la première visite de la session) : même quand le site
+// est prêt tout de suite, on voit le logo se remplir au lieu d'un éclair.
 (function () {
   var ecran = document.getElementById('ecran-chargement')
   try {
@@ -14,13 +14,15 @@
     document.documentElement.classList.add('chargement')
     var premiereVisite = true
     try { premiereVisite = !sessionStorage.getItem('btm-accueilli'); sessionStorage.setItem('btm-accueilli', '1') } catch (e) {}
-    var dureeMin = premiereVisite ? 1400 : 0
+    var dureeMin = premiereVisite ? 1600 : 900
     var debut = Date.now()
     // Remplissage : chaque étape réelle (script, page, polices, 3D) fixe un palier ; entre deux paliers
     // le logo monte doucement sans jamais l'atteindre, pour ne pas sembler figé.
     var progres = 0, palier = 0.15
-    function dessiner() { ecran.style.setProperty('--p', progres.toFixed(3)) }
-    var glissement = setInterval(function () { progres += (palier - progres) * 0.08; dessiner() }, 120)
+    // le logo ne monte jamais plus vite que la durée minimale (courbe qui ralentit en arrivant en haut)
+    function rampe() { var t = Math.min(1, (Date.now() - debut) / dureeMin); return 1 - Math.pow(1 - t, 2) }
+    function dessiner() { ecran.style.setProperty('--p', Math.min(progres, rampe()).toFixed(3)) }
+    var glissement = setInterval(function () { if (progres < 1) progres += (palier - progres) * 0.08; dessiner() }, 80)
     window.__btmProgres = function (v) {
       if (v <= palier) return
       progres = Math.max(progres, palier * 0.98)
@@ -31,16 +33,17 @@
     window.__btmPret = function () {
       if (retire) return
       retire = true
-      clearInterval(glissement)
       progres = 1
       dessiner()
-      // le logo finit de se remplir, puis l'écran s'efface
+      // le logo finit de se remplir (durée minimale, puis fin de la transition), puis l'écran s'efface
       setTimeout(function () {
+        clearInterval(glissement)
+        dessiner()
         ecran.classList.add('fini')
         // la barre de défilement revient pendant le fondu : le léger décalage reste masqué par l'écran
         document.documentElement.classList.remove('chargement')
         setTimeout(function () { ecran.remove() }, 800)
-      }, Math.max(450, dureeMin - (Date.now() - debut)))
+      }, Math.max(0, dureeMin - (Date.now() - debut)) + 500)
     }
     // filet de sécurité : jamais bloqué derrière l'écran si le site plante au démarrage
     setTimeout(window.__btmPret, 8000)

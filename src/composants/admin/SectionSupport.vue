@@ -212,7 +212,7 @@ const date = (d) => {
       </div>
       <p v-if="awaHorsService" class="sp-hors-service" role="alert">
         <i class="fa-solid fa-robot" aria-hidden="true"></i>
-        <span><strong>Awa est hors service : plus de crédits IA.</strong> Toutes les clés Gemini ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
+        <span><strong>Awa est hors service : plus de crédits IA.</strong> Toutes les API d’Awa (BTM AI) ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
       </p>
       <p v-if="notificationsNavigateur === 'default'" class="sp-notif">
         <i class="fa-regular fa-bell" aria-hidden="true"></i> Être prévenu même dans un autre onglet ?

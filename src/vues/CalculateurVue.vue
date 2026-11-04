@@ -99,10 +99,26 @@ function ecrireValeur(q, valeur) {
 // ---------- Navigation ----------
 function appliquerQuery() {
   const t = route.query.type
-  if (t && typesProjets.some((x) => x.id === t) && t !== calc.typeId.value) {
+  const type = typesProjets.find((x) => x.id === t)
+  if (type && t !== calc.typeId.value) {
     calc.choisirType(t)
     etape.value = 0
   }
+  // Devis préparé avec Tamilya (BTM AI) : « ?type=dalle&longueur=8&largeur=6&epaisseur=12 » remplit les mesures
+  if (!type) return
+  const mesures = {}
+  for (const champ of type.champs) {
+    const v = route.query[champ.nom]
+    if (typeof v !== 'string' || !v.trim() || v.length > 12) continue
+    if (champ.type === 'select') { if (champ.options.some((o) => o.valeur === v)) mesures[champ.nom] = v }
+    else if (champ.type !== 'carreau' && Number.isFinite(Number(v.replace(',', '.')))) mesures[champ.nom] = Number(v.replace(',', '.'))
+  }
+  if (!Object.keys(mesures).length) return
+  if (t === 'mur') mesures.autresMurs = [] // un seul mur, celui du lien
+  calc.definirDimensions(mesures)
+  router.replace({ query: { type: t } }) // mesures reprises : l'adresse redevient celle du calculateur
+  const { valide, erreurs } = validerDimensions(t, calc.dimensions)
+  etape.value = valide ? 'recap' : Math.max(0, questions.value.findIndex((q) => q.cle === Object.keys(erreurs)[0]))
 }
 
 onMounted(() => {

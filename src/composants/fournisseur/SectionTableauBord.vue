@@ -1,7 +1,7 @@
 <script setup>
 /**
  * Tableau de bord fournisseur, sur la période choisie (aujourd'hui, 7 jours, 30 jours, 12 mois ou dates libres) :
- * encaissé, nombre de reçus et panier moyen, évolution des ventes, répartition par moyen de paiement,
+ * encaissé, remboursement BTM (codes promo BTM et crédit fidélité pris en charge), évolution des ventes, répartition par moyen de paiement,
  * derniers encaissements ; plus les devis en attente, le reste à reverser à BTM et les ruptures de stock.
  * Tient sur un écran d'ordinateur (les listes défilent dans leur carte).
  */
@@ -58,8 +58,8 @@ const chiffres = computed(() => {
   const liste = periodePaiements.value
   return {
     encaisse: somme(liste),
-    recus: liste.length,
-    panier: liste.length ? somme(liste) / liste.length : 0,
+    // ce que BTM prend à sa charge : codes promo BTM et crédit fidélité du client (commission − revenu BTM de chaque vente)
+    rembourse: Math.round(liste.reduce((s, p) => s + Math.max(0, (Number(p.commission) || 0) - (Number(p.revenu_btm) || 0)), 0) * 100) / 100,
     attente: enAttente.value.reduce((s, d) => s + d.cout_total, 0)
   }
 })
@@ -120,7 +120,7 @@ const repartition = computed(() => {
       </div>
       <span v-else class="tb-libelle-periode"><i class="fa-regular fa-calendar" aria-hidden="true"></i> {{ libellePeriode }}</span>
       <router-link v-if="ruptures.length" to="/espace-fournisseur/materiaux" class="tb-ruptures" :title="ruptures.join(', ')">
-        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ ruptures.length }} en rupture de stock
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> {{ ruptures.length }}<span class="tb-ruptures-texte"> en rupture de stock</span>
       </router-link>
     </div>
 
@@ -131,9 +131,9 @@ const repartition = computed(() => {
         <small>{{ libellePeriode }}</small>
       </li>
       <li class="adm-carte adm-carte-pad tb-kpi">
-        <span><i class="fa-solid fa-receipt" aria-hidden="true"></i> Reçus émis</span>
-        <strong>{{ chiffres.recus }}</strong>
-        <small>panier moyen {{ formaterEuros(chiffres.panier) }}</small>
+        <span><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> Remboursement BTM</span>
+        <strong>{{ formaterEuros(chiffres.rembourse) }}</strong>
+        <small>codes promo BTM et crédit fidélité de vos clients</small>
       </li>
       <li>
         <router-link :to="lienValider()" class="adm-carte adm-carte-pad tb-kpi tb-kpi-lien">
@@ -144,9 +144,16 @@ const repartition = computed(() => {
       </li>
       <li>
         <router-link to="/espace-fournisseur/paiements" class="adm-carte adm-carte-pad tb-kpi tb-kpi-lien" :class="{ 'tb-kpi-alerte': soldeBtm.reste > 0 }">
-          <span><i class="fa-solid fa-building-columns" aria-hidden="true"></i> À reverser à BTM</span>
-          <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
-          <small>Frais de service BTM encaissés</small>
+          <template v-if="soldeBtm.btmDoit">
+            <span><i class="fa-solid fa-tags" aria-hidden="true"></i> BTM vous doit</span>
+            <strong>{{ formaterEuros(soldeBtm.btmDoit) }}</strong>
+            <small>Codes promo BTM appliqués à vos clients</small>
+          </template>
+          <template v-else>
+            <span><i class="fa-solid fa-building-columns" aria-hidden="true"></i> À reverser à BTM</span>
+            <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
+            <small>Commission BTM, codes promo BTM déduits</small>
+          </template>
         </router-link>
       </li>
     </ul>
@@ -171,7 +178,7 @@ const repartition = computed(() => {
     <div class="tb-colonnes">
       <section class="adm-carte adm-carte-pad">
         <div class="adm-carte-tete">
-          <div><h2>Devis qui vous ont choisi</h2><p>Le client viendra avec son code de retrait.</p></div>
+          <div><h2><span class="tb-titre-long">Devis qui vous ont choisi</span><span class="tb-titre-court">Devis à valider</span></h2><p>Le client viendra avec son code de retrait.</p></div>
           <router-link :to="lienValider()" class="adm-btn adm-btn-noir adm-btn-sm"><i class="fa-solid fa-ticket" aria-hidden="true"></i> Saisir un code</router-link>
         </div>
         <ul v-if="enAttente.length" class="tb-liste">
@@ -213,24 +220,24 @@ const repartition = computed(() => {
 .tb { display: flex; flex-direction: column; gap: 20px; }
 .tb-periode { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
 .tb-dates { display: inline-flex; align-items: center; gap: 8px; color: var(--adm-muet); }
-.tb-dates input { min-height: 36px; padding: 0 12px; border: 0; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--adm-ligne); font: inherit; font-size: .86rem; color: var(--adm-encre); }
+.tb-dates input { min-height: 36px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--adm-champ); box-shadow: inset 0 0 0 1px var(--adm-ligne); font: inherit; font-size: .86rem; color: var(--adm-encre); }
 .tb-dates input:focus { outline: none; box-shadow: inset 0 0 0 2px var(--adm-accent); }
 .tb-libelle-periode { color: var(--adm-encre-2); font-size: .86rem; }
 .tb-libelle-periode::first-letter { text-transform: uppercase; }
 .tb-libelle-periode i { margin-right: 6px; color: var(--adm-muet); }
-.tb-ruptures { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; padding: 7px 14px; border-radius: 999px; background: #fff1f2; color: var(--adm-baisse); font-size: .84rem; font-weight: 600; text-decoration: none; }
-.tb-ruptures:hover { background: #ffe4e6; }
+.tb-ruptures { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; padding: 7px 14px; border-radius: 999px; background: var(--adm-danger-fond); color: var(--adm-baisse); font-size: .84rem; font-weight: 600; text-decoration: none; }
+.tb-ruptures:hover { background: var(--adm-danger-fond-2); }
 .tb-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
 .tb-kpis > li { display: flex; }
 .tb-kpi { flex: 1; display: flex; flex-direction: column; gap: 6px; }
 .tb-kpi span { display: inline-flex; align-items: center; gap: 8px; color: var(--adm-encre-2); font-size: .88rem; font-weight: 500; }
 .tb-kpi strong { font-size: clamp(1.6rem, 2.6vw, 2.2rem); font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .tb-kpi small { color: var(--adm-muet); font-size: .82rem; }
-.tb-kpi-noir { background: var(--adm-noir); color: #fff; }
-.tb-kpi-noir span, .tb-kpi-noir small { color: rgba(255, 255, 255, .65); }
+.tb-kpi-noir { background: var(--adm-noir); color: var(--adm-sur-noir); }
+.tb-kpi-noir span, .tb-kpi-noir small { color: color-mix(in srgb, currentColor 65%, transparent); }
 .tb-kpi-lien { color: inherit; text-decoration: none; transition: box-shadow var(--transition), transform var(--transition); }
 .tb-kpi-lien:hover { box-shadow: 0 0 0 1px var(--adm-muet), var(--adm-ombre); transform: translateY(-1px); }
-.tb-kpi-alerte strong { color: #b45309; }
+.tb-kpi-alerte strong { color: var(--adm-attention-texte); }
 
 .tb-colonnes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
 .tb-colonnes-graphe { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: stretch; }
@@ -244,12 +251,80 @@ const repartition = computed(() => {
 .tb-liste { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .tb-liste li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--adm-ligne-2); }
 .tb-liste li:first-child { border-top: 0; padding-top: 0; }
-.tb-droite { display: inline-flex; align-items: center; gap: 12px; }
+.tb-liste .adm-identite { flex: 1; min-width: 0; }
+.tb-droite { display: inline-flex; flex: none; align-items: center; gap: 12px; }
 .tb-montant { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tb-avatar-ok { background: #ecfdf5; color: #047857; }
+.tb-avatar-ok { background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
+.tb-titre-court { display: none; }
 
-@media (max-width: 1100px) { .tb-colonnes, .tb-colonnes-graphe { grid-template-columns: 1fr; } .tb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 760px) { .tb-kpis { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .tb-colonnes, .tb-colonnes-graphe { grid-template-columns: minmax(0, 1fr); } .tb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Téléphone : chiffres en 2 × 2, période sur une ligne qui défile, listes compactes */
+@media (max-width: 640px) {
+  .tb { gap: 14px; }
+  .tb-periode { gap: 8px 10px; }
+  .tb-periode > .adm-pilules { flex: 1 1 100%; }
+  .tb-libelle-periode { font-size: .82rem; }
+  .tb-ruptures { padding: 5px 12px; font-size: .8rem; }
+  .tb-dates { flex: 1 1 100%; }
+  .tb-dates label { flex: 1; }
+  .tb-dates input { width: 100%; }
+  .tb-kpis { gap: 10px; }
+  .tb-kpi { gap: 2px; padding: 14px; border-radius: 18px; }
+  .tb-kpi span { gap: 6px; font-size: .78rem; }
+  .tb-kpi strong { font-size: 1.35rem; }
+  .tb-kpi small { font-size: .74rem; line-height: 1.3; }
+  .tb-colonnes { gap: 14px; }
+  .tb-liste li { gap: 10px; }
+  .tb-liste .adm-avatar { width: 36px; height: 36px; border-radius: 10px; }
+  .tb-droite { flex-direction: column; align-items: flex-end; gap: 6px; }
+  .tb-droite .adm-btn-sm { min-height: 30px; padding: 0 12px; font-size: .8rem; }
+  .tb-moyens { gap: 14px; }
+}
+/* Téléphone assez haut : une seule page, sans défilement — chiffres, graphique et devis en attente
+   (moyens de paiement et encaissements restent dans Paiements) ; la liste défile dans sa carte */
+@media (max-width: 767px) and (min-height: 560px) {
+  .tb { height: 100%; gap: 10px; }
+  .tb > .adm-alerte, .tb-periode, .tb-kpis { flex: none; margin: 0; }
+  .tb > .adm-alerte { padding: 10px 12px; font-size: .8rem; }
+
+  .tb-periode { flex-wrap: wrap; gap: 8px; }
+  .tb-periode > .adm-pilules { flex: 1 1 0; min-width: 0; }
+  .tb-periode .adm-pilule { min-height: 34px; padding: 0 13px; font-size: .82rem; }
+  .tb-libelle-periode, .tb-ruptures-texte { display: none; }
+  .tb-ruptures { flex: none; margin-left: 0; padding: 0 12px; min-height: 34px; }
+  .tb-dates { flex: 1 1 100%; }
+  .tb-dates input { min-height: 34px; }
+
+  /* chiffres : libellé et montant seulement (la période est déjà dans les pilules) */
+  .tb-kpis { gap: 8px; }
+  .tb-kpis > li, .tb-kpi { min-width: 0; }
+  .tb-kpi { gap: 4px; padding: 11px 13px; border-radius: 16px; }
+  .tb-kpi span { overflow: hidden; font-size: .74rem; white-space: nowrap; }
+  .tb-kpi strong { font-size: 1.15rem; line-height: 1.15; }
+  .tb-kpi small { display: none; }
+
+  /* graphique et devis se partagent le reste de l'écran ; chaque carte garde sa hauteur */
+  .tb-colonnes { display: flex; align-items: stretch; min-height: 0; gap: 0; }
+  .tb-colonnes-graphe { flex: 1.3 1 0; }
+  .tb-colonnes:not(.tb-colonnes-graphe) { flex: 1 1 0; }
+  .tb-colonnes > section + section { display: none; }
+  .tb-colonnes > section { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; padding: 12px 14px; border-radius: 16px; }
+  .tb-colonnes .adm-carte-tete { flex: none; flex-wrap: nowrap; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .tb-colonnes .adm-carte-tete > div { min-width: 0; }
+  .tb-colonnes .adm-carte-tete p { display: none; }
+  .tb-colonnes .adm-carte-tete h2 { overflow: hidden; font-size: .95rem; text-overflow: ellipsis; white-space: nowrap; }
+  .tb-colonnes .adm-carte-tete .adm-btn { flex: none; min-height: 32px; padding: 0 12px; font-size: .8rem; }
+  .tb-titre-long { display: none; }
+  .tb-titre-court { display: inline; }
+  .tb-colonnes :deep(.graphe) { flex: 1; min-height: 90px; height: auto; }
+  .tb-colonnes .tb-liste { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  .tb-liste li { padding: 8px 0; }
+  .tb-droite { flex-direction: row; align-items: center; gap: 8px; }
+  /* liste vide : une ligne discrète, centrée dans la carte */
+  .tb-colonnes .adm-vide { flex: 1; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px; min-height: 0; padding: 0; }
+  .tb-colonnes .adm-vide i { margin: 0; font-size: 1rem; }
+  .tb-colonnes .adm-vide p { margin: 0; font-size: .84rem; }
+}
 
 /* Ordinateur : une seule page, sans défilement — les lignes se partagent la hauteur, les listes défilent dans leur carte */
 @media (min-width: 1024px) and (min-height: 640px) {

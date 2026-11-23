@@ -67,14 +67,17 @@ export function useProjets() {
     }
   }
 
-  async function sauvegarder({ nom, resultat, fournisseur }) {
+  /** fournisseurs : fiches choisies dans le comparateur (le code BTM marche chez chacune) */
+  async function sauvegarder({ nom, resultat, fournisseurs = [] }) {
+    const uuids = fournisseurs.map((f) => f?.id).filter((id) => /^[0-9a-f-]{36}$/i.test(id || ''))
     const base = {
       nom: nom.trim(),
       type: resultat.type,
       dimensions: resultat.dimensions,
       resultat,
-      fournisseur_id: fournisseur?.id || null,
-      fournisseur_uuid: fournisseur?.id && /^[0-9a-f-]{36}$/i.test(fournisseur.id) ? fournisseur.id : null,
+      fournisseur_id: fournisseurs[0]?.id || null,
+      fournisseur_uuid: uuids[0] || null,
+      fournisseurs: uuids,
       cout_total: resultat.total
     }
     const compteId = connecte.value ? utilisateur.value?.id : null

@@ -22,7 +22,8 @@ if (misDeCote) ecrireCalcul(misDeCote)
 const typeId = ref(sauvegarde?.typeId || '')
 const dimensions = reactive({ ...(sauvegarde?.dimensions || {}) })
 const resultat = ref(normaliserResultat(sauvegarde?.resultat) || null)
-const fournisseurId = ref(sauvegarde?.fournisseurId || '')
+// fournisseurs choisis dans le comparateur (plusieurs possibles), dans l'ordre du choix
+const fournisseurIds = ref(sauvegarde?.fournisseurIds || (sauvegarde?.fournisseurId ? [sauvegarde.fournisseurId] : []))
 // code promo appliqué au devis ({ code, type, valeur, portee }), revérifié à chaque calcul
 const codePromo = ref(sauvegarde?.codePromo || null)
 // Devis pro : estimations déjà ajoutées au devis (ouvrages mesurés ou achats directs), sans code promo
@@ -45,7 +46,7 @@ function viderCalcul() {
   for (const k of Object.keys(dimensions)) delete dimensions[k]
   for (const k of Object.keys(erreurs)) delete erreurs[k]
   resultat.value = null
-  fournisseurId.value = ''
+  fournisseurIds.value = []
   codePromo.value = null
   messageCode.value = ''
   erreurGlobale.value = ''
@@ -77,7 +78,7 @@ const avecDelai = (promesse, ms, repli) => Promise.race([promesse, new Promise((
 /** L'admin vient de modifier des prix : le prochain calcul relira le catalogue */
 export function oublierCatalogue() { catalogue = null }
 
-const etatCalcul = () => ({ typeId: typeId.value, dimensions: { ...dimensions }, resultat: resultat.value, fournisseurId: fournisseurId.value, codePromo: codePromo.value, cumul: cumul.value })
+const etatCalcul = () => ({ typeId: typeId.value, dimensions: { ...dimensions }, resultat: resultat.value, fournisseurIds: fournisseurIds.value, codePromo: codePromo.value, cumul: cumul.value })
 function persister() {
   ecrireCalcul(etatCalcul())
 }
@@ -142,7 +143,7 @@ export function useCalculateur() {
       if (c) { catalogue = c.catalogue; sourcePrix.value = c.source }
       else if (!catalogue) console.warn('Prix Supabase trop longs à charger : prix locaux utilisés pour ce calcul')
       if (codePromo.value && codeVerifie === null) {
-        messageCode.value = `Le code ${codePromo.value.code} n’est plus valable : il a été retiré du devis.`
+        messageCode.value = `Le code ${codePromo.value.code} n’est plus valable : il a été retiré de l’estimation.`
         codePromo.value = null
       } else if (codeVerifie && codeVerifie !== 'injoignable') {
         codePromo.value = codeVerifie // réduction à jour si l'admin l'a modifiée
@@ -179,7 +180,7 @@ export function useCalculateur() {
     if (await codeDejaUtilise(code.code)) return 'Vous avez déjà utilisé ce code : il ne sert qu’une fois par compte.'
     codePromo.value = code
     if (sansFormulaire()) { resultat.value = appliquerCodePromo(resultat.value, code); persister(); return '' }
-    return (await calculer()) ? '' : 'Le devis n’a pas pu être recalculé.'
+    return (await calculer()) ? '' : 'L’estimation n’a pas pu être recalculée.'
   }
 
   async function retirerCode() {
@@ -226,8 +227,8 @@ export function useCalculateur() {
     persister()
   }
 
-  function choisirFournisseur(id) {
-    fournisseurId.value = id
+  function choisirFournisseurs(ids) {
+    fournisseurIds.value = ids
     persister()
   }
 
@@ -237,7 +238,7 @@ export function useCalculateur() {
     for (const k of Object.keys(dimensions)) delete dimensions[k]
     Object.assign(dimensions, projet.dimensions || {})
     resultat.value = null
-    fournisseurId.value = projet.fournisseur_id || ''
+    fournisseurIds.value = projet.fournisseurs?.length ? [...projet.fournisseurs] : projet.fournisseur_id ? [projet.fournisseur_id] : []
     codePromo.value = projetCode(projet) // revérifié au prochain calcul
     for (const k of Object.keys(erreurs)) delete erreurs[k]
     persister()
@@ -250,7 +251,7 @@ export function useCalculateur() {
     resultat.value = normaliserResultat(projet.resultat)
     associerCodeRetrait(projet.code_retrait)
     codePromo.value = projetCode(projet)
-    fournisseurId.value = projet.fournisseur_id || ''
+    fournisseurIds.value = projet.fournisseurs?.length ? [...projet.fournisseurs] : projet.fournisseur_id ? [projet.fournisseur_id] : []
     persister()
   }
 
@@ -264,9 +265,9 @@ export function useCalculateur() {
   const oublierMiseDeCote = oublierCalculMisDeCote
 
   return {
-    typeId, type, dimensions, resultat, devis, cumul, erreurs, erreurGlobale, chargement, fournisseurId, sourcePrix, codePromo, messageCode, codeRetrait, associerCodeRetrait,
+    typeId, type, dimensions, resultat, devis, cumul, erreurs, erreurGlobale, chargement, fournisseurIds, sourcePrix, codePromo, messageCode, codeRetrait, associerCodeRetrait,
     achatDirect, ajouterAuDevis, retirerDuDevis,
-    choisirType, definirDimensions, ajouterMur, retirerMur, validerChamp, calculer, choisirFournisseur,
+    choisirType, definirDimensions, ajouterMur, retirerMur, validerChamp, calculer, choisirFournisseurs,
     chargerDepuisProjet, afficherResultat, reinitialiser, appliquerCode, retirerCode, mettreDeCote, oublierMiseDeCote
   }
 }

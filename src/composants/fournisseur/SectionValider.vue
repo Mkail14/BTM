@@ -72,7 +72,6 @@ function recommencer() {
   quantites.value = {}
   promotionId.value = ''
   extras.value = []
-  utiliserCredit.value = false
   reinitialiserCaisse()
   if (route.query.code) router.replace({ query: {} })
   nextTick(() => champCode.value?.focus())
@@ -107,6 +106,8 @@ function definirQuantite(l, valeur) {
   quantites.value = { ...quantites.value, [l.id]: q }
   saisies.value = { ...saisies.value, [l.id]: String(q).replace('.', ',') }
 }
+// Devis ouvert depuis un lien (?code=) avant que le catalogue soit chargé : on refait la préparation avec les vrais prix et stocks
+watch(catalogue, () => { if (etape.value === 'preparation' && devis.value) preparer() })
 const toutFournir = () => { for (const l of devis.value?.resultat?.lignes || []) definirQuantite(l, catalogue.value[l.id]?.stock != null ? Math.min(l.quantite, catalogue.value[l.id].stock) : l.quantite) }
 // Articles du fournisseur vendus en plus du devis : [{ ...article, quantite, saisie }]
 const extras = ref([])
@@ -127,11 +128,12 @@ const retirerArticle = (e) => { extras.value = extras.value.filter((x) => x.id !
 // Usage unique : promotions déjà utilisées par ce client, code BTM déjà utilisé sur un autre devis
 const promotionsUtilisees = computed(() => new Set(devis.value?.promotions_utilisees || []))
 const promotion = computed(() => promotionsValables.value.find((p) => p.id === promotionId.value && !promotionsUtilisees.value.has(p.id)) || null)
-// Crédit fidélité du client, utilisé si le fournisseur le propose (à la charge de BTM)
-const utiliserCredit = ref(false)
+// Crédit fidélité du client (à la charge de BTM) : appliqué seulement si le client l'a choisi sur son estimation
+const utiliserCredit = computed(() => !!devis.value?.utiliser_credit)
 const calcul = computed(() => (devis.value
   ? api.calculerEncaissement(devis.value.resultat, quantites.value, catalogue.value, promotion.value, {
     articles: extras.value, codeBtmIgnore: !!devis.value.code_btm_deja_utilise, tauxCommission: devis.value.commission,
+    remiseDejaAppliquee: Number(devis.value.remise_btm_deja_appliquee) || 0,
     credit: utiliserCredit.value ? devis.value.credit_disponible : 0
   })
   : null))
@@ -260,8 +262,18 @@ async function recuPdf(mode) {
           <small>{{ typeDevis?.libelle }} · devis du {{ formatDate(devis.cree_le) }} · code <span class="adm-mono">{{ devis.code_retrait }}</span></small>
         </div>
         <span v-if="!devis.fournisseur_choisi && !devis.paiement" class="adm-badge adm-badge-info" title="Le client n’avait choisi aucun fournisseur : ce devis vous sera rattaché à l’encaissement">Sans fournisseur choisi</span>
+        <span v-else-if="devis.plusieurs_fournisseurs" class="adm-badge adm-badge-info" title="Le client a choisi plusieurs fournisseurs : chacun encaisse ce qu’il remet">Plusieurs fournisseurs</span>
         <button type="button" class="adm-btn adm-btn-fantome adm-btn-sm" @click="recommencer"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Autre code</button>
       </section>
+      <!-- Déjà remis par d'autres fournisseurs : ces quantités ne sont plus proposées ici -->
+      <p v-if="!devis.paiement && devis.encaissements_ailleurs?.length" class="val-ailleurs">
+        <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+        Une partie de ce devis a déjà été remise par {{ devis.encaissements_ailleurs.map((e) => e.fournisseur || 'un autre fournisseur').join(', ') }} :
+        seul ce qui reste à fournir est affiché ci-dessous.
+      </p>
+      <p v-if="!devis.paiement && !devis.resultat?.lignes?.length && devis.encaissements_ailleurs?.length" class="val-ailleurs">
+        <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Tout le devis a déjà été remis par les autres fournisseurs : il ne reste rien à encaisser, sauf vos articles en plus.
+      </p>
 
       <!-- ========== 2. Préparation ========== -->
       <div v-if="etape === 'preparation'" class="val-grille">
@@ -335,10 +347,11 @@ async function recuPdf(mode) {
             <div v-if="calcul.reduction"><dt>Code BTM {{ calcul.remise.code }}</dt><dd>−{{ formaterEuros(calcul.reduction) }}</dd></div>
             <div v-if="calcul.creditUtilise"><dt>Crédit fidélité BTM</dt><dd>−{{ formaterEuros(calcul.creditUtilise) }}</dd></div>
           </dl>
-          <label v-if="devis.credit_disponible > 0" class="val-credit">
-            <input v-model="utiliserCredit" type="checkbox" />
-            <span>Utiliser le crédit fidélité du client <strong>{{ formaterEuros(devis.credit_disponible) }}</strong><small>Offert par BTM : déduit de votre commission, pas de votre chiffre d’affaires.</small></span>
-          </label>
+          <p v-if="devis.credit_disponible > 0" class="val-credit">
+            <i class="fa-solid fa-coins" aria-hidden="true"></i>
+            <span v-if="utiliserCredit">Le client utilise son crédit fidélité <strong>{{ formaterEuros(devis.credit_disponible) }}</strong><small>Choisi par le client. Offert par BTM : déduit de votre commission, pas de votre chiffre d’affaires.</small></span>
+            <span v-else>Le client garde son crédit fidélité ({{ formaterEuros(devis.credit_disponible) }})<small>Il a choisi de ne pas l’utiliser sur ce devis.</small></span>
+          </p>
           <p v-if="calcul.codeBtmIgnore" class="val-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Le code {{ calcul.remise.code }} a déjà été utilisé par ce client sur un autre devis : il ne s’applique qu’une fois.</p>
           <p class="val-total"><span>Le client paie</span><strong>{{ formaterEuros(calcul.montant) }}</strong></p>
           <p class="val-commission"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> Commission BTM ({{ String(calcul.taux).replace('.', ',') }} %) : {{ formaterEuros(calcul.commission) }}, à reverser — jamais payée par le client.</p>
@@ -348,6 +361,12 @@ async function recuPdf(mode) {
           </button>
           <p v-if="!calcul.fournies.length" class="adm-erreur-texte">Aucun matériau remis : rien à encaisser.</p>
         </aside>
+
+        <!-- Téléphone : total et suite toujours visibles -->
+        <div class="val-barre">
+          <span><small>Le client paie</small><strong>{{ formaterEuros(calcul.montant) }}</strong></span>
+          <button type="button" class="adm-btn adm-btn-noir" :disabled="!pretPreparation" @click="etape = 'caisse'">Passer en caisse <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+        </div>
       </div>
 
       <!-- ========== 3. Caisse (terminal) ========== -->
@@ -413,6 +432,13 @@ async function recuPdf(mode) {
           </button>
           <button type="button" class="val-terminal-retour" :disabled="encaissement" @click="etape = 'preparation'"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Modifier la préparation</button>
         </aside>
+
+        <div class="val-barre">
+          <span><small>{{ moyen ? MOYENS[moyen].court : 'À encaisser' }}</small><strong>{{ formaterEuros(calcul.montant) }}</strong></span>
+          <button type="button" class="adm-btn val-barre-valider" :disabled="!pretAEncaisser || encaissement" @click="encaisser">
+            <span v-if="encaissement" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-lock" aria-hidden="true"></i> Valider
+          </button>
+        </div>
       </div>
 
       <!-- ========== 4. Reçu ========== -->
@@ -448,12 +474,12 @@ async function recuPdf(mode) {
 
 /* Étapes */
 .val-etapes { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.val-etapes li { display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px; background: #fff; box-shadow: var(--adm-ombre); color: var(--adm-muet); font-size: .88rem; font-weight: 600; }
+.val-etapes li { display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 6px; border-radius: 999px; background: var(--adm-carte); box-shadow: var(--adm-ombre); color: var(--adm-muet); font-size: .88rem; font-weight: 600; }
 .val-etape-num { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: var(--adm-ligne-2); font-size: .8rem; }
 .val-etapes li.active { color: var(--adm-encre); }
-.val-etapes li.active .val-etape-num { background: var(--adm-noir); color: #fff; }
-.val-etapes li.faite { color: #047857; }
-.val-etapes li.faite .val-etape-num { background: #d1fae5; }
+.val-etapes li.active .val-etape-num { background: var(--adm-noir); color: var(--adm-sur-noir); }
+.val-etapes li.faite { color: var(--adm-ok-texte); }
+.val-etapes li.faite .val-etape-num { background: var(--adm-ok-fond); }
 
 /* 1. Code */
 .val-code-grille { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: stretch; }
@@ -463,14 +489,14 @@ async function recuPdf(mode) {
 .val-code { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; padding-block: 36px; }
 .val-code h2 { margin: 6px 0 0; font-family: var(--font-corps); font-size: 1.25rem; font-weight: 600; }
 .val-code > p { margin: 0 0 8px; max-width: 380px; color: var(--adm-encre-2); font-size: .9rem; }
-.val-code-icone { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--adm-noir); color: #fff; font-size: 1.5rem; }
+.val-code-icone { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--adm-noir); color: var(--adm-sur-noir); font-size: 1.5rem; }
 .val-code-champ {
-  width: 100%; max-width: 340px; height: 68px; padding: 0 16px; border: 2px solid var(--adm-ligne); border-radius: 16px; background: #fff;
+  width: 100%; max-width: 340px; height: 68px; padding: 0 16px; border: 2px solid var(--adm-ligne); border-radius: 16px; background: var(--adm-champ); color: var(--adm-encre);
   font-family: var(--font-mono); font-size: 2rem; font-weight: 700; letter-spacing: .14em; text-align: center; text-transform: uppercase; color: var(--adm-encre);
   transition: border-color var(--transition), box-shadow var(--transition);
 }
-.val-code-champ::placeholder { color: #cfd5de; }
-.val-code-champ:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 5px rgba(8, 145, 178, .14); }
+.val-code-champ::placeholder { color: var(--adm-muet); }
+.val-code-champ:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 5px rgba(17, 17, 17, .14); }
 .val-code-champ[aria-invalid="true"] { border-color: var(--adm-baisse); }
 .val-code-btn { width: 100%; max-width: 340px; min-height: 48px; margin-top: 4px; }
 .val-attente { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
@@ -479,7 +505,9 @@ async function recuPdf(mode) {
 
 /* Devis retrouvé */
 .val-devis { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding-block: 16px; }
-.val-devis-icone { width: 48px; height: 48px; background: var(--adm-accent-doux); color: var(--lagon-700); font-size: 1.1rem; }
+.val-ailleurs { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-accent-doux); color: var(--adm-info-texte); font-size: .88rem; line-height: 1.5; }
+.val-ailleurs i { margin-top: 3px; }
+.val-devis-icone { width: 48px; height: 48px; background: var(--adm-accent-doux); color: var(--adm-info-texte); font-size: 1.1rem; }
 .val-devis-texte { flex: 1 1 240px; display: flex; flex-direction: column; min-width: 0; }
 .val-devis-texte strong { font-size: 1.05rem; font-weight: 600; }
 .val-devis-texte small { color: var(--adm-muet); font-size: .84rem; }
@@ -491,25 +519,25 @@ async function recuPdf(mode) {
 .val-lignes { margin: 0; padding: 8px 12px 12px; list-style: none; }
 .val-lignes li { display: grid; grid-template-columns: minmax(0, 1fr) auto 96px; align-items: center; gap: 16px; padding: 14px 12px; border-top: 1px solid var(--adm-ligne-2); transition: background var(--transition); }
 .val-lignes li:first-child { border-top: 0; }
-.val-lignes li.manquant { background: #fffbeb; border-radius: 12px; }
+.val-lignes li.manquant { background: var(--adm-attention-fond); border-radius: 12px; }
 .val-lignes li.manquant .val-ligne-texte strong, .val-lignes li.manquant .val-ligne-prix { color: var(--adm-muet); text-decoration: line-through; }
-.val-lignes li.partiel { background: #f0f9ff; border-radius: 12px; }
+.val-lignes li.partiel { background: var(--adm-accent-doux); border-radius: 12px; }
 .val-ligne-texte s { color: var(--adm-muet); }
-.val-stock { color: #047857 !important; font-weight: 600; }
+.val-stock { color: var(--adm-ok-texte) !important; font-weight: 600; }
 .val-stock.hors { color: var(--adm-baisse) !important; }
 .val-quantite { display: inline-flex; align-items: center; gap: 6px; }
 .val-quantite .adm-saisie-unite { width: 118px; }
 .val-quantite input { width: 100%; min-height: 38px; padding: 6px 40px 6px 12px; border: 1px solid var(--adm-ligne); border-radius: 10px; font: inherit; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
-.val-quantite input:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 3px rgba(8, 145, 178, .14); }
+.val-quantite input:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 3px rgba(17, 17, 17, .14); }
 .val-ligne-prix { text-align: right; }
-.val-extra { background: #f5f3ff; border-radius: 12px; }
-.val-credit { display: flex; gap: 10px; padding: 12px; border-radius: 12px; background: #ecfdf5; color: #065f46; font-size: .86rem; cursor: pointer; }
-.val-credit input { width: 18px; height: 18px; margin-top: 2px; accent-color: #059669; }
+.val-extra { background: var(--adm-violet-fond); border-radius: 12px; }
+.val-credit { display: flex; gap: 10px; margin: 0; padding: 12px; border-radius: 12px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); font-size: .86rem; }
+.val-credit > i { margin-top: 3px; }
 .val-credit span { display: flex; flex-direction: column; }
-.val-credit small { color: #047857; font-size: .78rem; }
+.val-credit small { color: var(--adm-ok-texte); font-size: .78rem; }
 .val-commission { display: flex; gap: 8px; margin: 0; color: var(--adm-muet); font-size: .8rem; line-height: 1.45; }
 .val-commission i { margin-top: 3px; }
-.val-extra .val-ligne-texte strong i { margin-right: 4px; color: #6d28d9; }
+.val-extra .val-ligne-texte strong i { margin-right: 4px; color: var(--adm-violet-texte); }
 .val-quantite-vide { width: 36px; }
 .val-ajout { display: flex; gap: 8px; padding: 4px 24px 20px; }
 .val-ajout select { flex: 1; min-height: 42px; }
@@ -526,7 +554,7 @@ async function recuPdf(mode) {
 .val-resume dd { margin: 0; font-variant-numeric: tabular-nums; }
 .val-total { display: flex; align-items: baseline; justify-content: space-between; margin: 0; padding-top: 14px; border-top: 1px solid var(--adm-ligne); }
 .val-total strong { font-size: 1.9rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.val-note { display: flex; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px; background: #fffbeb; color: #92400e; font-size: .84rem; line-height: 1.45; }
+.val-note { display: flex; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .84rem; line-height: 1.45; }
 .val-note i { margin-top: 3px; }
 .val-plein { width: 100%; min-height: 48px; }
 
@@ -534,44 +562,45 @@ async function recuPdf(mode) {
 .val-moyens { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .val-moyen {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 104px; padding: 14px 10px;
-  border: 2px solid var(--adm-ligne); border-radius: 18px; background: #fff; color: var(--adm-encre-2); font: inherit; font-size: .88rem; font-weight: 600; text-align: center; cursor: pointer;
+  border: 2px solid var(--adm-ligne); border-radius: 18px; background: var(--adm-champ); color: var(--adm-encre-2); font: inherit; font-size: .88rem; font-weight: 600; text-align: center; cursor: pointer;
   transition: border-color var(--transition), background var(--transition), color var(--transition);
 }
 .val-moyen i { font-size: 1.5rem; }
 .val-moyen:hover { border-color: var(--adm-muet); color: var(--adm-encre); }
-.val-moyen[aria-checked="true"] { border-color: var(--adm-noir); background: var(--adm-noir); color: #fff; }
+.val-moyen[aria-checked="true"] { border-color: var(--adm-noir); background: var(--adm-noir); color: var(--adm-sur-noir); }
 .val-saisie { display: flex; flex-direction: column; gap: 16px; margin-top: 22px; padding-top: 22px; border-top: 1px solid var(--adm-ligne-2); }
 .val-consignes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding-left: 20px; color: var(--adm-encre-2); font-size: .9rem; line-height: 1.5; }
-.val-avertissement { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #fffbeb; color: #92400e; font-size: .88rem; }
+.val-avertissement { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .88rem; }
 .val-avertissement i { margin-top: 3px; }
 .val-especes { display: flex; flex-direction: column; gap: 12px; }
 .val-especes input { font-size: 1.3rem; font-weight: 600; }
-.val-rendu { display: flex; align-items: baseline; justify-content: space-between; margin: 0; padding: 14px 18px; border-radius: 14px; background: #ecfdf5; color: #047857; }
+.val-rendu { display: flex; align-items: baseline; justify-content: space-between; margin: 0; padding: 14px 18px; border-radius: 14px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
 .val-rendu strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
-.val-rendu.manque { background: #fff1f2; color: var(--adm-baisse); }
+.val-rendu.manque { background: var(--adm-danger-fond); color: var(--adm-baisse); }
 
 .val-terminal {
   position: sticky; top: 16px; display: flex; flex-direction: column; gap: 6px; padding: 24px; border-radius: 28px;
-  background: var(--adm-noir); color: #fff; box-shadow: 0 20px 50px rgba(15, 23, 42, .25);
+  background: var(--adm-noir); color: var(--adm-sur-noir); box-shadow: 0 20px 50px rgba(15, 23, 42, .25);
 }
-.val-terminal-tete { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; color: rgba(255, 255, 255, .55); font-family: var(--font-mono); font-size: .8rem; }
-.val-terminal-libelle { color: rgba(255, 255, 255, .6); font-size: .85rem; }
-.val-terminal-montant { font-size: clamp(2.2rem, 3.4vw, 2.8rem); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; color: #67e8f9; }
-.val-terminal-detail { color: rgba(255, 255, 255, .55); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.val-terminal-moyen { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, .1); font-size: .84rem; }
+.val-terminal-tete { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 14px; color: color-mix(in srgb, currentColor 55%, transparent); font-family: var(--font-mono); font-size: .8rem; }
+.val-terminal-libelle { color: color-mix(in srgb, currentColor 60%, transparent); font-size: .85rem; }
+.val-terminal-montant { font-size: clamp(2.2rem, 3.4vw, 2.8rem); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; font-variant-numeric: tabular-nums; color: inherit; }
+:global(.adm-sombre .val-terminal-montant) { color: inherit; }
+.val-terminal-detail { color: color-mix(in srgb, currentColor 55%, transparent); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.val-terminal-moyen { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; margin-top: 10px; padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, currentColor 10%, transparent); font-size: .84rem; }
 .val-terminal-valider {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 54px; margin-top: 22px; border: 0; border-radius: 16px;
   background: #10b981; color: #fff; font: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background var(--transition), opacity var(--transition);
 }
 .val-terminal-valider:hover:not(:disabled) { background: #059669; }
 .val-terminal-valider:disabled { opacity: .35; cursor: not-allowed; }
-.val-terminal-retour { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; border: 0; background: none; color: rgba(255, 255, 255, .6); font: inherit; font-size: .86rem; cursor: pointer; }
-.val-terminal-retour:hover:not(:disabled) { color: #fff; }
+.val-terminal-retour { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; border: 0; background: none; color: color-mix(in srgb, currentColor 60%, transparent); font: inherit; font-size: .86rem; cursor: pointer; }
+.val-terminal-retour:hover:not(:disabled) { color: inherit; }
 
 /* 4. Reçu */
 .val-recu { display: flex; flex-direction: column; align-items: center; gap: 12px; padding-block: 40px; text-align: center; }
-.val-recu-icone { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; background: #d1fae5; color: #047857; font-size: 1.6rem; }
-.val-recu-icone.ancien { background: var(--adm-accent-doux); color: var(--lagon-700); }
+.val-recu-icone { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 50%; background: var(--adm-ok-fond); color: var(--adm-ok-texte); font-size: 1.6rem; }
+.val-recu-icone.ancien { background: var(--adm-accent-doux); color: var(--adm-info-texte); }
 .val-recu h2 { margin: 4px 0 0; font-family: var(--font-corps); font-size: 1.35rem; font-weight: 600; }
 .val-recu-numero { margin: 0; color: var(--adm-encre-2); }
 .val-recu-numero strong { font-size: 1.1rem; color: var(--adm-encre); }
@@ -581,14 +610,154 @@ async function recuPdf(mode) {
 .val-recu-infos dd { margin: 2px 0 0; font-weight: 600; }
 .val-recu-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 
+.val-ajout select { min-width: 0; }
+.val-barre { display: none; }
+
 @media (max-width: 1100px) {
-  .val-grille, .val-code-grille { grid-template-columns: 1fr; }
+  .val-grille, .val-code-grille { grid-template-columns: minmax(0, 1fr); }
   .val-resume, .val-terminal { position: static; }
 }
-@media (max-width: 640px) {
-  .val-moyens { grid-template-columns: 1fr 1fr; }
-  .val-lignes li { grid-template-columns: minmax(0, 1fr) auto; }
-  .val-quantite { grid-column: 1 / -1; justify-self: start; }
-  .val-code-champ { font-size: 1.6rem; }
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 767px) {
+  .val { gap: 14px; }
+
+  /* étapes : barre de progression en 4 segments, libellés courts dessous */
+  .val-etapes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .val-etapes li { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 0; border-radius: 0; background: none; box-shadow: none; font-size: .72rem; font-weight: 600; text-align: center; white-space: nowrap; }
+  .val-etapes li::before { content: ''; height: 4px; border-radius: 999px; background: var(--adm-ligne); }
+  .val-etapes li.faite::before { background: var(--adm-ok-texte); }
+  .val-etapes li.active::before { background: var(--adm-accent); }
+  .val-etapes .val-etape-num { display: none; }
+
+  .val-code { padding: 24px 16px; gap: 8px; }
+  .val-code-icone { width: 48px; height: 48px; border-radius: 14px; font-size: 1.2rem; }
+  .val-code h2 { font-size: 1.1rem; }
+  .val-code > p { font-size: .84rem; }
+  .val-code-champ { height: 60px; font-size: 1.55rem; letter-spacing: .1em; }
+  .val-attente li { gap: 10px; }
+  .val-attente .adm-identite { flex: 1; min-width: 0; }
+
+  .val-devis { flex-wrap: nowrap; gap: 12px; padding: 12px 14px; }
+  .val-devis-icone { width: 40px; height: 40px; }
+  .val-devis-texte { flex: 1 1 0; }
+  .val-devis-texte strong { font-size: .98rem; line-height: 1.25; }
+  .val-devis-texte small { font-size: .78rem; }
+  .val-devis > .adm-badge { display: none; }
+  .val-devis > .adm-btn { flex: none; padding: 0 10px; }
+
+  /* préparation : libellé en haut, quantité à gauche et sous-total à droite en dessous */
+  .val-pad { padding: 16px 16px 0; }
+  .val-pad p { font-size: .8rem; }
+  .val-lignes { padding: 6px 8px 10px; }
+  .val-lignes li { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 12px 8px; }
+  .val-ligne-texte { grid-column: 1 / -1; }
+  .val-quantite { justify-self: start; }
+  .val-quantite .adm-saisie-unite { width: 104px; }
+  .val-ajout { flex-wrap: wrap; padding: 4px 16px 16px; }
+  .val-ajout select { flex: 1 1 100%; }
+  .val-ajout .adm-btn { flex: 1; }
+
+  .val-resume > .val-plein { display: none; } /* remplacé par la barre du bas */
+  .val-total strong { font-size: 1.6rem; }
+
+  /* caisse : montant en premier, moyens en 2 × 2 plus bas */
+  .val-terminal { order: -1; gap: 2px; padding: 16px 18px; border-radius: 22px; }
+  .val-terminal-tete { margin-bottom: 6px; }
+  .val-terminal-montant { font-size: 2.1rem; }
+  .val-terminal-moyen { margin-top: 6px; }
+  .val-terminal-valider { display: none; } /* remplacé par la barre du bas */
+  .val-terminal-retour { align-self: flex-start; min-height: 34px; margin-top: 6px; padding: 0; }
+  .val-moyens { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .val-moyen { flex-direction: row; justify-content: flex-start; gap: 10px; min-height: 56px; padding: 10px 12px; border-radius: 14px; font-size: .84rem; text-align: left; }
+  .val-moyen i { font-size: 1.15rem; }
+  .val-saisie { margin-top: 16px; padding-top: 16px; }
+  .val-billets { flex-wrap: wrap; }
+
+  .val-barre {
+    position: sticky; bottom: calc(var(--ef-bas, 0px) + 8px); z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 10px 10px 10px 18px; border-radius: 20px; background: var(--adm-carte); box-shadow: 0 0 0 1px var(--adm-ligne), 0 12px 32px rgba(15, 23, 42, .18);
+  }
+  .val-barre > span { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+  .val-barre small { color: var(--adm-muet); font-size: .74rem; }
+  .val-barre strong { font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .val-barre .adm-btn { flex: none; min-height: 46px; }
+  .val-barre-valider { background: #10b981; color: #fff; }
+  .val-barre-valider:hover:not(:disabled) { background: #059669; }
+
+  .val-recu { padding: 28px 16px; }
+  .val-recu-infos { grid-template-columns: 1fr 1fr; }
+  .val-recu-actions { width: 100%; flex-direction: column; }
+  .val-recu-actions .adm-btn { width: 100%; }
+}
+
+/* Téléphone assez haut : la page ne défile plus. Étapes et devis restent en haut, le contenu de l'étape
+   défile dans sa zone, le total et le bouton suivant restent collés en bas de cette zone. */
+@media (max-width: 767px) and (min-height: 560px) {
+  .val { height: 100%; gap: 10px; }
+  .val > .val-etapes, .val > .val-devis, .val > .val-ailleurs { flex: none; }
+
+  /* 1. Code : saisie en haut, devis en attente dans une liste qui défile */
+  .val-code-grille { display: flex; flex-direction: column; flex: 1; gap: 10px; min-height: 0; }
+  .val-code { flex: none; gap: 8px; padding: 16px; }
+  .val-code-icone { display: none; }
+  .val-code h2 { margin: 0; font-size: 1rem; }
+  .val-code > p { margin: 0; font-size: .78rem; line-height: 1.4; }
+  .val-code-champ { height: 56px; }
+  .val-code-btn { min-height: 46px; margin-top: 2px; }
+  .val-code-grille > section { flex: 1; min-height: 0; padding: 14px 16px; }
+  .val-code-grille .adm-carte-tete { flex: none; margin-bottom: 6px; }
+  .val-code-grille .adm-carte-tete h2 { font-size: .95rem; }
+  .val-code-grille .adm-carte-tete p { display: none; }
+  .val-attente { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+  .val-attente li { padding: 10px 0; }
+  .val-code-grille .adm-vide { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0; }
+  .val-code-grille .adm-vide i { font-size: 1rem; }
+  .val-code-grille .adm-vide p { font-size: .84rem; }
+
+  /* devis retrouvé : une ligne compacte */
+  .val-devis { padding: 10px 12px; border-radius: 16px; }
+  .val-devis-icone { width: 36px; height: 36px; font-size: .95rem; }
+  .val-devis-texte strong { overflow: hidden; font-size: .92rem; text-overflow: ellipsis; white-space: nowrap; }
+  .val-devis-texte small { overflow: hidden; font-size: .72rem; text-overflow: ellipsis; white-space: nowrap; }
+  .val-devis > .adm-btn { min-height: 32px; font-size: .78rem; }
+  .val-ailleurs { padding: 8px 12px; font-size: .76rem; line-height: 1.4; }
+
+  /* 2. Préparation et 3. Caisse : la zone de l'étape défile, sa barre reste en bas */
+  .val-grille { display: flex; flex-direction: column; flex: 1; gap: 10px; min-height: 0; margin: 0 -4px; padding: 0 4px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+  .val-grille::-webkit-scrollbar { display: none; }
+  .val-grille > * { flex: none; }
+  .val-barre { position: sticky; bottom: 0; margin-top: auto; padding: 8px 8px 8px 16px; border-radius: 18px; }
+  .val-barre strong { font-size: 1.2rem; }
+  .val-barre .adm-btn { min-height: 44px; }
+
+  .val-pad { padding: 14px 14px 0; }
+  .val-pad h2 { font-size: .95rem; }
+  .val-pad p { display: none; }
+  .val-lignes { padding: 4px 6px 8px; }
+  .val-lignes li { padding: 10px 8px; }
+  .val-ajout { padding: 2px 14px 14px; }
+  .val-resume { gap: 10px; padding: 14px; }
+  .val-resume h2 { display: none; }
+  .val-total { display: none; } /* déjà dans la barre du bas */
+  .val-commission { font-size: .74rem; }
+
+  .val-terminal { padding: 14px 16px; border-radius: 18px; }
+  .val-terminal-tete { margin-bottom: 2px; font-size: .74rem; }
+  .val-terminal-montant { font-size: 1.8rem; }
+  .val-terminal-retour { min-height: 28px; margin-top: 2px; font-size: .8rem; }
+  .val-grille > section.adm-carte-pad { padding: 14px; }
+  .val-grille .adm-carte-tete { margin-bottom: 10px; }
+  .val-grille .adm-carte-tete h2 { font-size: .95rem; }
+  .val-grille .adm-carte-tete p { display: none; }
+  .val-moyen { min-height: 50px; }
+  .val-saisie { gap: 12px; margin-top: 12px; padding-top: 12px; }
+
+  /* 4. Reçu : centré dans l'écran, défile s'il le faut */
+  .val-recu { flex: 1; min-height: 0; justify-content: center; gap: 10px; padding: 20px 16px; overflow-y: auto; }
+  .val-recu-icone { width: 52px; height: 52px; font-size: 1.3rem; }
+  .val-recu h2 { font-size: 1.15rem; }
+  .val-recu-infos { gap: 8px; margin: 6px 0; }
+  .val-recu-infos div { padding: 8px 12px; }
 }
 </style>

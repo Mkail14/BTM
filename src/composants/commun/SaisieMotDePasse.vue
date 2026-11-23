@@ -25,6 +25,6 @@ const visible = ref(false)
   position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 40px; height: 40px; display: grid; place-items: center;
   border: 0; border-radius: var(--rayon-sm); background: transparent; color: var(--gris-400); cursor: pointer; transition: color var(--transition), background var(--transition);
 }
-.mdp-oeil:hover { color: var(--lagon-600); background: rgba(6, 182, 212, .1); }
+.mdp-oeil:hover { color: var(--lagon-600); background: rgba(17, 17, 17, .1); }
 .mdp-oeil:focus-visible { outline: 2px solid var(--lagon-500); outline-offset: -2px; }
 </style>

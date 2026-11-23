@@ -311,11 +311,11 @@ async function enregistrer() {
 .code-option small { color: var(--adm-muet); font-size: .8rem; line-height: 1.45; }
 .code-interrupteur { display: flex; align-items: center; gap: 10px; font-size: .9rem; font-weight: 600; cursor: pointer; }
 
-.code-exemple { padding: 16px 18px; border-radius: 16px; background: var(--adm-noir); color: rgba(255, 255, 255, .75); font-size: .88rem; }
-.code-exemple-titre { display: block; margin-bottom: 8px; font-size: .75rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--lagon-300); }
+.code-exemple { padding: 16px 18px; border-radius: 16px; background: var(--adm-noir); color: var(--adm-sur-noir); font-size: .88rem; }
+.code-exemple-titre { display: block; margin-bottom: 8px; font-size: .75rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: inherit; opacity: .7; }
 .code-exemple > div { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-variant-numeric: tabular-nums; }
 .code-exemple-remise { color: #6ee7b7; font-weight: 600; }
-.code-exemple-total { margin-top: 6px; padding-top: 10px !important; border-top: 1px solid rgba(255, 255, 255, .15); color: #fff; font-weight: 700; }
+.code-exemple-total { margin-top: 6px; padding-top: 10px !important; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); color: inherit; font-weight: 700; }
 .code-exemple-note { margin: 8px 0 0; color: #fcd34d; font-size: .8rem; }
 
 /* Ordinateur et tablette : page fixe (« ecran-fixe » dans AdminVue) — filtres et synthèse en place, seule la liste défile */

@@ -21,6 +21,9 @@ const chargeurs = {
   codes: api.listerCodes,
   paiements: api.listerPaiements,
   reversements: api.listerReversements,
+  ribsFournisseurs: api.listerRibsFournisseurs,
+  credits: api.listerCredits,
+  annules: api.listerCreditsAnnules,
   versement: api.lireParametresVersement
 }
 

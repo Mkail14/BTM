@@ -414,30 +414,30 @@ async function enregistrerTaux() {
   transition: background var(--transition), color var(--transition), box-shadow var(--transition);
 }
 .ouvrage-choix:hover { box-shadow: 0 0 0 1px var(--adm-muet), var(--adm-ombre); }
-.ouvrage-choix.actif { background: var(--adm-noir); color: #fff; }
+.ouvrage-choix.actif { background: var(--adm-noir); color: var(--adm-sur-noir); }
 .ouvrage-choix-icone { width: 44px; height: 44px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--adm-ligne-2); }
-.ouvrage-choix.actif .ouvrage-choix-icone { background: rgba(255, 255, 255, .12); }
+.ouvrage-choix.actif .ouvrage-choix-icone { background: color-mix(in srgb, currentColor 12%, transparent); }
 .ouvrage-choix > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .ouvrage-choix strong { font-weight: 600; }
 .ouvrage-choix small { color: var(--adm-muet); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ouvrage-choix.actif small { color: rgba(255, 255, 255, .6); }
+.ouvrage-choix.actif small { color: color-mix(in srgb, currentColor 60%, transparent); }
 
 .ouvrage-grille { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-.simulation { position: sticky; top: 16px; background: var(--adm-noir); color: #fff; }
-.simulation-label { font-size: .78rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--lagon-300); }
-.simulation-exemple { margin: 8px 0 20px; color: rgba(255, 255, 255, .75); font-size: .9rem; }
+.simulation { position: sticky; top: 16px; background: var(--adm-noir); color: var(--adm-sur-noir); }
+.simulation-label { font-size: .78rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: inherit; opacity: .7; }
+.simulation-exemple { margin: 8px 0 20px; color: inherit; opacity: .75; font-size: .9rem; }
 .simulation-valeurs { display: flex; align-items: center; gap: 14px; }
 .simulation-valeurs > div { display: flex; flex-direction: column; gap: 2px; }
-.simulation-valeurs small { font-size: .76rem; color: rgba(255, 255, 255, .55); }
+.simulation-valeurs small { font-size: .76rem; color: color-mix(in srgb, currentColor 55%, transparent); }
 .simulation-valeurs strong { font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.simulation-valeurs > i { color: rgba(255, 255, 255, .4); }
-.simulation-ecart { margin: 14px 0 0; font-size: .86rem; color: rgba(255, 255, 255, .6); }
+.simulation-valeurs > i { color: color-mix(in srgb, currentColor 40%, transparent); }
+.simulation-ecart { margin: 14px 0 0; font-size: .86rem; color: color-mix(in srgb, currentColor 60%, transparent); }
 .simulation-ecart.hausse { color: #fcd34d; }
 .simulation-ecart.baisse { color: #6ee7b7; }
 .simulation-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 24px; }
-.adm-btn-blanc { background: #fff; color: var(--adm-noir); }
+.adm-btn-blanc { background: #fff; color: #111; }
 .adm-btn-blanc:hover:not(:disabled) { background: #e2e8f0; }
-.adm-btn-contour { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .25); }
+.adm-btn-contour { background: transparent; color: inherit; border-color: color-mix(in srgb, currentColor 25%, transparent); }
 .adm-btn-contour:hover:not(:disabled) { border-color: #fff; }
 .simulation-alerte { margin: 14px 0 0; font-size: .82rem; color: #fda4af; }
 
@@ -450,10 +450,10 @@ async function enregistrerTaux() {
 .frais-infos i { width: 20px; margin-right: 8px; color: var(--adm-muet); text-align: center; }
 .frais-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--adm-ligne-2); }
 .frais-exemple { margin: 0; }
-.frais-exemple div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: .9rem; color: rgba(255, 255, 255, .75); }
+.frais-exemple div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: .9rem; color: color-mix(in srgb, currentColor 75%, transparent); }
 .frais-exemple dd { margin: 0; font-variant-numeric: tabular-nums; }
-.frais-exemple-btm { color: var(--lagon-300) !important; font-weight: 600; }
-.frais-exemple-total { margin-top: 6px; padding-top: 12px !important; border-top: 1px solid rgba(255, 255, 255, .15); color: #fff !important; font-weight: 700; font-size: 1rem !important; }
+.frais-exemple-btm { color: inherit !important; font-weight: 600; }
+.frais-exemple-total { margin-top: 6px; padding-top: 12px !important; border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent); color: inherit !important; font-weight: 700; font-size: 1rem !important; }
 @media (max-width: 900px) { .frais-deux { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .frais-grille { grid-template-columns: minmax(0, 1fr); } }
 

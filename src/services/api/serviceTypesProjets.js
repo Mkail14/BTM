@@ -1,18 +1,8 @@
-/** Types de projets : textes et constantes de calcul modifiés dans l'admin (/api/types-projets) */
-import { api, apiConfiguree } from './client.js'
-import { appliquerTypesDistants } from '@/donnees/typesProjets.js'
+/** Types de projets : API BTM (BACK, /api/types-projets) quand VITE_API_URL est réglé, sinon Supabase directement */
+import { apiConfiguree } from './client.js'
+import * as rest from './rest/serviceTypesProjets.js'
+import * as supa from '@/services/supabase/serviceTypesProjets.js'
 
-let chargement = null
+export * from '@/services/supabase/serviceTypesProjets.js'
 
-export function chargerTypesProjets() {
-  if (chargement) return chargement
-  chargement = (async () => {
-    if (!apiConfiguree) return
-    try {
-      appliquerTypesDistants((await api.get('/types-projets')) || [])
-    } catch (e) {
-      console.warn('Types de projets distants indisponibles, constantes locales', e)
-    }
-  })()
-  return chargement
-}
+export const chargerTypesProjets = (...a) => (apiConfiguree ? rest : supa).chargerTypesProjets(...a)

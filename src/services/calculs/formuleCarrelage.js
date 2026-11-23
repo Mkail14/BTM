@@ -2,7 +2,8 @@
  * 9.5 Carrelage
  * Surface = Longueur × Largeur
  *  - Carreaux : Surface × 1,10 (coupes et casse)
- *      · modèle choisi chez un fournisseur : nombre de carreaux entiers × son prix à l'unité ;
+ *      · modèle choisi chez un fournisseur : carreaux entiers × son prix à l'unité, ou cartons entiers × prix du
+ *        carton s'il vend au carton (parCarton) ;
  *      · sinon : m² au prix moyen du catalogue (carrelage de sol)
  *  - Colle    : Surface × 5 kg/m², en sacs de 25 kg
  *  - Joint    : Surface × 0,5 kg/m²
@@ -23,16 +24,18 @@ export function calculerCarrelage(dimensions, parametres, catalogue) {
   const m2Carreaux = surface * parametres.margeCarreaux
   const nbCarreaux = Math.ceil(m2Carreaux / FORMATS[format] ** 2)
   const modele = modeleCarreau(dimensions, format)
+  const parCarton = modele && Number(modele.parCarton) > 1 ? Number(modele.parCarton) : 0
+  const nbCartons = parCarton ? Math.ceil(nbCarreaux / parCarton) : 0
 
   const lignes = [
     modele
       ? {
           id: `carreau:${modele.id}`,
-          libelle: `Carreaux « ${modele.nom} » ${format.replace('x', ' × ')} cm${modele.fournisseur ? ` — ${modele.fournisseur}` : ''}`,
-          unite: 'carreau',
-          quantite: nbCarreaux,
+          libelle: `Carreaux « ${modele.nom} » ${format.replace('x', ' × ')} cm${parCarton ? `, carton de ${parCarton}` : ''}${modele.fournisseur ? ` — ${modele.fournisseur}` : ''}`,
+          unite: parCarton ? 'carton' : 'carreau',
+          quantite: parCarton ? nbCartons : nbCarreaux,
           prixUnitaire: Number(modele.prix),
-          sousTotal: arrondi(nbCarreaux * Number(modele.prix))
+          sousTotal: arrondi((parCarton ? nbCartons : nbCarreaux) * Number(modele.prix))
         }
       : ligneMateriau(catalogue, 'carrelage_sol', m2Carreaux, 2),
     ligneMateriau(catalogue, 'colle_carrelage', Math.ceil((surface * parametres.kgColleParM2) / parametres.kgParSacColle), 0),
@@ -42,7 +45,8 @@ export function calculerCarrelage(dimensions, parametres, catalogue) {
     mesures: [
       { label: 'Surface', valeur: arrondi(surface), unite: 'm²', principale: true },
       { label: 'Carreaux à commander', valeur: arrondi(m2Carreaux), unite: 'm²' },
-      { label: `Nombre de carreaux (${format.replace('x', ' × ')} cm)`, valeur: nbCarreaux, unite: '' }
+      { label: `Nombre de carreaux (${format.replace('x', ' × ')} cm)`, valeur: nbCarreaux, unite: '' },
+      ...(parCarton ? [{ label: `Cartons de ${parCarton}`, valeur: nbCartons, unite: '' }] : [])
     ],
     lignes,
     ...synthese(lignes)

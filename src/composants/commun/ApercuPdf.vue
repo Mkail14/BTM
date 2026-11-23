@@ -39,7 +39,7 @@ watch(apercuPdf, async (a) => {
 </template>
 
 <style scoped>
-.apdf-fond { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 20px; background: rgba(6, 32, 44, .6); backdrop-filter: blur(4px); }
+.apdf-fond { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 20px; background: rgba(17, 17, 17, .6); backdrop-filter: blur(4px); }
 .apdf { display: flex; flex-direction: column; width: min(980px, 100%); height: min(92vh, 1100px); overflow: hidden; border-radius: var(--rayon-lg); background: #fff; box-shadow: var(--ombre-lg); }
 .apdf-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px 12px 18px; border-bottom: 1px solid var(--gris-200); }
 .apdf-titre { display: flex; align-items: center; gap: 8px; min-width: 0; margin: 0; color: var(--ardoise); font-weight: 700; }

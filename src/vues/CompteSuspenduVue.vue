@@ -100,12 +100,12 @@ h1 { margin-bottom: 12px; font-size: clamp(2.2rem, 5vw, 3.4rem); line-height: 1.
 .suspendu-rat { display: flex; flex-direction: column; align-items: center; width: min(100%, 380px); margin: 0 auto; }
 /* bulle : la pointe descend vers le rat */
 .suspendu-bulle {
-  position: relative; z-index: 1; margin-bottom: -6px; padding: 14px 22px; border: 3px solid var(--ardoise); border-radius: 22px; background: #fff;
+  position: relative; z-index: 1; margin-bottom: -6px; padding: 14px 22px; border: 3px solid var(--ardoise); border-radius: 22px; background: var(--carte);
   font-family: var(--font-display); font-size: 1.55rem; font-weight: 700; line-height: 1.15; text-align: center; color: var(--ardoise);
 }
 .suspendu-bulle::after {
   content: ''; position: absolute; left: 50%; bottom: -13px; width: 20px; height: 20px; margin-left: -10px;
-  border-right: 3px solid var(--ardoise); border-bottom: 3px solid var(--ardoise); background: #fff; transform: rotate(45deg);
+  border-right: 3px solid var(--ardoise); border-bottom: 3px solid var(--ardoise); background: var(--carte); transform: rotate(45deg);
 }
 .suspendu-motif { width: 100%; margin-top: 8px; padding: 16px 18px; border-left: 4px solid var(--corail-fonce); border-radius: 0 var(--rayon) var(--rayon) 0; background: var(--erreur-clair); }
 .suspendu-motif span { display: block; margin-bottom: 4px; font-size: .74rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--corail-fonce); }

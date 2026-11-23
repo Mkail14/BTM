@@ -7,9 +7,9 @@
  *  - particulier : Identité → Sécurité → Validation ;
  *  - professionnel : Entreprise (SIRET) → Contact → Sécurité → Validation.
  * Le pseudo (nom affiché) est déduit du prénom et du nom.
- * « Mot de passe oublié ? » remplace le formulaire par MotDePasseOublie (code reçu par e-mail).
+ * « Mot de passe oublié ? » remplace le formulaire par MotDePasseOublie (lien reçu par e-mail).
  */
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
 import { useCalculateur } from '@/composables/useCalculateur.js'
@@ -27,7 +27,7 @@ import { supabase } from '@/services/supabase/client.js'
 import { lireRoleCompte } from '@/services/supabase/serviceCompte.js'
 import { fermerAuth } from '@/composables/useFenetreAuth.js'
 import { lireSuspension, connexionExterne, connexionGoogleJeton, renvoyerConfirmation } from '@/services/supabase/serviceAuth.js'
-import { afficherBoutonGoogle } from '@/services/googleIdentite.js'
+import { afficherBoutonGoogle, prechargerGoogle } from '@/services/googleIdentite.js'
 import { memoriserSuspension } from '@/services/suspension.js'
 
 const props = defineProps({
@@ -38,45 +38,113 @@ const props = defineProps({
   oubli: Boolean,                             // ouverte directement sur « Mot de passe oublié » (depuis le profil)
   parLien: Boolean,                           // arrivée par le lien de l'e-mail : choix du nouveau mot de passe seulement
   lienExpire: Boolean,                        // lien de l'e-mail expiré : « Mot de passe oublié » avec un message
-  message: { type: String, default: null }    // raison de l'ouverture, affichée sous le titre (ex. « obtenir votre devis »)
+  message: { type: String, default: null },   // raison de l'ouverture, affichée sous le titre (ex. « obtenir votre devis »)
+  partenairesSeuls: Boolean                   // ouverte sur la page d'attente : connexion réservée aux admins et fournisseurs
 })
 const emit = defineEmits(['fermer', 'changer-mode'])
 const router = useRouter()
+
+// ---------- Téléphone : feuille qui monte du bas, se ferme en redescendant, se tire au doigt ----------
+const enFeuille = () => window.matchMedia('(max-width: 639px)').matches && !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const fermeture = ref(false)
+function fermer() {
+  if (fermeture.value) return
+  if (!enFeuille()) { emit('fermer'); return }
+  fermeture.value = true
+  glisse.value = null
+  setTimeout(() => emit('fermer'), 320) // durée de la descente (CSS .auth-sortie)
+}
+// Glisser la poignée vers le bas : la feuille suit le doigt (avec résistance), le flou s'estompe.
+// Relâchée après 120 px, ou d'un geste rapide vers le bas, elle se ferme ; sinon elle revient en place.
+const glisse = ref(null) // décalage en px pendant le geste, null au repos
+let depart = null
+function debutGlisse(e) {
+  if (!enFeuille() || fermeture.value) return
+  depart = { y: e.clientY, t: performance.now() }
+  e.currentTarget.setPointerCapture(e.pointerId)
+}
+function suiteGlisse(e) {
+  if (!depart) return
+  const dy = e.clientY - depart.y
+  glisse.value = dy > 0 ? dy : -Math.sqrt(-dy) * 2 // vers le haut : légère résistance
+}
+function finGlisse(e) {
+  if (!depart) return
+  const dy = e.clientY - depart.y
+  const vitesse = dy / Math.max(1, performance.now() - depart.t)
+  depart = null
+  if (dy > 120 || (dy > 30 && vitesse > 0.6)) fermer()
+  else glisse.value = null
+}
+const styleFeuille = computed(() => (glisse.value === null ? null : { transform: `translateY(${glisse.value}px)`, transition: 'none' }))
+const styleFond = computed(() => (glisse.value === null ? null : { opacity: Math.max(0, 1 - glisse.value / 420), transition: 'none' }))
 const calc = useCalculateur()
 const redirectionDemandee = () => props.redirect
+// lu à l'ouverture : la page d'attente disparaît dès que l'admin ou le fournisseur est reconnu
+const reserve = props.partenairesSeuls
+const MESSAGE_RESERVE = 'Le site n’est pas encore ouvert : cet espace est réservé aux fournisseurs partenaires et à l’équipe BTM.'
+// partenaire : admin, fournisseur, ou entreprise dont le compte attend la validation de BTM (elle voit sa page d'attente)
+const estPartenaire = ({ role, fournisseur_id: fid, demandeFournisseur } = {}) => role === 'admin' || (role === 'fournisseur' && !!fid) || !!demandeFournisseur
+// Avant l'ouverture : un compte client qui se connecte est aussitôt déconnecté, la fenêtre reste ouverte avec un message
+async function refuserSiClient(compte) {
+  if (!reserve || estPartenaire(compte)) return false
+  await deconnexion()
+  erreurGlobale.value = MESSAGE_RESERVE
+  return true
+}
 // Connecté : on rejoint la destination demandée (ou l'espace d'un admin / fournisseur), puis la fenêtre se ferme
 // une fois la page prête : l'admin arrive directement sur son tableau de bord. Sans destination, on reste sur la page.
 // Une seule fois : le clic et l'écouteur d'auth partagent la même navigation.
 let connexionEnCours = null
 function terminerConnexion() {
   connexionEnCours ||= (async () => {
-    const demandee = redirectionDemandee()
+    const demandee = reserve ? null : redirectionDemandee()
     // rôle lu par le routeur et gardé en cache : sa garde ne refait pas la requête
-    const { role, fournisseur_id: fid } = demandee ? {} : (await roleSession()) || {}
+    const compte = demandee ? {} : (await roleSession()) || {}
+    if (await refuserSiClient(compte)) { connexionEnCours = null; return }
+    const { role, fournisseur_id: fid } = compte
     const cible = demandee || (role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : null)
     try {
-      if (cible) await router.push(cible)
+      if (cible) {
+        await router.push(cible)
+        // App.vue envoie aussi un admin / fournisseur vers son espace : sa navigation peut remplacer celle-ci, qui se
+        // termine alors avant que la page soit chargée. La fenêtre reste ouverte jusqu'à l'arrivée réelle sur la page
+        // (sinon l'accueil apparaissait quelques secondes avant le tableau de bord).
+        await arriveeSur(cible)
+      }
     } finally {
       emit('fermer')
     }
   })()
   return connexionEnCours
 }
-const { connexion, inscription, backendDisponible, connecte, utilisateur } = useAuth()
+/** Attend que la page affichée soit `chemin` (8 s au plus : la fenêtre ne reste jamais bloquée) */
+function arriveeSur(chemin) {
+  const arrive = () => router.currentRoute.value.path.startsWith(chemin.split('?')[0])
+  if (arrive()) return Promise.resolve()
+  return new Promise((resolve) => {
+    const fin = () => { arreter(); clearTimeout(delai); resolve() }
+    const arreter = watch(() => router.currentRoute.value.path, () => { if (arrive()) fin() })
+    const delai = setTimeout(fin, 8000)
+  })
+}
+const { connexion, inscription, deconnexion, backendDisponible, connecte, utilisateur } = useAuth()
 
-// Mot de passe oublié : le code vérifié connecte le compte avant qu'il ait choisi son mot de passe,
+// Mot de passe oublié : le lien de l'e-mail connecte le compte avant qu'il ait choisi son mot de passe,
 // la fenêtre ne doit donc pas se fermer à la connexion tant que ce parcours est ouvert
 const modeOubli = ref(props.oubli || props.parLien || props.lienExpire)
 const dejaConnecte = connecte.value || props.parLien // profil d'un compte connecté, ou session ouverte par le lien de l'e-mail
 const quitterOubli = () => { if (dejaConnecte) emit('fermer'); else modeOubli.value = false }
 // Mot de passe enregistré : chacun rejoint son espace (tableau de bord pour un admin, espace fournisseur),
-// quel que soit le parcours (code reçu, lien de l'e-mail, profil). Rôle relu à neuf : la session vient d'être ouverte.
+// quel que soit le parcours (lien de l'e-mail, profil). Rôle relu à neuf : la session vient d'être ouverte.
 async function finOubli() {
   try {
     const { data } = await supabase.auth.getUser()
-    const { role, fournisseur_id: fid } = data.user ? await lireRoleCompte(data.user.id) : {}
+    const compte = data.user ? await lireRoleCompte(data.user.id) : {}
+    if (await refuserSiClient(compte)) return
+    const { role, fournisseur_id: fid } = compte
     const cible = props.redirect || (role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : null)
-    if (cible && router.currentRoute.value.path !== cible) await router.push(cible)
+    if (cible && router.currentRoute.value.path !== cible) { await router.push(cible); await arriveeSur(cible) }
   } catch { /* rôle illisible (réseau) : on reste sur la page en cours */ } finally {
     emit('fermer')
   }
@@ -105,6 +173,7 @@ watch(siret, async (valeur) => {
 const nom = ref('')
 const prenom = ref('')
 const telephone = ref('')
+const telephoneValide = ref(true) // vide ou complet
 const motDePasse = ref('')
 const confirmation = ref('')
 const resterConnecte = ref(true)
@@ -131,10 +200,10 @@ const compteCree = ref(null)
 // connexion ouverte par « J'ai confirmé, me connecter » : le compte existe, le texte d'accroche ne doit plus inviter à le créer
 const apresConfirmation = ref(false)
 const raison = computed(() => (apresConfirmation.value && !estInscription.value
-  ? 'Compte créé : connectez-vous pour afficher votre devis.'
+  ? 'Compte créé : connectez-vous pour retrouver votre estimation.'
   : props.message))
 const chargement = ref(false)
-const estInscription = computed(() => props.mode === 'inscription')
+const estInscription = computed(() => !reserve && props.mode === 'inscription')
 // Étape 0 : choix du profil ; ensuite les étapes propres au profil
 const etape = ref(0)
 const ETAPES = computed(() => (typeCompte.value === 'professionnel' ? ['Entreprise', 'Contact', 'Sécurité', 'Validation'] : ['Identité', 'Sécurité', 'Validation']))
@@ -150,6 +219,22 @@ watch(() => props.mode, (m) => { if (m === 'inscription') apresConfirmation.valu
 // ouverte depuis « Créer un compte professionnel » : le profil est déjà choisi
 if (props.mode === 'inscription' && ['particulier', 'professionnel'].includes(props.profil)) choisirProfil(props.profil)
 watch(connecte, (v) => { if (v && !modeOubli.value) terminerConnexion() })
+
+// Même parcours sur tous les écrans (plein écran sur téléphone, carte centrée ailleurs) : un accueil d'application
+// (logo, titre, Google / e-mail), puis le formulaire avec « Continuer avec l'e-mail ».
+// Pas d'accueil quand la fenêtre a une raison précise d'aller droit au formulaire.
+const accueil = ref(backendDisponible && !reserve && !modeOubli.value && !props.suspendu && etape.value === 0)
+const viaAccueil = ref(false) // formulaire ouvert depuis l'accueil : flèche de retour, Google déjà proposé
+function continuerEmail() {
+  accueil.value = false
+  viaAccueil.value = true
+  erreurGlobale.value = ''
+}
+function revenirAccueil() {
+  accueil.value = true
+  erreurs.value = {}; erreurGlobale.value = ''; succes.value = ''
+  etape.value = 0
+}
 
 const retirerErreur = (cle) => { const { [cle]: _, ...reste } = erreurs.value; erreurs.value = reste }
 const poserErreur = (cle, m) => { erreurs.value = { ...erreurs.value, [cle]: m } }
@@ -215,7 +300,9 @@ function valider() {
     { const m = erreurNom(prenom.value, 'prénom'); if (m) e.prenom = m }
     validerEmail(e)
   } else if (nomEtape.value === 'Sécurité') {
-    if (!telephone.value) e.telephone = 'Saisissez un numéro de téléphone valide'
+    // facultatif pour un particulier ; obligatoire pour un pro (retraits, suivi de chantier) ; jamais à moitié saisi
+    if (!telephoneValide.value) e.telephone = 'Numéro incomplet : corrigez-le ou laissez le champ vide'
+    else if (!telephone.value && typeCompte.value === 'professionnel') e.telephone = 'Saisissez un numéro de téléphone valide'
     validerMotDePasse(e)
     if (confirmation.value !== motDePasse.value) e.confirmation = 'Les mots de passe ne correspondent pas'
   } else if (!cgu.value) {
@@ -294,7 +381,7 @@ async function renvoyer() {
   }
 }
 
-// Google / Apple : connexion, ou création d'un compte particulier s'il n'existe pas encore (même bouton).
+// Google (redirection, si le bouton officiel ne se charge pas) : connexion, ou création d'un compte particulier s'il n'existe pas encore (même bouton).
 // La page quitte le site le temps de l'identification : le devis en cours est mis de côté, comme à l'inscription.
 const externe = ref('') // fournisseur en cours de redirection
 async function continuerAvec(fournisseur) {
@@ -309,7 +396,7 @@ async function continuerAvec(fournisseur) {
   } catch (err) {
     externe.value = ''
     erreurGlobale.value = /provider is not enabled|unsupported provider/i.test(err?.message || '')
-      ? `La connexion avec ${fournisseur === 'google' ? 'Google' : 'Apple'} n’est pas encore disponible.`
+      ? 'La connexion avec Google n’est pas encore disponible.'
       : traduire(err?.message)
   }
 }
@@ -318,14 +405,37 @@ async function continuerAvec(fournisseur) {
 // le bouton maison ci-dessus prend le relais (redirection par Supabase)
 const zoneGoogle = ref(null)
 const googleSecours = ref(!backendDisponible)
-watch([zoneGoogle, estInscription], async ([zone]) => {
-  if (!zone || googleSecours.value) return
+// Le bouton de Google met un moment à apparaître : un bouton identique est affiché à sa place jusque-là
+const googlePret = ref(false)
+if (backendDisponible) prechargerGoogle()
+async function dessinerGoogle(zone) {
   try {
-    await afficherBoutonGoogle(zone, { texte: estInscription.value ? 'signup_with' : 'continue_with', surJeton: avecJetonGoogle })
+    await afficherBoutonGoogle(zone, { texte: estInscription.value ? 'signup_with' : 'continue_with', pilule: accueil.value, surJeton: avecJetonGoogle })
+    googlePret.value = true
   } catch {
     googleSecours.value = true
   }
+}
+// Google fixe la largeur de son bouton au moment du dessin : si la carte n'a pas encore sa largeur finale
+// (ouverture animée, rotation de l'écran), il est redessiné pour garder la largeur du bouton e-mail
+let suiviLargeur = null
+let largeurDessinee = 0
+watch([zoneGoogle, estInscription], ([zone]) => {
+  suiviLargeur?.disconnect()
+  googlePret.value = false
+  if (!zone || googleSecours.value) return
+  largeurDessinee = Math.round(zone.getBoundingClientRect().width)
+  dessinerGoogle(zone)
+  suiviLargeur = new ResizeObserver(([e]) => {
+    const largeur = Math.round(e.contentRect.width)
+    if (Math.abs(largeur - largeurDessinee) < 4) return
+    largeurDessinee = largeur
+    googlePret.value = false
+    dessinerGoogle(zone)
+  })
+  suiviLargeur.observe(zone)
 }, { flush: 'post' })
+onBeforeUnmount(() => suiviLargeur?.disconnect())
 async function avecJetonGoogle(jeton, nonce) {
   erreurGlobale.value = ''; succes.value = ''
   externe.value = 'google'
@@ -353,56 +463,87 @@ function traduire(m = '') {
 </script>
 
 <template>
-  <div id="fenetre-auth" class="auth" role="dialog" aria-modal="true" aria-labelledby="auth-titre" @click.self="emit('fermer')">
-    <button class="auth-fermer" type="button" aria-label="Fermer la fenêtre" @click="emit('fermer')">
-      <i class="fa-solid fa-xmark" aria-hidden="true"></i>
-    </button>
-    <div class="auth-grille">
-      <aside class="auth-visuel" :class="{ pro: estInscription && typeCompte === 'professionnel' && etape > 0 }" aria-hidden="true">
-        <LogoBtm :taille="72" />
-        <template v-if="estInscription && typeCompte === 'professionnel' && etape > 0">
-          <h2>BTM Pro</h2>
-          <p>Chiffrez des chantiers entiers, pas seulement un mur.</p>
-          <ul>
-            <li><i class="fa-solid fa-city"></i> Plusieurs ouvrages dans un même devis : murs, dalles, fondations, terrasses, carrelage</li>
-            <li><i class="fa-solid fa-cart-shopping"></i> Ouvrages mesurés et achats directs réunis</li>
-            <li><i class="fa-solid fa-file-pdf"></i> Un seul devis PDF avec code de retrait</li>
-          </ul>
-        </template>
-        <template v-else>
-          <h2>{{ estInscription ? 'Rejoignez BTM' : 'Bon retour !' }}</h2>
-          <p>Synchronisez vos devis entre vos appareils et retrouvez vos projets où que vous soyez sur l’île.</p>
-          <ul>
-            <li><i class="fa-solid fa-cloud"></i> Sauvegarde cloud sécurisée</li>
-            <li><i class="fa-solid fa-mobile-screen"></i> Accès depuis mobile, tablette et PC</li>
-            <li><i class="fa-solid fa-ticket"></i> Code de retrait chez votre fournisseur</li>
-          </ul>
-        </template>
-      </aside>
+  <div id="fenetre-auth" class="auth" :class="{ 'auth-sortie': fermeture }" role="dialog" aria-modal="true" aria-labelledby="auth-titre" @click.self="fermer">
+    <!-- téléphone : le site flouté reste visible au-dessus de la feuille ; un appui dessus ferme -->
+    <span class="auth-fond" :style="styleFond" aria-hidden="true" @click="fermer"></span>
+    <div class="auth-grille" :class="{ 'auth-grille-accueil': accueil }" :style="styleFeuille">
+      <span class="auth-poignee" aria-hidden="true" @pointerdown="debutGlisse" @pointermove="suiteGlisse" @pointerup="finGlisse" @pointercancel="finGlisse"><span></span></span>
+      <section class="carte auth-carte" :class="{ 'auth-carte-accueil': accueil }">
+        <button class="auth-fermer" type="button" aria-label="Fermer la fenêtre" @click="fermer">
+          <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+        </button>
+        <!-- Accueil d'application (Google, e-mail), le formulaire vient ensuite -->
+        <div v-if="accueil" class="auth-accueil">
+          <div class="auth-accueil-haut">
+            <span class="auth-accueil-logo"><LogoBtm :taille="58" /></span>
+            <h2 id="auth-titre" class="auth-accueil-titre">{{ estInscription ? 'Rejoignez' : 'Bienvenue sur' }}<br />BTM</h2>
+          </div>
+          <!-- outils du chantier, tracés à l'ouverture -->
+          <svg class="auth-croquis" viewBox="0 0 360 150" aria-hidden="true" focusable="false">
+            <path d="M22 118V86l27-24 27 24v32z M42 118v-16h14v16" />
+            <path d="M104 34l18 18m0-18l-18 18" />
+            <circle cx="160" cy="46" r="15" />
+            <path d="M96 128q14-22 28 0t28 0" />
+            <path d="M196 96h38v17h-38z M234 96h38v17h-38z M215 113h38v17h-38z" />
+            <path d="M292 30l30 30-17 15z M292 30l-15-15" />
+            <path d="M318 106v28m-14-14h28m-24-10l20 20m0-20l-20 20" />
+            <path d="M64 22l11 19H53z" />
+            <path d="M178 140h64 M200 140a10 10 0 0 1 20 0" />
+          </svg>
+          <p class="auth-accueil-accroche">Estimez vos matériaux.<br />Retirez-les près de chez vous.</p>
+          <p v-if="raison" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ raison }}</p>
 
-      <section class="carte auth-carte">
-        <MotDePasseOublie v-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" :par-lien="parLien" :lien-expire="lienExpire" @retour="quitterOubli" @termine="finOubli" />
+          <div class="auth-accueil-boutons">
+            <div v-if="!googleSecours" class="auth-google-bloc">
+              <div ref="zoneGoogle" class="auth-google auth-google-pilule" :class="{ occupe: externe === 'google', cache: !googlePret }"></div>
+              <!-- affiché tout de suite, à l'identique, le temps que le bouton de Google arrive -->
+              <span v-if="!googlePret" class="auth-pilule sombre auth-google-attente" aria-hidden="true">
+                <span class="auth-google-g"><svg viewBox="0 0 48 48" width="18" height="18"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" /><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" /><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" /><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" /></svg></span>
+                {{ estInscription ? 'S’inscrire avec Google' : 'Continuer avec Google' }}
+              </span>
+            </div>
+            <button v-else type="button" class="auth-pilule sombre" :disabled="!!externe" @click="continuerAvec('google')">
+              <span v-if="externe === 'google'" class="spinner" aria-hidden="true"></span><i v-else class="fa-brands fa-google" aria-hidden="true"></i>
+              {{ estInscription ? 'S’inscrire avec Google' : 'Continuer avec Google' }}
+            </button>
+            <button type="button" class="auth-pilule clair" @click="continuerEmail">
+              <i class="fa-regular fa-envelope" aria-hidden="true"></i> {{ estInscription ? 'S’inscrire avec l’e-mail' : 'Continuer avec l’e-mail' }}
+            </button>
+          </div>
+          <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact class="auth-accueil-erreur">{{ erreurGlobale }}</BandeauAvertissement>
+
+          <p class="auth-accueil-bascule">
+            <template v-if="estInscription">Déjà un compte ? <button type="button" @click="emit('changer-mode', 'connexion')">Se connecter</button></template>
+            <template v-else>Pas encore de compte ? <button type="button" @click="emit('changer-mode', 'inscription')">Créer un compte</button></template>
+          </p>
+          <p class="auth-accueil-legal">
+            {{ estInscription ? 'Avec Google, vous créez un compte particulier. ' : '' }}En continuant, vous acceptez les <router-link to="/conditions" target="_blank" rel="noopener">conditions d’utilisation</router-link>.
+          </p>
+        </div>
+        <MotDePasseOublie v-else-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" :par-lien="parLien" :lien-expire="lienExpire" @retour="quitterOubli" @termine="finOubli" />
         <!-- Inscription réussie, adresse à confirmer : plus de formulaire, seulement la marche à suivre -->
         <div v-else-if="compteCree" class="auth-cree" role="status">
           <span class="auth-cree-icone" aria-hidden="true"><i class="fa-solid fa-envelope-circle-check"></i></span>
           <h2 id="auth-titre" class="auth-titre">Plus qu’une étape : confirmez votre e-mail</h2>
           <p>Votre compte est créé. Nous venons d’envoyer un lien à <strong>{{ compteCree.email }}</strong> : ouvrez-le pour activer votre compte.</p>
-          <p v-if="compteCree.avecDevis">Vos réponses sont gardées : ce lien vous ramène directement au résultat de votre devis.</p>
+          <p v-if="compteCree.avecDevis">Vos réponses sont gardées : ce lien vous ramène directement à votre estimation.</p>
           <p v-if="compteCree.pro">Vos outils professionnels s’ouvriront dès que notre équipe aura validé votre SIRET.</p>
           <p class="champ-aide">Rien reçu après quelques minutes ? Regardez dans vos courriers indésirables, ou
             <button type="button" class="auth-lien" :disabled="renvoi === 'envoi'" @click="renvoyer">{{ renvoi === 'fait' ? 'e-mail renvoyé ✓' : 'renvoyez l’e-mail' }}</button>.
           </p>
           <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
           <div class="auth-actions">
-            <BoutonBase type="button" variante="secondaire" @click="emit('fermer')">Fermer</BoutonBase>
+            <BoutonBase type="button" variante="secondaire" @click="fermer">Fermer</BoutonBase>
             <BoutonBase type="button" bloc icone="fa-solid fa-right-to-bracket" @click="apresConfirmation = true; emit('changer-mode', 'connexion')">J’ai confirmé, me connecter</BoutonBase>
           </div>
         </div>
         <template v-else>
-          <h2 id="auth-titre" class="auth-titre">{{ !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
+          <button v-if="viaAccueil && (!estInscription || etape === 0)" type="button" class="auth-retour-accueil" @click="revenirAccueil">
+            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Autres options
+          </button>
+          <h2 id="auth-titre" class="auth-titre">{{ reserve ? 'Espace partenaires' : !estInscription ? 'Connexion' : etape === 0 ? 'Créer un compte' : typeCompte === 'professionnel' ? 'Compte professionnel' : 'Compte particulier' }}</h2>
           <p v-if="raison && (!estInscription || etape === 0)" class="auth-raison"><i class="fa-solid fa-lock" aria-hidden="true"></i> {{ raison }}</p>
-          <p v-if="estInscription && etape <= 1" class="champ-aide auth-donnees">Vos informations servent uniquement à votre compte et à vos devis : elles ne sont ni vendues ni cédées à des tiers.</p>
-          <p class="texte-secondaire auth-intro">{{!estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : typeCompte === 'professionnel' ? 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' : 'Gratuit, en moins d’une minute.' }}</p>
+          <p v-if="!estInscription || etape === 0 || typeCompte === 'professionnel'" class="texte-secondaire auth-intro">{{ reserve ? 'Réservé aux fournisseurs partenaires et à l’équipe BTM.' : !estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' }}</p>
 
           <BandeauAvertissement v-if="!backendDisponible" type="info" compact class="auth-note">
             Authentification prévue avec Supabase — renseignez <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> pour l’activer.
@@ -431,7 +572,7 @@ function traduire(m = '') {
                 <span class="auth-profil-badge">Pro</span>
                 <span class="auth-profil-icone"><i class="fa-solid fa-helmet-safety" aria-hidden="true"></i></span>
                 <strong>Professionnel</strong>
-                <small>Entreprise du BTP, artisan : plusieurs ouvrages dans un même devis.</small>
+                <small>Entreprise du BTP, artisan : plusieurs ouvrages dans une même estimation.</small>
                 <span class="auth-profil-suite">Continuer <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
               </button>
             </div>
@@ -480,8 +621,9 @@ function traduire(m = '') {
               <p v-else-if="suggestion" class="champ-aide auth-suggestion">Vouliez-vous écrire <button type="button" @click="appliquerSuggestion">{{ suggestion }}</button> ?</p>
             </div>
 
-            <ChampTelephone v-if="estInscription && nomEtape === 'Sécurité'" id="auth-telephone" v-model="telephone" requis :erreur="erreurs.telephone"
-              aide="Il sert à votre retrait de matériaux chez le fournisseur. Jamais vendu ni cédé à des fins commerciales." />
+            <ChampTelephone v-if="estInscription && nomEtape === 'Sécurité'" id="auth-telephone" v-model="telephone" v-model:valide="telephoneValide"
+              :label="typeCompte === 'professionnel' ? 'Numéro de téléphone' : 'Numéro de téléphone (facultatif)'" :requis="typeCompte === 'professionnel'" :erreur="erreurs.telephone"
+              aide="Pour que le fournisseur puisse vous prévenir quand votre matériel est prêt. Jamais vendu ni cédé." />
             <div v-if="!estInscription || nomEtape === 'Sécurité'" class="champ">
               <label for="auth-mdp">Mot de passe</label>
               <SaisieMotDePasse id="auth-mdp" v-model="motDePasse"  :autocomplete="estInscription ? 'new-password' : 'current-password'" placeholder="8 caractères minimum" :aria-invalid="!!erreurs.motDePasse" style="font-family: var(--font-corps)" />
@@ -500,7 +642,7 @@ function traduire(m = '') {
                 <div><dt>Nom complet</dt><dd>{{ civilite === 'Mme' ? 'Madame' : 'Monsieur' }} {{ prenom }} {{ nom }}</dd></div>
                 <div><dt>Nom affiché</dt><dd>{{ pseudoAuto }}</dd></div>
                 <div><dt>E-mail</dt><dd>{{ email }}</dd></div>
-                <div><dt>Téléphone</dt><dd>{{ formaterTelephone(telephone) }}</dd></div>
+                <div><dt>Téléphone</dt><dd>{{ telephone ? formaterTelephone(telephone) : 'Non renseigné' }}</dd></div>
               </dl>
               <div>
                 <label class="auth-case"><input v-model="cgu" type="checkbox" :aria-invalid="!!erreurs.cgu" /> J’accepte les <router-link to="/conditions" target="_blank" rel="noopener">conditions générales d’utilisation</router-link></label>
@@ -532,8 +674,8 @@ function traduire(m = '') {
             </div>
           </form>
 
-          <!-- Google / Apple : à la connexion, et au choix du profil de l'inscription (compte particulier) -->
-          <div v-if="!estInscription || etape === 0" class="auth-externe">
+          <!-- Google : à la connexion, et au choix du profil de l'inscription (compte particulier) -->
+          <div v-if="!reserve && !viaAccueil && (!estInscription || etape === 0)" class="auth-externe">
             <p class="auth-separateur"><span>{{ estInscription ? 'ou créez votre compte avec' : 'ou continuez avec' }}</span></p>
             <div class="auth-externe-boutons">
               <div v-if="!googleSecours" ref="zoneGoogle" class="auth-google" :class="{ occupe: externe === 'google' }"></div>
@@ -547,16 +689,11 @@ function traduire(m = '') {
                 </svg>
                 Google
               </button>
-              <button type="button" class="auth-externe-bouton apple" :disabled="!!externe" @click="continuerAvec('apple')">
-                <span v-if="externe === 'apple'" class="spinner" aria-hidden="true"></span>
-                <i v-else class="fa-brands fa-apple" aria-hidden="true"></i>
-                Apple
-              </button>
             </div>
             <p v-if="estInscription" class="champ-aide auth-externe-note">Compte particulier. Professionnel ? Choisissez « Professionnel » ci-dessus pour faire vérifier votre SIRET.</p>
           </div>
 
-          <p class="auth-bascule">
+          <p v-if="!reserve" class="auth-bascule">
             <template v-if="estInscription">
               Déjà un compte ?
               <button type="button" @click="emit('changer-mode', 'connexion')">Se connecter</button>
@@ -573,37 +710,40 @@ function traduire(m = '') {
 </template>
 
 <style scoped>
-/* Fenêtre superposée au site, fond flouté */
-.auth { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px; background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); overflow-y: auto; animation: auth-fondu .2s ease; }
+/* Un seul écran de connexion sur tous les appareils : carte au format téléphone, centrée sur fond flouté
+   (tablette, ordinateur), plein écran sur téléphone (voir plus bas). Même contenu, mêmes étapes partout. */
+.auth { position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px; background: rgba(17, 17, 17, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); overflow: hidden; animation: auth-fondu .2s ease; }
 @keyframes auth-fondu { from { opacity: 0; } }
-.auth-grille { display: grid; gap: 32px; grid-template-columns: 1fr 1fr; align-items: stretch; width: min(100%, 1000px); max-height: calc(100dvh - 48px); overflow-y: auto; }
-.auth-visuel { display: block; padding: 40px; border-radius: var(--rayon-lg); color: #fff; background: var(--ardoise); }
-.auth-visuel h2 { font-size: 2.4rem; margin: 22px 0 12px; }
-.auth-visuel p { opacity: .9; line-height: 1.6; }
-.auth-visuel ul { margin-top: 26px; display: flex; flex-direction: column; gap: 12px; }
-.auth-visuel li { display: flex; gap: 12px; align-items: center; font-weight: 500; }
-.auth-visuel li i { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.15); color: var(--sable); }
-.auth-carte { display: flex; flex-direction: column; padding: 36px; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); }
-.auth-titre { font-size: 2.2rem; color: var(--ardoise); }
-.auth-raison { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: var(--lagon-50, #ecfeff); border: 1px solid var(--gris-200); color: var(--ardoise); font-weight: 600; font-size: .92rem; }
+.auth-grille {
+  width: min(100%, 460px); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; border-radius: 28px;
+  background: var(--gris-50); box-shadow: 0 30px 80px rgba(17, 17, 17, .45); animation: auth-monter .34s cubic-bezier(.22, .61, .36, 1);
+}
+.auth-carte {
+  position: relative; display: flex; flex-direction: column; min-height: min(780px, calc(100dvh - 48px)); padding: 72px 36px 32px;
+  border: 0; border-radius: 0; background: var(--gris-50); box-shadow: none;
+}
+.auth-carte-accueil { padding-top: 40px; }
+.auth-titre { font-size: 2.1rem; color: var(--ardoise); }
+.auth-carte :deep(.btn) { min-height: 50px; border-radius: 999px; }
+.auth-raison { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: var(--lagon-50, #f7f3ee); border: 1px solid var(--gris-200); color: var(--ardoise); font-weight: 600; font-size: .92rem; }
 .auth-raison i { color: var(--primaire); }
-.auth-donnees { margin: 6px 0 0; }
 .auth-intro { margin: 4px 0 20px; }
 .auth-note { margin-bottom: 20px; }
 .auth-note code { font-family: var(--font-mono); font-size: .8rem; background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 4px; }
-.auth-form { display: flex; flex: 1; flex-direction: column; gap: 18px; }
+.auth-form { display: flex; flex-direction: column; gap: 18px; }
 .auth-etapes { display: flex; gap: 8px; margin: 0 0 22px; padding: 0; list-style: none; }
 .auth-etapes li { display: flex; flex: 1; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 3px solid var(--gris-200); color: var(--gris-500); font-size: .8rem; font-weight: 600; transition: border-color .2s, color .2s; }
 .auth-etapes .auth-etape-active { border-color: var(--lagon-600); color: var(--ardoise); }
-.auth-etapes .auth-etape-faite { border-color: var(--lagon-400); color: var(--lagon-700); }
+.auth-etapes .auth-etape-faite { border-color: var(--lagon-600); color: var(--lagon-700); }
 .auth-etape-numero { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--gris-100); font-size: .75rem; }
-.auth-etape-active .auth-etape-numero { background: var(--lagon-600); color: #fff; }
+.auth-etape-active .auth-etape-numero { background: var(--lagon-600); color: var(--sur-primaire); }
 .auth-etape-faite .auth-etape-numero { background: var(--lagon-100); }
 .auth-recap { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 16px 18px; border: 1px solid var(--gris-200); border-radius: var(--rayon-sm); background: var(--gris-50); }
 .auth-recap div { display: flex; justify-content: space-between; gap: 16px; }
 .auth-recap dt { color: var(--texte-secondaire); font-size: .88rem; }
 .auth-recap dd { margin: 0; color: var(--ardoise); font-weight: 600; text-align: right; overflow-wrap: anywhere; }
-.auth-actions { display: flex; gap: 12px; margin-top: auto; }
+/* Le bouton suit directement les champs, sans vide, sur tous les écrans. */
+.auth-actions { display: flex; gap: 12px; margin-top: 6px; }
 .auth-actions .btn-bloc { flex: 1; }
 .auth-identite-grille { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .auth-case { display: flex; gap: 10px; align-items: center; font-size: .92rem; color: var(--gris-700); cursor: pointer; }
@@ -612,7 +752,7 @@ function traduire(m = '') {
 .auth-options { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .auth-oubli { padding: 0; border: 0; background: transparent; color: var(--lagon-700); font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; }
 .auth-oubli:hover { text-decoration: underline; text-underline-offset: 3px; }
-/* Google / Apple */
+/* Google */
 .auth-externe { margin-top: 20px; }
 .auth-separateur { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; color: var(--texte-secondaire); font-size: .82rem; }
 .auth-separateur::before, .auth-separateur::after { content: ''; flex: 1; height: 1px; background: var(--gris-200); }
@@ -623,85 +763,109 @@ function traduire(m = '') {
 .auth-google.occupe { opacity: .6; pointer-events: none; }
 .auth-externe-bouton {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 40px; padding: 0 14px;
-  border: 1px solid var(--gris-300); border-radius: var(--rayon); background: #fff; color: var(--ardoise);
+  border: 1px solid var(--gris-300); border-radius: var(--rayon); background: var(--carte); color: var(--ardoise);
   font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s;
 }
 .auth-externe-bouton:hover:not(:disabled) { border-color: var(--gris-400); background: var(--gris-50); }
 .auth-externe-bouton:disabled { opacity: .6; cursor: default; }
-.auth-externe-bouton.apple { border-color: #000; background: #000; color: #fff; }
-.auth-externe-bouton.apple:hover:not(:disabled) { background: #1f1f1f; }
-.auth-externe-bouton.apple i { font-size: 1.15rem; }
 .auth-externe-note { margin: 10px 0 0; text-align: center; }
 .auth-bascule { margin-top: 22px; text-align: center; font-size: .95rem; color: var(--texte-secondaire); }
 .auth-bascule a { color: var(--lagon-700); font-weight: 700; }
-.auth-cree { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.auth-cree { display: flex; flex-direction: column; gap: 14px; }
 .auth-cree p { margin: 0; line-height: 1.6; color: var(--texte-secondaire); }
 .auth-cree strong { color: var(--ardoise); word-break: break-all; }
-.auth-cree-icone { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-size: 1.6rem; background: var(--lagon-50, #ecfeff); color: var(--primaire); }
+.auth-cree-icone { width: 56px; height: 56px; border-radius: 16px; display: grid; place-items: center; font-size: 1.6rem; background: var(--lagon-50, #f7f3ee); color: var(--primaire); }
 .auth-cree .auth-actions { margin-top: 12px; }
 .auth-lien { border: 0; padding: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; }
 .auth-lien:disabled { opacity: .6; cursor: wait; }
 .auth-bascule button { border: 0; padding: 0; background: transparent; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
-.auth-fermer { position: fixed; top: 22px; right: 24px; z-index: 2; width: 44px; height: 44px; border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 1.2rem; cursor: pointer; transition: background .2s, transform .2s; }
-.auth-fermer:hover { background: rgba(255,255,255,.25); transform: rotate(90deg); }
-@media (max-width: 899px) { .auth-visuel { display: none; } .auth-grille { grid-template-columns: 1fr; max-width: 520px; } }
-@media (max-width: 560px) { .auth { padding: 14px; } .auth-grille { max-height: calc(100dvh - 28px); } .auth-carte { padding: 26px 22px; } .auth-fermer { top: 10px; right: 12px; } }
-@media (max-width: 480px) { .auth-identite-grille { grid-template-columns: 1fr; gap: 18px; } }
-@media (max-width: 480px) {
-  .auth-carte { padding: 26px 18px; }
-  .auth-titre { font-size: 1.9rem; }
+.auth-fermer {
+  position: absolute; top: 16px; right: 16px; z-index: 2; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%;
+  background: var(--gris-100); color: var(--ardoise); font-size: 1.05rem; cursor: pointer; transition: background .15s;
 }
+.auth-fermer:hover { background: var(--gris-200); }
+@media (max-width: 480px) { .auth-identite-grille { grid-template-columns: 1fr; gap: 18px; } }
 .auth-suggestion button { border: 0; background: none; padding: 0; font: inherit; font-weight: 600; color: var(--lagon-700, var(--lagon-600)); text-decoration: underline; cursor: pointer; }
 
 /* Choix du profil (étape 0) */
 .auth-profils { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .auth-profil {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 20px 18px; text-align: left;
-  border: 1.5px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; font: inherit; color: inherit; cursor: pointer;
+  border: 1.5px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); font: inherit; color: inherit; cursor: pointer;
   transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
 }
-.auth-profil:hover { border-color: var(--lagon-500); box-shadow: 0 10px 30px rgba(8, 145, 178, .12); transform: translateY(-2px); }
-.auth-profil:focus-visible { outline: 3px solid var(--lagon-400); outline-offset: 2px; }
+.auth-profil:hover { border-color: var(--lagon-500); box-shadow: 0 10px 30px rgba(17, 17, 17, .12); transform: translateY(-2px); }
+.auth-profil:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .auth-profil strong { font-size: 1.1rem; color: var(--ardoise); }
 .auth-profil small { color: var(--texte-secondaire); font-size: .86rem; line-height: 1.45; }
 .auth-profil-icone { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: var(--gris-100); color: var(--ardoise); font-size: 1.2rem; }
-.auth-profil.pro .auth-profil-icone { background: var(--ardoise); color: #fcd34d; }
+.auth-profil.pro .auth-profil-icone { background: var(--encre); color: #fcd34d; }
 .auth-profil-suite { margin-top: auto; padding-top: 8px; color: var(--lagon-700); font-size: .88rem; font-weight: 700; }
-.auth-profil-badge { position: absolute; top: 14px; right: 14px; padding: 2px 10px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.auth-visuel.pro { background: linear-gradient(150deg, var(--ardoise) 0%, #0b3a4d 100%); }
-.auth-visuel.pro li i { color: #fcd34d; }
+.auth-profil-badge { position: absolute; top: 14px; right: 14px; padding: 2px 10px; border-radius: 999px; background: var(--alerte-pastille); color: var(--alerte-texte); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 
 /* Civilité */
 .auth-civilite { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
 .auth-civilite legend { width: 100%; margin-bottom: 8px; padding: 0; font-weight: 600; font-size: .95rem; color: var(--gris-700); }
-.auth-civilite button { flex: 1; min-height: 46px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon); background: #fff; font: inherit; font-weight: 600; color: var(--ardoise); cursor: pointer; transition: border-color var(--transition), background var(--transition); }
+.auth-civilite button { flex: 1; min-height: 46px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon); background: var(--carte); font: inherit; font-weight: 600; color: var(--ardoise); cursor: pointer; transition: border-color var(--transition), background var(--transition); }
 .auth-civilite button:hover { border-color: var(--lagon-500); }
 .auth-civilite button[aria-pressed="true"] { border-color: var(--lagon-600); background: var(--lagon-50); color: var(--lagon-800); }
 .auth-civilite .champ-erreur { width: 100%; }
 
+/* Écran peu haut (ordinateur portable, affichage agrandi) : la fenêtre tient sans défiler. Mêmes champs et mêmes
+   textes ; seuls les espacements se resserrent et les étapes passent sur une ligne. */
+@media (min-width: 640px) and (max-height: 860px) {
+  .auth-carte:not(.auth-carte-accueil) { padding: 46px 32px 16px; min-height: 0; }
+  /* « Autres options » (en haut à gauche, 16 → 56 px) : le titre commence sous lui, jamais derrière */
+  .auth-carte:not(.auth-carte-accueil):has(.auth-retour-accueil) { padding-top: 70px; }
+  .auth-titre { font-size: 1.75rem; padding-right: 44px; }
+  .auth-intro { margin: 4px 0 12px; }
+  .auth-etapes { margin: 12px 0 14px; }
+  .auth-etapes li { flex-direction: row; align-items: center; gap: 6px; padding-top: 8px; }
+  .auth-etape-numero { width: 22px; height: 22px; flex: none; }
+  .auth-form { gap: 12px; }
+  .auth-civilite legend { margin-bottom: 6px; }
+  .auth-civilite button { min-height: 40px; }
+  .auth-form :deep(.champ) { gap: 4px; }
+  .auth-form :deep(.champ input) { padding-top: 10px; padding-bottom: 10px; }
+  .auth-identite-grille { gap: 12px; }
+  .auth-carte :deep(.btn) { min-height: 46px; }
+  .auth-recap { gap: 8px; padding: 12px 16px; }
+  .auth-bascule { margin-top: 12px; }
+  .auth-externe { margin-top: 14px; }
+}
+
 /* Entreprise reconnue */
 .auth-siret { font-size: 1.1rem; letter-spacing: .08em; }
-.auth-entreprise-carte { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--rayon); background: #ecfdf5; color: #065f46; }
+.auth-entreprise-carte { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--rayon); background: var(--succes-fond); color: var(--succes-texte); }
 .auth-entreprise-carte i { font-size: 1.3rem; }
 .auth-entreprise-carte span { display: flex; flex-direction: column; }
 .auth-entreprise-carte small { color: #047857; font-size: .82rem; }
-.auth-entreprise-carte.inactive { background: #fffbeb; color: #92400e; }
+.auth-entreprise-carte.inactive { background: var(--alerte-fond); color: var(--alerte-texte); }
 .auth-entreprise-carte.inactive small { color: #b45309; }
-@media (max-width: 520px) { .auth-profils { grid-template-columns: 1fr; } }
+/* Un profil par ligne (icône, texte, flèche), sur tous les écrans : la carte a la largeur d'un téléphone */
+.auth-profils { grid-template-columns: 1fr; gap: 10px; }
+.auth-profil { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 14px; row-gap: 2px; align-items: center; padding: 14px 16px; }
+.auth-profil:hover { transform: none; }
+.auth-profil-icone { grid-row: 1 / 3; width: 44px; height: 44px; font-size: 1.05rem; }
+.auth-profil strong { grid-column: 2; align-self: end; font-size: 1.02rem; }
+.auth-profil small { grid-column: 2; align-self: start; font-size: .82rem; line-height: 1.35; }
+.auth-profil-suite { grid-column: 3; grid-row: 1 / 3; margin: 0; padding: 0; font-size: 0; }
+.auth-profil-suite i { font-size: 1rem; }
+.auth-profil-badge { top: 8px; right: 10px; padding: 1px 8px; font-size: .64rem; }
 
 /* Type de compte (inscription) */
 .auth-type { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; padding: 0; border: 0; }
 .auth-type legend { grid-column: 1 / -1; margin-bottom: 8px; padding: 0; font-weight: 600; font-size: .95rem; color: var(--gris-700); }
 .auth-type-choix {
   position: relative; display: flex; align-items: center; gap: 12px; padding: 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon);
-  background: #fff; cursor: pointer; transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+  background: var(--carte); cursor: pointer; transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
 .auth-type-choix:hover { border-color: var(--lagon-500); }
-.auth-type-choix.actif { border-color: var(--lagon-600); background: var(--lagon-50); box-shadow: 0 0 0 3px rgba(6, 182, 212, .15); }
+.auth-type-choix.actif { border-color: var(--lagon-600); background: var(--lagon-50); box-shadow: 0 0 0 3px rgba(17, 17, 17, .15); }
 .auth-type-choix input { position: absolute; opacity: 0; pointer-events: none; }
-.auth-type-choix:focus-within { outline: 3px solid var(--lagon-400); outline-offset: 2px; }
+.auth-type-choix:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
 .auth-type-choix > i { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--gris-100); color: var(--ardoise); }
-.auth-type-choix.actif > i { background: var(--lagon-600); color: #fff; }
+.auth-type-choix.actif > i { background: var(--lagon-600); color: var(--sur-primaire); }
 .auth-type-choix span { display: flex; flex-direction: column; min-width: 0; }
 .auth-type-choix strong { color: var(--ardoise); font-size: .95rem; }
 .auth-type-choix small { color: var(--texte-secondaire); font-size: .78rem; line-height: 1.35; }
@@ -711,4 +875,122 @@ function traduire(m = '') {
 .auth-entreprise.inactive { color: #b45309; }
 .auth-pro .champ-aide .spinner { width: 12px; height: 12px; border-width: 2px; vertical-align: -2px; }
 @media (max-width: 420px) { .auth-type { grid-template-columns: 1fr; } }
+
+/* ---------- Accueil d'application (tous les écrans) ---------- */
+.auth-retour-accueil {
+  position: absolute; top: 16px; left: 16px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 12px;
+  border: 0; border-radius: 999px; background: var(--gris-100); color: var(--ardoise); font: 600 .9rem var(--font-corps); cursor: pointer;
+}
+.auth-accueil { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.auth-accueil-haut { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: clamp(8px, 6vh, 56px); }
+.auth-accueil-logo { width: 78px; height: 78px; display: grid; place-items: center; border-radius: 24px; box-shadow: 0 14px 30px rgba(17, 17, 17, .25); }
+.auth-accueil-logo :deep(.logo-btm) { width: 100% !important; height: 100% !important; border-radius: inherit; }
+.auth-accueil-titre { margin: 0; font-family: var(--font-display); font-size: clamp(2.7rem, 13vw, 3.3rem); font-weight: 700; line-height: .95; letter-spacing: -.005em; color: var(--ardoise); }
+.auth-croquis { width: 100%; max-width: 380px; margin: 22px 0 6px; fill: none; stroke: var(--gris-200); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.auth-croquis > * { stroke-dasharray: 260; stroke-dashoffset: 260; animation: auth-trace 1.3s cubic-bezier(.22, .61, .36, 1) forwards; }
+.auth-croquis > :nth-child(2) { animation-delay: .08s; } .auth-croquis > :nth-child(3) { animation-delay: .16s; }
+.auth-croquis > :nth-child(4) { animation-delay: .24s; } .auth-croquis > :nth-child(5) { animation-delay: .32s; }
+.auth-croquis > :nth-child(6) { animation-delay: .4s; } .auth-croquis > :nth-child(7) { animation-delay: .48s; }
+.auth-croquis > :nth-child(8) { animation-delay: .56s; } .auth-croquis > :nth-child(9) { animation-delay: .64s; }
+@keyframes auth-trace { to { stroke-dashoffset: 0; } }
+.auth-accueil-accroche { margin: 0; color: var(--gris-700); font-size: 1.02rem; line-height: 1.75; }
+.auth-accueil .auth-raison { margin-top: 16px; text-align: left; }
+.auth-accueil-boutons { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; margin-top: auto; padding-top: 30px; }
+.auth-accueil-boutons > * { width: 100%; max-width: 400px; }
+.auth-accueil-erreur { width: 100%; max-width: 400px; margin-top: 12px; text-align: left; }
+.auth-google-pilule { min-height: 40px; }
+.auth-google-bloc { position: relative; }
+.auth-google.cache { visibility: hidden; }
+.auth-google-attente { position: absolute; inset: 0; cursor: default; }
+.auth-google-g { width: 30px; height: 30px; margin-left: -10px; display: grid; place-items: center; flex: none; border-radius: 50%; background: var(--carte); }
+/* même hauteur et même noir que le bouton officiel de Google (40 px) */
+.auth-pilule {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 40px; padding: 0 18px; border: 0; border-radius: 999px;
+  font: 500 .92rem var(--font-corps); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform .12s ease, background .15s ease;
+}
+.auth-pilule:active:not(:disabled) { transform: scale(.98); }
+.auth-pilule:disabled { opacity: .6; cursor: default; }
+.auth-pilule.sombre { background: #1f1f1f; color: #fff; }
+.auth-pilule.sombre:hover:not(:disabled) { background: #333; }
+.auth-pilule.clair { background: var(--lagon-100); color: var(--ocean); }
+.auth-pilule.clair:hover { background: var(--lagon-200); }
+:global(html[data-theme="sombre"] .auth-pilule.clair) { background: rgba(17, 17, 17, .16); color: var(--lagon-800); box-shadow: inset 0 0 0 1px rgba(244, 233, 219, .35); }
+:global(html[data-theme="sombre"] .auth-pilule.clair:hover) { background: rgba(17, 17, 17, .26); }
+.auth-accueil-bascule { margin: 22px 0 0; color: var(--texte-secondaire); font-size: .92rem; }
+.auth-accueil-bascule button { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
+.auth-accueil-legal { max-width: 320px; margin: 10px 0 0; color: var(--gris-500); font-size: .75rem; line-height: 1.5; }
+.auth-accueil-legal a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* Tablette et ordinateur : sans barre de défilement. L'accueil a une hauteur fixe et s'adapte à celle de l'écran :
+   les croquis prennent la place qui reste (jusqu'à disparaître), titre et logo rapetissent.
+   Les formulaires prennent la hauteur de leur contenu : le bouton suit directement les champs, sans vide. */
+@media (min-width: 640px) {
+  .auth-grille { display: flex; flex-direction: column; max-height: min(780px, calc(100dvh - 48px)); overflow: hidden; }
+  .auth-grille-accueil { height: min(780px, calc(100dvh - 48px)); }
+  .auth-carte { flex: 1 1 auto; min-height: 0; padding-bottom: 28px; overflow-y: auto; scrollbar-width: none; }
+  .auth-carte::-webkit-scrollbar { display: none; }
+  .auth-carte-accueil { padding-top: clamp(20px, 4vh, 40px); padding-bottom: clamp(18px, 3.5vh, 32px); }
+  .auth-accueil { flex: 1; min-height: 0; }
+  .auth-accueil-haut { gap: clamp(10px, 2.2vh, 20px); margin-top: clamp(0px, 3vh, 40px); }
+  .auth-accueil-logo { width: clamp(64px, 9vh, 78px); height: clamp(64px, 9vh, 78px); border-radius: clamp(18px, 2.6vh, 24px); }
+  .auth-accueil-titre { font-size: clamp(2.3rem, 6.2vh, 3.3rem); }
+  .auth-croquis { flex: 1 1 0; min-height: 0; max-height: 150px; height: auto; margin: clamp(6px, 2vh, 22px) 0 clamp(4px, 1vh, 6px); }
+  .auth-accueil-accroche { line-height: 1.6; }
+  .auth-accueil-boutons { padding-top: clamp(14px, 3vh, 30px); }
+  .auth-accueil-bascule { margin-top: clamp(12px, 2.4vh, 22px); }
+}
+
+/* Téléphone : la même carte, en plein écran, à la hauteur exacte de l'écran et sans défilement.
+   L'accueil s'adapte à la hauteur disponible (croquis qui rétrécissent jusqu'à disparaître, logo et titre plus petits).
+   Les formulaires forment un seul bloc (titre, champs, bouton) centré verticalement ; une étape d'inscription
+   plus haute que l'écran reste lisible en glissant, sans barre visible. */
+@media (max-width: 639px) {
+  /* Feuille d'application : elle monte du bas (ressort), laisse voir le site flouté au-dessus,
+     se tire vers le bas par sa poignée et redescend à la fermeture */
+  .auth { --haut-libre: calc(env(safe-area-inset-top) + 44px); padding: var(--haut-libre) 0 0; place-items: end stretch; background: none; backdrop-filter: none; -webkit-backdrop-filter: none; animation: none; }
+  .auth-fond {
+    display: block; position: absolute; inset: 0; background: rgba(17, 17, 17, .42);
+    backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+    animation: auth-fondu .45s ease backwards; transition: opacity .32s ease;
+  }
+  .auth-grille {
+    position: relative; display: flex; flex-direction: column; width: 100%; height: calc(100dvh - var(--haut-libre)); max-height: none; overflow: hidden;
+    border-radius: 26px 26px 0 0; box-shadow: 0 -14px 40px rgba(17, 17, 17, .28);
+    animation: auth-feuille .56s cubic-bezier(.32, .72, 0, 1) backwards; transition: transform .42s cubic-bezier(.32, .72, 0, 1); will-change: transform;
+  }
+  .auth-sortie .auth-fond { opacity: 0; }
+  .auth-sortie .auth-grille { transform: translateY(100%); transition: transform .32s cubic-bezier(.4, 0, 1, 1); }
+  /* poignée : zone tactile large, barre discrète */
+  .auth-poignee { position: absolute; top: 0; left: 50%; z-index: 3; width: 120px; height: 26px; display: grid; place-items: center; transform: translateX(-50%); touch-action: none; cursor: grab; }
+  .auth-poignee span { width: 38px; height: 5px; border-radius: 999px; background: var(--gris-300); }
+  .auth-carte {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none;
+    padding: 64px 22px calc(20px + env(safe-area-inset-bottom));
+  }
+  .auth-carte::-webkit-scrollbar { display: none; }
+  .auth-carte:not(.auth-carte-accueil) { justify-content: center; justify-content: safe center; }
+  .auth-carte-accueil { padding-top: clamp(26px, 4vh, 36px); padding-bottom: calc(clamp(12px, 2.5vh, 22px) + env(safe-area-inset-bottom)); }
+  .auth-accueil { min-height: 0; }
+  .auth-accueil-haut { gap: clamp(8px, 2vh, 18px); margin-top: clamp(0px, 3vh, 32px); }
+  .auth-accueil-logo { width: clamp(52px, 8.5vh, 72px); height: clamp(52px, 8.5vh, 72px); border-radius: clamp(15px, 2.4vh, 22px); }
+  .auth-accueil-titre { font-size: clamp(2.1rem, 6vh, 3rem); }
+  .auth-croquis { flex: 1 1 0; min-height: 0; max-height: 140px; height: auto; margin: clamp(4px, 1.8vh, 18px) 0 clamp(2px, 1vh, 6px); }
+  .auth-accueil-accroche { font-size: .98rem; line-height: 1.55; }
+  .auth-accueil .auth-raison { margin-top: clamp(8px, 1.6vh, 14px); }
+  .auth-accueil-boutons { padding-top: clamp(12px, 2.4vh, 26px); }
+  .auth-accueil-bascule { margin-top: clamp(10px, 2vh, 20px); }
+  .auth-accueil-legal { margin-top: 8px; }
+  .auth-titre { font-size: 1.9rem; }
+  .auth-fermer { top: 16px; right: 14px; }
+  .auth-retour-accueil { top: 16px; left: 14px; }
+}
+.auth-fond, .auth-poignee { display: none; }
+@media (max-width: 639px) { .auth-fond { display: block; } .auth-poignee { display: grid; } }
+@keyframes auth-monter { from { transform: translateY(28px); opacity: 0; } }
+@keyframes auth-feuille { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .auth, .auth-grille, .auth-fond { animation: none; }
+  .auth-croquis > * { animation: none; stroke-dashoffset: 0; }
+}
 </style>

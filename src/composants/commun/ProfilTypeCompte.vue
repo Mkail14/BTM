@@ -131,13 +131,13 @@ async function abandonner() {
 .tc-etat div { display: flex; flex-direction: column; gap: 2px; }
 .tc-etat strong { color: var(--ardoise); }
 .tc-etat small { color: var(--texte-secondaire); font-size: .86rem; line-height: 1.45; }
-.tc-etat.ok { background: #ecfdf5; border-color: #a7f3d0; }
-.tc-etat.ok > i { color: #047857; }
-.tc-etat.attente { background: #fffbeb; border-color: #fde68a; }
-.tc-etat.attente > i { color: #b45309; }
-.tc-etat.refus { background: var(--erreur-clair); border-color: #fecdd3; }
+.tc-etat.ok { background: var(--succes-fond); border-color: var(--succes-bord); }
+.tc-etat.ok > i { color: var(--succes-texte); }
+.tc-etat.attente { background: var(--alerte-fond); border-color: var(--alerte-bord); }
+.tc-etat.attente > i { color: var(--alerte-texte); }
+.tc-etat.refus { background: var(--erreur-fond); border-color: var(--erreur-bord); }
 .tc-etat.refus > i { color: var(--erreur); }
-.tc-message { margin: 0; color: #047857; font-weight: 600; font-size: .9rem; }
+.tc-message { margin: 0; color: var(--succes-texte); font-weight: 600; font-size: .9rem; }
 .tc-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .tc-form { display: flex; flex-direction: column; gap: 14px; }
 .tc-form .mono { font-family: var(--font-mono); letter-spacing: .04em; }

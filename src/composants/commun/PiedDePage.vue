@@ -1,8 +1,8 @@
 <script setup>
 import { computed } from 'vue'
-import LogoBtm from './LogoBtm.vue'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
+import { ouvrirInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
 
 const contenu = useContenuSite()
 const annee = new Date().getFullYear()
@@ -17,7 +17,7 @@ const lienTelephone = computed(() => {
   <footer id="pied-de-page" class="pied">
     <div class="conteneur pied-grille">
       <section class="pied-marque">
-        <router-link to="/" class="pied-logo"><LogoBtm :taille="46" /> <span>BTM</span></router-link>
+        <router-link to="/" class="pied-logo" aria-label="BTM — Accueil"><img src="/logo-groupe-btm.png" alt="Groupe BTM" width="112" height="52" /></router-link>
         <p>{{ contenu.pied.description }}</p>
         <p class="pied-localisation"><i class="fa-solid fa-location-dot"></i> {{ contenu.contact.localisation }}</p>
       </section>
@@ -28,10 +28,12 @@ const lienTelephone = computed(() => {
         <router-link to="/calculateur">Calculateur</router-link>
         <router-link to="/fournisseurs">Fournisseurs</router-link>
         <router-link to="/dashboard">Mes projets</router-link>
+        <!-- entreprise qui vend des matériaux : création de son compte fournisseur, validé par BTM -->
+        <a href="#" class="pied-partenaire" @click.prevent="ouvrirInscriptionFournisseur()"><i class="fa-solid fa-handshake" aria-hidden="true"></i> Devenir partenaire</a>
       </nav>
 
       <nav class="pied-nav" aria-label="Types de projets">
-        <h4>Devis</h4>
+        <h4>Estimer</h4>
         <router-link v-for="t in typesProjets" :key="t.id" :to="{ path: '/calculateur', query: { type: t.id } }">{{ t.libelle }}</router-link>
       </nav>
 
@@ -54,7 +56,7 @@ const lienTelephone = computed(() => {
 </template>
 
 <style scoped>
-.pied { position: relative; background: var(--ardoise); color: rgba(255,255,255,.78); border-top: 3px solid var(--lagon-700); }
+.pied { position: relative; background: var(--encre); color: rgba(255,255,255,.78); border-top: 3px solid var(--lagon-700); }
 .pied-grille { display: grid; gap: 36px; padding: 64px 20px 40px; grid-template-columns: 1fr; }
 @media (max-width: 639px) {
   .pied-grille { grid-template-columns: 1fr 1fr; gap: 28px 20px; padding-top: 44px; }
@@ -62,13 +64,15 @@ const lienTelephone = computed(() => {
 }
 @media (min-width: 640px) { .pied-grille { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 900px) { .pied-grille { grid-template-columns: 1.6fr 1fr 1fr 1.2fr; padding-inline: 32px; } }
-.pied-logo { display: inline-flex; align-items: center; gap: 12px; font-family: var(--font-display); font-size: 1.7rem; font-weight: 700; letter-spacing: .06em; color: #fff; margin-bottom: 14px; }
+.pied-logo { display: inline-flex; margin-bottom: 14px; }
+.pied-logo img { display: block; width: auto; height: 52px; }
 .pied-marque p { max-width: 380px; font-size: .95rem; line-height: 1.6; }
 .pied-localisation { margin-top: 12px !important; color: var(--lagon-300); }
 .pied-nav { display: flex; flex-direction: column; gap: 10px; }
 .pied-nav h4 { color: var(--gris-400); font-family: var(--font-corps); font-size: .74rem; font-weight: 600; text-transform: uppercase; letter-spacing: .14em; margin-bottom: 6px; }
 .pied-nav a { font-size: .95rem; transition: color var(--transition), transform var(--transition); display: inline-flex; gap: 8px; align-items: center; }
 .pied-nav a:hover { color: var(--lagon-300); transform: translateX(4px); }
+.pied-nav a.pied-partenaire { color: #fcd34d; font-weight: 600; }
 .pied-note { font-size: .8rem; opacity: .6; margin-top: 8px; }
 .pied-bas {
   border-top: 1px solid rgba(255,255,255,.1); padding: 20px; display: flex; flex-wrap: wrap; gap: 8px 24px;

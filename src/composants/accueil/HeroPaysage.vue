@@ -2,10 +2,12 @@
 /**
  * HeroPaysage — décor animé de l'accueil : crépuscule sur Mayotte.
  * Soleil couchant, silhouette du mont Choungui, lagon qui scintille,
- * grue à tour qui déplace sa charge et immeuble en chantier aux fenêtres allumées.
+ * grue à tour qui déplace sa charge et immeuble en chantier.
+ * Jour ou nuit suit le bouton clair / sombre : le soir, les fenêtres s'allument ; le jour, elles sont éteintes.
  * Les plans bougent légèrement avec la souris (parallaxe via --px / --py).
  */
-import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
+import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
+import { useTheme } from '@/composables/useTheme.js'
 
 const racine = ref(null)
 const zoneSommet = ref(null)
@@ -40,7 +42,7 @@ function animer() {
 }
 
 // Immeuble en chantier : façade de 5 étages × 4 travées, toutes les fenêtres sont dans la façade.
-// Quelques-unes allumées (certaines clignotent), les autres éteintes pour dessiner la trame.
+// La nuit, quelques-unes s'allument (certaines clignotent), les autres restent éteintes pour dessiner la trame.
 const IMMEUBLE = { x: 1228, sol: 292, largeur: 76, etage: 22, etages: 5 }
 IMMEUBLE.haut = IMMEUBLE.sol - IMMEUBLE.etage * IMMEUBLE.etages // 182 : dalle du dernier étage fini
 const fenetres = []
@@ -55,9 +57,73 @@ for (let etage = 0; etage < IMMEUBLE.etages; etage++)
   }
 const dalles = Array.from({ length: IMMEUBLE.etages - 1 }, (_, i) => IMMEUBLE.sol - (i + 1) * IMMEUBLE.etage)
 
-// accueil gardé en mémoire (keep-alive) : pas de suivi du pointeur pendant qu'on est sur une autre page
-const brancher = () => window.addEventListener('pointermove', surPointeur, { passive: true })
-const debrancher = () => { window.removeEventListener('pointermove', surPointeur); if (raf) cancelAnimationFrame(raf); raf = null }
+// ---------- Soleil et lune à l'heure de Mayotte ----------
+// Le jour, le soleil suit un arc d'est en ouest entre ses vrais lever et coucher à Mayotte (calcul solaire NOAA
+// simplifié) ; la nuit, il passe derrière la crête et la lune prend sa place, dans sa phase du jour.
+// Le thème choisit jour (clair) ou nuit (sombre) : si l'heure réelle ne correspond pas, l'astre prend une place fixe sur l'arc.
+const LATITUDE = -12.78, LONGITUDE = 45.23, FUSEAU = 3 // Mamoudzou, UTC+3 toute l'année
+const RAD = Math.PI / 180
+function heuresSoleil(maintenant) {
+  const jour = Math.floor((maintenant - Date.UTC(maintenant.getUTCFullYear(), 0, 1)) / 864e5)
+  const g = (2 * Math.PI / 365) * jour
+  const equationTemps = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g))
+  const declinaison = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g)
+  const lat = LATITUDE * RAD
+  const angle = Math.acos(Math.cos(90.833 * RAD) / (Math.cos(lat) * Math.cos(declinaison)) - Math.tan(lat) * Math.tan(declinaison)) / RAD
+  const midi = (720 - 4 * LONGITUDE - equationTemps) / 60 + FUSEAU // heure locale du midi solaire
+  return { lever: midi - angle / 15, coucher: midi + angle / 15 }
+}
+// Phase de la lune : 0 nouvelle, 0,5 pleine (référence : nouvelle lune du 6 janvier 2000, 18 h 14 UTC)
+const phaseLune = (maintenant) => ((((maintenant - Date.UTC(2000, 0, 6, 18, 14)) / 864e5) % 29.530589) + 29.530589) % 29.530589 / 29.530589
+
+// Arc bas, juste au-dessus des collines : l'astre reste sous le texte et la maquette 3D du héros, jamais derrière eux
+const HORIZON = 262, HAUTEUR_ARC = 92, EST = 180, OUEST = 1260
+const RAYON_LUNE = 22
+/**
+ * Partie éclairée de la lune (chemin SVG centré sur 0) : un demi-disque et une demi-ellipse (le terminateur),
+ * de largeur |cos(2πp)|. Hémisphère sud : la lune croissante est éclairée à gauche, d'où le miroir.
+ */
+function cheminLune(p, r = RAYON_LUNE) {
+  const k = Math.cos(2 * Math.PI * p)
+  const d = `M0 ${-r} A${r} ${r} 0 0 1 0 ${r} A${(Math.abs(k) * r).toFixed(2)} ${r} 0 0 ${k > 0 ? 0 : 1} 0 ${-r}Z`
+  return { d, miroir: p < 0.5 }
+}
+const { sombre } = useTheme()
+const astre = ref(calculerAstre())
+function calculerAstre() {
+  const maintenant = new Date()
+  const heure = ((maintenant.getTime() / 36e5 + FUSEAU) % 24 + 24) % 24
+  const { lever, coucher } = heuresSoleil(maintenant)
+  const jour = !sombre.value
+  const t = (heure >= lever && heure < coucher) !== jour ? 0.35 : jour ? (heure - lever) / (coucher - lever) : ((heure - coucher + 24) % 24) / (24 - (coucher - lever))
+  const x = EST + t * (OUEST - EST)
+  const y = HORIZON - Math.sin(Math.PI * t) * HAUTEUR_ARC
+  return { jour, x, y, lune: cheminLune(phaseLune(maintenant)) }
+}
+let minuterieAstre = null
+watch(sombre, () => { astre.value = calculerAstre() })
+
+// Décor hors de l'écran (on a défilé plus bas) : ses animations s'arrêtent, rien n'est repeint pour rien
+const aLEcran = ref(true)
+let observateurEcran = null
+
+// accueil gardé en mémoire (keep-alive) : pas de suivi du pointeur pendant qu'on est sur une autre page.
+// onMounted et onActivated se suivent au premier affichage : brancher() ne doit rien doubler.
+const brancher = () => {
+  window.addEventListener('pointermove', surPointeur, { passive: true })
+  astre.value = calculerAstre()
+  clearInterval(minuterieAstre)
+  minuterieAstre = setInterval(() => { astre.value = calculerAstre() }, 60000)
+  if (!observateurEcran && racine.value && 'IntersectionObserver' in window) {
+    observateurEcran = new IntersectionObserver(([e]) => { aLEcran.value = e.isIntersecting })
+    observateurEcran.observe(racine.value)
+  }
+}
+const debrancher = () => {
+  window.removeEventListener('pointermove', surPointeur); if (raf) cancelAnimationFrame(raf); raf = null
+  clearInterval(minuterieAstre); minuterieAstre = null
+  observateurEcran?.disconnect(); observateurEcran = null
+}
 onMounted(brancher)
 onActivated(brancher)
 onDeactivated(debrancher)
@@ -65,7 +131,7 @@ onBeforeUnmount(debrancher)
 </script>
 
 <template>
-  <div ref="racine" class="paysage" aria-hidden="true">
+  <div ref="racine" class="paysage" :class="{ nuit: !astre.jour, repos: !aLEcran }" aria-hidden="true">
     <div class="paysage-halo"></div>
 
     <svg class="paysage-svg" overflow="visible" viewBox="0 0 1440 400" preserveAspectRatio="xMaxYMax slice">
@@ -79,11 +145,60 @@ onBeforeUnmount(debrancher)
           <stop offset="0%" stop-color="#1b2a2f" />
           <stop offset="100%" stop-color="#091116" />
         </linearGradient>
+        <!-- Soleil : couronne douce autour du disque -->
+        <radialGradient id="couronne">
+          <stop offset="0%" stop-color="#ffd58a" stop-opacity=".55" />
+          <stop offset="35%" stop-color="#f59e0b" stop-opacity=".18" />
+          <stop offset="100%" stop-color="#f59e0b" stop-opacity="0" />
+        </radialGradient>
+        <!-- Lune : sol clair assombri vers le bord, halo froid, mers et cratères estompés -->
+        <radialGradient id="lune-sol" cx="42%" cy="40%" r="62%">
+          <stop offset="0%" stop-color="#fbfaf4" />
+          <stop offset="70%" stop-color="#e3e3dc" />
+          <stop offset="100%" stop-color="#b9bdb9" />
+        </radialGradient>
+        <radialGradient id="lune-halo">
+          <stop offset="0%" stop-color="#dfeaf2" stop-opacity=".28" />
+          <stop offset="40%" stop-color="#b9d0e0" stop-opacity=".08" />
+          <stop offset="100%" stop-color="#b9d0e0" stop-opacity="0" />
+        </radialGradient>
+        <filter id="terminateur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation=".9" /></filter>
+        <mask id="lune-eclairee" maskUnits="userSpaceOnUse" x="-40" y="-40" width="80" height="80">
+          <path :d="astre.lune.d" :transform="astre.lune.miroir ? 'scale(-1 1)' : null" fill="#fff" filter="url(#terminateur)" />
+        </mask>
       </defs>
 
-      <!-- Soleil couchant -->
+      <!-- Soleil le jour, lune la nuit : position de l'heure actuelle à Mayotte (passe derrière la crête au lever et au coucher) -->
       <g class="plan plan-soleil">
-        <circle class="soleil" cx="820" cy="236" r="58" fill="url(#soleil)" />
+        <g :key="astre.jour" class="astre" :style="{ transform: `translate(${astre.x}px, ${astre.y}px)` }">
+          <template v-if="astre.jour">
+            <circle r="120" fill="url(#couronne)" />
+            <circle class="soleil" r="40" fill="url(#soleil)" />
+          </template>
+          <g v-else class="lune">
+            <circle r="95" fill="url(#lune-halo)" />
+            <!-- partie dans l'ombre : à peine visible (lumière cendrée) -->
+            <circle :r="RAYON_LUNE" fill="#1c2833" opacity=".55" />
+            <!-- partie éclairée, avec son relief -->
+            <g mask="url(#lune-eclairee)">
+              <circle :r="RAYON_LUNE" fill="url(#lune-sol)" />
+              <g fill="#8e9696" opacity=".3">
+                <ellipse cx="-7" cy="-6" rx="7.5" ry="5.5" transform="rotate(-20 -7 -6)" />
+                <ellipse cx="5" cy="-9" rx="5" ry="4" />
+                <ellipse cx="8" cy="2" rx="6" ry="7.5" transform="rotate(15 8 2)" />
+                <ellipse cx="-4" cy="7" rx="5.5" ry="4" />
+              </g>
+              <g fill="#9ea5a4" stroke="#fdfdf8" stroke-width=".4" stroke-opacity=".4" opacity=".4">
+                <circle cx="-12" cy="9" r="2.2" />
+                <circle cx="2" cy="14" r="2.8" />
+                <circle cx="13" cy="-4" r="1.6" />
+                <circle cx="-2" cy="-15" r="1.4" />
+                <circle cx="-15" cy="-3" r="1.2" />
+              </g>
+              <circle cx="3" cy="15" r=".9" fill="#fff" opacity=".9" /> <!-- éclat de Tycho -->
+            </g>
+          </g>
+        </g>
       </g>
 
       <!-- Crête lointaine avec le mont Choungui -->
@@ -144,13 +259,6 @@ onBeforeUnmount(debrancher)
       <!-- Lagon -->
       <g class="plan plan-eau">
         <rect x="-500" y="330" width="2500" height="70" fill="url(#eau)" />
-        <g class="reflets" stroke-linecap="round">
-          <line x1="700" y1="342" x2="940" y2="342" stroke="rgba(255,190,90,.45)" stroke-width="2" stroke-dasharray="40 16 10 22" />
-          <line x1="730" y1="354" x2="910" y2="354" stroke="rgba(255,190,90,.3)" stroke-width="2" stroke-dasharray="24 18 8 14" />
-          <line x1="760" y1="366" x2="880" y2="366" stroke="rgba(255,190,90,.2)" stroke-width="2" stroke-dasharray="16 20 6 12" />
-          <line x1="120" y1="350" x2="420" y2="350" stroke="rgba(160,215,225,.12)" stroke-width="1.5" stroke-dasharray="30 40" />
-          <line x1="1040" y1="360" x2="1380" y2="360" stroke="rgba(160,215,225,.1)" stroke-width="1.5" stroke-dasharray="26 34" />
-        </g>
       </g>
     </svg>
 
@@ -172,17 +280,24 @@ onBeforeUnmount(debrancher)
 .paysage-svg { overflow: visible; position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: clamp(260px, 50vh, 560px); }
 
 /* Parallaxe : chaque plan se déplace plus ou moins selon sa profondeur */
-.plan { transition: transform .1s linear; }
 .plan-soleil { transform: translate(calc(var(--px) * -8px), calc(var(--py) * -4px)); }
 .plan-loin { transform: translate(calc(var(--px) * -14px), 0); }
 .plan-proche { transform: translate(calc(var(--px) * -30px), 0); }
 .plan-eau { transform: translate(calc(var(--px) * -40px), 0); }
 
-.soleil { filter: drop-shadow(0 0 30px rgba(245, 158, 11, .7)); animation: coucher 40s ease-in-out infinite alternate; transform-box: view-box; }
+/* soleil ou lune : la position change chaque minute, le déplacement est fondu */
+/* pas de transition : l'astre avance d'un pixel par minute, une transition repeindrait la scène sans arrêt */
+/* lueurs dessinées par des dégradés (couronne, halo) : un filtre serait recalculé à chaque mouvement de souris */
+/* nuit : lueur de l'horizon refroidie, chantier à l'arrêt (la grue ne bouge plus) */
+.paysage.nuit { background: linear-gradient(180deg, #05080d 0%, #0a121a 45%, #111c26 78%, #1a2733 100%); }
+.paysage.nuit .paysage-halo { opacity: .35; filter: hue-rotate(170deg) saturate(.5); }
+.paysage.nuit .fenetre.allumee { fill: #f7b955; opacity: 1; }
+.paysage.nuit .fenetre.clignote { animation: clignoter 6s steps(1) infinite; }
 
 @media (max-width: 639px) { .chantier { display: none; } }
 .chariot { animation: chariot 16s ease-in-out infinite; }
 .charge { transform-box: view-box; transform-origin: 1261px 153px; animation: balancer 4s ease-in-out infinite; }
+.paysage.nuit .chariot, .paysage.nuit .charge { animation: none; }
 
 /* Étiquette du mont Choungui : apparaît en fondu quand la souris frôle le sommet */
 .sommet { opacity: 0; transform: translateY(4px); transition: opacity .5s ease, transform .5s ease; }
@@ -195,13 +310,7 @@ onBeforeUnmount(debrancher)
 .sommet-nom { font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .18em; fill: rgba(255, 255, 255, .78); }
 .sommet-info { font-family: var(--font-corps); font-size: 8px; font-style: italic; fill: rgba(255, 213, 138, .6); }
 
-.fenetre { fill: #16242b; }
-.fenetre.allumee { fill: #f7b955; opacity: .85; }
-.fenetre.clignote { animation: clignoter 6s steps(1) infinite; }
-
-.reflets line { animation: scintiller 7s linear infinite; }
-.reflets line:nth-child(2) { animation-duration: 9s; animation-direction: reverse; }
-.reflets line:nth-child(3) { animation-duration: 6s; }
+.fenetre { fill: #16242b; } /* éteintes le jour, allumées la nuit (voir .paysage.nuit) */
 
 /* Grain photographique léger */
 .paysage-grain {
@@ -210,14 +319,13 @@ onBeforeUnmount(debrancher)
 }
 
 @keyframes respirer { 50% { opacity: .75; } }
-@keyframes coucher { to { transform: translateY(14px); } }
 @keyframes chariot { 0%, 8% { transform: translateX(0); } 45%, 58% { transform: translateX(92px); } 100% { transform: translateX(0); } }
 @keyframes balancer { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
 @keyframes clignoter { 0%, 70% { opacity: .85; } 71%, 100% { opacity: .15; } }
-@keyframes scintiller { to { stroke-dashoffset: -180; } }
 @keyframes pulser { 50% { transform: scale(1.8); opacity: .5; } }
 
 @media (prefers-reduced-motion: reduce) {
   .paysage *, .paysage { animation: none !important; }
 }
+.paysage.repos, .paysage.repos * { animation-play-state: paused !important; }
 </style>

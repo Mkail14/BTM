@@ -21,8 +21,8 @@ const lien = reactive({ ouvert: false, url: '', texte: '', existant: null })
 const champUrl = ref(null)
 let selectionSauvee = null
 
-const COULEURS = ['#0f172a', '#475569', '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#0e7490', '#2563eb', '#7c3aed', '#db2777']
-const SURLIGNAGES = ['#fef08a', '#bbf7d0', '#a5f3fc', '#bfdbfe', '#fbcfe8', '#fed7aa']
+const COULEURS = ['#0f172a', '#475569', '#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#1f1f1f', '#2563eb', '#7c3aed', '#db2777']
+const SURLIGNAGES = ['#fef08a', '#bbf7d0', '#e3d6c4', '#bfdbfe', '#fbcfe8', '#fed7aa']
 const TAILLES = [{ label: 'Petit', valeur: '2' }, { label: 'Normal', valeur: '3' }, { label: 'Grand', valeur: '5' }, { label: 'Très grand', valeur: '6' }]
 
 // ---------- Commandes ----------
@@ -155,7 +155,7 @@ function lireHtml() {
   const d = document.createElement('div')
   d.innerHTML = html
   d.querySelectorAll('blockquote').forEach((b) => b.setAttribute('style', `${b.getAttribute('style') || ''};margin:0 0 0 4px;padding:2px 0 2px 12px;border-left:3px solid #cbd5e1;color:#475569`.replace(/^;/, '')))
-  d.querySelectorAll('a').forEach((a) => { if (!/color/.test(a.getAttribute('style') || '')) a.setAttribute('style', `${a.getAttribute('style') || ''};color:#0e7490`.replace(/^;/, '')) })
+  d.querySelectorAll('a').forEach((a) => { if (!/color/.test(a.getAttribute('style') || '')) a.setAttribute('style', `${a.getAttribute('style') || ''};color:#1f1f1f`.replace(/^;/, '')) })
   d.querySelectorAll('hr').forEach((h) => h.setAttribute('style', 'border:0;border-top:1px solid #e2e8f0;margin:16px 0'))
   d.querySelectorAll('ul, ol').forEach((l) => l.setAttribute('style', `${l.getAttribute('style') || ''};margin:0 0 0 4px;padding-left:22px;list-style-type:${l.tagName === 'UL' ? 'disc' : 'decimal'}`.replace(/^;/, '')))
   return d.innerHTML
@@ -272,7 +272,7 @@ onBeforeUnmount(() => document.removeEventListener('selectionchange', surSelecti
 .er-groupe:last-child { border-right: 0; }
 .er-outils button { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-width: 32px; height: 32px; padding: 0 6px; border: 0; border-radius: 8px; background: transparent; color: var(--adm-encre-2); font: inherit; font-size: .88rem; cursor: pointer; }
 .er-outils button:hover { background: var(--adm-ligne-2); color: var(--adm-encre); }
-.er-outils button[aria-pressed="true"], .er-outils button[aria-expanded="true"] { background: var(--adm-noir); color: #fff; }
+.er-outils button[aria-pressed="true"], .er-outils button[aria-expanded="true"] { background: var(--adm-noir); color: var(--adm-sur-noir); }
 .er-caret { font-size: .65rem; opacity: .7; }
 .er-a { font-weight: 700; text-decoration: underline; text-decoration-color: #dc2626; text-decoration-thickness: 3px; }
 .er-menu { position: relative; display: inline-flex; }
@@ -290,7 +290,7 @@ onBeforeUnmount(() => document.removeEventListener('selectionchange', surSelecti
 .er-lien-actions { display: flex; gap: 8px; }
 .er-zone { flex: 1; min-height: 260px; padding: 16px 22px; overflow-y: auto; outline: 0; color: var(--adm-encre); font-size: .95rem; line-height: 1.6; word-wrap: break-word; }
 .er-zone:empty::before { content: attr(data-placeholder); color: var(--adm-muet); pointer-events: none; }
-.er-zone :deep(a) { color: #0e7490; text-decoration: underline; cursor: pointer; }
+.er-zone :deep(a) { color: #1f1f1f; text-decoration: underline; cursor: pointer; }
 .er-zone :deep(blockquote) { margin: 4px 0 4px 4px; padding: 2px 0 2px 12px; border-left: 3px solid #cbd5e1; color: #475569; }
 .er-zone :deep(ul), .er-zone :deep(ol) { margin: 4px 0; padding-left: 24px; }
 .er-zone :deep(ul) { list-style: disc; }

@@ -11,6 +11,7 @@
  */
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import * as THREE from 'three'
+import { appareilLeger } from '@/composables/useAppareil.js'
 
 const conteneur = ref(null)
 let renderer, scene, camera, raf, observateur
@@ -82,15 +83,15 @@ function construire() {
   camera.position.set(0, 2.6, 6.5)
   camera.lookAt(0, 0.5, 0)
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer = new THREE.WebGLRenderer({ antialias: !appareilLeger.value, alpha: true })
+  renderer.setPixelRatio(appareilLeger.value ? 1 : Math.min(window.devicePixelRatio, 2))
   renderer.setSize(largeur, hauteur)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   el.appendChild(renderer.domElement)
 
-  // lumière du décor : soleil couchant orangé, contre-jour bleu lagon
+  // lumière du décor : soleil couchant orangé, contre-jour crème (couleur du logo)
   scene.add(new THREE.AmbientLight(0xffffff, 0.9))
   const soleil = new THREE.DirectionalLight(0xffd2a1, 2.1)
   soleil.position.set(3, 5, 4)
@@ -98,7 +99,7 @@ function construire() {
   soleil.shadow.mapSize.set(1024, 1024)
   Object.assign(soleil.shadow.camera, { left: -3, right: 3, top: 3, bottom: -3 })
   scene.add(soleil)
-  const contre = new THREE.DirectionalLight(0x67e8f9, 1.1)
+  const contre = new THREE.DirectionalLight(0xf4e9db, 1.1)
   contre.position.set(-4, 2.5, -3)
   scene.add(contre)
 
@@ -106,13 +107,13 @@ function construire() {
   scene.add(plateau)
 
   // ---------- Plateau ----------
-  const disque = cylindre(2.05, SOL, materiau(0x1e293b, { roughness: 0.8 }), 64)
+  const disque = cylindre(2.05, SOL, materiau(0x262422, { roughness: 0.8 }), 64)
   disque.position.y = SOL / 2
   disque.receiveShadow = true
   plateau.add(disque)
   const anneauGeo = new THREE.TorusGeometry(2.05, 0.018, 8, 96)
   nettoyages.push(() => anneauGeo.dispose())
-  const anneau = new THREE.Mesh(anneauGeo, materiau(0x22d3ee, { emissive: 0x0891b2, emissiveIntensity: 1.2 }))
+  const anneau = new THREE.Mesh(anneauGeo, materiau(0x111111, { emissive: 0xf4e9db, emissiveIntensity: .9 }))
   anneau.rotation.x = Math.PI / 2
   anneau.position.y = SOL
   plateau.add(anneau)
@@ -152,10 +153,10 @@ function construire() {
 
   // ---------- Robot ----------
   const blanc = materiau(0xf1f5f9, { roughness: 0.35, metalness: 0.15 })
-  const lagon = materiau(0x0891b2, { roughness: 0.4 })
-  const sombre = materiau(0x0f172a, { roughness: 0.3, metalness: 0.4 })
+  const lagon = materiau(0x2a2a2a, { roughness: 0.4 }) // pièces d'accent : noir du logo
+  const sombre = materiau(0x111111, { roughness: 0.3, metalness: 0.4 })
   const ambre = materiau(0xf59e0b, { roughness: 0.45 })
-  const yeuxMat = materiau(0x22d3ee, { emissive: 0x22d3ee, emissiveIntensity: 2 })
+  const yeuxMat = materiau(0xf4e9db, { emissive: 0xf4e9db, emissiveIntensity: 1.6 })
   const voyantMat = materiau(0xf59e0b, { emissive: 0xf59e0b, emissiveIntensity: 2 })
 
   const robot = new THREE.Group()

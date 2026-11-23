@@ -20,7 +20,7 @@ const sections = computed(() => [
   { id: 'frais', titre: 'Gratuité pour le client, commission et fidélité', texte: [
     'L’inscription, les estimations, l’export PDF et la consultation de l’annuaire sont gratuits.',
     'BTM est une plateforme de mise en relation : il ne vend aucun matériau. L’utilisation de BTM est gratuite pour le client, qui ne paie aucun frais de service.',
-    `Sur présentation du code de retrait d’un devis enregistré, le fournisseur applique son « prix BTM », en principe inférieur à son prix au comptoir. Le fournisseur verse à BTM une commission de ${taux.value} de la vente réalisée.`,
+    `Sur présentation du code de retrait d’une estimation enregistrée, le fournisseur applique son « prix BTM », en principe inférieur à son prix au comptoir. Le fournisseur verse à BTM une commission de ${taux.value} de la vente réalisée.`,
     'Chaque achat réalisé avec un code de retrait rapporte au client un crédit fidélité, utilisable lors d’un prochain retrait chez un fournisseur partenaire. Le crédit n’est ni échangeable ni remboursable en espèces.',
     'BTM peut proposer des codes promo. Un code valable s’applique une seule fois par compte, dans les conditions indiquées (montant ou pourcentage) et jusqu’à sa date d’expiration. Un code n’est ni échangeable ni remboursable.' ] },
   { id: 'compte', titre: 'Création et gestion du compte', texte: [
@@ -88,7 +88,7 @@ const sections = computed(() => [
 .cgu-sommaire a:hover { color: var(--lagon-600); text-decoration: underline; }
 .cgu-section { padding-bottom: 26px; scroll-margin-top: calc(var(--hauteur-entete) + 20px); }
 .cgu-section h2 { display: flex; align-items: center; gap: 12px; font-size: 1.25rem; color: var(--ardoise); margin-bottom: 10px; }
-.cgu-num { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--lagon-600); color: #fff; font-size: .9rem; flex: none; }
+.cgu-num { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--lagon-600); color: var(--sur-primaire); font-size: .9rem; flex: none; }
 .cgu-section p { line-height: 1.7; color: var(--gris-700); margin-bottom: 10px; }
 .cgu-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; padding-top: 24px; border-top: 1px solid var(--gris-200, #e5e7eb); }
 </style>

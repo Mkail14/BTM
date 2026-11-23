@@ -94,13 +94,13 @@ const pasLibelles = computed(() => Math.ceil(props.points.length / 14))
 
 .graphe-bulle {
   position: absolute; bottom: calc(100% + 8px); left: 50%; z-index: 2; transform: translateX(-50%);
-  display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 12px; background: var(--adm-noir); color: #fff;
+  display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; border-radius: 12px; background: var(--adm-noir); color: var(--adm-sur-noir);
   white-space: nowrap; box-shadow: 0 10px 24px rgba(15, 23, 42, .22); pointer-events: none;
 }
 /* bords du graphique : l'infobulle s'ouvre vers l'intérieur */
 .graphe-bulle.gauche { left: auto; right: 0; transform: none; }
 .graphe-bulle.droite { left: 0; transform: none; }
-.graphe-bulle small { font-size: .74rem; color: rgba(255, 255, 255, .65); }
+.graphe-bulle small { font-size: .74rem; color: color-mix(in srgb, currentColor 65%, transparent); }
 .graphe-bulle strong { font-size: .95rem; font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) { .graphe { height: 220px; } }
 </style>

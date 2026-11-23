@@ -4,14 +4,12 @@
  * fournisseurs partenaires (voir useOuverture et App.vue). Même identité que l'accueil : décor du
  * mont Choungui (HeroPaysage), en-tête BTM, surtitre et titres du héros, boutons et champs du site.
  * Une page fixe, sans défilement.
- * « Devenir partenaire » envoie une vraie demande : elle arrive dans Admin → Support (et par e-mail sur
- * contact@btm.yt), avec l'adresse de l'entreprise pour lui répondre — même circuit que l'assistance du site.
+ * « Devenir partenaire » ouvre la création du compte fournisseur (InscriptionFournisseur).
+ * Avec `demande` : la même page devient l'écran du compte fournisseur en attente de validation par BTM
+ * (en attente, rectification demandée, ou refusée) ; elle se met à jour seule quand BTM valide le compte.
  */
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import LogoBtm from '@/composants/commun/LogoBtm.vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
-import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
-import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
 import HeroPaysage from '@/composants/accueil/HeroPaysage.vue'
 import { defineAsyncComponent } from 'vue'
 // scène 3D chargée à part (three.js) : la page s'affiche sans l'attendre
@@ -19,11 +17,20 @@ const RobotChantier3D = defineAsyncComponent(() => import('@/composants/commun/R
 const ordinateur = typeof window !== 'undefined' && window.matchMedia('(min-width: 900px)').matches
 import { useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import { SEUIL_FOURNISSEURS } from '@/composables/useOuverture.js'
-import { demanderConseiller } from '@/services/supabase/serviceSupport.js'
-import { erreurEmail } from '@/services/validation.js'
+import { ouvrirInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
+import { useAuth } from '@/composables/useAuth.js'
+import { useTheme } from '@/composables/useTheme.js'
+import { listerMessages, listerDocuments } from '@/services/supabase/serviceDossierFournisseur.js'
+const DossierFournisseur = defineAsyncComponent(() => import('@/composants/commun/DossierFournisseur.vue'))
 
-const props = defineProps({ partenaires: { type: Number, default: 0 } })
+const props = defineProps({
+  partenaires: { type: Number, default: 0 },
+  maintenance: Boolean,
+  demande: { type: Object, default: null } // compte fournisseur en attente de validation
+})
 const { ouvrirAuth } = useFenetreAuth()
+const { deconnexion, rechargerRole } = useAuth()
+const { sombre, basculer: basculerTheme } = useTheme()
 
 const prets = computed(() => Math.min(props.partenaires, SEUIL_FOURNISSEURS))
 const annee = new Date().getFullYear()
@@ -32,43 +39,44 @@ const annee = new Date().getFullYear()
 onMounted(() => { document.documentElement.classList.add('page-fixe') })
 onBeforeUnmount(() => { document.documentElement.classList.remove('page-fixe') })
 
-// ---------- Demande de partenariat ----------
-const ouvert = ref(false)
-const etat = ref('saisie') // 'saisie' | 'envoi' | 'envoye'
-const erreur = ref('')
-const vide = () => ({ entreprise: '', nom: '', email: '', telephone: '', commune: '', produits: '' })
-const f = ref(vide())
-const premierChamp = ref(null)
-
-function ouvrir() {
-  ouvert.value = true
-  if (etat.value === 'envoye') { etat.value = 'saisie'; f.value = vide() }
-  erreur.value = ''
-  nextTick(() => premierChamp.value?.focus())
-}
-function fermer() { if (etat.value !== 'envoi') ouvert.value = false }
-
-async function envoyer() {
-  const d = f.value
-  erreur.value = !d.entreprise.trim() || !d.nom.trim() ? 'Indiquez le nom de l’entreprise et le vôtre.'
-    : erreurEmail(d.email.trim()) || (!d.telephone ? 'Indiquez un numéro de téléphone valide.' : '')
-  if (erreur.value) return
-  etat.value = 'envoi'
-  const contexte = [
-    'Demande de partenariat fournisseur',
-    `Entreprise : ${d.entreprise.trim()}`,
-    `Contact : ${d.nom.trim()} · ${d.telephone} · ${d.email.trim()}`,
-    d.commune.trim() && `Commune : ${d.commune.trim()}`,
-    d.produits.trim() && `Produits : ${d.produits.trim()}`
-  ].filter(Boolean).join('\n')
+// ---------- Compte fournisseur en attente de validation ----------
+// la décision de BTM est relue toutes les 30 s (page visible) : validé, le compte rejoint aussitôt son espace
+const statut = computed(() => props.demande?.statut || '')
+// Dossier de validation : messages de BTM non lus et pièces à fournir (pastilles des deux boutons)
+const dossier = ref('') // '' | 'messages' | 'documents' : fenêtre ouverte sur cet onglet
+const nonLus = ref(0)
+const aFournir = ref(0)
+// dossier complet : toutes les pièces demandées validées par BTM et contrat signé ; il ne reste que la validation du compte
+const dossierComplet = ref(false)
+async function compterDossier() {
+  if (!props.demande) return
   try {
-    await demanderConseiller({ contexte, email: d.email.trim(), nom: `${d.nom.trim()} (${d.entreprise.trim()})` })
-    etat.value = 'envoye'
-  } catch (e) {
-    etat.value = 'saisie'
-    erreur.value = e?.message || 'L’envoi n’a pas abouti. Réessayez, ou écrivez-nous à contact@btm.yt.'
-  }
+    const [messages, documents] = await Promise.all([listerMessages(props.demande.id), listerDocuments(props.demande.id)])
+    nonLus.value = messages.filter((m) => m.auteur === 'btm' && !m.lu_le).length
+    aFournir.value = documents.filter((d) => ['a_fournir', 'refuse'].includes(d.statut)).length + (props.demande.contrat_signe_le ? 0 : 1)
+    dossierComplet.value = documents.length > 0 && documents.every((d) => d.statut === 'valide') && !!props.demande.contrat_signe_le
+  } catch { /* dossier pas encore activé : pas de pastille */ }
 }
+let minuterie = null
+onMounted(() => {
+  if (!props.demande) return
+  compterDossier()
+  minuterie = setInterval(() => { if (document.visibilityState === 'visible') { rechargerRole(); if (!dossier.value) compterDossier() } }, 30000)
+})
+onBeforeUnmount(() => clearInterval(minuterie))
+// avancement : compte créé → vérification du dossier → ouverture de l'espace (validation du compte par BTM)
+const ETAPES_VALIDATION = computed(() => {
+  const complet = dossierComplet.value && statut.value === 'en_attente'
+  return [
+    { libelle: 'Compte créé', etat: 'fait', icone: 'fa-solid fa-check' },
+    statut.value === 'a_corriger'
+      ? { libelle: 'Corrections demandées', etat: 'encours', icone: 'fa-solid fa-pen' }
+      : complet ? { libelle: 'Documents validés', etat: 'fait', icone: 'fa-solid fa-check' } : { libelle: 'Vérification par BTM', etat: 'encours', icone: 'fa-solid fa-hourglass-half' },
+    { libelle: complet ? 'Ouverture de votre espace' : 'Espace fournisseur ouvert', etat: complet ? 'encours' : '', icone: complet ? 'fa-solid fa-hourglass-half' : 'fa-solid fa-store' }
+  ]
+})
+const corriger = () => ouvrirInscriptionFournisseur(props.demande)
+const seDeconnecter = () => deconnexion()
 </script>
 
 <template>
@@ -79,29 +87,88 @@ async function envoyer() {
     <header class="bientot-entete">
       <div class="conteneur bientot-entete-inner">
         <span class="bientot-logo">
-          <LogoBtm :taille="42" />
-          <span class="bientot-marque"><strong>BTM</strong><small>Bâtiment &amp; Travaux Mayotte</small></span>
+          <img src="/logo-groupe-btm.png" alt="Groupe BTM" width="86" height="40" />
         </span>
-        <button type="button" class="bientot-connexion" @click="ouvrirAuth('connexion')">Espace partenaires</button>
+        <!-- même groupe que l'en-tête du site : thème (jour / nuit du décor) puis accès partenaires -->
+        <div class="bientot-entete-actions">
+          <button
+            class="bientot-theme" type="button" :aria-pressed="sombre" :title="sombre ? 'Passer en mode clair' : 'Passer en mode sombre'"
+            :aria-label="sombre ? 'Passer en mode clair' : 'Passer en mode sombre'" @click="basculerTheme"
+          >
+            <i :class="sombre ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" aria-hidden="true"></i>
+          </button>
+          <button v-if="demande" type="button" class="bientot-connexion" @click="seDeconnecter"><i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i> Se déconnecter</button>
+          <button v-else type="button" class="bientot-connexion" @click="ouvrirAuth('connexion')"><i class="fa-solid fa-store" aria-hidden="true"></i> <span class="bientot-libelle-long">Espace partenaires</span><span class="bientot-libelle-court">Partenaires</span></button>
+        </div>
       </div>
     </header>
 
     <main class="conteneur bientot-corps">
       <div class="bientot-texte">
-        <p class="bientot-surtitre">Plateforme de devis BTP · Mayotte</p>
-        <h1 class="bientot-titre">Le site ouvre bientôt.</h1>
-        <p class="bientot-desc">
-          Budget, quantités et fournisseurs pour vos travaux, au même endroit.
-          BTM ouvre dès que {{ SEUIL_FOURNISSEURS }} fournisseurs partenaires l’ont rejoint.
-        </p>
+        <p class="bientot-surtitre">{{ demande ? `Espace fournisseur · ${demande.entreprise}` : 'Estimation de matériaux BTP · Mayotte' }}</p>
+        <!-- compte fournisseur créé par l'entreprise, en attente de la décision de BTM -->
+        <template v-if="demande">
+          <template v-if="statut === 'a_corriger'">
+            <h1 class="bientot-titre">Quelques corrections à apporter.</h1>
+            <p class="bientot-desc">L’équipe BTM a examiné votre demande et vous demande de modifier certaines informations avant d’ouvrir votre espace.</p>
+          </template>
+          <template v-else-if="statut === 'refusee'">
+            <h1 class="bientot-titre">Demande non retenue.</h1>
+            <p class="bientot-desc">BTM ne peut pas ouvrir d’espace fournisseur pour {{ demande.entreprise }} pour le moment. Une question ? Écrivez-nous à <a href="mailto:contact@btm.yt">contact@btm.yt</a>.</p>
+          </template>
+          <template v-else-if="dossierComplet">
+            <h1 class="bientot-titre">Votre dossier est complet.</h1>
+            <p class="bientot-desc">Vos documents sont validés et votre contrat est signé. Votre compte sera ouvert dès que l’équipe BTM l’aura validé : cette page se met à jour toute seule.</p>
+          </template>
+          <template v-else>
+            <h1 class="bientot-titre">Votre compte est en cours de validation.</h1>
+            <p class="bientot-desc">L’équipe BTM vérifie les informations de {{ demande.entreprise }}. Votre espace fournisseur s’ouvre dès la validation : cette page se met à jour toute seule.</p>
+          </template>
+          <p v-if="demande.message_admin && statut !== 'en_attente'" class="bientot-message">
+            <i class="fa-solid fa-comment-dots" aria-hidden="true"></i>
+            <span><strong>Message de BTM</strong>{{ demande.message_admin }}</span>
+          </p>
+          <ol v-if="statut !== 'refusee'" class="bientot-validation" aria-label="Avancement de votre demande">
+            <li v-for="e in ETAPES_VALIDATION" :key="e.libelle" :class="e.etat">
+              <span><i :class="e.icone" aria-hidden="true"></i></span>
+              {{ e.libelle }}
+            </li>
+          </ol>
+        </template>
+        <!-- maintenance choisie par l'admin : pas de compteur de partenaires -->
+        <template v-else-if="maintenance">
+          <h1 class="bientot-titre">Site en maintenance.</h1>
+          <p class="bientot-desc">
+            Nous améliorons BTM : budget, quantités et fournisseurs pour vos travaux reviennent très vite.
+          </p>
+        </template>
+        <template v-else>
+          <h1 class="bientot-titre">Le site ouvre bientôt.</h1>
+          <p class="bientot-desc">
+            Budget, quantités et fournisseurs pour vos travaux, au même endroit.
+            BTM ouvre dès que {{ SEUIL_FOURNISSEURS }} fournisseurs partenaires l’ont rejoint.
+          </p>
+        </template>
 
-        <div class="bientot-avancement" role="progressbar" :aria-valuenow="prets" aria-valuemin="0" :aria-valuemax="SEUIL_FOURNISSEURS" :aria-label="`${prets} fournisseur partenaire sur ${SEUIL_FOURNISSEURS}`">
+        <div v-if="!maintenance && !demande" class="bientot-avancement" role="progressbar" :aria-valuenow="prets" aria-valuemin="0" :aria-valuemax="SEUIL_FOURNISSEURS" :aria-label="`${prets} fournisseur partenaire sur ${SEUIL_FOURNISSEURS}`">
           <span v-for="n in SEUIL_FOURNISSEURS" :key="n" :class="{ fait: n <= prets }"></span>
           <small>{{ prets }} / {{ SEUIL_FOURNISSEURS }} fournisseurs partenaires</small>
         </div>
 
         <div class="bientot-actions">
-          <BoutonBase variante="primaire" icone-droite="fa-solid fa-arrow-right" @click="ouvrir">Devenir partenaire</BoutonBase>
+          <!-- compte en attente : écrire à BTM (ce qui manque pour valider) et déposer les pièces demandées, contrat compris -->
+          <template v-if="demande && statut !== 'refusee'">
+            <BoutonBase v-if="statut === 'a_corriger'" variante="primaire" icone="fa-solid fa-pen-to-square" @click="corriger">Corriger mes informations</BoutonBase>
+            <button type="button" class="bientot-dossier principal" @click="dossier = 'documents'">
+              <i class="fa-solid fa-folder-open" aria-hidden="true"></i> Documents à fournir
+              <b v-if="aFournir" class="bientot-pastille">{{ aFournir }}</b>
+            </button>
+            <button type="button" class="bientot-dossier" @click="dossier = 'messages'">
+              <i class="fa-solid fa-comments" aria-hidden="true"></i> Écrire à BTM
+              <b v-if="nonLus" class="bientot-pastille">{{ nonLus }}</b>
+            </button>
+          </template>
+          <BoutonBase v-else variante="primaire" icone-droite="fa-solid fa-arrow-right" @click="ouvrirInscriptionFournisseur()">Devenir partenaire</BoutonBase>
         </div>
       </div>
       <!-- le chantier en cours : un robot BTM monte un mur, en boucle (ordinateur seulement) -->
@@ -113,36 +180,7 @@ async function envoyer() {
       <span><router-link to="/conditions">Conditions</router-link> · <router-link to="/confidentialite">Confidentialité</router-link></span>
     </footer>
 
-    <!-- Demande de partenariat : même voile que la fenêtre de connexion du site -->
-    <div v-if="ouvert" class="bientot-voile" @click.self="fermer" @keydown.esc="fermer">
-      <section class="carte bientot-fenetre" role="dialog" aria-modal="true" aria-labelledby="partenaire-titre">
-        <button type="button" class="bientot-fermer" aria-label="Fermer la fenêtre" @click="fermer"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-
-        <template v-if="etat === 'envoye'">
-          <span class="bientot-merci-icone" aria-hidden="true"><i class="fa-solid fa-circle-check"></i></span>
-          <h2 id="partenaire-titre" class="bientot-fenetre-titre">Demande envoyée</h2>
-          <p class="texte-secondaire bientot-fenetre-intro">Merci ! L’équipe BTM vous recontacte à <strong>{{ f.email }}</strong> ou au {{ f.telephone }}.</p>
-          <BoutonBase variante="primaire" bloc @click="fermer">Fermer</BoutonBase>
-        </template>
-
-        <form v-else novalidate class="bientot-form" @submit.prevent="envoyer">
-          <div>
-            <h2 id="partenaire-titre" class="bientot-fenetre-titre">Devenir partenaire</h2>
-            <p class="texte-secondaire bientot-fenetre-intro">Vous vendez des matériaux à Mayotte ? Laissez vos coordonnées : nous vous présentons BTM et ouvrons votre espace fournisseur.</p>
-          </div>
-          <div class="bientot-champs">
-            <div class="champ plein"><label for="p-ent">Entreprise</label><input id="p-ent" ref="premierChamp" v-model="f.entreprise" maxlength="80" autocomplete="organization" placeholder="Nom de l’entreprise" /></div>
-            <div class="champ"><label for="p-nom">Votre nom</label><input id="p-nom" v-model="f.nom" maxlength="60" autocomplete="name" placeholder="Prénom Nom" /></div>
-            <div class="champ"><label for="p-com">Commune</label><input id="p-com" v-model="f.commune" maxlength="60" autocomplete="address-level2" placeholder="Mamoudzou" /></div>
-            <div class="champ plein"><label for="p-mail">Adresse e-mail</label><input id="p-mail" v-model="f.email" type="email" maxlength="254" autocomplete="email" placeholder="contact@entreprise.yt" /></div>
-            <ChampTelephone id="p-tel" v-model="f.telephone" class="plein" />
-            <div class="champ plein"><label for="p-prod">Ce que vous vendez <small class="texte-secondaire">(facultatif)</small></label><input id="p-prod" v-model="f.produits" maxlength="160" placeholder="Ciment, parpaings, carrelage…" /></div>
-          </div>
-          <BandeauAvertissement v-if="erreur" type="erreur" compact>{{ erreur }}</BandeauAvertissement>
-          <BoutonBase type="submit" variante="primaire" bloc icone="fa-solid fa-paper-plane" :chargement="etat === 'envoi'">Envoyer ma demande</BoutonBase>
-        </form>
-      </section>
-    </div>
+    <DossierFournisseur v-if="dossier && demande" :demande="demande" :onglet="dossier" @fermer="dossier = ''; compterDossier()" @maj="compterDossier" />
   </div>
 </template>
 
@@ -155,22 +193,38 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 /* même cadre que le héros de l'accueil : fond sombre, décor du Choungui, texte blanc */
 .bientot {
   position: relative; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; isolation: isolate;
-  background: #0a0f14; color: #fff;
+  background: #0d0d0d; color: #fff;
+  /* page toujours de nuit, quel que soit le thème : l'action principale y est crème (texte noir), comme sur le héros */
+  --lagon-600: #f4e9db; --lagon-500: #fff; --sur-primaire: #111; --focus: #f4e9db;
 }
 
 /* ---------- En-tête (repris d'EnteteApp) ---------- */
-.bientot-entete { flex: none; height: var(--hauteur-entete); }
+.bientot-entete { flex: none; height: var(--hauteur-entete); padding-top: env(safe-area-inset-top, 0px); }
 .bientot-entete-inner { height: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .bientot-logo { display: flex; align-items: center; gap: 10px; }
-.bientot-logo :deep(.logo-btm) { width: 38px; height: 38px; }
-.bientot-marque { display: flex; flex-direction: column; gap: 3px; line-height: 1; }
-.bientot-marque strong { font-family: var(--font-display); font-size: 1.4rem; font-weight: 700; letter-spacing: .08em; }
-.bientot-marque small { font-size: .62rem; color: var(--lagon-200); opacity: .8; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
-.bientot-connexion {
-  height: 40px; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px; background: transparent;
-  color: rgba(255, 255, 255, .85); font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; transition: color var(--transition), border-color var(--transition);
+.bientot-logo img { display: block; width: auto; height: 40px; }
+/* thème et accès partenaires groupés à droite, alignés sur la marge du texte (même rythme que l'en-tête du site) */
+.bientot-entete-actions { display: flex; align-items: center; gap: 10px; }
+.bientot-theme {
+  display: grid; place-items: center; flex: none; width: 40px; height: 40px; border: 1px solid rgba(255, 255, 255, .14); border-radius: 50%;
+  background: rgba(255, 255, 255, .05); color: rgba(255, 255, 255, .85); font-size: .95rem; cursor: pointer;
+  transition: color var(--transition), background var(--transition), transform var(--transition);
 }
-.bientot-connexion:hover { color: #fff; border-color: #fff; }
+.bientot-theme:hover { color: #fcd34d; background: rgba(255, 255, 255, .1); }
+.bientot-theme:active { transform: scale(.92); }
+.bientot-connexion {
+  /* bouton secondaire : « Devenir partenaire » reste la seule action pleine de la page */
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 18px; border: 1px solid rgba(255, 255, 255, .25); border-radius: 999px;
+  background: rgba(255, 255, 255, .04); color: #fff; font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer;
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+.bientot-connexion i { color: #f4e9db; font-size: .85em; }
+.bientot-connexion { white-space: nowrap; }
+.bientot-libelle-court { display: none; }
+@media (max-width: 420px) { .bientot-libelle-long { display: none; } .bientot-libelle-court { display: inline; } .bientot-connexion { padding: 0 14px; } }
+.bientot-connexion:hover { border-color: #f4e9db; background: rgba(244, 233, 219, .08); }
+.bientot-connexion:active { transform: scale(.97); }
+.bientot-theme:focus-visible, .bientot-connexion:focus-visible { outline: 2px solid #f4e9db; outline-offset: 3px; }
 
 /* ---------- Texte (repris du héros) ---------- */
 .bientot-corps { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; min-height: 0; }
@@ -193,6 +247,16 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 .bientot-avancement span.fait { background: var(--lagon-400); }
 .bientot-avancement small { margin-left: 8px; color: var(--beton); font-size: .85rem; }
 .bientot-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; animation: apparaitre .7s .28s ease both; }
+/* boutons du dossier de validation (même forme que les boutons du site, sur la nuit du héros) */
+.bientot-dossier {
+  position: relative; display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border: 1.5px solid rgba(255, 255, 255, .35);
+  border-radius: var(--rayon-sm); background: transparent; color: #fff; font: inherit; font-weight: 600; font-size: .95rem; cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+}
+.bientot-dossier:hover { border-color: #fff; background: rgba(255, 255, 255, .06); }
+.bientot-dossier.principal { border-color: #1f1f1f; background: #1f1f1f; }
+.bientot-dossier.principal:hover { background: #171717; }
+.bientot-pastille { position: absolute; top: -8px; right: -8px; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #f59e0b; color: #0d0d0d; font-size: .74rem; font-weight: 800; box-shadow: 0 0 0 3px #0d0d0d; }
 
 .bientot-pied {
   flex: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding-top: 14px; padding-bottom: 16px;
@@ -201,33 +265,28 @@ html.page-fixe, html.page-fixe body { height: 100%; overflow: hidden; }
 .bientot-pied a { color: rgba(255, 255, 255, .75); }
 .bientot-pied a:hover { color: #fff; }
 
-/* ---------- Fenêtre « Devenir partenaire » (même voile que la connexion) ---------- */
-.bientot-voile {
-  position: fixed; inset: 0; z-index: 250; display: grid; place-items: center; padding: 24px;
-  background: rgba(6, 32, 44, .58); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+/* ---------- Compte fournisseur en attente de validation ---------- */
+.bientot-connexion i { margin-right: 6px; }
+.bientot-desc a { color: #fcd34d; font-weight: 600; }
+.bientot-message {
+  display: flex; gap: 12px; max-width: 560px; margin: 22px 0 0; padding: 14px 16px; border: 1px solid rgba(245, 158, 11, .35); border-radius: 16px;
+  background: rgba(245, 158, 11, .1); color: #fde68a; font-size: .95rem; line-height: 1.55; animation: apparaitre .7s .22s ease both;
 }
-.bientot-fenetre { position: relative; width: min(100%, 520px); max-height: calc(100dvh - 48px); overflow: hidden auto; padding: 32px; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); }
-.bientot-fenetre-titre { margin: 0; font-family: var(--font-display); font-size: 2.2rem; color: var(--ardoise); }
-.bientot-fenetre-intro { margin: 6px 0 0; line-height: 1.5; }
-.bientot-fermer {
-  position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; display: grid; place-items: center;
-  border: 0; border-radius: 50%; background: var(--gris-100); color: var(--gris-600); cursor: pointer;
-}
-.bientot-form { display: flex; flex-direction: column; gap: 18px; }
-.bientot-champs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.bientot-champs > * { min-width: 0; }
-.bientot-champs .plein { grid-column: 1 / -1; }
-.bientot-champs input { width: 100%; min-width: 0; font-family: var(--font-corps); } /* comme les champs de la fenêtre de connexion */
-.bientot-champs small { font-weight: 400; }
-.bientot-merci-icone { display: block; margin-bottom: 10px; color: #047857; font-size: 2.2rem; }
-.bientot-fenetre > .btn-bloc { margin-top: 20px; }
+.bientot-message i { margin-top: 4px; color: #f59e0b; }
+.bientot-message strong { display: block; color: #fff; font-size: .8rem; letter-spacing: .08em; text-transform: uppercase; }
+.bientot-validation { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 28px 0 0; padding: 0; list-style: none; animation: apparaitre .7s .24s ease both; }
+.bientot-validation li { display: flex; align-items: center; gap: 10px; color: rgba(255, 255, 255, .55); font-size: .9rem; font-weight: 600; }
+.bientot-validation li span { display: grid; place-items: center; width: 30px; height: 30px; border: 1.5px solid rgba(255, 255, 255, .2); border-radius: 50%; font-size: .78rem; }
+.bientot-validation li.fait { color: #fff; }
+.bientot-validation li.fait span { border-color: var(--lagon-400); background: var(--lagon-400); color: #0d0d0d; }
+.bientot-validation li.encours { color: #fcd34d; }
+.bientot-validation li.encours span { border-color: #f59e0b; animation: bientot-pouls 2s ease-in-out infinite; }
+@keyframes bientot-pouls { 50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, .18); } }
+@media (prefers-reduced-motion: reduce) { .bientot-validation li.encours span { animation: none; } }
 
 @media (max-width: 639px) {
   .bientot-surtitre { font-size: .7rem; letter-spacing: .12em; margin-bottom: 14px; }
-  .bientot-marque small { display: none; }
-  .bientot-champs { grid-template-columns: 1fr; }
-  .bientot-fenetre { padding: 26px 22px; }
-  .bientot-voile { padding: 14px; }
+  .bientot-validation { flex-direction: column; gap: 8px; }
   .bientot-pied { justify-content: center; text-align: center; }
 }
 </style>

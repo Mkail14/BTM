@@ -11,8 +11,8 @@ export const TYPE_ACHAT = 'achat'
 /** Libellé et icône d'une estimation, y compris hors calculateur (achat direct, devis combiné) */
 export function infoType(resultat) {
   if (resultat?.type === TYPE_ACHAT) return { libelle: 'Achat direct', icone: 'fa-solid fa-cart-shopping', hypotheses: 'Quantités choisies par vous ; prix du fournisseur choisi.' }
-  if (resultat?.type === TYPE_ENSEMBLE) return { libelle: 'Devis pro', icone: 'fa-solid fa-city', hypotheses: 'Chaque ouvrage est calculé avec les règles du calculateur ; les matériaux identiques sont additionnés.' }
-  return trouverTypeProjet(resultat?.type) || { libelle: resultat?.typeLibelle || 'Devis', icone: 'fa-solid fa-file-invoice', hypotheses: '' }
+  if (resultat?.type === TYPE_ENSEMBLE) return { libelle: 'Estimation pro', icone: 'fa-solid fa-city', hypotheses: 'Chaque ouvrage est calculé avec les règles du calculateur ; les matériaux identiques sont additionnés.' }
+  return trouverTypeProjet(resultat?.type) || { libelle: resultat?.typeLibelle || 'Estimation', icone: 'fa-solid fa-file-invoice', hypotheses: '' }
 }
 
 /** Libellé court d'un ouvrage (« Dalle 8 × 6 m », « Achat direct · 3 matériaux ») */
@@ -38,7 +38,7 @@ export function fusionnerResultats(liste) {
   const totalMateriaux = arrondi(lignes.reduce((s, l) => s + l.sousTotal, 0))
   return {
     type: TYPE_ENSEMBLE,
-    typeLibelle: 'Devis pro',
+    typeLibelle: 'Estimation pro',
     calculeLe: new Date().toISOString(),
     dimensions: {},
     ouvrages: valides.map((r) => ({ nom: libelleOuvrage(r), type: r.type, total: r.totalMateriaux, parties: [{ libelle: infoType(r).libelle, total: r.totalMateriaux }], resultat: r })),

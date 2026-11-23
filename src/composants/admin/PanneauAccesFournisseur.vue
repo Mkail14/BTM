@@ -207,7 +207,7 @@ async function retirer() {
 
 /* Compte */
 .pa-compte { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 16px; box-shadow: inset 0 0 0 1px var(--adm-ligne); }
-.pa-avatar { width: 44px; height: 44px; background: var(--adm-noir); color: #fff; }
+.pa-avatar { width: 44px; height: 44px; background: var(--adm-noir); color: var(--adm-sur-noir); }
 .pa-compte-texte { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .pa-compte-texte strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pa-compte-texte small { color: var(--adm-muet); font-size: .82rem; }

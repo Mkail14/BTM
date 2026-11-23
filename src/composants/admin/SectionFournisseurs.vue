@@ -1,11 +1,13 @@
 <script setup>
-/** Fournisseurs (annuaire public) et catégories de l'annuaire */
+/** Fournisseurs (annuaire public), demandes de comptes fournisseur et catégories de l'annuaire */
 import { computed, onMounted, ref } from 'vue'
 import { useAdmin, initiales, correspond } from '@/composables/useAdmin.js'
 import AdminPanneau from './AdminPanneau.vue'
 import PanneauAccesFournisseur from './PanneauAccesFournisseur.vue'
-import AdminCarreaux from './AdminCarreaux.vue'
+import ChampHoraires from '@/composants/fournisseur/ChampHoraires.vue'
 import { listerTousCarreaux } from '@/services/supabase/serviceCarreaux.js'
+import DemandesFournisseurs from './DemandesFournisseurs.vue'
+import { listerDemandes } from '@/services/supabase/serviceInscriptionFournisseur.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
 onMounted(() => charger(['fournisseurs', 'categories', 'profils'], { force: true }))
@@ -21,8 +23,23 @@ const accesDe = computed(() => Object.fromEntries((accesListe.value || []).map((
 const panneauAcces = ref(null) // fournisseur dont on gère l'accès
 function apresAcces() { chargerAcces(); charger(['profils'], { force: true }) }
 
+// ---------- Demandes de comptes fournisseur (« Devenir partenaire ») ----------
+const demandes = ref(null)
+const erreurDemandes = ref('')
+async function chargerDemandes() {
+  try { demandes.value = await listerDemandes(); erreurDemandes.value = '' } catch (e) { demandes.value = []; erreurDemandes.value = e?.message || '' }
+}
+onMounted(chargerDemandes)
+const nbDemandes = computed(() => (demandes.value || []).filter((d) => d.statut === 'en_attente').length)
+// une validation crée la fiche et lie le compte : l'annuaire et les accès sont relus
+function apresDemande(validee) {
+  chargerDemandes()
+  if (validee) { charger(['fournisseurs', 'profils'], { force: true }); chargerAcces() }
+}
+
 const onglet = ref('fournisseurs')
 const filtreCategorie = ref('')
+const categorieChoisie = computed(() => (donnees.categories || []).find((c) => c.id === filtreCategorie.value) || null)
 const filtreStatut = ref('tous')
 
 const categorie = computed(() => Object.fromEntries((donnees.categories || []).map((c) => [c.id, c])))
@@ -131,14 +148,21 @@ async function supprimerCategorie(c) {
     <div class="adm-section-tete">
       <div class="adm-segments" role="tablist" aria-label="Annuaire">
         <button type="button" role="tab" :aria-selected="onglet === 'fournisseurs'" @click="onglet = 'fournisseurs'">Fournisseurs <small>{{ donnees.fournisseurs?.length ?? '' }}</small></button>
+        <button type="button" role="tab" :aria-selected="onglet === 'demandes'" @click="onglet = 'demandes'">Demandes <b v-if="nbDemandes" class="four-pastille" :aria-label="`${nbDemandes} à examiner`">{{ nbDemandes }}</b></button>
         <button type="button" role="tab" :aria-selected="onglet === 'categories'" @click="onglet = 'categories'">Catégories <small>{{ donnees.categories?.length ?? '' }}</small></button>
       </div>
       <button v-if="onglet === 'fournisseurs'" type="button" class="adm-btn adm-btn-noir" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter un fournisseur</button>
-      <button v-else type="button" class="adm-btn adm-btn-noir" @click="ouvrirCategorie()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle catégorie</button>
+      <button v-else-if="onglet === 'categories'" type="button" class="adm-btn adm-btn-noir" @click="ouvrirCategorie()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle catégorie</button>
     </div>
 
+    <!-- ===================== Demandes de comptes fournisseur ===================== -->
+    <template v-if="onglet === 'demandes'">
+      <p v-if="erreurDemandes" class="adm-alerte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurDemandes }}</p>
+      <DemandesFournisseurs :demandes="demandes" :categories="donnees.categories || []" @maj="apresDemande" />
+    </template>
+
     <!-- ===================== Fournisseurs ===================== -->
-    <template v-if="onglet === 'fournisseurs'">
+    <template v-else-if="onglet === 'fournisseurs'">
       <!-- Chiffres clés -->
       <div class="four-stats">
         <div class="adm-carte four-stat"><span class="four-stat-icone"><i class="fa-solid fa-truck" aria-hidden="true"></i></span><span><strong>{{ donnees.fournisseurs?.length ?? '—' }}</strong><small>Fournisseurs</small></span></div>
@@ -149,12 +173,16 @@ async function supprimerCategorie(c) {
 
       <!-- Filtres -->
       <div class="four-filtres">
-        <div class="adm-pilules four-cats" role="group" aria-label="Catégorie">
-          <button type="button" class="adm-pilule" :class="{ actif: !filtreCategorie }" :aria-pressed="!filtreCategorie" @click="filtreCategorie = ''">Toutes <small>{{ donnees.fournisseurs?.length || 0 }}</small></button>
-          <button v-for="c in donnees.categories || []" :key="c.id" type="button" class="adm-pilule" :class="{ actif: filtreCategorie === c.id }" :aria-pressed="filtreCategorie === c.id" @click="filtreCategorie = c.id">
-            <i :class="c.icone || 'fa-solid fa-tag'" aria-hidden="true"></i> {{ c.libelle }} <small>{{ parCategorie[c.id] || 0 }}</small>
-          </button>
-        </div>
+        <!-- catégorie : un menu compact (les puces dépassaient de la ligne dès 5 catégories) -->
+        <label class="four-categorie" :class="{ actif: filtreCategorie }">
+          <i :class="categorieChoisie?.icone || 'fa-solid fa-layer-group'" aria-hidden="true"></i>
+          <span class="visually-hidden">Catégorie</span>
+          <select v-model="filtreCategorie">
+            <option value="">Toutes les catégories ({{ donnees.fournisseurs?.length || 0 }})</option>
+            <option v-for="c in donnees.categories || []" :key="c.id" :value="c.id">{{ c.libelle }} ({{ parCategorie[c.id] || 0 }})</option>
+          </select>
+          <i class="fa-solid fa-chevron-down four-categorie-fleche" aria-hidden="true"></i>
+        </label>
         <div class="adm-segments four-statut" role="group" aria-label="Visibilité">
           <button type="button" :aria-pressed="filtreStatut === 'tous'" @click="filtreStatut = 'tous'">Tous</button>
           <button type="button" :aria-pressed="filtreStatut === 'actifs'" @click="filtreStatut = 'actifs'">Visibles</button>
@@ -182,7 +210,7 @@ async function supprimerCategorie(c) {
           <div class="fiche-etiquettes">
             <span class="fiche-etiquette"><i :class="categorie[f.categorie_id]?.icone || 'fa-solid fa-tag'" aria-hidden="true"></i> {{ categorie[f.categorie_id]?.libelle || f.categorie_id }}</span>
             <span v-if="f.livraison" class="fiche-etiquette"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Livraison</span>
-            <button v-if="carreauxDe[f.id]?.length" type="button" class="fiche-etiquette fiche-etiquette-lien" :title="`Voir les carreaux de ${f.nom}`" @click="ouvrir(f)"><i class="fa-solid fa-table-cells" aria-hidden="true"></i> {{ carreauxDe[f.id].length }} modèle{{ carreauxDe[f.id].length > 1 ? 's' : '' }} de carreaux</button>
+            <span v-if="carreauxDe[f.id]?.length" class="fiche-etiquette"><i class="fa-solid fa-table-cells" aria-hidden="true"></i> {{ carreauxDe[f.id].length }} modèle{{ carreauxDe[f.id].length > 1 ? 's' : '' }} de carreaux</span>
             <span v-if="f.demonstration" class="adm-badge adm-badge-attention sans-point" title="Pas encore partenaire : prix fictifs, signalés sur le site">Démonstration</span>
             <span v-if="!f.actif" class="adm-badge adm-badge-attention sans-point">Masqué</span>
           </div>
@@ -210,7 +238,7 @@ async function supprimerCategorie(c) {
     </template>
 
     <!-- ===================== Catégories ===================== -->
-    <ul v-else class="cats">
+    <ul v-else-if="onglet === 'categories'" class="cats">
       <li v-for="c in donnees.categories || []" :key="c.id" class="adm-carte cat">
         <span class="cat-icone"><i :class="c.icone || 'fa-solid fa-tag'" aria-hidden="true"></i></span>
         <span class="cat-texte"><strong>{{ c.libelle }}</strong><small>{{ parCategorie[c.id] || 0 }} fournisseur{{ (parCategorie[c.id] || 0) > 1 ? 's' : '' }} · position {{ c.ordre }}</small></span>
@@ -232,7 +260,7 @@ async function supprimerCategorie(c) {
         <div class="adm-champ"><label for="f-mail">E-mail</label><input id="f-mail" v-model="formulaire.email" type="email" /></div>
         <div class="adm-champ plein"><label for="f-adr">Adresse</label><input id="f-adr" v-model="formulaire.adresse" maxlength="160" /></div>
         <div class="adm-champ"><label for="f-web">Site web</label><input id="f-web" v-model="formulaire.site_web" type="url" placeholder="https://" /></div>
-        <div class="adm-champ"><label for="f-hor">Horaires</label><input id="f-hor" v-model="formulaire.horaires" placeholder="Lun–Ven 7h–16h" /></div>
+        <div class="adm-champ plein"><span class="adm-champ-label">Horaires</span><ChampHoraires v-model="formulaire.horaires" /></div>
         <div class="adm-champ plein"><label for="f-logo">Logo (URL d’image)</label><input id="f-logo" v-model="formulaire.logo_url" type="url" placeholder="https://…/logo.png" /></div>
         <div class="adm-champ plein">
           <label for="f-desc">Description</label>
@@ -246,8 +274,6 @@ async function supprimerCategorie(c) {
         </div>
       </form>
       <p v-if="formErreur" class="adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ formErreur }}</p>
-      <!-- ce que le fournisseur vend en ligne : ses modèles de carreaux (il les gère depuis son espace) -->
-      <AdminCarreaux v-if="formulaire.id && carreauxDe[formulaire.id]?.length" :carreaux="carreauxDe[formulaire.id]" @maj="chargerCarreaux" />
       <template #pied>
         <button type="button" class="adm-btn adm-btn-clair" @click="formulaire = null">Annuler</button>
         <button type="submit" form="form-fournisseur" class="adm-btn adm-btn-noir" :disabled="enregistrement">
@@ -287,6 +313,7 @@ async function supprimerCategorie(c) {
 .four { display: flex; flex-direction: column; gap: 16px; }
 .four .adm-section-tete { margin: 0; }
 .adm-segments small { margin-left: 4px; opacity: .6; font-weight: 500; }
+.four-pastille { display: inline-grid; place-items: center; min-width: 20px; height: 20px; margin-left: 6px; padding: 0 6px; border-radius: 999px; background: #f59e0b; color: #fff; font-size: .72rem; font-weight: 800; }
 /* Chiffres clés */
 .four-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .four-stat { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
@@ -298,14 +325,24 @@ async function supprimerCategorie(c) {
 .four-stat-icone.attention { background: var(--adm-attention-fond); color: var(--adm-attention-texte); }
 .four-stat-icone.info { background: var(--adm-accent-doux); color: var(--adm-info-texte); }
 
-/* Filtres : catégories sur une ligne qui glisse, visibilité à droite */
-.four-filtres { display: flex; align-items: center; gap: 12px; }
-.four-cats { flex: 1; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding: 2px; }
-.four-cats::-webkit-scrollbar { display: none; }
-.four-cats .adm-pilule { flex: none; white-space: nowrap; }
-.four-cats .adm-pilule i { font-size: .8rem; opacity: .75; }
+/* Filtres : menu des catégories à gauche, visibilité à droite, sur une seule ligne */
+.four-filtres { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.four-categorie {
+  position: relative; display: inline-flex; align-items: center; gap: 10px; min-width: 0; max-width: 360px; height: 44px; padding: 0 40px 0 16px;
+  border: 1px solid var(--adm-ligne); border-radius: 999px; background: var(--adm-carte); color: var(--adm-encre); cursor: pointer;
+  transition: border-color .15s;
+}
+.four-categorie:hover, .four-categorie:focus-within { border-color: var(--adm-ligne-forte); }
+.four-categorie.actif { border-color: var(--adm-accent); }
+.four-categorie > i:first-child { color: var(--adm-accent); font-size: .9rem; }
+.four-categorie select {
+  min-width: 0; border: 0; outline: 0; background: transparent; color: inherit; font: 600 .9rem var(--font-corps);
+  appearance: none; -webkit-appearance: none; cursor: pointer; text-overflow: ellipsis;
+}
+.four-categorie select option { background: var(--adm-carte); color: var(--adm-encre); }
+.four-categorie-fleche { position: absolute; right: 16px; color: var(--adm-muet); font-size: .7rem; pointer-events: none; }
 .four-statut { flex: none; }
-.four-statut button[aria-pressed="true"] { background: var(--adm-noir); color: #fff; }
+.four-statut button[aria-pressed="true"] { background: var(--adm-noir); color: var(--adm-sur-noir); }
 
 /* Fiches fournisseur */
 .fiches { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin: 0; padding: 0; list-style: none; }
@@ -328,8 +365,6 @@ async function supprimerCategorie(c) {
 .fiche-etiquettes { display: flex; flex-wrap: wrap; gap: 6px; }
 .fiche-etiquette { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--adm-ligne-2); color: var(--adm-encre-2); font-size: .76rem; font-weight: 600; }
 .fiche-etiquette i { font-size: .72rem; color: var(--adm-muet); }
-.fiche-etiquette-lien { border: 0; font-family: inherit; cursor: pointer; }
-.fiche-etiquette-lien:hover { color: var(--adm-encre); }
 .fiche-contact { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: .86rem; }
 .fiche-contact li { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--adm-encre-2); }
 .fiche-contact i { width: 16px; flex: none; color: var(--adm-muet); font-size: .8rem; text-align: center; }
@@ -359,6 +394,7 @@ async function supprimerCategorie(c) {
 @media (max-width: 760px) {
   .four-filtres { flex-direction: column; align-items: stretch; }
   .four-statut { align-self: flex-start; }
+  .four-categorie { max-width: none; }
   .fiches { grid-template-columns: 1fr; }
 }
 @media (max-width: 480px) {
@@ -389,5 +425,5 @@ async function supprimerCategorie(c) {
 .cat-icones > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .cat-icone-choix { width: 46px; height: 46px; display: grid; place-items: center; border: 1px solid var(--adm-ligne); border-radius: 12px; background: var(--adm-carte); color: var(--adm-encre-2); cursor: pointer; transition: all var(--transition); }
 .cat-icone-choix:hover { border-color: var(--adm-encre); color: var(--adm-encre); }
-.cat-icone-choix.actif { background: var(--adm-noir); border-color: var(--adm-noir); color: #fff; }
+.cat-icone-choix.actif { background: var(--adm-noir); border-color: var(--adm-noir); color: var(--adm-sur-noir); }
 </style>

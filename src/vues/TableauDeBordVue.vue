@@ -15,6 +15,7 @@ import { infoType } from '@/services/calculs/fusion.js'
 import { chargerFournisseurs } from '@/services/api/serviceFournisseurs.js'
 import CarteProjet from '@/composants/tableau-de-bord/CarteProjet.vue'
 import PropositionsRealisation from '@/composants/tableau-de-bord/PropositionsRealisation.vue'
+import DemandesAvisFournisseurs from '@/composants/tableau-de-bord/DemandesAvisFournisseurs.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import BandeauPage from '@/composants/commun/BandeauPage.vue'
 
@@ -52,7 +53,7 @@ const depuisDernier = computed(() => {
 })
 
 const pastilles = computed(() => (vide.value ? [] : [
-  { icone: 'fa-solid fa-folder-open', valeur: projets.value.length, texte: 'devis' },
+  { icone: 'fa-solid fa-folder-open', valeur: projets.value.length, texte: 'estimations' },
   { icone: 'fa-solid fa-coins', valeur: formaterEuros(totalCumule.value), texte: 'au total', prix: true },
   { icone: 'fa-regular fa-clock', avant: 'dernier', valeur: depuisDernier.value }
 ]))
@@ -106,13 +107,22 @@ async function confirmerSuppression() {
   <div id="page-dashboard" class="page">
     <div class="conteneur tdb">
       <!-- Bandeau : titre, résumé en pastilles, nouveau devis -->
-      <BandeauPage surtitre="Espace personnel" titre="Mes projets" texte="Vos devis enregistrés apparaîtront ici." :pastilles="pastilles">
+      <!-- Téléphone : en-tête d'application (titre, résumé en une ligne, bouton +) à la place du bandeau -->
+      <header class="tdb-tete">
+        <div>
+          <h1>Mes projets</h1>
+          <p v-if="!vide">{{ projets.length }} estimation{{ projets.length > 1 ? 's' : '' }} · <span class="prix">{{ formaterEuros(totalCumule) }}</span> au total</p>
+        </div>
+        <router-link to="/calculateur" class="tdb-nouveau" aria-label="Nouvelle estimation"><i class="fa-solid fa-plus" aria-hidden="true"></i></router-link>
+      </header>
+      <BandeauPage class="tdb-bandeau" surtitre="Espace personnel" titre="Mes projets" texte="Vos estimations enregistrées apparaîtront ici." :pastilles="pastilles">
         <template #action>
-          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouveau devis</router-link>
+          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-plus" aria-hidden="true"></i> Nouvelle estimation</router-link>
         </template>
       </BandeauPage>
 
       <!-- invitation de BTM à mettre un projet en avant sur la page d'accueil -->
+      <DemandesAvisFournisseurs v-if="connecte" />
       <PropositionsRealisation v-if="connecte" />
 
       <p v-if="erreur" class="tdb-note" :title="erreur"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i> Synchronisation indisponible : seuls les projets de cet appareil sont affichés.</p>
@@ -174,7 +184,7 @@ async function confirmerSuppression() {
         <div v-if="aSupprimer" class="modale-fond" @click.self="aSupprimer = null">
           <div class="modale" role="alertdialog" aria-modal="true" aria-labelledby="suppr-titre" aria-describedby="suppr-texte">
             <h2 id="suppr-titre">Supprimer « {{ aSupprimer.nom }} » ?</h2>
-            <p id="suppr-texte">Le devis et son code de retrait ne seront plus utilisables. Cette action est définitive.</p>
+            <p id="suppr-texte">L’estimation et son code de retrait ne seront plus utilisables. Cette action est définitive.</p>
             <div class="modale-actions">
               <BoutonBase variante="ghost" @click="aSupprimer = null">Annuler</BoutonBase>
               <BoutonBase variante="danger" :chargement="suppressionEnCours" @click="confirmerSuppression">Supprimer</BoutonBase>
@@ -196,29 +206,29 @@ async function confirmerSuppression() {
 
 /* Outils */
 /* une seule barre blanche : recherche, types, tri */
-.tdb-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 24px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: #fff; box-shadow: 0 6px 20px -14px rgba(11, 58, 77, .3); }
+.tdb-outils { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 24px; padding: 10px; border: 1px solid var(--gris-200); border-radius: 20px; background: var(--carte); box-shadow: 0 6px 20px -14px rgba(17, 17, 17, .3); }
 .tdb-recherche { position: relative; flex: 1 1 260px; display: flex; align-items: center; }
 .tdb-recherche > i { position: absolute; left: 16px; color: var(--gris-400); pointer-events: none; }
 .tdb-recherche input {
   width: 100%; min-height: 44px; padding: 0 16px 0 44px; border: 0; border-radius: 12px; background: var(--gris-50);
   font: inherit; color: var(--ardoise); transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
 }
-.tdb-recherche input:focus { outline: none; background: #fff; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .14); }
+.tdb-recherche input:focus { outline: none; background: var(--carte); border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .14); }
 .tdb-tri { position: relative; display: flex; align-items: center; }
 .tdb-tri i { position: absolute; left: 14px; color: var(--gris-400); font-size: .85rem; pointer-events: none; }
-.tdb-tri select { min-height: 44px; padding: 0 16px 0 38px; border: 1px solid var(--gris-200); border-radius: 14px; background: #fff; font: inherit; font-size: .92rem; color: var(--ardoise); cursor: pointer; }
+.tdb-tri select { min-height: 44px; padding: 0 16px 0 38px; border: 1px solid var(--gris-200); border-radius: 14px; background: var(--carte); font: inherit; font-size: .92rem; color: var(--ardoise); cursor: pointer; }
 .tdb-puces { display: flex; flex-wrap: wrap; gap: 6px; }
 .tdb-puces button {
   display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 14px; border: 1px solid var(--gris-200); border-radius: 999px;
-  background: #fff; font: inherit; font-size: .88rem; font-weight: 600; color: var(--gris-600); cursor: pointer;
+  background: var(--carte); font: inherit; font-size: .88rem; font-weight: 600; color: var(--gris-600); cursor: pointer;
   transition: color var(--transition), background var(--transition), border-color var(--transition);
 }
 .tdb-puces button i { font-size: .8rem; color: var(--gris-400); }
 .tdb-puces button small { min-width: 20px; padding: 0 6px; border-radius: 999px; background: var(--gris-100); color: var(--gris-500); font-size: .74rem; text-align: center; }
 .tdb-puces button:hover { border-color: var(--gris-300); color: var(--ardoise); }
-.tdb-puces button.actif { border-color: var(--ardoise); background: var(--ardoise); color: #fff; }
+.tdb-puces button.actif { border-color: var(--ardoise); background: var(--ardoise); color: var(--carte); }
 .tdb-puces button.actif i { color: inherit; }
-.tdb-puces button.actif small { background: rgba(255, 255, 255, .2); color: #fff; }
+.tdb-puces button.actif small { background: rgba(127, 127, 127, .25); color: inherit; }
 
 /* Cartes */
 /* cartes hautes alignées droit, de la même largeur */
@@ -235,13 +245,13 @@ async function confirmerSuppression() {
 .tdb-raccourcis { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
 .tdb-raccourcis a {
   display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 18px; border: 1px solid var(--gris-200); border-radius: 14px;
-  background: #fff; color: var(--ardoise); font-weight: 600; transition: border-color var(--transition), transform var(--transition);
+  background: var(--carte); color: var(--ardoise); font-weight: 600; transition: border-color var(--transition), transform var(--transition);
 }
 .tdb-raccourcis a:hover { border-color: var(--teinte); transform: translateY(-2px); }
-.tdb-raccourcis i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--teinte) 14%, #fff); color: var(--teinte); font-size: .85rem; }
+.tdb-raccourcis i { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--teinte) 14%, var(--carte)); color: var(--teinte); font-size: .85rem; }
 
-.modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(6,32,44,.45); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
-.modale { background: #fff; border-radius: var(--rayon-lg); padding: 28px; width: 100%; max-width: 420px; box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
+.modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(17, 17, 17,.45); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
+.modale { background: var(--carte); border-radius: var(--rayon-lg); padding: 28px; width: 100%; max-width: 420px; box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
 .modale h2 { font-size: 1.4rem; color: var(--ardoise); word-break: break-word; }
 .modale p { margin: 10px 0 0; color: var(--texte-secondaire); font-size: .92rem; line-height: 1.5; }
 .modale-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 24px; }
@@ -253,5 +263,51 @@ async function confirmerSuppression() {
 @media (max-width: 760px) {
   .tdb-outils { flex-direction: column; align-items: stretch; }
   .tdb-recherche { flex-basis: auto; }
+}
+
+/* ---------- Téléphone : écran d'application ---------- */
+.tdb-tete { display: none; }
+@media (max-width: 639px) {
+  #page-dashboard.page { padding-top: calc(var(--hauteur-entete) + 14px); padding-bottom: 24px; }
+  .tdb-bandeau { display: none; }
+  .tdb-tete { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+  .tdb-tete h1 { margin: 0; color: var(--ardoise); font-size: 2rem; line-height: 1.1; }
+  .tdb-tete p { margin: 4px 0 0; color: var(--gris-500); font-size: .88rem; }
+  .tdb-tete .prix { color: var(--ardoise); font-weight: 700; }
+  .tdb-nouveau {
+    width: 46px; height: 46px; flex: none; display: grid; place-items: center; border-radius: 50%;
+    background: var(--lagon-600); color: var(--sur-primaire); font-size: 1.1rem; box-shadow: 0 6px 16px -6px rgba(17, 17, 17, .6);
+  }
+  .tdb-nouveau:active { transform: scale(.95); }
+
+  /* recherche + tri sur une ligne, puis les types en ruban qui glisse */
+  .tdb-outils { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; margin-bottom: 16px; padding: 0; border: 0; background: none; box-shadow: none; }
+  .tdb-recherche input { min-height: 44px; border: 1px solid var(--gris-200); background: var(--carte); font-size: 16px; }
+  .tdb-tri { width: 44px; height: 44px; justify-content: center; border: 1px solid var(--gris-200); border-radius: 12px; background: var(--carte); }
+  .tdb-tri i { position: static; color: var(--ardoise); }
+  .tdb-tri select { position: absolute; inset: 0; width: 100%; min-height: 0; padding: 0; opacity: 0; } /* liste native du téléphone */
+  .tdb-puces {
+    grid-column: 1 / -1; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gouttiere, 16px));
+    padding: 0 var(--gouttiere, 16px); -webkit-overflow-scrolling: touch;
+  }
+  .tdb-puces::-webkit-scrollbar { display: none; }
+  .tdb-puces button { flex: none; min-height: 36px; white-space: nowrap; }
+
+  /* une liste de cartes compactes */
+  .tdb-grille { grid-template-columns: minmax(0, 1fr); gap: 10px; margin: 0; }
+  .tdb-aucun { padding: 32px 16px; }
+
+  /* aucun projet : les ouvrages en liste */
+  .tdb-vide { padding: 32px 16px; border-style: solid; border-color: var(--gris-200); background: var(--carte); }
+  .tdb-vide h2 { font-size: 1.4rem; }
+  .tdb-raccourcis { flex-direction: column; width: 100%; gap: 8px; margin-top: 8px; }
+  .tdb-raccourcis a { width: 100%; min-height: 54px; }
+  .tdb-raccourcis a:hover { transform: none; }
+
+  /* suppression : feuille qui monte du bas, gros boutons */
+  .modale-fond { place-items: end stretch; padding: 0; }
+  .modale { max-width: none; padding: 24px 20px calc(20px + env(safe-area-inset-bottom)); border-radius: 24px 24px 0 0; }
+  .modale-actions { flex-direction: column-reverse; gap: 8px; }
+  .modale-actions :deep(.btn) { width: 100%; min-height: 50px; justify-content: center; border-radius: 999px; }
 }
 </style>

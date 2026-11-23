@@ -12,8 +12,10 @@ import { listerRealisationsPubliques, MAX_REALISATIONS } from '@/services/supaba
 import { typesProjets } from '@/donnees/typesProjets.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
+import { useTheme } from '@/composables/useTheme.js'
 
 const contenu = useContenuSite()
+const { sombre } = useTheme() // bouton à bord clair sur la nuit, bouton du site en thème clair
 const TYPES = Object.fromEntries(typesProjets.map((t) => [t.id, t]))
 
 // Réalisations publiées par l'admin (10 au plus), relues à chaque retour sur l'accueil
@@ -192,14 +194,14 @@ const etiquetteType = (p) => [TYPES[p.type]?.libelle, p.annee].filter(Boolean).j
 
 <template>
   <!-- masquée seulement s'il n'y a aucune réalisation publiée (le bandeau reste monté pour son observateur) -->
-  <section v-show="!charge || bandeau.length" id="realisations" class="section re" aria-labelledby="re-titre">
+  <section v-show="!charge || bandeau.length" id="realisations" class="section section-nuit re" aria-labelledby="re-titre">
     <!-- même en-tête que les autres sections de l'accueil (surtitre, titre, bouton du site) -->
     <div class="conteneur re-entete">
       <header class="section-entete reveal">
         <span class="section-surtitre">{{ contenu.realisations.surtitre }}</span>
         <h2 id="re-titre" class="section-titre">{{ contenu.realisations.titre }}</h2>
       </header>
-      <BoutonBase to="/fournisseurs" variante="secondaire" icone-droite="fa-solid fa-arrow-right" class="reveal">{{ contenu.realisations.lien }}</BoutonBase>
+      <BoutonBase to="/fournisseurs" :variante="sombre ? 'contour-clair' : 'secondaire'" icone-droite="fa-solid fa-arrow-right" class="reveal">{{ contenu.realisations.lien }}</BoutonBase>
     </div>
 
     <!-- bandeau en boucle : seul élément de la page qui va d'un bord à l'autre de l'écran -->
@@ -253,7 +255,7 @@ const etiquetteType = (p) => [TYPES[p.type]?.libelle, p.annee].filter(Boolean).j
 </template>
 
 <style scoped>
-.re { overflow: hidden; background: #fff; }
+.re { overflow: hidden; background: var(--fond-nuit); }
 
 /* ---------- En-tête : styles communs du site (.section-entete, .section-surtitre, .section-titre) ---------- */
 .re-entete { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px 40px; margin-bottom: 44px; }
@@ -267,7 +269,7 @@ const etiquetteType = (p) => [TYPES[p.type]?.libelle, p.annee].filter(Boolean).j
 
 /* marge à droite de chaque carte (plutôt qu'un gap) : les deux moitiés du bandeau ont exactement la même largeur */
 .re-carte { flex: none; width: clamp(260px, 21vw, 380px); height: clamp(340px, 27vw, 470px); margin-right: 16px; }
-.re-carte-lien { position: relative; display: block; height: 100%; overflow: hidden; border-radius: 22px; color: #fff; background: var(--ardoise); isolation: isolate; }
+.re-carte-lien { position: relative; display: block; height: 100%; overflow: hidden; border-radius: 22px; color: #fff; background: var(--encre); isolation: isolate; }
 .re-carte-lien:focus-visible { outline: 3px solid var(--lagon-500); outline-offset: 3px; }
 
 .re-photo {
@@ -275,7 +277,7 @@ const etiquetteType = (p) => [TYPES[p.type]?.libelle, p.annee].filter(Boolean).j
   filter: saturate(.8) brightness(.85); transition: transform 1.2s cubic-bezier(.2, .7, .2, 1), filter .6s ease;
 }
 .re-carte.visee .re-photo { transform: scale(1); filter: none; }
-.re-visuel { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(160deg, var(--lagon-700), var(--ardoise)); font-size: 4rem; color: rgba(255,255,255,.85); }
+.re-visuel { position: absolute; inset: 0; display: grid; place-items: center; background: linear-gradient(160deg, #2a2723, #111); font-size: 4rem; color: rgba(255,255,255,.85); }
 .re-voile { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.3) 0%, transparent 24%, transparent 42%, rgba(4,12,18,.6) 66%, rgba(4,12,18,.92) 100%); }
 
 .re-type {

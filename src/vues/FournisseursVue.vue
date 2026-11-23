@@ -73,9 +73,15 @@ function reinitialiser() { recherche.value = ''; categorie.value = ''; livraison
   <div id="page-fournisseurs" class="page">
     <div class="conteneur annuaire">
       <!-- même bandeau que « Mes projets » -->
-      <BandeauPage surtitre="Annuaire" titre="Fournisseurs de Mayotte" texte="Les entreprises de matériaux de l’île, à contacter directement : appel, itinéraire ou e-mail en un geste." :pastilles="pastilles">
+      <!-- Téléphone : grand titre d'application à la place du bandeau (« Estimer » est déjà dans la barre d'onglets) -->
+      <header class="annuaire-tete">
+        <h1>Fournisseurs</h1>
+        <p v-if="liste.length">{{ liste.length }} {{ pluriel(liste.length, 'entreprise') }} de matériaux à Mayotte</p>
+        <p v-else>Les matériaux de l’île, à contacter en un geste</p>
+      </header>
+      <BandeauPage class="annuaire-bandeau" surtitre="Annuaire" titre="Fournisseurs de Mayotte" texte="Les entreprises de matériaux de l’île, à contacter directement : appel, itinéraire ou e-mail en un geste." :pastilles="pastilles">
         <template #action>
-          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire mon devis</router-link>
+          <router-link to="/calculateur" class="bandeau-action"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Estimer mon projet</router-link>
         </template>
       </BandeauPage>
 
@@ -104,15 +110,6 @@ function reinitialiser() { recherche.value = ''; categorie.value = ''; livraison
         <p>Essayez un autre mot (nom, commune, matériau) ou retirez un filtre.</p>
         <button type="button" class="btn btn-secondaire btn-sm" @click="reinitialiser">Voir tous les fournisseurs</button>
       </div>
-
-      <aside class="annuaire-pied">
-        <span class="annuaire-pied-icone" aria-hidden="true"><i class="fa-solid fa-handshake"></i></span>
-        <div>
-          <strong>Vous êtes fournisseur de matériaux ?</strong>
-          <p>Faites connaître votre entreprise aux particuliers et professionnels qui chiffrent leur chantier sur BTM.</p>
-        </div>
-        <a href="mailto:contact@btm.yt?subject=Référencement%20dans%20l’annuaire%20BTM" class="btn btn-primaire btn-sm">Être référencé</a>
-      </aside>
     </div>
   </div>
 </template>
@@ -122,7 +119,7 @@ function reinitialiser() { recherche.value = ''; categorie.value = ''; livraison
 .annuaire-barre { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 24px 0 10px; }
 .annuaire-compteur { margin: 0; font-size: .86rem; color: var(--gris-500); }
 .annuaire-compteur strong { color: var(--ardoise); }
-.annuaire-liste { margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; }
+.annuaire-liste { margin: 0; padding: 0; list-style: none; overflow: hidden; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); }
 .annuaire-barre + .annuaire-liste { margin-top: 0; }
 ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 
@@ -147,25 +144,34 @@ ul.annuaire-liste[aria-busy] { margin-top: 24px; }
 .annuaire-lien { border: 0; background: none; padding: 6px 0; font: inherit; font-size: .86rem; font-weight: 600; color: var(--lagon-700); cursor: pointer; }
 .annuaire-lien:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-.annuaire-pied { display: flex; align-items: center; gap: 16px; margin-top: 40px; padding: 20px 22px; border-radius: var(--rayon-lg); background: var(--gris-50); }
-.annuaire-pied-icone { width: 44px; height: 44px; flex-shrink: 0; display: grid; place-items: center; border-radius: 12px; background: var(--lagon-100); color: var(--lagon-700); }
-.annuaire-pied > div { flex: 1; min-width: 0; }
-.annuaire-pied strong { display: block; font-family: var(--font-display); font-size: 1.3rem; font-weight: 700; color: var(--ardoise); }
-.annuaire-pied p { margin: 4px 0 0; color: var(--gris-500); font-size: .88rem; line-height: 1.5; }
-.annuaire-pied .btn { flex-shrink: 0; }
 
 /* grand écran : cartes côte à côte, autant de colonnes que la largeur le permet (3 sur un écran de 1920 px) */
 @media (min-width: 1200px) {
   .annuaire-liste { display: grid; grid-template-columns: repeat(auto-fit, minmax(440px, 1fr)); align-items: start; gap: 12px; overflow: visible; border: 0; border-radius: 0; background: none; }
-  .annuaire-liste > :deep(li), .annuaire-liste > :deep(li:last-child) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: #fff; }
+  .annuaire-liste > :deep(li), .annuaire-liste > :deep(li:last-child) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: var(--rayon-lg); background: var(--carte); }
   .annuaire-squelette:last-child { border-bottom: 1px solid var(--gris-200); }
 }
 @media (prefers-reduced-motion: reduce) {
   .annuaire-squelette > span:first-child, .annuaire-squelette > span:last-child span { animation: none; }
 }
+.annuaire-tete { display: none; }
+
+/* Téléphone : une page d'application. Grand titre, recherche et filtres collés en haut pendant qu'on fait défiler,
+   fiches en cartes arrondies avec l'appel à portée du pouce. */
 @media (max-width: 600px) {
-    .annuaire-liste { margin-left: calc(-1 * var(--gouttiere)); margin-right: calc(-1 * var(--gouttiere)); border-width: 1px 0; border-radius: 0; }
-  .annuaire-pied { flex-direction: column; align-items: flex-start; text-align: left; }
-  .annuaire-pied .btn { width: 100%; justify-content: center; }
+  #page-fournisseurs { padding-top: calc(var(--hauteur-entete) + 18px); }
+  .annuaire-bandeau { display: none; }
+  .annuaire-tete { display: block; margin-bottom: 14px; }
+  .annuaire-tete h1 { font-size: 2.3rem; color: var(--ardoise); line-height: 1; }
+  .annuaire-tete p { margin: 6px 0 0; color: var(--gris-500); font-size: .92rem; }
+
+  .annuaire-barre { margin: 16px 2px 8px; }
+  .annuaire-liste { display: flex; flex-direction: column; gap: 10px; overflow: visible; border: 0; border-radius: 0; background: none; }
+  .annuaire-liste > :deep(li) { overflow: hidden; border: 1px solid var(--gris-200); border-radius: 18px; background: var(--carte); box-shadow: 0 4px 14px -10px rgba(17, 17, 17, .25); }
+  ul.annuaire-liste[aria-busy] { margin-top: 16px; }
+  .annuaire-squelette, .annuaire-squelette:last-child { border: 1px solid var(--gris-200); border-radius: 18px; background: var(--carte); }
+
+  .annuaire-vide { margin-top: 16px; padding: 40px 20px; }
+
 }
 </style>

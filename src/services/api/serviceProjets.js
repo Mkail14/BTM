@@ -1,39 +1,19 @@
-/** Projets cloud du compte connecté (/api/projets : l'API vérifie la propriété) */
-import { api, apiConfiguree } from './client.js'
-import { normaliserResultat } from '@/services/calculs/moteurCalculs.js'
+/** Projets du compte : API BTM (BACK, /api/projets) quand VITE_API_URL est réglé, sinon Supabase directement */
+import { apiConfiguree } from './client.js'
+import * as rest from './rest/serviceProjets.js'
+import * as supa from '@/services/supabase/serviceProjets.js'
+import { oublierCarreaux } from '@/services/supabase/serviceCarreaux.js'
 
-const versFront = (l) => ({
-  id: l.id,
-  nom: l.nom,
-  type: l.type_projet_id,
-  dimensions: l.dimensions,
-  resultat: normaliserResultat(l.resultat),
-  fournisseur_id: l.fournisseur_id,
-  code_retrait: l.code_retrait || '',
-  cout_total: Number(normaliserResultat(l.resultat)?.total ?? l.cout_total),
-  cree_le: l.cree_le,
-  cloud: true
-})
+// choix du crédit fidélité, solde… : Supabase uniquement
+export * from '@/services/supabase/serviceProjets.js'
 
-/** L'API ne renvoie que les projets de l'appelant (même pour un admin). */
-export async function listerProjetsCloud(utilisateurId) {
-  if (!apiConfiguree || !utilisateurId) return []
-  return ((await api.get('/projets')) || []).map(versFront)
-}
+export const listerProjetsCloud = (...a) => (apiConfiguree ? rest : supa).listerProjetsCloud(...a)
+export const supprimerProjetCloud = (...a) => (apiConfiguree ? rest : supa).supprimerProjetCloud(...a)
 
-/** L'utilisateur est déduit du jeton de connexion côté serveur. */
-export async function creerProjetCloud(_utilisateurId, projet) {
-  const data = await api.post('/projets', {
-    nom: projet.nom,
-    type_projet_id: projet.type,
-    dimensions: projet.dimensions,
-    resultat: projet.resultat,
-    fournisseur_id: projet.fournisseur_uuid || null,
-    ...(Number.isFinite(Number(projet.cout_total)) ? { cout_total: Number(projet.cout_total) } : {})
-  })
-  return versFront(data)
-}
-
-export async function supprimerProjetCloud(id) {
-  await api.delete(`/projets/${id}`)
+/** Un devis chez plusieurs fournisseurs (colonne `fournisseurs`) n'est pas encore géré par l'API : il passe par Supabase */
+export async function creerProjetCloud(utilisateurId, projet) {
+  if (!apiConfiguree || projet.fournisseurs?.length > 1) return supa.creerProjetCloud(utilisateurId, projet)
+  const cree = await rest.creerProjetCloud(utilisateurId, projet)
+  if (projet.dimensions?.carreau?.id) oublierCarreaux() // un devis de plus pour ce modèle : popularité à relire
+  return { ...cree, fournisseurs: cree.fournisseur_id ? [cree.fournisseur_id] : [] }
 }

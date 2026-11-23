@@ -182,14 +182,14 @@ async function supprimer(p) {
 .promo-vide { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 48px 24px; text-align: center; }
 .promo-vide h2 { margin: 6px 0 0; font-family: var(--font-corps); font-size: 1.2rem; font-weight: 600; }
 .promo-vide p { margin: 0 0 8px; max-width: 440px; color: var(--adm-encre-2); font-size: .92rem; }
-.promo-vide-icone { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--adm-noir); color: #fff; font-size: 1.4rem; }
+.promo-vide-icone { width: 60px; height: 60px; display: grid; place-items: center; border-radius: 18px; background: var(--adm-noir); color: var(--adm-sur-noir); font-size: 1.4rem; }
 
 .promo-grille { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; margin: 0; padding: 0; list-style: none; }
 .promo-carte { display: flex; flex-direction: column; gap: 6px; padding: 18px 20px; }
 .promo-expiree, .promo-desactivee { opacity: .62; }
 .promo-tete { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 .promo-valeur { font-size: 2rem; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; color: var(--adm-encre); }
-.promo-active .promo-valeur { color: var(--lagon-700); }
+.promo-active .promo-valeur { color: var(--adm-info-texte); }
 .promo-nom { margin: 0; font-weight: 600; }
 .promo-portee { margin: 0; color: var(--adm-encre-2); font-size: .86rem; }
 .promo-portee i { margin-right: 6px; color: var(--adm-muet); }
@@ -198,4 +198,18 @@ async function supprimer(p) {
 .promo-pied { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--adm-ligne-2); color: var(--adm-muet); font-size: .8rem; }
 .promo-types { box-shadow: inset 0 0 0 1px var(--adm-ligne); align-self: flex-start; }
 .promo-option { display: flex; align-items: center; gap: 12px; font-size: .92rem; font-weight: 500; cursor: pointer; }
+
+/* Téléphone : bouton en pleine largeur au-dessus des filtres, cartes plus serrées */
+@media (max-width: 767px) {
+  .promo { gap: 12px; }
+  .promo-barre { gap: 10px; }
+  .promo-barre > .adm-btn { order: -1; flex: 1 1 100%; }
+  .promo-barre > .adm-pilules { flex: 1 1 100%; min-width: 0; }
+  .promo-grille { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .promo-carte { gap: 4px; padding: 14px 16px; }
+  .promo-tete { margin-bottom: 4px; }
+  .promo-valeur { font-size: 1.6rem; }
+  .promo-pied { margin-top: 6px; padding-top: 6px; }
+  .promo-vide { padding: 32px 18px; }
+}
 </style>

@@ -38,7 +38,7 @@ async function supprimer(c) {
         <span class="acar-visuel" :style="{ '--teinte': c.couleur }" aria-hidden="true"><img v-if="c.photo_url" :src="c.photo_url" alt="" loading="lazy" /></span>
         <span class="acar-infos">
           <strong>{{ c.nom }}</strong>
-          <small>{{ [api.libelleFormat(c.format), c.finition].filter(Boolean).join(' · ') }} · {{ formaterEuros(c.prix_unitaire) }} le carreau</small>
+          <small>{{ [api.libelleFormat(c.format), c.finition].filter(Boolean).join(' · ') }} · {{ formaterEuros(c.prix_unitaire) }} {{ api.libelleVente(c) }}</small>
           <span v-if="c.rupture || !c.actif" class="acar-badges">
             <em v-if="c.rupture" class="adm-badge acar-rupture">Rupture</em>
             <em v-if="!c.actif" class="adm-badge">Masqué</em>

@@ -13,10 +13,11 @@ import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import { formaterEuros, formaterNombre, formaterQuantite, sujetEstimation, detailPrix } from '@/services/calculs/moteurCalculs.js'
 import { exporterEstimationPdf } from '@/services/export/exportPdf.js'
 import { infoType, libelleOuvrage } from '@/services/calculs/fusion.js'
-import { appliquerPrixFournisseur } from '@/services/supabase/serviceOffres.js'
+import { appliquerPrixFournisseurs } from '@/services/supabase/serviceOffres.js'
+import { lireChoixCredit, choisirCredit } from '@/services/api/serviceProjets.js'
+import { useCreditFidelite } from '@/composables/useCreditFidelite.js'
 import ComparateurFournisseurs from '@/composants/resultats/ComparateurFournisseurs.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
-import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import EtatVide from '@/composants/commun/EtatVide.vue'
 
 const router = useRouter()
@@ -24,13 +25,14 @@ const calc = useCalculateur()
 const { sauvegarder } = useProjets()
 const { connecte, backendDisponible, estPro } = useAuth()
 
-// Fournisseur choisi dans le comparateur : sa fiche (PDF) et ses offres (prix BTM)
-const choixFournisseur = ref(null) // { fiche, groupe }
-const fournisseur = computed(() => choixFournisseur.value?.fiche || null)
-// Le devis (ou devis pro cumulé), aux prix du fournisseur choisi quand il en a
+// Fournisseurs choisis dans le comparateur (plusieurs possibles) : fiches (PDF) et offres (prix BTM)
+const choixFournisseurs = ref([]) // [{ fiche, groupe }]
+const fournisseurs = computed(() => choixFournisseurs.value.map((c) => c.fiche))
+const fournisseur = computed(() => fournisseurs.value[0] || null) // PDF : le premier choisi
+// Le devis (ou devis pro cumulé) : chaque matériau au prix du moins cher des fournisseurs choisis qui l'a
 const resultat = computed(() => {
   const base = calc.devis.value
-  return base && choixFournisseur.value?.groupe ? appliquerPrixFournisseur(base, choixFournisseur.value.groupe) : base
+  return base ? appliquerPrixFournisseurs(base, choixFournisseurs.value.map((c) => c.groupe)) : base
 })
 const type = computed(() => (resultat.value ? infoType(resultat.value) : null))
 // Devis pro : les estimations réunies (cumul + estimation en cours)
@@ -83,14 +85,16 @@ const icones = { parpaing: 'fa-solid fa-cube', ciment: 'fa-solid fa-sack-xmark',
 // ---------- PDF ----------
 const nomProjet = ref('')
 const exportEnCours = ref('') // 'visualiser' | 'telecharger' pendant la génération
+const erreurPdf = ref('')
 
 async function pdf(mode) {
   exportEnCours.value = mode
+  erreurPdf.value = ''
   try {
-    await exporterEstimationPdf({ nom: nomProjet.value.trim(), resultat: resultat.value, fournisseur: fournisseur.value, code: codeRetrait.value }, mode)
+    await exporterEstimationPdf({ nom: nomProjet.value.trim(), resultat: resultat.value, fournisseur: fournisseur.value, code: codeRetrait.value, credit: creditApplique.value }, mode)
   } catch (e) {
     console.error(e)
-    alert('Impossible de générer le PDF. Réessayez.')
+    erreurPdf.value = 'Impossible de générer le PDF. Réessayez.'
   } finally {
     exportEnCours.value = ''
   }
@@ -101,7 +105,38 @@ async function pdf(mode) {
 const enregistre = ref(null)
 const signature = (r) => JSON.stringify([r?.lignes?.map((l) => [l.id, l.quantite, l.prixUnitaire]), r?.total])
 const codeRetrait = computed(() => (enregistre.value && enregistre.value.signature === signature(resultat.value) ? enregistre.value.code : (calc.cumul.value.length ? '' : calc.codeRetrait.value)))
-watch(() => calc.fournisseurId.value, (nouveau, ancien) => { if (ancien !== undefined && nouveau !== ancien && !enregistre.value) calc.associerCodeRetrait(null) })
+watch(() => calc.fournisseurIds.value.join(), (nouveau, ancien) => { if (ancien !== undefined && nouveau !== ancien && !enregistre.value) calc.associerCodeRetrait(null) })
+
+// ---------- Crédit fidélité : le client choisit de l'utiliser sur ce devis ou de le garder ----------
+// Le choix est enregistré sur le projet ; le fournisseur l'applique d'office (et ne peut rien faire d'autre).
+const { credit, charger: chargerCredit } = useCreditFidelite()
+const utiliserCredit = ref(false)
+const choixCreditEnCours = ref(false)
+const erreurCredit = ref('')
+watch(codeRetrait, async (code) => {
+  utiliserCredit.value = false
+  erreurCredit.value = ''
+  if (!code || !connecte.value) return
+  chargerCredit()
+  try { utiliserCredit.value = await lireChoixCredit(code) } catch { /* choix illisible : crédit gardé par défaut */ }
+}, { immediate: true })
+// Crédit déduit du prix affiché et du PDF (jamais plus que le total) ; le fournisseur déduit le même montant
+const creditApplique = computed(() => (utiliserCredit.value && codeRetrait.value ? Math.min(credit.value.solde, resultat.value?.total || 0) : 0))
+const totalAPayer = computed(() => Math.round(((resultat.value?.total || 0) - creditApplique.value) * 100) / 100)
+async function basculerCredit(utiliser) {
+  // le prix change tout de suite ; on revient en arrière si l'enregistrement échoue
+  utiliserCredit.value = utiliser
+  choixCreditEnCours.value = true
+  erreurCredit.value = ''
+  try {
+    await choisirCredit(codeRetrait.value, utiliser)
+  } catch {
+    utiliserCredit.value = !utiliser
+    erreurCredit.value = 'Choix non enregistré : réessayez.'
+  } finally {
+    choixCreditEnCours.value = false
+  }
+}
 
 // ---------- Sauvegarde ----------
 const dialogueOuvert = ref(false)
@@ -115,7 +150,6 @@ function ouvrirCompte(mode) {
 watch(compteRequis, async (ouvert) => { if (ouvert) { await nextTick(); document.querySelector('.compte .btn')?.focus() } })
 const nomErreur = ref('')
 const sauvegardeEnCours = ref(false)
-const messageSucces = ref('')
 
 function ouvrirDialogue() {
   if (backendDisponible && !connecte.value) { compteRequis.value = true; return }
@@ -129,12 +163,11 @@ async function confirmerSauvegarde() {
   if (!nomProjet.value.trim()) { nomErreur.value = 'Donnez un nom à votre projet'; return }
   sauvegardeEnCours.value = true
   try {
-    const cree = await sauvegarder({ nom: nomProjet.value, resultat: resultat.value, fournisseur: fournisseur.value })
+    const cree = await sauvegarder({ nom: nomProjet.value, resultat: resultat.value, fournisseurs: fournisseurs.value })
     // projet en ligne : code à présenter au fournisseur, valable tant que le devis affiché ne change pas
     enregistre.value = cree?.code_retrait ? { code: cree.code_retrait, signature: signature(resultat.value) } : null
     calc.oublierMiseDeCote()
     dialogueOuvert.value = false
-    messageSucces.value = `« ${nomProjet.value.trim()} » est enregistré.`
   } finally {
     sauvegardeEnCours.value = false
   }
@@ -145,7 +178,6 @@ function modifier() {
   router.push({ path: '/calculateur', query: { type: calc.resultat.value?.type } })
 }
 const modifiable = computed(() => !calc.cumul.value.length && (calc.resultat.value?.type === 'achat' || !!type.value?.champs))
-function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur') }
 </script>
 
 <template>
@@ -161,21 +193,16 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
             <button v-if="modifiable" type="button" class="resultats-lien" @click="modifier"><i class="fa-solid fa-pen" aria-hidden="true"></i> Modifier</button>
           </p>
           <h1 id="resultats-titre" class="resultats-titre">{{ titre }}</h1>
-          <p class="resultats-total prix">{{ formaterEuros(resultat.total) }}</p>
-          <!-- toujours visible : ce que couvre le montant (le détail du calcul reste dans « Comment est fait le calcul ? ») -->
-          <p class="resultats-portee">{{ resultat.fraisService?.montant > 0 ? 'Matériaux et frais de service BTM' : 'Matériaux uniquement' }}, prix TTC. Main-d’œuvre, livraison et terrassement (travaux de creusement) non compris.</p>
+          <p class="resultats-total prix">{{ formaterEuros(totalAPayer) }}</p>
+          <!-- l'essentiel en une ligne ; ce qui n'est pas compris est détaillé dans « Comment est fait le calcul ? » -->
 
           <!-- sans code promo, le détail répéterait le total -->
-          <ul v-if="remise" class="resultats-repartition">
+          <ul v-if="remise || creditApplique" class="resultats-repartition">
             <li v-for="p in repartition" :key="p.label">
               <span>{{ p.label }}<small v-if="p.detail">{{ p.detail }}</small></span>
               <strong class="prix">{{ formaterEuros(p.valeur) }}</strong>
             </li>
           </ul>
-          <p v-if="resultat.prixFournisseur?.economie > 0" class="resultats-economie">
-            <i class="fa-solid fa-piggy-bank" aria-hidden="true"></i>
-            <span>Prix BTM chez <strong>{{ resultat.prixFournisseur.nom }}</strong> : vous économisez <strong>{{ formaterEuros(resultat.prixFournisseur.economie) }}</strong> par rapport au comptoir ({{ formaterEuros(resultat.prixFournisseur.totalComptoir) }}).</span>
-          </p>
 
           <!-- Code promo : réduction appliquée, ou lien discret pour en saisir un -->
           <p v-if="remise" class="resultats-remise">
@@ -185,11 +212,43 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <button type="button" class="resultats-remise-retirer" :aria-label="`Retirer le code ${calc.codePromo.value?.code}`" title="Retirer le code" :disabled="calc.chargement.value" @click="calc.retirerCode()"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </span>
           </p>
+          <p v-if="creditApplique" class="resultats-remise resultats-remise-credit">
+            <span><i class="fa-solid fa-coins" aria-hidden="true"></i> Crédit fidélité</span>
+            <strong class="prix">{{ formaterEuros(-creditApplique) }}</strong>
+          </p>
           <p v-if="calc.messageCode.value" class="resultats-code-info" role="status"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> {{ calc.messageCode.value }}</p>
 
-          <template v-if="!remise">
-            <button v-if="!champCodeOuvert" type="button" class="resultats-code-lien" @click="ouvrirChampCode"><i class="fa-solid fa-ticket" aria-hidden="true"></i> J’ai un code promo</button>
-            <form v-else class="resultats-code" novalidate @submit.prevent="appliquerCode">
+          <!-- Bas du bloc : une seule action principale à chaque étape -->
+          <div class="resultats-bas">
+          <!-- Avec le code : le ticket à montrer au fournisseur, puis le crédit en un interrupteur -->
+          <template v-if="codeRetrait">
+            <div class="resultats-retrait">
+              <small>Votre code de retrait</small>
+              <strong class="mono">{{ codeRetrait }}</strong>
+              <small>À montrer au fournisseur</small>
+            </div>
+            <label v-if="credit.solde > 0" class="resultats-credit">
+              <span><i class="fa-solid fa-coins" aria-hidden="true"></i> Utiliser mon crédit <strong>{{ formaterEuros(credit.solde) }}</strong></span>
+              <input type="checkbox" role="switch" :checked="utiliserCredit" :disabled="choixCreditEnCours" @change="basculerCredit($event.target.checked)" />
+            </label>
+            <p v-if="erreurCredit" class="resultats-code-erreur" role="alert">{{ erreurCredit }}</p>
+          </template>
+
+          <div class="resultats-actions" role="group" aria-label="Actions de l’estimation">
+            <BoutonBase v-if="!codeRetrait && backendDisponible" class="resultats-action-principale" icone="fa-solid fa-ticket" @click="ouvrirDialogue">Obtenir mon code BTM</BoutonBase>
+            <BoutonBase v-else class="resultats-action-principale" icone="fa-solid fa-file-pdf" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" @click="pdf('visualiser')">Voir le PDF</BoutonBase>
+            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
+          </div>
+          <p v-if="erreurPdf" class="resultats-code-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ erreurPdf }}</p>
+          </div>
+
+          <div class="resultats-pied">
+            <!-- liens secondaires, sur une ligne -->
+            <p class="resultats-liens">
+              <router-link v-if="codeRetrait && connecte" to="/dashboard" class="resultats-lien resultats-lien-doux">Mes projets</router-link>
+              <button v-else-if="!remise && !champCodeOuvert" type="button" class="resultats-lien resultats-lien-doux" @click="ouvrirChampCode">J’ai un code promo</button>
+            </p>
+            <form v-if="!codeRetrait && !remise && champCodeOuvert" class="resultats-code" novalidate @submit.prevent="appliquerCode">
               <label for="code-promo" class="visually-hidden">Code promo</label>
               <input
                 id="code-promo" v-model="saisieCode" type="text" placeholder="Votre code promo" autocomplete="off" autocapitalize="characters" spellcheck="false"
@@ -198,38 +257,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <BoutonBase type="submit" variante="secondaire" taille="sm" :chargement="verificationCode || calc.chargement.value" :disabled="!saisieCode.trim()">Appliquer</BoutonBase>
               <p v-if="erreurCode" id="code-erreur" class="resultats-code-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ erreurCode }}</p>
             </form>
-          </template>
-
-          <!-- Bas du bloc (ordinateur : calé au-dessus du pied, l'espace libre reste sous le prix) -->
-          <div class="resultats-bas">
-          <!-- Code de retrait : projet enregistré en ligne -->
-          <p v-if="codeRetrait" class="resultats-retrait">
-            <i class="fa-solid fa-ticket" aria-hidden="true"></i>
-            <span>Code de retrait <strong class="mono">{{ codeRetrait }}</strong><small>Présentez-le au fournisseur (il figure aussi sur le PDF) : il retrouve votre devis et vous remet un reçu.</small></span>
-          </p>
-          <p v-else-if="connecte" class="resultats-retrait-aide"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <span>Enregistrez ce devis pour obtenir votre <strong>code de retrait</strong> : c’est lui qui vous donne le prix BTM chez le fournisseur.</span></p>
-
-          <!-- Une seule ligne : voir le PDF (large), puis le télécharger et enregistrer le devis (boutons carrés) -->
-          <div class="resultats-actions" role="group" aria-label="Actions du devis">
-            <BoutonBase class="resultats-action-principale" icone="fa-solid fa-eye" :chargement="exportEnCours === 'visualiser'" :disabled="!!exportEnCours" @click="pdf('visualiser')">Visualiser le PDF</BoutonBase>
-            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-solid fa-download" :chargement="exportEnCours === 'telecharger'" :disabled="!!exportEnCours" aria-label="Télécharger le PDF" title="Télécharger le PDF" @click="pdf('telecharger')" />
-            <BoutonBase class="resultats-action-icone" variante="secondaire" icone="fa-regular fa-bookmark" aria-label="Enregistrer le devis" title="Enregistrer le devis" @click="ouvrirDialogue" />
-          </div>
-
-          <transition name="glisser">
-            <BandeauAvertissement v-if="messageSucces" type="succes" compact>
-              {{ messageSucces }} <router-link to="/dashboard" class="resultats-lien">Voir mes projets →</router-link>
-            </BandeauAvertissement>
-          </transition>
-          </div>
-
-          <div class="resultats-pied">
-            <details class="resultats-calcul">
-              <summary>Comment est fait le calcul ?</summary>
-              <p>{{ type.hypotheses }}</p>
-              <p>Prix TTC, hors terrassement (creusement et préparation du terrain) et études. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
-            </details>
-            <button type="button" class="resultats-lien" @click="nouvelleEstimation"><i class="fa-solid fa-plus" aria-hidden="true"></i> Faire un nouveau devis</button>
           </div>
         </section>
 
@@ -238,8 +265,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         <!-- Devis pro : plusieurs ouvrages réunis -->
         <section v-if="estPro" class="carte resultats-bloc resultats-pro" aria-labelledby="pro-titre">
           <div class="resultats-pro-tete">
-            <h2 id="pro-titre"><span class="resultats-pro-badge">Pro</span> Votre devis</h2>
-            <button type="button" class="btn btn-secondaire btn-sm" @click="ajouterOuvrage"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter un ouvrage ou des matériaux</button>
+            <h2 id="pro-titre"><span class="resultats-pro-badge">Pro</span> Votre estimation</h2>
+            <button type="button" class="btn btn-secondaire btn-sm" @click="ajouterOuvrage"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter</button>
           </div>
           <ul class="resultats-pro-liste">
             <li v-for="(o, i) in ouvrages" :key="i">
@@ -249,7 +276,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <button v-if="ouvrages.length > 1" type="button" class="resultats-pro-retirer" :aria-label="`Retirer ${libelleOuvrage(o)}`" @click="calc.retirerDuDevis(i)"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
             </li>
           </ul>
-          <p class="resultats-pro-aide">Réunissez tout votre chantier — murs, dalles, fondations, terrasses, carrelage et achats directs — dans un seul devis et un seul code de retrait.</p>
+          <p class="resultats-pro-aide">Tout votre chantier, un seul code de retrait.</p>
         </section>
 
         <section class="carte resultats-bloc" aria-labelledby="achats-titre">
@@ -259,8 +286,9 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <span class="resultats-achat-icone"><i :class="icones[l.id] || (String(l.id).startsWith('carreau:') ? 'fa-solid fa-table-cells' : 'fa-solid fa-box')" aria-hidden="true"></i></span>
               <span class="resultats-achat-texte">
                 <strong>{{ formaterQuantite(l.quantite, l.unite) }}</strong>
-                <small>{{ l.libelle }} · {{ formaterEuros(l.prixUnitaire) }} / {{ l.unite === 'u' ? 'unité' : l.unite }}<template v-if="l.prixComptoir > l.prixUnitaire"> · <s>{{ formaterEuros(l.prixComptoir) }} au comptoir</s></template></small>
+                <small>{{ l.libelle }} · {{ formaterEuros(l.prixUnitaire) }} / {{ l.unite === 'u' ? 'unité' : l.unite }}</small>
                 <small v-if="l.indisponible" class="resultats-indispo"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Non disponible chez {{ resultat.prixFournisseur?.nom }} (prix de référence)</small>
+                <small v-else-if="l.fournisseurNom && fournisseurs.length > 1" class="resultats-chez"><i class="fa-solid fa-store" aria-hidden="true"></i> Chez {{ l.fournisseurNom }}</small>
               </span>
               <span class="prix">{{ formaterEuros(l.sousTotal) }}</span>
             </li>
@@ -270,8 +298,15 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         </div>
 
         <!-- 3. Où acheter : prix exacts chez chaque fournisseur -->
-        <ComparateurFournisseurs class="resultats-ou" :lignes="calc.devis.value.lignes" :model-value="calc.fournisseurId.value" @update:model-value="calc.choisirFournisseur" @fournisseur="choixFournisseur = $event" />
+        <ComparateurFournisseurs class="resultats-ou" :lignes="calc.devis.value.lignes" :model-value="calc.fournisseurIds.value" @update:model-value="calc.choisirFournisseurs" @fournisseurs="choixFournisseurs = $event" />
         </div>
+
+        <!-- Mentions et méthode : en bas de page, hors du chemin -->
+        <details class="resultats-calcul">
+          <summary>Estimation indicative · comment est fait le calcul ?</summary>
+          <p>{{ type.hypotheses }}</p>
+          <p>Ce n’est pas un devis. Prix TTC des matériaux seuls, hors main-d’œuvre, livraison, coffrage, terrassement (creusement et préparation du terrain) et études : faites valider les quantités par un professionnel avant d’acheter. BTM est gratuit pour vous : le service est rémunéré par une commission versée par le fournisseur.</p>
+        </details>
 
         <!-- Compte requis pour enregistrer -->
         <transition name="fondu">
@@ -280,20 +315,19 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
               <button type="button" class="compte-fermer" aria-label="Fermer" @click="compteRequis = false"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
 
               <span class="compte-icone" aria-hidden="true"><i class="fa-regular fa-bookmark"></i></span>
-              <h2 id="compte-titre">Gardez ce devis</h2>
-              <p id="compte-texte" class="compte-texte">Créez votre compte gratuit pour l’enregistrer. Votre estimation est conservée pendant l’inscription.</p>
+              <h2 id="compte-titre">Gardez cette estimation</h2>
+              <p id="compte-texte" class="compte-texte">Avec un compte gratuit, vous l’enregistrez et obtenez votre code de retrait. Elle est conservée pendant l’inscription.</p>
 
               <!-- Le devis concerné : on sait exactement ce qu'on enregistre -->
               <div class="compte-devis">
                 <span class="compte-devis-icone"><i :class="type.icone" aria-hidden="true"></i></span>
-                <span class="compte-devis-texte"><strong>{{ type.libelle }}</strong><small>{{ resume.split(' · ').slice(1).join(' · ') || 'Devis en cours' }}</small></span>
+                <span class="compte-devis-texte"><strong>{{ type.libelle }}</strong><small>{{ resume.split(' · ').slice(1).join(' · ') || 'Estimation en cours' }}</small></span>
                 <strong class="compte-devis-prix prix">{{ formaterEuros(resultat.total) }}</strong>
               </div>
 
               <ul class="compte-avantages">
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Retrouvez vos devis sur ordinateur et téléphone</li>
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Modifiez-les ou dupliquez-les quand vous voulez</li>
-                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Gratuit, en moins d’une minute</li>
+                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Votre code de retrait pour le prix BTM chez le fournisseur</li>
+                <li><i class="fa-solid fa-check" aria-hidden="true"></i> Vos estimations sur ordinateur et téléphone, à modifier quand vous voulez</li>
               </ul>
 
               <BoutonBase bloc icone="fa-solid fa-user-plus" @click="ouvrirCompte('inscription')">Créer mon compte gratuit</BoutonBase>
@@ -308,7 +342,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         <transition name="fondu">
           <div v-if="dialogueOuvert" class="modale-fond" @click.self="dialogueOuvert = false">
             <div class="modale" role="dialog" aria-modal="true" aria-labelledby="modale-titre">
-              <h2 id="modale-titre">Enregistrer le devis</h2>
+              <h2 id="modale-titre">Enregistrer l’estimation</h2>
               <p class="texte-secondaire">Vous le retrouverez dans « Mes projets ».</p>
               <form @submit.prevent="confirmerSauvegarde" novalidate>
                 <div class="champ">
@@ -326,8 +360,8 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
         </transition>
       </template>
 
-      <EtatVide v-else icone="fa-solid fa-calculator" titre="Aucun devis en cours" message="Répondez à quelques questions pour obtenir le devis de votre projet.">
-        <BoutonBase to="/calculateur" icone="fa-solid fa-calculator">Commencer un devis</BoutonBase>
+      <EtatVide v-else icone="fa-solid fa-calculator" titre="Aucune estimation en cours" message="Répondez à quelques questions pour obtenir l’estimation de votre projet.">
+        <BoutonBase to="/calculateur" icone="fa-solid fa-calculator">Commencer une estimation</BoutonBase>
       </EtatVide>
     </div>
   </div>
@@ -336,13 +370,15 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 <style scoped>
 .resultats { display: flex; flex-direction: column; gap: 20px; max-width: 760px; }
 .resultats-grille, .resultats-colonne { display: flex; flex-direction: column; gap: 20px; }
-.resultats-pied { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--gris-200); }
+.resultats-pied { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 16px; }
 
 .resultats-prix { padding: 30px; border-radius: var(--rayon-lg); text-align: center; }
 .resultats-resume { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 16px; color: var(--texte-secondaire); font-size: .92rem; }
 .resultats-resume i { color: var(--lagon-600); margin-right: 4px; }
 .resultats-titre { margin-top: 18px; color: var(--ardoise); font-size: clamp(1.5rem, 3.4vw, 2rem); }
-.resultats-portee { margin: -14px auto 20px; max-width: 34ch; color: var(--texte-secondaire); font-size: .86rem; line-height: 1.45; }
+.resultats-liens { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 20px; margin: 0; font-size: .9rem; }
+.resultats-lien-doux { color: var(--gris-500); font-weight: 600; }
+.resultats-pied .resultats-code { align-self: stretch; margin-top: 0; }
 .resultats-total { margin: 4px 0 22px; color: var(--lagon-700); font-size: clamp(2.8rem, 9vw, 4.2rem); font-weight: 700; line-height: 1.05; letter-spacing: -.02em; }
 
 .resultats-repartition { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 0; padding: 0; list-style: none; }
@@ -354,33 +390,30 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 /* Code promo */
 .resultats-remise {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 0; padding: 8px 8px 8px 14px;
-  border-radius: var(--rayon); background: #ecfdf5; color: #047857; font-size: .9rem; font-weight: 600; text-align: left;
+  border-radius: var(--rayon); background: var(--succes-fond); color: var(--succes-texte); font-size: .9rem; font-weight: 600; text-align: left;
 }
 .resultats-remise i { margin-right: 6px; }
 .resultats-remise-droite { display: flex; align-items: center; gap: 6px; }
-.resultats-remise strong { color: #047857; font-size: .98rem; }
-.resultats-remise-retirer { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #047857; }
-.resultats-remise-retirer:hover:not(:disabled) { background: #d1fae5; }
+.resultats-remise strong { color: var(--succes-texte); font-size: .98rem; }
+.resultats-remise-retirer { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--succes-texte); }
+.resultats-remise-retirer:hover:not(:disabled) { background: var(--succes-pastille); }
+.resultats-remise-credit { padding-right: 14px; background: var(--alerte-fond); color: var(--alerte-texte); }
+.resultats-remise-credit strong { color: var(--alerte-texte); }
 .resultats-code-info { display: flex; align-items: center; gap: 8px; margin: 10px 0 0; color: #b45309; font-size: .85rem; text-align: left; }
-.resultats-code-lien {
-  display: inline-flex; align-self: center; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; padding: 7px 16px;
-  border: 1.5px dashed var(--lagon-200); border-radius: 999px; background: none;
-  color: var(--lagon-700); font-size: .86rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s;
-}
-.resultats-code-lien:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
 .resultats-code { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .resultats-code input {
   flex: 1 1 180px; min-height: 42px; padding: 0 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm);
   font-family: var(--font-mono); font-size: .95rem; letter-spacing: .06em; text-transform: uppercase;
 }
 .resultats-code input::placeholder { font-family: var(--font-corps); letter-spacing: 0; text-transform: none; }
-.resultats-code input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .18); }
+.resultats-code input:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .18); }
 .resultats-code input[aria-invalid="true"] { border-color: var(--erreur); }
 .resultats-code-erreur { flex-basis: 100%; margin: 0; color: var(--erreur); font-size: .85rem; text-align: left; }
 
 .resultats-actions { display: flex; gap: 10px; margin-top: 18px; }
-.resultats-actions .resultats-action-principale { flex: 1; min-width: 0; justify-content: center; }
+.resultats-actions .resultats-action-principale { flex: 1; min-width: 0; justify-content: center; white-space: normal; text-align: center; }
 .resultats-actions .resultats-action-icone { flex: none; width: 48px; padding-inline: 0; justify-content: center; }
+@media (max-width: 380px) { .resultats-actions { flex-wrap: wrap; } .resultats-actions .resultats-action-principale { flex-basis: 100%; } .resultats-actions .resultats-action-icone { flex: 1; width: auto; } }
 
 .resultats-lien { padding: 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-weight: 700; cursor: pointer; }
 .resultats-lien:hover { text-decoration: underline; }
@@ -397,27 +430,26 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-sous-total { display: flex; justify-content: space-between; padding-top: 14px; color: var(--texte-secondaire); font-weight: 600; }
 .resultats-sous-total strong { color: var(--lagon-700); font-size: 1.15rem; }
 
-.resultats-calcul { align-self: stretch; color: var(--texte-secondaire); font-size: .88rem; text-align: left; }
-.resultats-calcul summary { color: var(--lagon-800); font-weight: 600; cursor: pointer; }
-.resultats-calcul p { margin: 8px 0 0; line-height: 1.55; }
+.resultats-calcul { color: var(--gris-500); font-size: .8rem; text-align: center; }
+.resultats-calcul summary { list-style: none; cursor: pointer; }
+.resultats-calcul summary::-webkit-details-marker { display: none; }
+.resultats-calcul summary:hover { color: var(--lagon-700); text-decoration: underline; }
+.resultats-calcul p { max-width: 72ch; margin: 8px auto 0; line-height: 1.55; }
 
-.modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(6,32,44,.55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
-.modale { background: #fff; border-radius: var(--rayon-lg); padding: 30px; width: 100%; max-width: 460px; box-shadow: var(--ombre-lg); animation: apparaitre .3s ease; }
+.modale-fond { position: fixed; inset: 0; z-index: 200; background: rgba(17, 17, 17,.55); backdrop-filter: blur(4px); display: grid; place-items: center; padding: 20px; }
+.modale { background: var(--carte); border-radius: var(--rayon-lg); padding: 30px; width: 100%; max-width: 460px; box-shadow: var(--ombre-lg); animation: apparaitre .3s ease; }
 .modale h2 { font-size: 1.7rem; color: var(--ardoise); margin-bottom: 6px; }
 .modale form { margin-top: 20px; display: flex; flex-direction: column; gap: 20px; }
 .modale-actions { display: flex; justify-content: flex-end; gap: 10px; }
 
-/* Gratuité, économie, devis pro */
-.resultats-economie { display: flex; gap: 10px; margin: 10px 0 0; padding: 12px 14px; border-radius: var(--rayon); background: #ecfdf5; color: #065f46; font-size: .9rem; line-height: 1.5; }
-.resultats-economie i { margin-top: 3px; }
+/* Devis pro */
 .resultats-indispo { color: #b45309 !important; font-weight: 600; }
+.resultats-chez { color: var(--lagon-700) !important; font-weight: 600; }
 .resultats-bas { display: flex; flex-direction: column; }
-.resultats-retrait-aide { display: flex; gap: 12px; margin: 22px 0 0; padding: 12px 14px; border-radius: var(--rayon); background: var(--gris-50); color: var(--texte-secondaire); font-size: .86rem; line-height: 1.5; text-align: left; }
-.resultats-retrait-aide i { margin-top: 3px; color: var(--lagon-600); }
 .resultats-pro { border: 1.5px solid var(--ardoise); }
 .resultats-pro-tete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .resultats-pro-tete h2 { display: flex; align-items: center; gap: 10px; margin: 0; }
-.resultats-pro-badge { padding: 2px 10px; border-radius: 999px; background: var(--ardoise); color: #fcd34d; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.resultats-pro-badge { padding: 2px 10px; border-radius: 999px; background: var(--encre); color: #fcd34d; font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .resultats-pro-liste { display: flex; flex-direction: column; margin: 14px 0 0; padding: 0; list-style: none; }
 .resultats-pro-liste li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gris-100); }
 .resultats-pro-liste li:last-child { border-bottom: 0; }
@@ -428,12 +460,23 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
 .resultats-pro-retirer i { background: none !important; }
 .resultats-pro-aide { margin: 10px 0 0; color: var(--texte-secondaire); font-size: .86rem; }
 
-/* Code de retrait */
-.resultats-retrait { display: flex; align-items: flex-start; gap: 12px; margin: 16px 0 0; padding: 14px 16px; border-radius: var(--rayon); background: var(--lagon-50); color: var(--ardoise); }
-.resultats-retrait > i { margin-top: 3px; color: var(--lagon-700); }
-.resultats-retrait span { display: flex; flex-direction: column; gap: 2px; }
-.resultats-retrait strong { font-size: 1.15rem; letter-spacing: .08em; color: var(--lagon-800); }
-.resultats-retrait small { color: var(--texte-secondaire); font-size: .84rem; }
+/* Code de retrait : un ticket, le code en grand */
+.resultats-retrait { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 4px 0 0; padding: 14px 16px; border: 1.5px dashed var(--lagon-500); border-radius: var(--rayon); background: var(--lagon-50); }
+.resultats-retrait strong { font-size: 1.6rem; letter-spacing: .1em; color: var(--lagon-800); }
+.resultats-retrait small { color: var(--texte-secondaire); font-size: .82rem; }
+
+/* Crédit fidélité : un interrupteur */
+.resultats-credit { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0 0; padding: 10px 14px; border-radius: var(--rayon); background: var(--alerte-fond); color: var(--ardoise); font-size: .92rem; text-align: left; cursor: pointer; }
+.resultats-credit i { margin-right: 4px; color: var(--alerte-texte); }
+.resultats-credit input {
+  appearance: none; position: relative; width: 44px; height: 26px; flex: none; margin: 0; border-radius: 999px; background: var(--gris-300);
+  cursor: pointer; transition: background var(--transition);
+}
+.resultats-credit input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--carte); box-shadow: var(--ombre-sm); transition: transform var(--transition); }
+.resultats-credit input:checked { background: #b45309; }
+.resultats-credit input:checked::after { transform: translateX(18px); }
+.resultats-credit input:focus-visible { outline: 3px solid rgba(180, 83, 9, .35); outline-offset: 2px; }
+.resultats-credit input:disabled { opacity: .6; cursor: wait; }
 
 /* Compte requis pour enregistrer : une action principale, la connexion en lien secondaire */
 .compte { position: relative; max-width: 440px; padding: 34px 30px 26px; text-align: center; }
@@ -449,7 +492,7 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
   display: flex; align-items: center; gap: 12px; margin: 22px 0 18px; padding: 12px 14px;
   border: 1px solid var(--gris-200); border-radius: var(--rayon); background: var(--gris-50); text-align: left;
 }
-.compte-devis-icone { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 10px; background: #fff; color: var(--lagon-700); box-shadow: var(--ombre-sm); }
+.compte-devis-icone { width: 38px; height: 38px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--carte); color: var(--lagon-700); box-shadow: var(--ombre-sm); }
 .compte-devis-texte { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .compte-devis-texte strong { color: var(--ardoise); font-size: .95rem; }
 .compte-devis-texte small { color: var(--texte-secondaire); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -467,21 +510,19 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
   .resultats-repartition li { flex-direction: row; justify-content: space-between; align-items: center; text-align: left; }
 }
 
-/* Ordinateur : prix | quoi acheter | où acheter, côte à côte et tenant dans l'écran.
-   Une colonne trop remplie (beaucoup de matériaux ou de fournisseurs) défile seule, la page ne bouge pas. */
+/* Ordinateur : deux colonnes — à gauche le prix puis ce qu'il faut acheter, à droite où l'acheter.
+   Pas de grand vide : chaque carte prend la hauteur de son contenu, la liste des fournisseurs défile seule. */
 @media (min-width: 1100px) {
-  .resultats { max-width: var(--largeur-conteneur); }
+  .resultats { max-width: 1240px; }
   .resultats-grille {
-    display: grid; grid-template-columns: minmax(330px, .95fr) minmax(0, 1.05fr) minmax(0, 1.05fr); align-items: stretch; gap: 18px;
-    height: calc(100svh - var(--hauteur-entete) - 56px); min-height: 460px;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; align-items: start; gap: 18px;
   }
-  .resultats-grille > * { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
-  .resultats-colonne { gap: 18px; }
-  .resultats-prix { display: flex; flex-direction: column; padding: 24px; }
-  .resultats-titre { margin-top: 12px; font-size: 1.6rem; }
+  .resultats-prix { grid-column: 1; grid-row: 1; padding: 24px; }
+  .resultats-colonne { grid-column: 1; grid-row: 2; gap: 18px; }
+  .resultats-ou { grid-column: 2; grid-row: 1 / span 2; }
+  .resultats-ou { position: sticky; top: calc(var(--hauteur-entete) + 24px); max-height: calc(100svh - var(--hauteur-entete) - 48px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .resultats-titre { margin-top: 10px; font-size: 1.5rem; }
   .resultats-total { margin-bottom: 16px; font-size: clamp(2.6rem, 3.6vw, 3.4rem); }
-  .resultats-bas { margin-top: auto; } /* prix en haut, actions en bas : plus de grand vide entre les boutons et le pied */
-  .resultats-colonne > .resultats-bloc:last-child { flex: 1; } /* même hauteur que les deux autres colonnes */
   .resultats-bloc { padding: 22px 24px; }
   .resultats-bloc h2 { font-size: 1.25rem; }
   .resultats-achats li { padding: 10px 0; }
@@ -493,6 +534,6 @@ function nouvelleEstimation() { calc.reinitialiser(); router.push('/calculateur'
   .resultats-titre { margin-top: 6px; font-size: 1.35rem; }
   .resultats-total { margin-bottom: 10px; font-size: 2.5rem; }
   .resultats-actions { margin-top: 12px; gap: 8px; }
-  .resultats-pied { gap: 8px; padding-top: 10px; }
+  .resultats-pied { gap: 8px; }
 }
 </style>

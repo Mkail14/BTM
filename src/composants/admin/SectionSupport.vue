@@ -212,7 +212,7 @@ const date = (d) => {
       </div>
       <p v-if="tamilyaHorsService" class="sp-hors-service" role="alert">
         <i class="fa-solid fa-robot" aria-hidden="true"></i>
-        <span><strong>Tamilya est hors service : plus de crédits IA.</strong> Toutes les clés Gemini ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
+        <span><strong>Tamilya est hors service : plus de crédits IA.</strong> Toutes les API de Tamilya (BTM AI) ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
       </p>
       <p v-if="notificationsNavigateur === 'default'" class="sp-notif">
         <i class="fa-regular fa-bell" aria-hidden="true"></i> Être prévenu même dans un autre onglet ?
@@ -360,7 +360,7 @@ const date = (d) => {
 .sp-message.client p { background: var(--adm-carte); }
 .sp-message.ia p { background: var(--adm-violet-fond); }
 .sp-message.conseiller { align-self: flex-end; align-items: flex-end; }
-.sp-message.conseiller p { border-radius: 14px 14px 4px 14px; background: var(--adm-noir); color: #fff; }
+.sp-message.conseiller p { border-radius: 14px 14px 4px 14px; background: var(--adm-noir); color: var(--adm-sur-noir); }
 .sp-auteur { margin: 0 4px 3px; color: var(--adm-muet); font-size: .72rem; font-weight: 600; }
 .sp-vu { margin: 3px 4px 0; color: var(--adm-muet); font-size: .72rem; }
 .sp-vu.lu { color: var(--adm-accent); font-weight: 600; }
@@ -373,7 +373,7 @@ const date = (d) => {
 .sp-actions { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 18px 0; border-top: 1px solid var(--adm-ligne); }
 .sp-reponse { display: flex; align-items: flex-end; gap: 10px; padding: 10px 18px 16px; }
 .sp-reponse textarea { flex: 1; min-height: 70px; padding: 10px 14px; border: 1px solid var(--adm-ligne); border-radius: 12px; resize: vertical; font: inherit; font-size: .9rem; line-height: 1.5; }
-.sp-reponse textarea:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 4px rgba(8, 145, 178, .14); }
+.sp-reponse textarea:focus { outline: none; border-color: var(--adm-accent); box-shadow: 0 0 0 4px rgba(17, 17, 17, .14); }
 @media (max-width: 767px) {
   .sp-fil { display: none; }
   .fil-ouvert .sp-fil { display: flex; }

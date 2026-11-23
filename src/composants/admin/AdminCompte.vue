@@ -1,14 +1,18 @@
 <script setup>
 /**
  * Compte & reversements (clic sur le profil admin) :
- *  - Reversements : les fournisseurs encaissent tout et reversent à BTM ses frais de service.
- *    Un virement déclaré par le fournisseur est pris en compte tout de suite : l'admin en garde l'historique.
- *    BTM ne déclenche aucun virement ; la rémunération interne est gérée hors du site (RH).
+ *  - Reversements : les fournisseurs encaissent tout et reversent à BTM sa commission (codes promo BTM déduits).
+ *    Quand les codes promo BTM dépassent la commission, BTM rembourse le fournisseur (« Verser »).
+ *    Pas de validation : un virement compte dès que celui qui l'a fait clique « Virement fait ».
  *  - RIB de BTM : communiqué aux fournisseurs pour leurs reversements (IBAN contrôlé par sa clé).
+ *  - RIB des fournisseurs : saisis par eux dans leur espace, pour que BTM les rembourse.
  *  - Profils : donner un profil (utilisateur, professionnel, fournisseur, administrateur) à un compte à partir de son
  *    e-mail, ou retirer ses droits à un administrateur. Le changement passe par api.definirRoleCompte ; le serveur revérifie le rôle de l'appelant.
+ *  - Mise en ligne : ouvrir btm.yt au public, le mettre en maintenance, ou le laisser s'ouvrir seul dès
+ *    SEUIL_FOURNISSEURS partenaires (useOuverture). Chaque changement est confirmé : il s'applique tout de suite au site.
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { SEUIL_FOURNISSEURS, CLE_OUVERTURE, siteOuvert, lireModeOuverture, compterPartenaires, appliquerModeOuverture } from '@/composables/useOuverture.js'
 import { useAdmin, formatDate, initiales } from '@/composables/useAdmin.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
@@ -19,25 +23,68 @@ const emit = defineEmits(['fermer'])
 const { api, donnees, erreurs, charger, confirmer, executer, notifier } = useAdmin()
 const { utilisateur } = useAuth()
 const onglet = ref('reversements')
-onMounted(() => charger(['versement', 'reversements', 'paiements', 'fournisseurs', 'profils'], { force: true }))
+onMounted(() => charger(['versement', 'reversements', 'paiements', 'fournisseurs', 'profils', 'ribsFournisseurs'], { force: true }))
 
 // ---------- Reversements ----------
 const somme = (liste) => Math.round(liste.reduce((s, x) => s + (Number(x) || 0), 0) * 100) / 100
 const reversements = computed(() => donnees.reversements || [])
-const recus = computed(() => reversements.value.filter((r) => r.statut === 'valide'))
-/** Par fournisseur : frais BTM encaissés, reçus, reste dû */
+// sens 'vers_btm' : le fournisseur paie BTM ; 'vers_fournisseur' : BTM rembourse les codes promo qu'il a avancés
+const versBtm = (r) => (r.sens || 'vers_btm') === 'vers_btm'
+const recus = computed(() => reversements.value.filter((r) => r.statut === 'valide' && versBtm(r)))
+const verses = computed(() => reversements.value.filter((r) => r.statut === 'valide' && !versBtm(r)))
+const historique = reversements
+/**
+ * Par fournisseur : du = commission − codes promo BTM − crédit utilisé (négatif si BTM a offert plus que la commission),
+ * reçu de lui, versé par BTM ; solde > 0 : il doit à BTM, solde < 0 : BTM lui doit (« btmDoit »).
+ */
 const parFournisseur = computed(() => {
   const noms = Object.fromEntries((donnees.fournisseurs || []).map((f) => [f.id, f.nom]))
   const lignes = {}
-  const ligne = (id) => (lignes[id] ||= { id, nom: noms[id] || 'Fournisseur supprimé', du: 0, recu: 0 })
+  const ligne = (id) => (lignes[id] ||= { id, nom: noms[id] || 'Fournisseur supprimé', du: 0, recu: 0, verse: 0 })
   for (const p of donnees.paiements || []) if (p.fournisseur_id && p.revenu_btm) ligne(p.fournisseur_id).du += Number(p.revenu_btm)
   for (const r of recus.value) ligne(r.fournisseur_id).recu += r.montant
-  return Object.values(lignes).map((l) => ({ ...l, du: somme([l.du]), recu: somme([l.recu]), reste: Math.max(0, somme([l.du, -l.recu])) })).sort((a, b) => b.reste - a.reste)
+  for (const r of verses.value) ligne(r.fournisseur_id).verse += r.montant
+  return Object.values(lignes).map((l) => {
+    const solde = somme([l.du, -l.recu, l.verse])
+    return { ...l, du: somme([l.du]), recu: somme([l.recu]), verse: somme([l.verse]), reste: Math.max(0, solde), btmDoit: Math.max(0, -solde), rib: donnees.ribsFournisseurs?.[l.id] || null }
+  }).sort((a, b) => b.btmDoit - a.btmDoit || b.reste - a.reste)
 })
+
+// Virement de BTM vers un fournisseur (remboursement des codes promo BTM qu'il a avancés)
+const versement = ref(null) // { ligne, montant, reference, envoi, erreur }
+function ouvrirVersement(l) {
+  const mois = new Date().toISOString().slice(0, 7).replace('-', '')
+  versement.value = { ligne: l, montant: String(l.btmDoit).replace('.', ','), reference: `BTM-PROMO-${mois}`, envoi: false, erreur: '' }
+}
+async function verser() {
+  const v = versement.value
+  const montant = Number(String(v.montant).replace(',', '.'))
+  v.erreur = ''
+  if (!(montant > 0)) { v.erreur = 'Indiquez le montant viré.'; return }
+  if (montant > v.ligne.btmDoit + 0.001) { v.erreur = `BTM ne doit que ${formaterEuros(v.ligne.btmDoit)} à ce fournisseur.`; return }
+  if (v.reference.trim().length < 3) { v.erreur = 'Indiquez la référence du virement.'; return }
+  v.envoi = true
+  const ok = await executer(async () => {
+    const r = await api.verserAuFournisseur(v.ligne.id, montant, v.reference.trim())
+    donnees.reversements = [{ ...r, fournisseur_nom: v.ligne.nom }, ...reversements.value]
+  }, `Virement de ${formaterEuros(montant)} à ${v.ligne.nom} enregistré.`)
+  v.envoi = false
+  if (ok) versement.value = null
+}
+
+// ---------- RIB des fournisseurs ----------
+const ribsFournisseurs = computed(() => (donnees.fournisseurs || [])
+  .map((f) => ({ id: f.id, nom: f.nom, commune: f.commune, rib: donnees.ribsFournisseurs?.[f.id] || null, btmDoit: parFournisseur.value.find((l) => l.id === f.id)?.btmDoit || 0 }))
+  .sort((a, b) => b.btmDoit - a.btmDoit || !!b.rib - !!a.rib || a.nom.localeCompare(b.nom, 'fr')))
+async function copier(texte, quoi) {
+  try { await navigator.clipboard.writeText(texte); notifier(`${quoi} copié.`, 'info') } catch { notifier('Copie impossible.', 'erreur') }
+}
+
 const totaux = computed(() => ({
   du: somme(parFournisseur.value.map((l) => l.du)),
   recu: somme(parFournisseur.value.map((l) => l.recu)),
-  reste: somme(parFournisseur.value.map((l) => l.reste))
+  reste: somme(parFournisseur.value.map((l) => l.reste)),
+  btmDoit: somme(parFournisseur.value.map((l) => l.btmDoit))
 }))
 
 
@@ -148,20 +195,89 @@ async function retirer(p) {
   // il redevient ce qu'il était par ailleurs : professionnel vérifié ou particulier
   await changerRole(p, api.roleCompte({ ...p, role: 'user' }), null, `${nomDe(p)} n’est plus administrateur.`)
 }
+
+// ---------- Mise en ligne ----------
+const MODES = {
+  auto: { label: 'Automatique', icone: 'fa-solid fa-wand-magic-sparkles', aide: `Page d’attente tant qu’il y a moins de ${SEUIL_FOURNISSEURS} fournisseurs partenaires, puis ouverture toute seule.` },
+  'en-ligne': { label: 'En ligne', icone: 'fa-solid fa-globe', aide: 'Le site est ouvert à tout le monde, quel que soit le nombre de partenaires.' },
+  maintenance: { label: 'Maintenance', icone: 'fa-solid fa-screwdriver-wrench', aide: 'Page « Site en maintenance » pour le public. Admins et fournisseurs gardent leur espace.' }
+}
+const ouverture = ref(null) // { mode, partenaires } une fois lu
+const erreurOuverture = ref('')
+const changementMode = ref('')
+async function lireOuverture() {
+  erreurOuverture.value = ''
+  try {
+    const [mode, partenaires] = await Promise.all([lireModeOuverture(), compterPartenaires()])
+    ouverture.value = { mode, partenaires }
+  } catch (e) {
+    erreurOuverture.value = e?.message || 'État du site illisible.'
+  }
+}
+watch(onglet, (o) => { if (o === 'site') lireOuverture() }, { immediate: true })
+const publicOuvert = computed(() => ouverture.value && siteOuvert(ouverture.value.mode, ouverture.value.partenaires))
+const etatPublic = computed(() => {
+  const o = ouverture.value
+  if (!o) return ''
+  if (o.mode === 'maintenance') return 'En maintenance'
+  return publicOuvert.value ? 'En ligne' : `En attente · ${o.partenaires} / ${SEUIL_FOURNISSEURS} fournisseurs`
+})
+
+async function changerMode(mode) {
+  const o = ouverture.value
+  if (!o || mode === o.mode || changementMode.value) return
+  const ouvrira = siteOuvert(mode, o.partenaires)
+  const textes = {
+    'en-ligne': { titre: 'Mettre le site en ligne ?', libelle: 'Mettre en ligne', texte: 'Tout le monde pourra utiliser btm.yt tout de suite : calculateur, inscription et devis.' },
+    maintenance: { titre: 'Mettre le site en maintenance ?', libelle: 'Mettre en maintenance', danger: true, texte: 'Les visiteurs et les clients verront la page « Site en maintenance » tout de suite. Les admins et les fournisseurs gardent leur espace.' },
+    auto: { titre: 'Repasser en automatique ?', libelle: 'Passer en automatique', texte: ouvrira ? `Il y a déjà ${o.partenaires} fournisseurs partenaires : le site sera en ligne.` : `Avec ${o.partenaires} fournisseur${o.partenaires > 1 ? 's' : ''} partenaire${o.partenaires > 1 ? 's' : ''} sur ${SEUIL_FOURNISSEURS}, le public verra la page d’attente jusqu’au ${SEUIL_FOURNISSEURS}e.` }
+  }
+  if (!(await confirmer(textes[mode]))) return
+  changementMode.value = mode
+  const ok = await executer(async () => {
+    await api.enregistrerContenu(CLE_OUVERTURE, { mode }, utilisateur.value?.id)
+    ouverture.value = { ...o, mode }
+    appliquerModeOuverture(mode, o.partenaires)
+  }, ouvrira ? 'Le site est en ligne.' : mode === 'maintenance' ? 'Le site est en maintenance.' : 'Mode automatique : le public voit la page d’attente.')
+  changementMode.value = ''
+  if (!ok) lireOuverture()
+}
 </script>
 
 <template>
-  <AdminPanneau titre="Compte BTM" sous-titre="Reversements des fournisseurs, RIB et profils des comptes." large @fermer="emit('fermer')">
+  <AdminPanneau titre="Compte BTM" sous-titre="Reversements des fournisseurs, RIB, profils des comptes et mise en ligne du site." large @fermer="emit('fermer')">
     <div class="compte">
       <div class="adm-segments compte-onglets" role="tablist" aria-label="Compte et reversements">
         <button type="button" role="tab" :aria-selected="onglet === 'reversements'" @click="onglet = 'reversements'">
           <i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> Reversements
         </button>
         <button type="button" role="tab" :aria-selected="onglet === 'rib'" @click="onglet = 'rib'"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> RIB de BTM</button>
+        <button type="button" role="tab" :aria-selected="onglet === 'ribsFournisseurs'" @click="onglet = 'ribsFournisseurs'"><i class="fa-solid fa-truck" aria-hidden="true"></i> RIB fournisseurs</button>
         <button type="button" role="tab" :aria-selected="onglet === 'admins'" @click="onglet = 'admins'"><i class="fa-solid fa-id-badge" aria-hidden="true"></i> Profils</button>
+        <button type="button" role="tab" :aria-selected="onglet === 'site'" @click="onglet = 'site'"><i class="fa-solid fa-power-off" aria-hidden="true"></i> Mise en ligne</button>
       </div>
 
-      <p v-if="onglet === 'admins' ? erreurs.profils : erreurs.versement || erreurs.reversements || erreurs.paiements" class="adm-alerte" role="alert">
+      <!-- ===================== Mise en ligne ===================== -->
+      <template v-if="onglet === 'site'">
+        <p v-if="erreurOuverture" class="adm-alerte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurOuverture }}</p>
+        <div v-else-if="!ouverture" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
+        <template v-else>
+          <div class="solde site-etat">
+            <span class="solde-label">btm.yt pour le public</span>
+            <strong class="solde-montant"><span class="site-voyant" :class="ouverture.mode === 'maintenance' ? 'maintenance' : publicOuvert ? 'ouvert' : 'attente'" aria-hidden="true"></span>{{ etatPublic }}</strong>
+            <span class="solde-detail">Les admins et les fournisseurs gardent toujours leur espace.</span>
+          </div>
+          <div class="site-modes" role="radiogroup" aria-label="État du site">
+            <button v-for="(m, cle) in MODES" :key="cle" type="button" class="site-mode" :class="{ actif: ouverture.mode === cle }" role="radio" :aria-checked="ouverture.mode === cle" :disabled="!!changementMode" @click="changerMode(cle)">
+              <span class="site-mode-icone"><span v-if="changementMode === cle" class="spinner" aria-hidden="true"></span><i v-else :class="m.icone" aria-hidden="true"></i></span>
+              <span class="site-mode-texte"><strong>{{ m.label }}</strong><small>{{ m.aide }}</small></span>
+              <i v-if="ouverture.mode === cle" class="fa-solid fa-circle-check site-mode-coche" aria-hidden="true"></i>
+            </button>
+          </div>
+        </template>
+      </template>
+
+      <p v-else-if="onglet === 'admins' ? erreurs.profils : erreurs.versement || erreurs.reversements || erreurs.paiements" class="adm-alerte" role="alert">
         <i class="fa-solid fa-circle-exclamation"></i> {{ onglet === 'admins' ? erreurs.profils : erreurs.versement || erreurs.reversements || erreurs.paiements }}
       </p>
 
@@ -177,11 +293,11 @@ async function retirer(p) {
         </div>
 
         <dl class="chiffres">
-          <div><dt>Frais BTM encaissés</dt><dd>{{ formaterEuros(totaux.du) }}</dd></div>
-          <div><dt>Déjà reversés</dt><dd>{{ formaterEuros(totaux.recu) }}</dd></div>
-          <div><dt>Reversements</dt><dd>{{ recus.length }}</dd></div>
+          <div><dt>Revenu BTM encaissé</dt><dd>{{ formaterEuros(totaux.du) }}</dd></div>
+          <div><dt>Reçu sur le compte</dt><dd>{{ formaterEuros(totaux.recu) }}</dd></div>
+          <div v-if="totaux.btmDoit"><dt>BTM doit aux fournisseurs</dt><dd class="btm-doit">{{ formaterEuros(totaux.btmDoit) }}</dd></div>
         </dl>
-
+        <p v-if="totaux.btmDoit" class="compte-note"><i class="fa-solid fa-tags" aria-hidden="true"></i> Des codes promo BTM ont dépassé la commission : le fournisseur a fait la remise au client à la place de BTM. Remboursez-le par virement, puis enregistrez-le avec « Verser ».</p>
 
         <template v-if="parFournisseur.length">
           <h3 class="compte-titre">Par fournisseur</h3>
@@ -189,28 +305,80 @@ async function retirer(p) {
             <thead><tr><th>Fournisseur</th><th class="num">Dû</th><th class="num">Reçu</th><th class="num">Reste</th></tr></thead>
             <tbody>
               <tr v-for="l in parFournisseur" :key="l.id">
-                <td>{{ l.nom }}</td>
+                <td>{{ l.nom }}<small v-if="l.verse" class="compte-petit">{{ formaterEuros(l.verse) }} versés par BTM</small></td>
                 <td class="num">{{ formaterEuros(l.du) }}</td>
                 <td class="num">{{ formaterEuros(l.recu) }}</td>
-                <td class="num"><strong :class="{ reste: l.reste > 0 }">{{ formaterEuros(l.reste) }}</strong></td>
+                <td class="num">
+                  <template v-if="l.btmDoit">
+                    <strong class="btm-doit">BTM doit {{ formaterEuros(l.btmDoit) }}</strong>
+                    <button type="button" class="adm-btn adm-btn-noir adm-btn-sm compte-verser" @click="ouvrirVersement(l)">Verser</button>
+                  </template>
+                  <strong v-else :class="{ reste: l.reste > 0 }">{{ formaterEuros(l.reste) }}</strong>
+                </td>
               </tr>
             </tbody>
           </table>
         </template>
 
-        <h3 class="compte-titre">Reversements reçus</h3>
+        <!-- Virement de BTM vers un fournisseur -->
+        <form v-if="versement" class="versement" novalidate @submit.prevent="verser">
+          <strong><i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> Rembourser {{ versement.ligne.nom }}</strong>
+          <p>Faites le virement depuis le compte de BTM, puis cliquez « Virement fait » : il est déduit de ce que BTM lui doit et apparaît dans son historique.</p>
+          <div v-if="versement.ligne.rib" class="rib-carte">
+            <span><small>Titulaire</small><strong>{{ versement.ligne.rib.titulaire }}</strong></span>
+            <span><small>IBAN</small><strong class="adm-mono">{{ formaterIban(versement.ligne.rib.iban) }}</strong>
+              <button type="button" class="adm-icone-btn" aria-label="Copier l’IBAN" @click="copier(versement.ligne.rib.iban, 'IBAN')"><i class="fa-regular fa-copy" aria-hidden="true"></i></button></span>
+            <span v-if="versement.ligne.rib.bic"><small>BIC</small><strong class="adm-mono">{{ versement.ligne.rib.bic }}</strong></span>
+          </div>
+          <p v-else class="adm-alerte"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Ce fournisseur n’a pas encore enregistré son RIB (Espace fournisseur → Paiements). Demandez-le-lui.</p>
+          <div class="adm-champ">
+            <label for="vers-montant">Montant viré</label>
+            <span class="adm-saisie-unite"><input id="vers-montant" v-model="versement.montant" inputmode="decimal" /><span>€</span></span>
+          </div>
+          <div class="adm-champ">
+            <label for="vers-ref">Référence du virement</label>
+            <input id="vers-ref" v-model="versement.reference" class="adm-mono" maxlength="60" />
+          </div>
+          <p v-if="versement.erreur" class="adm-erreur-texte" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ versement.erreur }}</p>
+          <span class="verif-actions">
+            <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="versement = null">Annuler</button>
+            <button type="submit" class="adm-btn adm-btn-noir adm-btn-sm" :disabled="versement.envoi">
+              <span v-if="versement.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Virement fait
+            </button>
+          </span>
+        </form>
+
+        <h3 class="compte-titre">Historique des reversements</h3>
         <div v-if="!donnees.reversements" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
-        <ul v-else-if="recus.length" class="historique">
-          <li v-for="r in recus" :key="r.id">
-            <span class="historique-icone"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
+        <ul v-else-if="historique.length" class="historique">
+          <li v-for="r in historique" :key="r.id">
+            <span class="historique-icone" :class="{ refuse: r.statut === 'refuse' }"><i :class="r.statut === 'refuse' ? 'fa-solid fa-xmark' : 'fa-solid fa-check'" aria-hidden="true"></i></span>
             <span class="historique-texte">
-              <strong>{{ formaterEuros(r.montant) }} · {{ r.fournisseur_nom }}</strong>
-              <small>{{ formatDate(r.declare_le) }} · réf. <span class="adm-mono">{{ r.reference }}</span></small>
+              <strong>{{ versBtm(r) ? '' : '− ' }}{{ formaterEuros(r.montant) }} · {{ versBtm(r) ? `reçu de ${r.fournisseur_nom}` : `versé par BTM à ${r.fournisseur_nom}` }}</strong>
+              <small>{{ formatDate(r.declare_le) }} · réf. <span class="adm-mono">{{ r.reference }}</span><template v-if="r.statut === 'refuse'"> · refusé : {{ r.motif_refus }}</template></small>
             </span>
           </li>
         </ul>
         <p v-else class="compte-vide"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Aucun reversement pour le moment.</p>
-        <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> BTM ne déclenche aucun virement : les fournisseurs vous reversent vos frais sur ce RIB et les enregistrent dans leur espace.</p>
+        <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Les fournisseurs vous reversent la commission sur le RIB de BTM et cliquent « Virement fait » : il compte tout de suite. Vérifiez vos relevés bancaires avec la référence indiquée.</p>
+      </template>
+
+      <!-- ===================== RIB des fournisseurs ===================== -->
+      <template v-else-if="onglet === 'ribsFournisseurs'">
+        <p class="compte-note"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Chaque fournisseur enregistre son RIB dans son espace (Paiements). BTM l’utilise pour le rembourser quand les codes promo BTM dépassent sa commission.</p>
+        <div v-if="!donnees.fournisseurs || !donnees.ribsFournisseurs" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
+        <ul v-else class="historique">
+          <li v-for="f in ribsFournisseurs" :key="f.id">
+            <span class="historique-icone" :class="{ refuse: !f.rib }"><i :class="f.rib ? 'fa-solid fa-building-columns' : 'fa-solid fa-question'" aria-hidden="true"></i></span>
+            <span class="historique-texte">
+              <strong>{{ f.nom }}<template v-if="f.btmDoit"> · <span class="btm-doit">BTM doit {{ formaterEuros(f.btmDoit) }}</span></template></strong>
+              <small v-if="f.rib">{{ f.rib.titulaire }} · <span class="adm-mono">{{ formaterIban(f.rib.iban) }}</span><template v-if="f.rib.bic"> · {{ f.rib.bic }}</template></small>
+              <small v-else>RIB pas encore enregistré</small>
+            </span>
+            <button v-if="f.rib" type="button" class="adm-icone-btn" :aria-label="`Copier l’IBAN de ${f.nom}`" @click="copier(f.rib.iban, 'IBAN')"><i class="fa-regular fa-copy" aria-hidden="true"></i></button>
+            <button v-if="f.btmDoit" type="button" class="adm-btn adm-btn-noir adm-btn-sm" @click="onglet = 'reversements'; ouvrirVersement(parFournisseur.find((l) => l.id === f.id))">Verser</button>
+          </li>
+        </ul>
       </template>
 
       <!-- ===================== Administrateurs ===================== -->
@@ -275,7 +443,7 @@ async function retirer(p) {
       </template>
 
       <!-- ===================== RIB ===================== -->
-      <template v-else>
+      <template v-else-if="onglet === 'rib'">
         <div v-if="ribRenseigne && !modeRib" class="rib-carte">
           <span class="rib-banque"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> {{ parametres.banque || 'Compte de BTM' }}</span>
           <strong class="rib-iban adm-mono">{{ masquerIban(parametres.iban) }}</strong>
@@ -324,14 +492,14 @@ async function retirer(p) {
 .compte-vide i { color: var(--adm-muet); }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-.solde { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 22px; border-radius: 20px; background: var(--adm-noir); color: #fff; }
-.solde-label { font-size: .78rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--lagon-300); }
+.solde { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 22px; border-radius: 20px; background: var(--adm-noir); color: var(--adm-sur-noir); }
+.solde-label { font-size: .78rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--adm-sur-noir); opacity: .7; }
 .solde-montant { font-size: 2.2rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-.solde-detail { color: rgba(255, 255, 255, .72); font-size: .88rem; }
+.solde-detail { color: color-mix(in srgb, currentColor 72%, transparent); font-size: .88rem; }
 .solde-detail i { color: #fcd34d; margin-right: 4px; }
-.adm-btn-blanc { background: #fff; color: var(--adm-noir); }
+.adm-btn-blanc { background: #fff; color: #111; }
 .adm-btn-blanc:hover:not(:disabled) { background: #e2e8f0; }
-.adm-btn-contour { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .3); }
+.adm-btn-contour { background: transparent; color: inherit; border-color: color-mix(in srgb, currentColor 30%, transparent); }
 .adm-btn-contour:hover:not(:disabled) { border-color: #fff; }
 
 .chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
@@ -343,15 +511,29 @@ async function retirer(p) {
 .historique li { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--adm-ligne-2); }
 .historique li:last-child { border-bottom: 0; }
 .historique-icone { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
+.historique-icone.attente { background: #fef3c7; color: var(--adm-attention-texte); }
+.historique-icone.refuse { background: var(--adm-ligne-2); color: var(--adm-muet); }
+.verif-actions { display: flex; gap: 6px; }
+.verif-refus { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 100%; }
+.verif-refus input { flex: 1 1 220px; width: auto; }
 .historique-texte { flex: 1 1 200px; display: flex; flex-direction: column; min-width: 0; }
 .historique-texte small { color: var(--adm-muet); font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .compte-table td, .compte-table th { padding: 10px 12px; }
 .compte-table strong.reste { color: var(--adm-attention-texte); }
+.btm-doit { color: var(--adm-baisse); }
+.compte-petit { display: block; color: var(--adm-muet); font-size: .76rem; }
+.compte-verser { margin-left: 8px; }
+.versement { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--adm-survol); box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.versement p { margin: 0; color: var(--adm-encre-2); font-size: .86rem; }
+.versement .verif-actions { justify-content: flex-end; }
+.rib-carte { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--adm-carte); box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.rib-carte span { display: flex; align-items: center; gap: 10px; font-size: .88rem; }
+.rib-carte small { width: 70px; color: var(--adm-muet); }
 
 .rib-carte {
   display: flex; flex-direction: column; gap: 8px; padding: 22px; border-radius: 20px; color: #fff;
-  background: linear-gradient(135deg, #0f172a 0%, #164e63 100%); box-shadow: 0 18px 40px rgba(15, 23, 42, .25);
+  background: linear-gradient(135deg, #0f172a 0%, #111111 100%); box-shadow: 0 18px 40px rgba(15, 23, 42, .25);
 }
 .rib-banque { font-size: .85rem; color: rgba(255, 255, 255, .75); }
 .rib-banque i { margin-right: 6px; }
@@ -359,6 +541,27 @@ async function retirer(p) {
 .rib-ligne { display: flex; justify-content: space-between; gap: 12px; font-size: .9rem; }
 .rib-carte small { color: rgba(255, 255, 255, .55); font-size: .78rem; }
 .rib-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+.site-etat .solde-montant { display: flex; align-items: center; gap: 12px; font-size: 1.6rem; }
+.site-voyant { width: 12px; height: 12px; flex: none; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 5px rgba(245, 158, 11, .2); }
+.site-voyant.ouvert { background: #22c55e; box-shadow: 0 0 0 5px rgba(34, 197, 94, .2); }
+.site-voyant.maintenance { background: #ef4444; box-shadow: 0 0 0 5px rgba(239, 68, 68, .2); }
+.site-modes { display: flex; flex-direction: column; gap: 8px; }
+.site-mode {
+  display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; border: 0; border-radius: 16px; text-align: left;
+  background: var(--adm-ligne-2); color: var(--adm-encre); font: inherit; cursor: pointer; transition: box-shadow var(--transition), background var(--transition);
+}
+.site-mode:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--adm-ligne); }
+.site-mode.actif { background: var(--adm-carte); box-shadow: inset 0 0 0 2px var(--adm-noir); }
+.site-mode:disabled { cursor: progress; }
+.site-mode:focus-visible { outline: 2px solid var(--adm-accent); outline-offset: 2px; }
+.site-mode-icone { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 12px; background: var(--adm-carte); color: var(--adm-encre-2); }
+.site-mode.actif .site-mode-icone { background: var(--adm-noir); color: var(--adm-sur-noir); }
+.site-mode-texte { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.site-mode-texte small { color: var(--adm-muet); font-size: .82rem; line-height: 1.45; }
+.site-mode-coche { color: var(--adm-noir); font-size: 1.1rem; }
+.adm-sombre .site-mode.actif { box-shadow: inset 0 0 0 2px var(--adm-accent); }
+.adm-sombre .site-mode-coche { color: var(--adm-accent); }
 
 .admins-ajout { display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: var(--adm-ligne-2); }
 .admins-saisie { display: flex; flex-wrap: wrap; gap: 8px; }

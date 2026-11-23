@@ -4,8 +4,10 @@
  *  - Encaissements : filtre par période et par moyen, totaux, reçu PDF, export CSV pour la comptabilité,
  *    annulation avec motif obligatoire ;
  *  - Journal : toutes les opérations (encaissements et annulations), jamais modifiées ni effacées ;
- *  - Reversement à BTM : le fournisseur encaisse tout et reverse les frais de service BTM sur le RIB
- *    saisi par l'admin ; son virement est pris en compte dès qu'il le déclare (migrations 0014, 0015).
+ *  - Reversement à BTM : le fournisseur encaisse tout et reverse la commission BTM sur le RIB saisi par l'admin ;
+ *    son virement compte dès qu'il clique « Virement fait », sans validation.
+ *  - BTM vous doit : quand les codes promo BTM dépassent la commission, BTM rembourse la différence sur le RIB
+ *    du fournisseur (enregistré dans Mon compte) ; le virement apparaît dans l'historique dès que BTM l'enregistre.
  */
 import { computed, ref } from 'vue'
 import { useAdmin } from '@/composables/useAdmin.js'
@@ -18,7 +20,7 @@ import AdminPanneau from '@/composants/admin/AdminPanneau.vue'
 const props = defineProps({ recherche: { type: String, default: '' } })
 const { MOYENS } = api
 const { notifier } = useAdmin()
-const { fiche, paiements, journal, journalIndisponible, nomCompte, retirerPaiement, reversements, rib, soldeBtm } = useEspaceFournisseur()
+const { fiche, paiements, journal, journalIndisponible, nomCompte, retirerPaiement, reversements, rib, monRib, soldeBtm } = useEspaceFournisseur()
 
 const onglet = ref('encaissements')
 
@@ -63,7 +65,7 @@ const referenceConseillee = computed(() => {
   return `BTM-${nom}-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}`
 })
 function ouvrirReversement() {
-  reversement.value = { montant: String(soldeBtm.value.reste).replace('.', ','), reference: referenceConseillee.value, envoi: false, erreur: '' }
+  reversement.value = { montant: String(soldeBtm.value.aDeclarer).replace('.', ','), reference: referenceConseillee.value, envoi: false, erreur: '' }
 }
 async function copierTexte(texte, quoi) {
   try { await navigator.clipboard.writeText(texte); notifier(`${quoi} copié.`, 'info') } catch { notifier('Copie impossible.', 'erreur') }
@@ -72,14 +74,14 @@ async function declarer() {
   const r = reversement.value
   const montant = Number(String(r.montant).replace(/\s/g, '').replace(',', '.'))
   r.erreur = !(montant > 0) ? 'Le montant doit être supérieur à 0.'
-    : montant > soldeBtm.value.reste + 0.001 ? `Vous devez au plus ${formaterEuros(soldeBtm.value.reste)} à BTM.`
+    : montant > soldeBtm.value.aDeclarer + 0.001 ? `Vous devez au plus ${formaterEuros(soldeBtm.value.aDeclarer)} à BTM.`
     : r.reference.trim().length < 3 ? 'Indiquez la référence de votre virement.' : ''
   if (r.erreur) return
   r.envoi = true
   try {
     const nouveau = await api.declarerReversement(montant, r.reference.trim())
     reversements.value = [nouveau, ...reversements.value]
-    notifier(`Reversement de ${formaterEuros(montant)} enregistré. Merci !`)
+    notifier(`Virement de ${formaterEuros(montant)} enregistré, merci ! Il est déduit de ce que vous devez à BTM.`)
     reversement.value = null
   } catch (e) {
     r.erreur = e?.message || 'Déclaration impossible.'
@@ -147,12 +149,19 @@ async function confirmerAnnulation() {
     <section class="adm-carte rev">
       <span class="rev-icone"><i class="fa-solid fa-building-columns" aria-hidden="true"></i></span>
       <div class="rev-texte">
-        <span>À reverser à BTM</span>
-        <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
-        <small>Frais de service BTM encaissés pour BTM<template v-if="soldeBtm.reverse"> · {{ formaterEuros(soldeBtm.reverse) }} déjà reversés</template></small>
+        <template v-if="soldeBtm.btmDoit">
+          <span>BTM vous doit</span>
+          <strong>{{ formaterEuros(soldeBtm.btmDoit) }}</strong>
+          <small>Remises des codes promo BTM, plus élevées que la commission : BTM vous rembourse la différence par virement</small>
+        </template>
+        <template v-else>
+          <span>À reverser à BTM</span>
+          <strong>{{ formaterEuros(soldeBtm.reste) }}</strong>
+          <small>Commission BTM, moins les codes promo BTM que vous avez appliqués<template v-if="soldeBtm.reverse"> · {{ formaterEuros(soldeBtm.reverse) }} déjà reversés</template></small>
+        </template>
       </div>
-      <button type="button" class="adm-btn" :class="soldeBtm.reste > 0 ? 'adm-btn-noir' : 'adm-btn-clair'" @click="ouvrirReversement">
-        <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> {{ soldeBtm.reste > 0 ? 'Reverser à BTM' : 'Voir les reversements' }}
+      <button type="button" class="adm-btn" :class="soldeBtm.aDeclarer > 0 ? 'adm-btn-noir' : 'adm-btn-clair'" @click="ouvrirReversement">
+        <i class="fa-solid fa-paper-plane" aria-hidden="true"></i> {{ soldeBtm.aDeclarer > 0 ? 'Reverser à BTM' : 'Voir les reversements' }}
       </button>
     </section>
 
@@ -190,27 +199,27 @@ async function confirmerAnnulation() {
           <p v-else>Aucun encaissement sur cette période{{ filtreMoyen ? ` en ${MOYENS[filtreMoyen].court.toLowerCase()}` : '' }}.</p>
         </div>
         <div v-else class="adm-table-cadre">
-          <table class="adm-table adm-table-empile">
+          <table class="adm-table adm-table-empile pai-table">
             <thead>
               <tr><th>Reçu</th><th>Date</th><th>Projet</th><th>Moyen</th><th>Référence</th><th class="num">Montant</th><th class="actions"><span class="visually-hidden">Actions</span></th></tr>
             </thead>
             <tbody>
               <tr v-for="p in liste" :key="p.id">
                 <td class="principal"><strong class="adm-mono">{{ p.numero_recu || '—' }}</strong></td>
-                <td data-label="Date">{{ formatHeure(p.paye_le) }}</td>
-                <td data-label="Projet">
+                <td data-label="Date" class="pai-c-date">{{ formatHeure(p.paye_le) }}</td>
+                <td data-label="Projet" class="pai-c-projet">
                   <span class="pai-projet"><span>{{ p.projet_nom }}</span><small v-if="p.code_retrait" class="adm-mono">{{ p.code_retrait }}</small></span>
                 </td>
-                <td data-label="Moyen">
+                <td data-label="Moyen" class="pai-c-moyen">
                   <span v-if="MOYENS[p.moyen]" class="adm-badge sans-point pai-badge" :class="`pai-${p.moyen}`"><i :class="MOYENS[p.moyen].icone" aria-hidden="true"></i> {{ MOYENS[p.moyen].court }}</span>
                   <span v-else class="pai-muet">—</span>
                 </td>
-                <td data-label="Référence">
+                <td data-label="Référence" class="pai-c-ref">
                   <span v-if="p.reference" class="adm-mono">{{ p.reference }}</span>
                   <span v-else-if="p.moyen === 'especes'" class="pai-muet">reçu {{ formaterEuros(p.montant_recu) }} · rendu {{ formaterEuros(p.rendu || 0) }}</span>
                   <span v-else class="pai-muet">—</span>
                 </td>
-                <td data-label="Montant" class="num">
+                <td data-label="Montant" class="num pai-c-montant">
                   <strong>{{ formaterEuros(p.montant_devis) }}</strong>
                   <small v-if="p.lignes_manquantes?.length" class="pai-partiel" :title="p.lignes_manquantes.map((l) => l.libelle).join(', ')">partiel · {{ p.lignes_manquantes.length }} manquant{{ p.lignes_manquantes.length > 1 ? 's' : '' }}</small>
                 </td>
@@ -271,11 +280,19 @@ async function confirmerAnnulation() {
 
         <dl class="rev-chiffres">
           <div><dt>Dû au total</dt><dd>{{ formaterEuros(soldeBtm.du) }}</dd></div>
-          <div><dt>Déjà reversé</dt><dd>{{ formaterEuros(soldeBtm.reverse) }}</dd></div>
-          <div><dt>Reste à reverser</dt><dd>{{ formaterEuros(soldeBtm.reste) }}</dd></div>
+          <div><dt>Reçu par BTM</dt><dd>{{ formaterEuros(soldeBtm.reverse) }}</dd></div>
+          <div v-if="soldeBtm.recuDeBtm"><dt>Versé par BTM</dt><dd>{{ formaterEuros(soldeBtm.recuDeBtm) }}</dd></div>
+          <div v-if="soldeBtm.btmDoit"><dt>BTM vous doit</dt><dd>{{ formaterEuros(soldeBtm.btmDoit) }}</dd></div>
+          <div v-else><dt>Reste à reverser</dt><dd>{{ formaterEuros(soldeBtm.reste) }}</dd></div>
         </dl>
 
-        <form v-if="soldeBtm.reste > 0 && rib" id="form-reversement" class="adm-grille-form" novalidate @submit.prevent="declarer">
+        <!-- BTM vous doit de l'argent sans RIB pour le verser : le RIB se gère dans Mon compte -->
+        <p v-if="soldeBtm.btmDoit && !monRib" class="rev-monrib-ligne alerte">
+          <span>Ajoutez votre RIB pour que BTM vous verse {{ formaterEuros(soldeBtm.btmDoit) }}.</span>
+          <router-link to="/espace-fournisseur/compte?vue=rib" class="adm-btn adm-btn-noir adm-btn-sm">Ajouter mon RIB</router-link>
+        </p>
+
+        <form v-if="soldeBtm.aDeclarer > 0 && rib" id="form-reversement" class="adm-grille-form" novalidate @submit.prevent="declarer">
           <div class="adm-champ">
             <label for="rev-montant">Montant viré</label>
             <span class="adm-saisie-unite"><input id="rev-montant" v-model="reversement.montant" inputmode="decimal" /><span>€</span></span>
@@ -291,20 +308,23 @@ async function confirmerAnnulation() {
         <h3 class="rev-titre">Historique</h3>
         <ul v-if="reversements.length" class="rev-historique">
           <li v-for="r in reversements" :key="r.id">
-            <span class="rev-h-icone"><i class="fa-solid fa-check" aria-hidden="true"></i></span>
+            <span class="rev-h-icone"><i :class="{ valide: 'fa-solid fa-check', declare: 'fa-solid fa-hourglass-half', refuse: 'fa-solid fa-xmark' }[r.statut]" aria-hidden="true"></i></span>
             <span class="rev-h-texte">
               <strong>{{ formaterEuros(r.montant) }}</strong>
-              <small>{{ formatHeure(r.declare_le) }} · <span class="adm-mono">{{ r.reference }}</span></small>
+              <small>{{ formatHeure(r.declare_le) }} · <span class="adm-mono">{{ r.reference }}</span><template v-if="r.statut === 'refuse' && r.motif_refus"> · {{ r.motif_refus }}</template></small>
             </span>
-            <span class="adm-badge adm-badge-ok">Reversé</span>
+            <span v-if="r.sens === 'vers_fournisseur'" class="adm-badge adm-badge-ok">Versé par BTM</span>
+            <span v-else-if="r.statut === 'valide'" class="adm-badge adm-badge-ok">Versé à BTM</span>
+            <span v-else-if="r.statut === 'declare'" class="adm-badge adm-badge-attention">En vérification</span>
+            <span v-else class="adm-badge">Refusé</span>
           </li>
         </ul>
         <p v-else class="rev-vide">Aucun reversement pour le moment.</p>
       </div>
       <template #pied>
         <button type="button" class="adm-btn adm-btn-clair" @click="reversement = null">Fermer</button>
-        <button v-if="soldeBtm.reste > 0 && rib" type="submit" form="form-reversement" class="adm-btn adm-btn-noir" :disabled="reversement.envoi">
-          <span v-if="reversement.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> J’ai effectué le virement
+        <button v-if="soldeBtm.aDeclarer > 0 && rib" type="submit" form="form-reversement" class="adm-btn adm-btn-noir" :disabled="reversement.envoi">
+          <span v-if="reversement.envoi" class="spinner" aria-hidden="true"></span><i v-else class="fa-solid fa-check" aria-hidden="true"></i> Virement fait
         </button>
       </template>
     </AdminPanneau>
@@ -345,13 +365,13 @@ async function confirmerAnnulation() {
 .pai { display: flex; flex-direction: column; gap: 18px; }
 /* Reversement à BTM */
 .rev { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; padding: 18px 22px; }
-.rev-icone { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--adm-noir); color: #fff; font-size: 1.1rem; }
+.rev-icone { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border-radius: 14px; background: var(--adm-noir); color: var(--adm-sur-noir); font-size: 1.1rem; }
 .rev-texte { flex: 1 1 260px; display: flex; flex-direction: column; min-width: 0; }
 .rev-texte > span { color: var(--adm-encre-2); font-size: .86rem; }
 .rev-texte strong { font-size: 1.6rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .rev-texte small { color: var(--adm-muet); font-size: .8rem; }
 .rev-panneau { display: flex; flex-direction: column; gap: 18px; }
-.rev-rib { display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #0f172a 0%, #164e63 100%); }
+.rev-rib { display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 20px; color: #fff; background: linear-gradient(135deg, #0f172a 0%, #111111 100%); }
 .rev-rib-banque { font-size: .85rem; color: rgba(255, 255, 255, .75); }
 .rev-rib-banque i { margin-right: 6px; }
 .rev-rib-ligne { display: flex; align-items: center; gap: 12px; }
@@ -362,7 +382,7 @@ async function confirmerAnnulation() {
 .rev-ref { position: relative; display: flex; }
 .rev-ref input { flex: 1; padding-right: 48px !important; }
 .rev-ref .rev-copier { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: var(--adm-ligne-2); color: var(--adm-encre); }
-.rev-chiffres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.rev-chiffres { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 0; }
 .rev-chiffres div { padding: 12px 14px; border-radius: 14px; background: var(--adm-ligne-2); }
 .rev-chiffres dt { font-size: .76rem; color: var(--adm-muet); }
 .rev-chiffres dd { margin: 4px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -372,17 +392,19 @@ async function confirmerAnnulation() {
 .rev-historique { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
 .rev-historique li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--adm-ligne-2); }
 .rev-historique li:last-child { border-bottom: 0; }
-.rev-h-icone { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: #ecfdf5; color: #047857; }
+.rev-h-icone { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 10px; background: var(--adm-ok-fond); color: var(--adm-ok-texte); }
 .rev-h-texte { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .rev-h-texte small { color: var(--adm-muet); font-size: .8rem; }
 .rev-vide { margin: 0; color: var(--adm-muet); font-size: .88rem; }
+.rev-monrib-ligne { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-survol); font-size: .88rem; }
+.rev-monrib-ligne.alerte { background: var(--adm-attention-fond); color: var(--adm-attention-texte); }
 
 .pai-barre { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 
 .pai-totaux { display: grid; grid-template-columns: 1.3fr repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
 .pai-totaux > li { display: flex; }
-.pai-total-general { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; background: var(--adm-noir); color: #fff; }
-.pai-total-general span, .pai-total-general small { color: rgba(255, 255, 255, .6); font-size: .84rem; }
+.pai-total-general { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 18px 20px; background: var(--adm-noir); color: var(--adm-sur-noir); }
+.pai-total-general span, .pai-total-general small { color: color-mix(in srgb, currentColor 60%, transparent); font-size: .84rem; }
 .pai-total-general strong { font-size: 1.7rem; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
 .pai-moyen {
   flex: 1; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px; padding: 16px 18px; border: 0;
@@ -397,11 +419,11 @@ async function confirmerAnnulation() {
 .pai-projet small { color: var(--adm-muet); }
 .pai-muet { color: var(--adm-muet); font-size: .84rem; }
 .pai-badge i { font-size: .72rem; }
-.pai-carte { background: var(--adm-accent-doux); color: var(--lagon-800); box-shadow: inset 0 0 0 1px var(--lagon-200); }
-.pai-especes { background: #ecfdf5; color: #047857; box-shadow: inset 0 0 0 1px #a7f3d0; }
-.pai-virement { background: #f5f3ff; color: #6d28d9; box-shadow: inset 0 0 0 1px #ddd6fe; }
-.pai-cheque { background: #fffbeb; color: #b45309; box-shadow: inset 0 0 0 1px #fde68a; }
-.pai-partiel { display: block; color: #b45309; font-size: .75rem; }
+.pai-carte { background: var(--adm-accent-doux); color: var(--adm-info-texte); box-shadow: inset 0 0 0 1px var(--adm-info-bord); }
+.pai-especes { background: var(--adm-ok-fond); color: var(--adm-ok-texte); box-shadow: inset 0 0 0 1px var(--adm-ok-bord); }
+.pai-virement { background: var(--adm-violet-fond); color: var(--adm-violet-texte); box-shadow: inset 0 0 0 1px var(--adm-violet-bord); }
+.pai-cheque { background: var(--adm-attention-fond); color: var(--adm-attention-texte); box-shadow: inset 0 0 0 1px var(--adm-attention-bord); }
+.pai-partiel { display: block; color: var(--adm-attention-texte); font-size: .75rem; }
 .pai-pied { color: var(--adm-muet); font-size: .84rem; }
 .adm-table tfoot td { padding: 14px 16px; border-top: 1px solid var(--adm-ligne); }
 
@@ -409,8 +431,8 @@ async function confirmerAnnulation() {
 .pai-journal { margin: 0; padding: 8px 18px 14px; list-style: none; }
 .pai-journal li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 14px; padding: 14px 4px; border-top: 1px solid var(--adm-ligne-2); }
 .pai-journal li:first-child { border-top: 0; }
-.pai-journal-icone { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: #d1fae5; color: #047857; font-size: .85rem; }
-.pai-journal li.annulation .pai-journal-icone { background: #fff1f2; color: var(--adm-baisse); }
+.pai-journal-icone { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--adm-ok-fond); color: var(--adm-ok-texte); font-size: .85rem; }
+.pai-journal li.annulation .pai-journal-icone { background: var(--adm-danger-fond); color: var(--adm-baisse); }
 .pai-journal-texte { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pai-journal-texte p { margin: 0; font-size: .92rem; }
 .pai-journal-texte small { color: var(--adm-muet); font-size: .8rem; }
@@ -423,8 +445,64 @@ async function confirmerAnnulation() {
 .pai-annulation-recap div { padding: 10px 12px; border-radius: 12px; background: var(--adm-ligne-2); }
 .pai-annulation-recap dt { font-size: .76rem; color: var(--adm-muet); }
 .pai-annulation-recap dd { margin: 2px 0 0; font-weight: 600; font-size: .9rem; }
-.pai-rappel { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #fffbeb; color: #92400e; font-size: .86rem; line-height: 1.45; }
+.pai-rappel { display: flex; gap: 8px; margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--adm-attention-fond); color: var(--adm-attention-texte-2); font-size: .86rem; line-height: 1.45; }
 .pai-rappel i { margin-top: 3px; }
 
 @media (max-width: 1100px) { .pai-totaux { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pai-totaux > li:first-child { grid-column: 1 / -1; } }
+
+/* Tablette et téléphone : le tableau à 7 colonnes devient une liste de cartes */
+@media (max-width: 1023px) {
+  .pai-table, .pai-table tbody { display: block; }
+  .pai-table thead { display: none; }
+  .pai-table tbody tr { border-bottom: 1px solid var(--adm-ligne); }
+  .pai-table tbody tr:last-child { border-bottom: 0; }
+  .pai-table tfoot { display: block; border-top: 1px solid var(--adm-ligne); }
+  /* Un encaissement = une carte de 4 lignes : reçu et montant, projet, date et référence, moyen et actions */
+  .pai-table tbody tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'recu montant' 'projet projet' 'date ref' 'moyen actions';
+    align-items: center; gap: 2px 12px; padding: 12px 14px;
+  }
+  .pai-table tbody td { display: block; padding: 0; border: 0; text-align: left; }
+  .pai-table tbody td[data-label]::before { display: none; }
+  .pai-table td.principal { grid-area: recu; padding: 0; }
+  .pai-c-montant { grid-area: montant; text-align: right !important; }
+  .pai-c-montant strong { font-size: 1.05rem; }
+  .pai-c-projet { grid-area: projet; font-weight: 600; }
+  .pai-c-projet small { display: none; }
+  .pai-c-date { grid-area: date; color: var(--adm-muet); font-size: .8rem; }
+  .pai-c-ref { grid-area: ref; justify-self: end; max-width: 100%; overflow: hidden; color: var(--adm-muet); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+  .pai-c-moyen { grid-area: moyen; margin-top: 6px; }
+  .pai-table td.actions { grid-area: actions; display: flex; gap: 2px; margin-top: 6px; padding: 0; }
+  .pai-table tfoot tr { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; }
+  .pai-table tfoot td { display: block; padding: 0; border: 0; }
+  .pai-table tfoot td:empty { display: none; }
+}
+
+/* ---------- Téléphone ---------- */
+@media (max-width: 767px) {
+  .pai { gap: 14px; }
+  .rev { gap: 12px 14px; padding: 16px; }
+  .rev-icone { width: 42px; height: 42px; border-radius: 12px; }
+  .rev-texte { flex: 1 1 0; }
+  .rev-texte strong { font-size: 1.4rem; }
+  .rev > .adm-btn { flex: 1 1 100%; }
+  .pai-barre { gap: 10px; }
+  .pai-barre > .adm-segments { flex: 1 1 auto; }
+  .pai-barre > .adm-segments button { flex: 1; justify-content: center; }
+  .pai-barre > .adm-btn { flex: 1 1 100%; }
+  .pai-totaux { gap: 8px; }
+  .pai-total-general { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 10px; padding: 14px 16px; }
+  .pai-total-general span { flex: 1 1 100%; }
+  .pai-total-general strong { font-size: 1.5rem; }
+  .pai-moyen { gap: 2px; padding: 10px 14px; }
+  .pai-moyen span { font-size: .78rem; }
+  .pai-moyen strong { font-size: 1rem; }
+
+  .pai-info { margin: 14px 14px 4px; }
+  .pai-journal { padding: 6px 14px 12px; }
+  .pai-journal li { gap: 10px; padding: 12px 0; }
+  .rev-chiffres { grid-template-columns: 1fr; }
+  .rev-chiffres div { display: flex; justify-content: space-between; align-items: baseline; }
+  .pai-annulation-recap { grid-template-columns: 1fr; }
+}
 </style>

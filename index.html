@@ -2,13 +2,65 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-    <meta name="theme-color" content="#0e7490" />
-    <meta name="description" content="BTM — Obtenez gratuitement le devis de votre projet BTP en 2 minutes avec les vrais fournisseurs de Mayotte. Calculateur mur, dalle, fondation, terrasse, carrelage et annuaire des fournisseurs locaux." />
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#0d0d0d" />
+    <meta name="description" content="BTM — Estimez gratuitement les matériaux de votre projet BTP en 2 minutes et comparez les fournisseurs de Mayotte. Calculateur mur, dalle, fondation, terrasse, carrelage et annuaire des fournisseurs locaux." />
+    <link rel="icon" href="/favicon.png?v=2" type="image/png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icone-iphone.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content="BTM" />
+    <meta name="application-name" content="BTM" />
     <title>BTM — Bâtiment & Travaux Mayotte</title>
+    <script src="/theme.js"></script>
+    <!-- Écran de chargement : affiché dès le premier octet, retiré quand la première page est prête (useEcranChargement.js) -->
+    <link rel="preload" as="image" href="/apple-touch-icon.png" />
+    <style>
+      /* Écran de lancement (téléphone) : fond noir, le « b » du logo se remplit de bas en haut au rythme du
+         chargement réel du site (--p, de 0 à 1, posé par ecran-chargement.js), puis grandit un peu et s'efface. */
+      #ecran-chargement {
+        position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; background: #0d0d0d;
+        transition: opacity .7s cubic-bezier(.4, 0, .2, 1), visibility .7s;
+      }
+      #ecran-chargement.fini { opacity: 0; visibility: hidden; pointer-events: none; }
+      /* écran réservé au téléphone (même seuil que l'accueil, SectionHero.vue) : ordinateur et tablette ne l'affichent jamais */
+      @media (min-width: 640px) { #ecran-chargement { display: none; } }
+      /* Sécurité : quoi qu'il arrive au script, l'écran s'efface seul au bout de 9 s */
+      #ecran-chargement { animation: ecran-secours .6s 9s forwards; }
+      @keyframes ecran-secours { to { opacity: 0; visibility: hidden; } }
+      /* pas de barre de défilement derrière l'écran de chargement */
+      html.chargement, html.chargement body { overflow: hidden; scrollbar-width: none; }
+      html.chargement::-webkit-scrollbar, html.chargement body::-webkit-scrollbar { display: none; }
+
+      #ecran-chargement .logo { position: relative; width: 84px; height: 84px; transition: transform .7s cubic-bezier(.22, 1, .36, 1); }
+      #ecran-chargement .logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+      /* le logo en filigrane, puis le même logo, plein, découvert de bas en haut */
+      #ecran-chargement .logo .ombre { opacity: .14; }
+      #ecran-chargement .logo .plein {
+        clip-path: inset(calc((1 - var(--p, 0)) * 100%) 0 0 0);
+        transition: clip-path .45s cubic-bezier(.22, 1, .36, 1);
+      }
+      /* lueur crème qui respire derrière le logo pendant l'attente */
+      #ecran-chargement .logo::before {
+        content: ""; position: absolute; inset: -60%; border-radius: 50%;
+        background: radial-gradient(closest-side, rgb(244 233 219 / .12), rgb(244 233 219 / 0));
+        animation: respire 2.4s ease-in-out infinite;
+      }
+      @keyframes respire { 50% { transform: scale(1.15); opacity: .55; } }
+      #ecran-chargement.fini .logo { transform: scale(1.12); }
+      @media (prefers-reduced-motion: reduce) {
+        #ecran-chargement .logo::before { animation: none; }
+        #ecran-chargement .logo, #ecran-chargement .logo .plein { transition: none; }
+      }
+    </style>
   </head>
   <body>
+    <div id="ecran-chargement" role="status" aria-label="Chargement de BTM">
+      <div class="logo" aria-hidden="true">
+        <img class="ombre" src="/apple-touch-icon.png" alt="" />
+        <img class="plein" src="/apple-touch-icon.png" alt="" />
+      </div>
+    </div>
+    <script src="/ecran-chargement.js"></script>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

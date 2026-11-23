@@ -243,6 +243,34 @@ onBeforeUnmount(() => {
   canal?.fermer()
 })
 
+// ---------- Téléphone : plein écran, comme une messagerie ----------
+// La discussion occupe la zone visible (visualViewport) : clavier ouvert, la saisie reste juste au-dessus de lui.
+// La page derrière ne défile pas tant que la discussion est ouverte en grand.
+const racine = ref(null)
+const requeteTelephone = window.matchMedia('(max-width: 640px)')
+const telephone = ref(requeteTelephone.matches)
+const surTaille = (e) => { telephone.value = e.matches }
+function suivreZone() {
+  const vv = window.visualViewport
+  if (!vv || !racine.value) return
+  racine.value.style.setProperty('--zone-visible', `${Math.round(vv.height)}px`)
+  racine.value.style.setProperty('--zone-haut', `${Math.round(vv.offsetTop)}px`)
+  if (telephone.value && !minimise.value) defiler()
+}
+watch([telephone, minimise], ([tel, mini]) => document.documentElement.classList.toggle('ac-plein-ecran', tel && !mini), { immediate: true })
+onMounted(() => {
+  requeteTelephone.addEventListener('change', surTaille)
+  window.visualViewport?.addEventListener('resize', suivreZone)
+  window.visualViewport?.addEventListener('scroll', suivreZone)
+  suivreZone()
+})
+onBeforeUnmount(() => {
+  requeteTelephone.removeEventListener('change', surTaille)
+  window.visualViewport?.removeEventListener('resize', suivreZone)
+  window.visualViewport?.removeEventListener('scroll', suivreZone)
+  document.documentElement.classList.remove('ac-plein-ecran')
+})
+
 /** Connexion pendant que la fenêtre est ouverte : affiche la discussion du compte (sa discussion en cours y est déjà rattachée) */
 async function reprendre() {
   if (serveur.value.id || !conversationGardee()) return
@@ -255,7 +283,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 </script>
 
 <template>
-  <aside class="ac" :class="{ minimise }" aria-label="Discussion avec l’assistance BTM">
+  <aside ref="racine" class="ac" :class="{ minimise }" aria-label="Discussion avec l’assistance BTM">
     <header class="ac-barre" :class="`ac-barre-${interlocuteur}`">
       <!-- profil de la conversation : un clic sur l'avatar ouvre ses options -->
       <div ref="menu" class="ac-profil">
@@ -265,7 +293,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         </button>
         <div v-if="menuOuvert" id="ac-options" class="ac-options">
           <p class="ac-options-qui"><strong>{{ titre }}</strong><small>{{ sousTitre }}</small></p>
-          <button v-if="!devisActif && !cloturee" type="button" @click="menuOuvert = false; demarrerDevis()"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire un devis avec Tamilya</button>
+          <button v-if="!devisActif && !cloturee" type="button" @click="menuOuvert = false; demarrerDevis()"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire une estimation avec Tamilya</button>
           <button v-if="!chezConseiller && !cloturee" type="button" @click="passerConseiller"><i class="fa-solid fa-headset" aria-hidden="true"></i> Parler à un conseiller</button>
           <button v-if="peutRecommencer" type="button" @click="recommencer"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Nouvelle discussion</button>
           <button type="button" @click="menuOuvert = false; minimise = true"><i class="fa-solid fa-minus" aria-hidden="true"></i> Réduire la fenêtre</button>
@@ -317,10 +345,10 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
             <div v-if="dernierDevis && m.id === dernierDevis.idMessage" class="ac-choix ac-devis-actions">
               <button type="button" @click="pdfDevis('visualiser')"><i class="fa-regular fa-file-pdf" aria-hidden="true"></i>Voir le PDF</button>
               <button type="button" @click="pdfDevis('telecharger')"><i class="fa-solid fa-download" aria-hidden="true"></i>Télécharger</button>
-              <button type="button" @click="ouvrirDevis(); minimise = true"><i class="fa-solid fa-list-check" aria-hidden="true"></i>Devis complet</button>
+              <button type="button" @click="ouvrirDevis(); minimise = true"><i class="fa-solid fa-list-check" aria-hidden="true"></i>Estimation complète</button>
               <router-link v-if="dernierDevis.dansCompte" to="/dashboard" @click="minimise = true"><i class="fa-solid fa-folder-open" aria-hidden="true"></i>Mes projets</router-link>
               <button v-else type="button" @click="ouvrirAuth('connexion', { redirect: '/dashboard' }); minimise = true"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i>Me connecter</button>
-              <button type="button" @click="demarrerDevis()"><i class="fa-solid fa-plus" aria-hidden="true"></i>Autre devis</button>
+              <button type="button" @click="demarrerDevis()"><i class="fa-solid fa-plus" aria-hidden="true"></i>Autre estimation</button>
             </div>
           </div>
         </template>
@@ -330,7 +358,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
           <button v-for="c in choixDevis" :key="c.label" type="button" @click="choisirDevis(c)">
             <i v-if="c.icone" :class="c.icone" aria-hidden="true"></i>{{ c.label }}
           </button>
-          <button type="button" class="ac-choix-discret" @click="annulerDevis">Annuler le devis</button>
+          <button type="button" class="ac-choix-discret" @click="annulerDevis">Annuler l’estimation</button>
         </div>
 
         <div v-if="conseillerEcrit && chezConseiller && !envoi" class="ac-ligne conseiller">
@@ -375,19 +403,19 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 
 <style scoped>
 .ac {
-  position: fixed; right: 24px; bottom: 24px; z-index: 220; display: flex; flex-direction: column; width: min(390px, calc(100vw - 32px));
+  position: fixed; right: 24px; bottom: calc(24px + var(--barre-onglets, 0px)); z-index: 220; display: flex; flex-direction: column; width: min(390px, calc(100vw - 32px));
   max-height: min(640px, calc(100dvh - 48px)); overflow: hidden; border: 1px solid rgba(15, 23, 42, .12); border-radius: 18px;
-  background: #fff; box-shadow: 0 18px 42px rgba(0,0,0,.28); animation: ac-apparaitre .24s ease both;
+  background: var(--carte); box-shadow: 0 18px 42px rgba(0,0,0,.28); animation: ac-apparaitre .24s ease both;
 }
 .ac.minimise { width: min(320px, calc(100vw - 32px)); }
-.ac-barre { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; background: var(--lagon-600); color: #fff; }
-.ac-barre-tamilya { background: #c026d3; }
-.ac-barre-conseiller { background: var(--ardoise); }
+.ac-barre { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; background: #111; color: #fff; }
+.ac-barre-tamilya { background: linear-gradient(120deg, #171717, #111111); } /* bandeau toujours foncé, texte blanc */
+.ac-barre-conseiller { background: var(--encre); }
 .ac-profil { position: relative; flex: none; }
 .ac-barre .ac-avatar { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); transition: background .15s, box-shadow .15s; }
 .ac-barre .ac-avatar:hover, .ac-barre .ac-avatar[aria-expanded="true"] { background: rgba(255,255,255,.3); box-shadow: 0 0 0 2px rgba(255,255,255,.55); }
-.ac-avatar-fleche { position: absolute; right: -3px; bottom: -3px; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%; background: #fff; color: var(--ardoise-2); font-size: .5rem; }
-.ac-options { position: absolute; top: calc(100% + 8px); left: 0; z-index: 2; display: flex; flex-direction: column; width: 240px; padding: 6px; border: 1px solid var(--gris-200); border-radius: 14px; background: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.22); animation: ac-apparaitre .16s ease both; }
+.ac-avatar-fleche { position: absolute; right: -3px; bottom: -3px; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%; background: var(--carte); color: var(--ardoise-2); font-size: .5rem; }
+.ac-options { position: absolute; top: calc(100% + 8px); left: 0; z-index: 2; display: flex; flex-direction: column; width: 240px; padding: 6px; border: 1px solid var(--gris-200); border-radius: 14px; background: var(--carte); box-shadow: 0 12px 28px rgba(15,23,42,.22); animation: ac-apparaitre .16s ease both; }
 .ac-options-qui { display: flex; flex-direction: column; margin: 0 0 4px; padding: 8px 10px 10px; border-bottom: 1px solid var(--gris-200); line-height: 1.3; }
 .ac-options-qui strong { color: var(--ardoise-2); font-size: .86rem; }
 .ac-options-qui small { color: var(--texte-secondaire); font-size: .72rem; }
@@ -405,45 +433,71 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-ligne.client { align-self: flex-end; align-items: flex-end; }
 .ac-qui { display: flex; align-items: center; gap: 6px; margin: 0 0 3px 4px; color: var(--texte-secondaire); font-size: .72rem; font-weight: 700; }
 .ac-qui em { padding: 0 6px; border-radius: 999px; background: var(--lagon-100); color: var(--lagon-800); font-size: .62rem; font-style: normal; }
-.ac-ligne.conseiller .ac-qui em { background: var(--ardoise); color: #fde68a; }
-.ac-bulle { margin: 0; padding: 10px 13px; border-radius: 14px 14px 14px 4px; background: #fff; color: var(--ardoise-2); font-size: .86rem; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
-.ac-ligne.client .ac-bulle { border-radius: 14px 14px 4px 14px; background: var(--lagon-600); color: #fff; }
-.ac-ligne.conseiller .ac-bulle { border: 1px solid #fde68a; background: #fffbeb; }
+.ac-ligne.conseiller .ac-qui em { background: var(--encre); color: #fde68a; }
+.ac-bulle { margin: 0; padding: 10px 13px; border-radius: 14px 14px 14px 4px; background: var(--carte); color: var(--ardoise-2); font-size: .86rem; line-height: 1.5; white-space: pre-line; box-shadow: 0 1px 2px rgba(15,23,42,.06); }
+.ac-ligne.client .ac-bulle { border-radius: 14px 14px 4px 14px; background: var(--lagon-600); color: var(--sur-primaire); }
+.ac-ligne.conseiller .ac-bulle { border: 1px solid var(--alerte-bord); background: var(--alerte-fond); }
 .ac-bulle.provisoire { opacity: .6; }
 .ac-heure { margin: 2px 6px 0; color: var(--gris-400); font-size: .66rem; }
 .ac-vu.lu { color: var(--lagon-600); font-weight: 700; }
 .ac-lien { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0 4px; color: var(--lagon-700); font-size: .82rem; font-weight: 700; }
 .ac-choix { display: flex; flex-wrap: wrap; gap: 6px; }
-.ac-choix button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: #fff; color: var(--lagon-800); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
+.ac-choix button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: var(--carte); color: var(--lagon-800); font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; transition: background .15s, border-color .15s; }
 .ac-choix button:hover:not(:disabled) { border-color: var(--lagon-500); background: var(--lagon-50); }
-.ac-choix a { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: #fff; color: var(--lagon-800); font-size: .8rem; font-weight: 600; }
+.ac-choix a { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1.5px solid var(--lagon-200); border-radius: 999px; background: var(--carte); color: var(--lagon-800); font-size: .8rem; font-weight: 600; }
 .ac-choix a:hover { border-color: var(--lagon-500); background: var(--lagon-50); }
 .ac-choix .ac-choix-discret { border-color: transparent; background: transparent; color: var(--texte-secondaire); font-weight: 500; }
 .ac-devis-actions { margin-top: 8px; }
 .ac-systeme { align-self: center; max-width: 92%; margin: 2px 0; color: var(--texte-secondaire); font-size: .74rem; text-align: center; }
-.ac-ecrit { display: flex; gap: 4px; align-self: flex-start; margin: 0; padding: 12px 14px; border-radius: 14px; background: #fff; }
+.ac-ecrit { display: flex; gap: 4px; align-self: flex-start; margin: 0; padding: 12px 14px; border-radius: 14px; background: var(--carte); }
 .ac-ecrit span { width: 6px; height: 6px; border-radius: 50%; background: var(--gris-400); animation: ac-points 1s infinite; }
 .ac-ecrit span:nth-child(2) { animation-delay: .15s; }
 .ac-ecrit span:nth-child(3) { animation-delay: .3s; }
-.ac-coord { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid #fde68a; border-radius: 14px; background: #fffbeb; }
-.ac-coord p { margin: 0; color: #78350f; font-size: .8rem; line-height: 1.45; }
+.ac-coord { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--alerte-bord); border-radius: 14px; background: var(--alerte-fond); }
+.ac-coord p { margin: 0; color: var(--alerte-texte); font-size: .8rem; line-height: 1.45; }
 .ac-coord input { min-height: 38px; padding: 0 12px; border: 1px solid var(--gris-300); border-radius: 10px; font: inherit; font-size: .84rem; }
 .ac-coord > div { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.ac-erreur { display: flex; gap: 6px; margin: 0; padding: 8px 14px; background: #fff1f2; color: var(--erreur); font-size: .78rem; }
-.ac-cloture { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px; border-top: 1px solid var(--gris-200); background: #fff; text-align: center; }
+.ac-erreur { display: flex; gap: 6px; margin: 0; padding: 8px 14px; background: var(--erreur-fond); color: var(--erreur); font-size: .78rem; }
+.ac-cloture { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px; border-top: 1px solid var(--gris-200); background: var(--carte); text-align: center; }
 .ac-cloture p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ardoise-2); font-size: .84rem; font-weight: 600; }
 .ac-cloture p i { color: #047857; }
 .ac-cloture small { color: var(--texte-secondaire); font-size: .76rem; }
-.ac-mention { margin: 0; padding: 4px 10px 8px; background: #fff; color: var(--gris-500); font-size: .7rem; text-align: center; }
+.ac-mention { margin: 0; padding: 4px 10px 8px; background: var(--carte); color: var(--gris-500); font-size: .7rem; text-align: center; }
 .ac-mention a { color: inherit; text-decoration: underline; }
-.ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: #fff; }
+.ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: var(--carte); }
 .ac-saisie input { min-width: 0; flex: 1; min-height: 40px; padding: 0 12px; border: 1px solid var(--gris-200); border-radius: 999px; outline: 0; font: inherit; font-size: .86rem; }
 .ac-saisie input:focus { border-color: var(--lagon-500); }
-.ac-saisie button { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--lagon-600); color: #fff; cursor: pointer; }
+.ac-saisie button { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--lagon-600); color: var(--sur-primaire); cursor: pointer; }
 .ac-saisie button:disabled { opacity: .45; cursor: default; }
 .ac-lien-bouton { display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; color: var(--lagon-700); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
 .ac-lien-bouton:hover { text-decoration: underline; text-underline-offset: 3px; }
 @keyframes ac-apparaitre { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 @keyframes ac-points { 0%, 60%, 100% { opacity: .3; } 30% { opacity: 1; } }
-@media (max-width: 640px) { .ac { right: 12px; bottom: 12px; width: calc(100vw - 24px); max-height: calc(100dvh - 24px); } }
+/* ---------- Téléphone : plein écran, comme une messagerie ----------
+   La discussion recouvre tout (en-tête et onglets compris) et suit la zone visible : le clavier ne cache jamais la saisie. */
+@media (max-width: 640px) {
+  .ac {
+    top: var(--zone-haut, 0px); right: 0; bottom: auto; left: 0; width: 100%; height: var(--zone-visible, 100dvh); max-height: none;
+    border: 0; border-radius: 0; box-shadow: none; animation: ac-monter .28s cubic-bezier(.22, 1, .36, 1) both;
+  }
+  .ac-barre { gap: 12px; padding: calc(10px + env(safe-area-inset-top)) 8px 10px 14px; }
+  .ac-barre .ac-avatar { width: 40px; height: 40px; }
+  .ac-titre strong { font-size: 1rem; }
+  .ac-barre button { width: 40px; height: 40px; border-radius: 50%; font-size: 1.05rem; }
+  .ac-messages { gap: 12px; min-height: 0; padding: 18px 14px 12px; overscroll-behavior: contain; }
+  .ac-ligne { max-width: 84%; }
+  .ac-bulle { padding: 11px 14px; border-radius: 18px 18px 18px 6px; font-size: .95rem; }
+  .ac-ligne.client .ac-bulle { border-radius: 18px 18px 6px 18px; }
+  .ac-choix { gap: 8px; }
+  .ac-choix button, .ac-choix a { min-height: 40px; padding: 9px 14px; font-size: .88rem; }
+  .ac-saisie { gap: 10px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); }
+  /* 16 px : sous cette taille, l'iPhone zoome toute la page quand on touche le champ */
+  .ac-saisie input { min-height: 46px; padding: 0 16px; background: var(--gris-50); font-size: 1rem; }
+  .ac-saisie button { width: 46px; height: 46px; }
+  .ac-coord input { min-height: 44px; font-size: 1rem; }
+  /* réduite : une barre au-dessus des onglets, la page reste utilisable */
+  .ac.minimise { top: auto; right: 12px; bottom: calc(12px + var(--barre-onglets, 0px)); left: 12px; width: auto; height: auto; border-radius: 18px; box-shadow: 0 12px 30px rgba(0, 0, 0, .3); }
+  .ac.minimise .ac-barre { padding-top: 10px; }
+}
+@keyframes ac-monter { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 </style>

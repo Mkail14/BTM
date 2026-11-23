@@ -6,21 +6,21 @@
 import { livrerPdf } from './livrerPdf.js'
 import { formaterEuros, formaterNombre, formaterQuantite, lignesMurs, detailPrix } from '@/services/calculs/moteurCalculs.js'
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
-
-const LAGON = [8, 145, 178]
-const OCEAN = [11, 58, 77]
-const GRIS = [100, 116, 139]
-const LAGON_CLAIR = [236, 254, 255]
+import { NOIR, CREME, CREME_CLAIR, GRIS, chargerLogo, dessinerLogo } from './charte.js'
 
 // Les polices standard de jsPDF ne connaissent pas les espaces insécables fines du format français
 const propre = (texte) => String(texte).replace(/[  ]/g, ' ').replace(/−/g, '-') // « − » des réductions : absent de la police non plus
 const euros = (n) => propre(formaterEuros(n))
 const nombre = (n, d) => propre(formaterNombre(n, d))
 
-/** @param {string} [code] code de retrait du projet enregistré (présenté au fournisseur pour retirer et payer) */
-export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }, mode = 'telecharger') {
+/**
+ * @param {string} [code] code de retrait du projet enregistré (présenté au fournisseur pour retirer et payer)
+ * @param {number} [credit] crédit fidélité que le client a choisi d'utiliser : déduit du total
+ */
+export async function exporterEstimationPdf({ nom, resultat, fournisseur, code, credit = 0 }, mode = 'telecharger') {
   const { jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
+  const logo = await chargerLogo()
 
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const largeur = doc.internal.pageSize.getWidth()
@@ -29,10 +29,10 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   const type = trouverTypeProjet(resultat.type)
   const libelle = type?.libelle || resultat.typeLibelle
   const date = new Date(resultat.calculeLe || Date.now()).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-  const tableau = { margin: { left: marge, right: marge }, styles: { fontSize: 9.5, cellPadding: 2.6 }, headStyles: { fillColor: LAGON, textColor: 255, fontStyle: 'bold' } }
+  const tableau = { margin: { left: marge, right: marge }, styles: { fontSize: 9.5, cellPadding: 2.6 }, headStyles: { fillColor: NOIR, textColor: CREME, fontStyle: 'bold' } }
 
   function titreSection(texte, y) {
-    doc.setTextColor(...OCEAN)
+    doc.setTextColor(...NOIR)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12.5)
     doc.text(texte, marge, y)
@@ -40,40 +40,42 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   }
 
   // ---- En-tête
-  doc.setFillColor(...OCEAN)
-  doc.rect(0, 0, largeur, 30, 'F')
-  doc.setFillColor(...LAGON)
-  doc.rect(0, 30, largeur, 2, 'F')
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(20)
-  doc.text('BTM', marge, 14)
+  doc.setFillColor(...NOIR)
+  doc.rect(0, 0, largeur, 32, 'F')
+  doc.setFillColor(...CREME)
+  doc.rect(0, 32, largeur, 1.2, 'F')
+  doc.setTextColor(...CREME)
+  if (!dessinerLogo(doc, logo, marge, 5, 13)) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(20)
+    doc.text('BTM', marge, 14)
+  }
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9.5)
   if (code) {
-    // Code de retrait : encadré blanc à droite de l'en-tête, lisible d'un coup d'œil au comptoir
-    doc.text(`Bâtiment & Travaux Mayotte · Devis du ${date}`, marge, 21)
-    doc.setFillColor(255, 255, 255)
-    doc.roundedRect(largeur - marge - 56, 6, 56, 19, 2.5, 2.5, 'F')
+    // Code de retrait : encadré crème à droite de l'en-tête, lisible d'un coup d'œil au comptoir
+    doc.text(`Bâtiment & Travaux Mayotte · Estimation du ${date}`, marge, 25.5)
+    doc.setFillColor(...CREME)
+    doc.roundedRect(largeur - marge - 56, 6.5, 56, 19, 2.5, 2.5, 'F')
     doc.setTextColor(...GRIS)
     doc.setFontSize(7.5)
-    doc.text('CODE DE RETRAIT', largeur - marge - 28, 11.5, { align: 'center' })
-    doc.setTextColor(...OCEAN)
+    doc.text('CODE DE RETRAIT', largeur - marge - 28, 12, { align: 'center' })
+    doc.setTextColor(...NOIR)
     doc.setFont('courier', 'bold')
     doc.setFontSize(17)
-    doc.text(code, largeur - marge - 28, 20.5, { align: 'center' })
+    doc.text(code, largeur - marge - 28, 21, { align: 'center' })
     doc.setFont('helvetica', 'normal')
   } else {
-    doc.text('Bâtiment & Travaux Mayotte', marge, 21)
-    doc.text(`Devis du ${date}`, largeur - marge, 21, { align: 'right' })
+    doc.text('Bâtiment & Travaux Mayotte', marge, 25.5)
+    doc.text(`Estimation du ${date}`, largeur - marge, 25.5, { align: 'right' })
   }
 
   // ---- Titre
-  let y = 45
-  doc.setTextColor(...OCEAN)
+  let y = 46
+  doc.setTextColor(...NOIR)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.text(nom || `Devis — ${libelle}`, marge, y)
+  doc.text(nom || `Estimation — ${libelle}`, marge, y)
   const principale = resultat.mesures?.find((m) => m.principale)
   const nbMurs = (resultat.dimensions?.autresMurs?.length || 0) + 1
   y += 6.5
@@ -86,23 +88,24 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   y += 8
   // Matériaux (+ frais de service BTM pour les devis récents)
   const detail = detailPrix(resultat).map((l) => [propre(l.label), euros(l.valeur)])
+  if (credit > 0) detail.push(['Crédit fidélité BTM', euros(-credit)])
   const hauteurPrix = 25 + detail.length * 6.5
-  doc.setFillColor(...LAGON_CLAIR)
+  doc.setFillColor(...CREME_CLAIR)
   doc.roundedRect(marge, y, utile, hauteurPrix, 3, 3, 'F')
-  doc.setTextColor(...OCEAN)
+  doc.setTextColor(...NOIR)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.text('Coût total', marge + 7, y + 10)
   doc.setFontSize(24)
-  doc.setTextColor(...LAGON)
-  doc.text(euros(resultat.total), largeur - marge - 7, y + 12, { align: 'right' })
+  doc.setTextColor(...NOIR)
+  doc.text(euros(resultat.total - credit), largeur - marge - 7, y + 12, { align: 'right' })
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   detail.forEach(([label, valeur], i) => {
     const ly = y + 22 + i * 6.5
     doc.setTextColor(...GRIS)
     doc.text(label, marge + 7, ly)
-    doc.setTextColor(...OCEAN)
+    doc.setTextColor(...NOIR)
     doc.text(valeur, largeur - marge - 7, ly, { align: 'right' })
   })
   y += hauteurPrix + 11
@@ -131,7 +134,7 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
     body: resultat.lignes.map((l) => [l.libelle, propre(formaterQuantite(l.quantite, l.unite)), `${euros(l.prixUnitaire)} / ${l.unite === 'u' ? 'unité' : l.unite}`, euros(l.sousTotal)]),
     foot: [['Total matériaux', '', '', euros(resultat.totalMateriaux)]],
     theme: 'striped',
-    footStyles: { fillColor: LAGON_CLAIR, textColor: OCEAN, fontStyle: 'bold' },
+    footStyles: { fillColor: CREME_CLAIR, textColor: NOIR, fontStyle: 'bold' },
     columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right', fontStyle: 'bold' } }
   })
   y = doc.lastAutoTable.finalY + 11
@@ -161,16 +164,17 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   if (fournisseur) {
     if (y > 240) { doc.addPage(); y = 20 }
     y = titreSection('Où acheter', y) + 2
-    doc.setFillColor(...LAGON_CLAIR)
+    doc.setFillColor(...CREME_CLAIR)
     doc.roundedRect(marge, y, utile, 24, 3, 3, 'F')
-    doc.setTextColor(...OCEAN)
+    doc.setTextColor(...NOIR)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10.5)
     doc.text(`${fournisseur.nom} — ${fournisseur.categorie}`, marge + 6, y + 8)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9.5)
     doc.text(`${fournisseur.adresse || fournisseur.commune}`, marge + 6, y + 14)
-    doc.text(`Tél. ${fournisseur.telephone}${fournisseur.site_web ? '   •   ' + fournisseur.site_web.replace(/^https?:\/\//, '') : ''}`, marge + 6, y + 19.5)
+    const contact = [fournisseur.telephone && `Tél. ${fournisseur.telephone}`, fournisseur.site_web?.replace(/^https?:\/\//, '')]
+    doc.text(fournisseur.demonstration ? "Fournisseur fictif : prix d'exemple" : contact.filter(Boolean).join('   •   '), marge + 6, y + 19.5)
     y += 34
   }
 
@@ -178,13 +182,13 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
   if (y > 260) { doc.addPage(); y = 20 }
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
-  doc.setTextColor(...OCEAN)
+  doc.setTextColor(...NOIR)
   doc.text('Base de calcul', marge, y)
   y += 4.5
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(...GRIS)
-  const retrait = code ? ` Pour retirer vos matériaux, présentez le code ${code} au fournisseur : il retrouve ce devis et vous remet un reçu numéroté.` : ' Enregistrez ce projet sur BTM pour obtenir un code de retrait à présenter au fournisseur.'
-  doc.text(doc.splitTextToSize(`Prix TTC, hors terrassement et études. ${type?.hypotheses || ''}${retrait}`, utile), marge, y)
+  const retrait = code ? ` Pour retirer vos matériaux, présentez le code ${code} au fournisseur : il retrouve cette estimation et vous remet un reçu numéroté.` : ' Enregistrez ce projet sur BTM pour obtenir un code de retrait à présenter au fournisseur.'
+  doc.text(doc.splitTextToSize(`Estimation indicative et non contractuelle (ce n'est pas un devis) : prix TTC des matériaux seuls, hors main-d'oeuvre, livraison, coffrage, terrassement et études. Faites valider les quantités par un professionnel avant d'acheter. ${type?.hypotheses || ''}${retrait}`, utile), marge, y)
 
   // ---- Pied de page
   const pages = doc.internal.getNumberOfPages()
@@ -192,9 +196,9 @@ export async function exporterEstimationPdf({ nom, resultat, fournisseur, code }
     doc.setPage(i)
     doc.setFontSize(8)
     doc.setTextColor(...GRIS)
-    doc.text(`BTM — devis — page ${i}/${pages}`, largeur / 2, 290, { align: 'center' })
+    doc.text(`BTM — estimation indicative — page ${i}/${pages}`, largeur / 2, 290, { align: 'center' })
   }
 
-  const fichier = `BTM_Devis_${(nom || libelle || 'projet').replace(/[^a-z0-9àâçéèêëîïôûùüÿñæœ]+/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
+  const fichier = `BTM_Estimation_${(nom || libelle || 'projet').replace(/[^a-z0-9àâçéèêëîïôûùüÿñæœ]+/gi, '_')}_${new Date().toISOString().slice(0, 10)}.pdf`
   return livrerPdf(doc, fichier, mode) // téléchargement direct ou aperçu (ApercuPdf)
 }

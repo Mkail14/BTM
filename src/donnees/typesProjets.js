@@ -16,7 +16,7 @@ export const typesProjets = reactive([
     sujet: 'Votre mur', sujetPluriel: 'Vos murs',
     hypotheses: 'Parpaings 20×20×40 (+5 % de marge), 1 sac de ciment pour 2,5 m², sable 1 m³ pour 10 m².',
     icone: 'fa-solid fa-building',
-    couleur: '#0891b2',
+    couleur: '#111111',
     ordre: 1,
     champs: [
       { nom: 'longueur', question: 'Quelle est la longueur du mur ?', label: 'Longueur du mur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '10', aide: 'Longueur totale en mètres' },
@@ -35,7 +35,7 @@ export const typesProjets = reactive([
     sujet: 'Votre dalle',
     hypotheses: 'Béton 2,4 t/m³, ferraillage 5 kg/m², gravier 0,8 t/m³.',
     icone: 'fa-solid fa-layer-group',
-    couleur: '#06b6d4',
+    couleur: '#2a2a2a',
     ordre: 2,
     champs: [
       { nom: 'longueur', question: 'Quelle est la longueur de la dalle ?', label: 'Longueur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '8' },
@@ -54,7 +54,7 @@ export const typesProjets = reactive([
     sujet: 'Vos fondations',
     hypotheses: 'Béton armé 2,4 t/m³, acier 50 kg/m³.',
     icone: 'fa-solid fa-mountain',
-    couleur: '#0e7490',
+    couleur: '#1f1f1f',
     ordre: 3,
     champs: [
       { nom: 'longueur', question: 'Quelle longueur de tranchées faut-il creuser au total ?', label: 'Longueur totale des tranchées', unite: 'm', min: 0.1, max: 500, pas: 0.1, placeholder: '30', aide: 'Périmètre + refends' },
@@ -68,24 +68,17 @@ export const typesProjets = reactive([
   {
     id: 'terrasse',
     libelle: 'Terrasse',
-    accroche: 'Carrelage ou béton lissé',
-    description: 'Un sol extérieur carrelé ou en béton lissé',
+    accroche: 'Dalle en béton lissé',
+    description: 'Un sol extérieur en béton lissé',
     sujet: 'Votre terrasse',
-    hypotheses: 'Calcul d’une dalle (comme ci-dessus) + finition carrelage (50 €/m²) ou béton lissé (15 €/m²).',
+    hypotheses: 'Calcul d’une dalle (comme ci-dessus) + finition béton lissé (15 €/m²). Pour carreler, voir l’ouvrage Carrelage.',
     icone: 'fa-solid fa-umbrella-beach',
     couleur: '#f59e0b',
     ordre: 4,
     champs: [
       { nom: 'longueur', question: 'Quelle est la longueur de la terrasse ?', label: 'Longueur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '6' },
       { nom: 'largeur', question: 'Quelle est la largeur de la terrasse ?', label: 'Largeur', unite: 'm', min: 0.1, max: 200, pas: 0.1, placeholder: '4' },
-      { nom: 'epaisseur', question: 'Quelle épaisseur pour la terrasse ?', label: 'Épaisseur', unite: 'cm', min: 5, max: 60, pas: 1, placeholder: '10', aide: 'Généralement 10 cm' },
-      {
-        nom: 'finition', question: 'Quelle finition voulez-vous ?', label: 'Finition', type: 'select', defaut: 'carrelage',
-        options: [
-          { valeur: 'carrelage', label: 'Carrelage — 50 €/m²' },
-          { valeur: 'beton_lisse', label: 'Béton lissé — 15 €/m²' }
-        ]
-      }
+      { nom: 'epaisseur', question: 'Quelle épaisseur pour la terrasse ?', label: 'Épaisseur', unite: 'cm', min: 5, max: 60, pas: 1, placeholder: '10', aide: 'Généralement 10 cm' }
     ],
     parametres: {
       densiteBeton: 2.4, kgFerParM2: 5, tonnesGravierParM3: 0.8

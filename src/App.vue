@@ -1,5 +1,5 @@
 <script setup>
-import { computed, defineAsyncComponent, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import EnteteApp from '@/composants/commun/EnteteApp.vue'
@@ -9,21 +9,31 @@ import BandeauAnnonce from '@/composants/commun/BandeauAnnonce.vue'
 import BandeauCookies from '@/composants/commun/BandeauCookies.vue'
 import ApercuPdf from '@/composants/commun/ApercuPdf.vue'
 import { useAuth } from '@/composables/useAuth.js'
+import { retirerEcranChargement } from '@/composables/useEcranChargement.js'
 import { PAGES_ESPACE } from '@/routeur/index.js'
 import { modeSite, quitterModeSite } from '@/composables/useModeSite.js'
 import { useOuverture, PAGES_LIBRES, LIBELLES_ENVIRONNEMENT } from '@/composables/useOuverture.js'
 import BientotVue from '@/vues/BientotVue.vue'
+import { useInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
+import { useFenetreFidelite } from '@/composables/useFenetreFidelite.js'
+import { surveillerInactivite } from '@/services/session.js'
 
 // L'espace admin a sa propre mise en page (barre latérale) : pas d'en-tête ni de pied du site
 const route = useRoute()
 const router = useRouter()
 const pleinEcran = computed(() => !!route.meta.pleinEcran)
+// Téléphone et tablette (barre d'onglets) : comme dans une application, pas de pied de page sur les écrans d'usage.
+// Il reste sur l'accueil (contact, réseaux, liens légaux) et sur les pages légales.
+const PAGES_AVEC_PIED = ['accueil', 'conditions', 'confidentialite']
+const piedSurTelephone = computed(() => PAGES_AVEC_PIED.includes(route.name))
+// Le calculateur tient dans l'écran, sans défilement : pas de pied de page, quel que soit l'écran
+const PAGES_SANS_PIED = ['calculateur']
 
 // Les comptes admin et fournisseur n'utilisent pas le site public : si le compte le devient sur une page
 // publique (connexion dans un autre onglet…), il rejoint son espace.
 // Au premier chargement, le rôle peut être connu avant la page demandée : on attend le routeur, sinon un administrateur
 // arrivant par le lien « mot de passe oublié » de l'e-mail était envoyé dans son espace sans choisir son mot de passe.
-const { admin, fournisseurLie } = useAuth()
+const { admin, fournisseurLie, demandeFournisseur } = useAuth()
 watch(admin, async (estAdmin) => {
   if (!estAdmin) return
   await router.isReady()
@@ -43,12 +53,43 @@ function retourEspace() {
 
 // Trois versions : en ligne (btm.yt), develop, locale. En ligne, tant que le site n'a pas assez de fournisseurs
 // partenaires, la page d'attente remplace le site public (espaces admin / fournisseur et pages légales exceptés).
-const { environnement, partenaires, enAttente } = useOuverture()
-const pageAttente = computed(() => enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value && !fournisseurLie.value)
+const { environnement, partenaires, mode: modeOuverture, enAttente } = useOuverture()
+// Écran de chargement (index.html) : retiré quand la première page est affichée — routeur prêt et, en ligne,
+// ouverture vérifiée.
+// Rien n'est affiché tant que le routeur n'a pas choisi la première page : au rechargement de l'admin ou de l'espace
+// fournisseur, la vérification de la session prend un instant, et le site public (en-tête, page d'attente) apparaissait
+// pendant ce temps avant de laisser place au tableau de bord.
+const pageChargee = computed(() => route.matched.length > 0)
+// Un compte fournisseur n'y échappe pas : tant que le site n'est pas en ligne, « Voir le site » ne l'ouvre pas non plus
+const pageAttente = computed(() => pageChargee.value && enAttente.value !== false && !PAGES_LIBRES.includes(route.name) && !admin.value)
+// Compte fournisseur créé par une entreprise, pas encore validé par BTM : la page d'attente (robot) suit sa demande,
+// site ouvert ou non (pages légales exceptées). Validé, le compte devient fournisseur et rejoint son espace.
+const pageValidation = computed(() => pageChargee.value && !!demandeFournisseur.value && !admin.value && !fournisseurLie.value && !PAGES_LIBRES.includes(route.name))
+const InscriptionFournisseur = defineAsyncComponent(() => import('@/composants/commun/InscriptionFournisseur.vue'))
+const { etat: inscriptionFournisseur } = useInscriptionFournisseur()
+watch(() => inscriptionFournisseur.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
+const FenetreFidelite = defineAsyncComponent(() => import('@/composants/commun/FenetreFidelite.vue'))
+const { etat: fidelite } = useFenetreFidelite()
+watch(() => fidelite.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
+// fournisseur resté en « Voir le site » (onglet ouvert avant la fermeture du site) : retour à son espace
+watch([enAttente, modeSite, fournisseurLie], ([attente, visite, fid]) => {
+  if (attente !== true || !visite || !fid) return
+  quitterModeSite()
+  router.replace({ name: 'espace-fournisseur' })
+})
+const stopPret = watch([pageChargee, () => pageAttente.value && enAttente.value === null], async ([chargee, verification]) => {
+  if (!chargee || verification) return
+  stopPret()
+  await nextTick()
+  retirerEcranChargement()
+}, { flush: 'post' })
 
 // Connexion / inscription : une fenêtre superposée au site (il n'y a pas de page de connexion).
 // Disponible partout, y compris dans les espaces admin et fournisseur (qui n'ont pas l'en-tête du site).
-const FenetreConnexion = defineAsyncComponent(() => import('@/composants/commun/FenetreConnexion.vue'))
+const chargerFenetreConnexion = () => import('@/composants/commun/FenetreConnexion.vue')
+const FenetreConnexion = defineAsyncComponent(chargerFenetreConnexion)
+// préchargée quand le navigateur n'a rien d'autre à faire : au premier clic sur « Connexion », elle s'ouvre aussitôt
+if (typeof window !== 'undefined') (window.requestIdleCallback || ((f) => setTimeout(f, 2000)))(() => chargerFenetreConnexion())
 const { etat: fenetreAuth, ouvrirAuth, fermerAuth } = useFenetreAuth()
 watch(() => fenetreAuth.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
 // lien « ?connexion » ou « ?inscription » (assistance, compte suspendu…) : ouvre la fenêtre sur la page en cours
@@ -59,19 +100,46 @@ watch(() => route.query, (q) => {
   const { connexion: _c, inscription: _i, redirect: _r, suspendu: _s, profil: _p, oubli: _o, ...reste } = q
   router.replace({ query: reste, hash: route.hash })
 }, { immediate: true })
+
+// Déconnexion après inactivité (tous onglets confondus) : 30 min pour un administrateur, 1 h pour un client.
+// Jamais pour un fournisseur (validé ou en attente). Fermer le site déconnecte aussi (services/session.js).
+const { utilisateur, typeProfil, deconnexionAppareil } = useAuth()
+const delaiInactivite = () => {
+  if (!utilisateur.value) return null
+  if (!typeProfil.value) return undefined // rôle pas encore lu : on ne sait pas encore si c'est un fournisseur
+  if (fournisseurLie.value || demandeFournisseur.value || typeProfil.value === 'fournisseur') return null
+  return (admin.value ? 30 : 60) * 60000
+}
+let expiration = false
+surveillerInactivite(delaiInactivite, async () => {
+  if (expiration) return
+  expiration = true
+  const duree = admin.value ? '30 min' : '1 h'
+  const page = route.fullPath
+  const reservee = !!route.meta.necessiteConnexion
+  try { await deconnexionAppareil() } catch { /* session déjà fermée par un autre onglet */ }
+  if (reservee) await router.replace({ name: 'accueil' })
+  ouvrirAuth('connexion', { redirect: reservee ? page : null, message: `Déconnecté après ${duree} sans activité : reconnectez-vous pour continuer.` })
+  expiration = false
+})
 </script>
 
 <template>
   <!-- En ligne, avant l'ouverture : page d'attente (rien pendant la vérification, pour ne pas montrer le site une seconde) -->
-  <template v-if="pageAttente">
-    <BientotVue v-if="enAttente" :partenaires="partenaires || 0" />
+  <template v-if="pageValidation">
+    <BientotVue :demande="demandeFournisseur" />
   </template>
-  <template v-else>
+  <template v-else-if="pageAttente">
+    <BientotVue v-if="enAttente" :partenaires="partenaires || 0" :maintenance="modeOuverture === 'maintenance'" />
+  </template>
+  <template v-else-if="pageChargee">
   <a class="lien-evitement" href="#contenu-principal">Aller au contenu</a>
   <EnteteApp v-if="!pleinEcran" />
   <main id="contenu-principal">
     <router-view v-slot="{ Component }">
-      <transition name="fondu" mode="out-in">
+      <!-- Vers l'espace admin ou fournisseur, pas de fondu : il laissait voir la page quittée (l'accueil) une demi-seconde.
+           Nom sans CSS plutôt que :css="false" : basculer :css en quittant l'accueil plantait Vue (page blanche à la connexion). -->
+      <transition :name="pleinEcran ? 'sans-fondu' : 'fondu'" mode="out-in">
         <!-- L'accueil reste en mémoire : y revenir ne reconstruit pas ses 5 scènes 3D (≈ 0,6 s de page figée) -->
         <keep-alive include="AccueilVue">
           <component :is="Component" />
@@ -80,7 +148,7 @@ watch(() => route.query, (q) => {
     </router-view>
   </main>
   <template v-if="!pleinEcran">
-    <PiedDePage />
+    <PiedDePage v-if="!PAGES_SANS_PIED.includes(route.name)" :class="{ 'pied-ordinateur': !piedSurTelephone }" />
     <AideFlottante />
     <BandeauAnnonce />
     <BandeauCookies />
@@ -90,8 +158,13 @@ watch(() => route.query, (q) => {
   <FenetreConnexion
     v-if="fenetreAuth.ouverte"
     :mode="fenetreAuth.mode" :redirect="fenetreAuth.redirect" :suspendu="fenetreAuth.suspendu" :profil="fenetreAuth.profil" :oubli="fenetreAuth.oubli" :par-lien="fenetreAuth.parLien" :lien-expire="fenetreAuth.lienExpire" :message="fenetreAuth.message"
+    :partenaires-seuls="pageAttente"
     @fermer="fermerAuth" @changer-mode="fenetreAuth.mode = $event"
   />
+  <!-- « Devenir partenaire » : création du compte fournisseur (page d'attente, pied de page…) -->
+  <InscriptionFournisseur v-if="inscriptionFournisseur.ouverte" />
+  <!-- « Fidélité BTM » : clic sur le crédit à côté du nom -->
+  <FenetreFidelite v-if="fidelite.ouverte" />
   <!-- Repère de version (develop, locale) : jamais sur btm.yt -->
   <span v-if="environnement !== 'en-ligne'" class="repere-version" :class="environnement" :title="`Version ${LIBELLES_ENVIRONNEMENT[environnement].toLowerCase()} du site`">{{ LIBELLES_ENVIRONNEMENT[environnement] }}</span>
   <div v-if="visiteFournisseur" class="visite-fournisseur" role="region" aria-label="Visite du site">
@@ -101,13 +174,15 @@ watch(() => route.query, (q) => {
 </template>
 
 <style>
+/* Pendant le fondu entre deux pages, le contenu est vide un instant : le pied reste sous l'écran */
+#contenu-principal { min-height: 100vh; }
 .lien-evitement {
   position: absolute; left: 16px; top: -60px; z-index: 1000; padding: 10px 16px;
-  background: var(--ardoise); color: #fff; border-radius: 8px; transition: top .2s;
+  background: var(--encre); color: #fff; border-radius: 8px; transition: top .2s;
 }
 .lien-evitement:focus { top: 12px; }
 .visite-fournisseur {
-  position: fixed; left: 50%; bottom: 18px; z-index: 300; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
+  position: fixed; left: 50%; bottom: calc(18px + var(--barre-onglets, 0px)); z-index: 300; transform: translateX(-50%); display: flex; align-items: center; gap: 14px;
   max-width: calc(100vw - 32px); padding: 8px 8px 8px 18px; border-radius: 999px; background: #0f172a; color: #fff; font-size: .88rem;
   box-shadow: 0 16px 40px rgba(15, 23, 42, .35);
 }
@@ -119,6 +194,8 @@ watch(() => route.query, (q) => {
   position: fixed; left: 12px; bottom: 12px; z-index: 900; padding: 4px 10px; border-radius: 999px; pointer-events: none;
   color: #fff; font: 700 .68rem/1.4 var(--font-corps); letter-spacing: .08em; text-transform: uppercase; box-shadow: 0 4px 12px rgba(15, 23, 42, .25);
 }
+/* téléphone : en haut au centre, pour ne couvrir ni le contenu ni les onglets du bas de l'espace fournisseur */
+@media (max-width: 767px) { .repere-version { left: 50%; bottom: auto; top: calc(4px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); padding: 1px 8px; font-size: .6rem; } }
 .repere-version.develop { background: #7c3aed; }
 .repere-version.local { background: #ea580c; }
 </style>

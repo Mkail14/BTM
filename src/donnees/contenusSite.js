@@ -12,10 +12,11 @@ export const contenusParDefaut = {
     libelleLien: ''
   },
   hero: {
-    surtitre: 'Plateforme de devis BTP · Mayotte',
-    titre: 'Le devis de vos travaux',
+    surtitre: 'Estimation de matériaux BTP · Mayotte',
+    titreDebut: 'Chiffrez votre',
+    motsAnimes: 'mur, dalle, terrasse, fondation, carrelage',
     description: 'Budget, quantités et fournisseurs pour mur, dalle, fondation, terrasse ou carrelage.',
-    boutonPrincipal: 'Faire mon devis',
+    boutonPrincipal: 'Estimer mon projet',
     boutonSecondaire: 'Annuaire des fournisseurs',
     raccourcisTitre: 'Que voulez-vous construire ?'
   },
@@ -49,8 +50,8 @@ export const contenusParDefaut = {
     fidelite: 25
   },
   pied: {
-    description: 'Bâtiment & Travaux Mayotte — plateforme de devis BTP et annuaire des fournisseurs de matériaux à Mayotte.',
-    note: 'Plateforme BTM — Devis et accompagnement des travaux à Mayotte',
+    description: 'Bâtiment & Travaux Mayotte — estimation de matériaux BTP et annuaire des fournisseurs de matériaux à Mayotte.',
+    note: 'Plateforme BTM — Estimations et accompagnement des travaux à Mayotte',
     mention: 'Vue 3 · Vite · Supabase · Vercel'
   }
 }
@@ -72,7 +73,8 @@ export const sectionsContenus = [
     description: 'Le grand bloc d’ouverture de la page d’accueil. Un visiteur connecté voit « Bonjour … » à la place du titre.',
     champs: [
       { nom: 'surtitre', label: 'Surtitre', max: 60 },
-      { nom: 'titre', label: 'Titre', max: 60 },
+      { nom: 'titreDebut', label: 'Titre (début)', max: 40 },
+      { nom: 'motsAnimes', label: 'Mots qui défilent (séparés par des virgules)', max: 120 },
       { nom: 'description', label: 'Description', type: 'long', max: 200, plein: true },
       { nom: 'boutonPrincipal', label: 'Bouton principal', max: 30 },
       { nom: 'boutonSecondaire', label: 'Bouton secondaire', max: 40 },

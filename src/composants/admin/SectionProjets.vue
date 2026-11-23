@@ -17,7 +17,16 @@ const nomProfil = computed(() => Object.fromEntries((donnees.profils || []).map(
 const nomFournisseur = computed(() => Object.fromEntries((donnees.fournisseurs || []).map((f) => [f.id, f.nom])))
 
 // Paiement confirmé par le fournisseur choisi (lui seul sait si le client a payé) → revenu encaissé ; sinon prévisionnel
-const paiementDe = computed(() => Object.fromEntries((donnees.paiements || []).filter((pa) => pa.projet_id).map((pa) => [pa.projet_id, pa])))
+// un devis peut être encaissé par plusieurs fournisseurs : revenu BTM additionné, date du dernier encaissement
+const paiementDe = computed(() => {
+  const n = {}
+  for (const pa of donnees.paiements || []) {
+    if (!pa.projet_id) continue
+    const e = n[pa.projet_id]
+    n[pa.projet_id] = e ? { ...e, revenu_btm: Math.round((e.revenu_btm + pa.revenu_btm) * 100) / 100, paye_le: pa.paye_le > e.paye_le ? pa.paye_le : e.paye_le, nombre: e.nombre + 1 } : { ...pa, nombre: 1 }
+  }
+  return n
+})
 const correspondStatut = (p) => statut.value === 'tous' || (statut.value === 'paye') === !!paiementDe.value[p.id]
 const compteStatut = (s) => (donnees.projets || []).filter((p) => s === 'tous' || (s === 'paye') === !!paiementDe.value[p.id]).length
 
@@ -192,10 +201,10 @@ async function supprimer(p) {
   .projets-filtres .adm-pilule { flex: none; white-space: nowrap; }
 }
 
-.detail-total { display: flex; flex-direction: column; gap: 4px; padding: 20px 22px; border-radius: 18px; background: var(--adm-noir); color: #fff; }
-.detail-total small { font-size: .8rem; color: rgba(255, 255, 255, .6); }
+.detail-total { display: flex; flex-direction: column; gap: 4px; padding: 20px 22px; border-radius: 18px; background: var(--adm-noir); color: var(--adm-sur-noir); }
+.detail-total small { font-size: .8rem; color: color-mix(in srgb, currentColor 60%, transparent); }
 .detail-total strong { font-size: 2rem; font-weight: 600; letter-spacing: -.02em; }
-.detail-total span { font-size: .86rem; color: rgba(255, 255, 255, .7); }
+.detail-total span { font-size: .86rem; color: color-mix(in srgb, currentColor 70%, transparent); }
 .detail-titre { margin: 24px 0 8px; font-family: var(--font-corps); font-size: .95rem; font-weight: 600; letter-spacing: 0; }
 .detail-table th, .detail-table td { padding: 10px 8px; }
 .detail-synthese { margin: 16px 0 0; padding: 14px 18px; border-radius: 16px; background: var(--adm-ligne-2); }

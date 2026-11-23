@@ -51,7 +51,7 @@ export function nettoyerHtml(html = '') {
   return conteneur.innerHTML
 }
 
-const echapper = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const echapper = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 
 /** Texte brut → HTML : les lignes « > … » deviennent une citation, les adresses web des liens */
 export function texteVersHtml(texte = '') {

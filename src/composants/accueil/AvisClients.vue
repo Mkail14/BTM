@@ -7,7 +7,8 @@
  * « Donner mon avis » propose d'abord le choix : sur le site (compte requis, sinon fenêtre de connexion / inscription)
  * ou sur Trustpilot (page Trustpilot de BTM dans un nouvel onglet).
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
@@ -16,6 +17,8 @@ import { useContenuSite } from '@/composables/useContenuSite.js'
 
 const { utilisateur, connecte, backendDisponible } = useAuth()
 const contenu = useContenuSite()
+const route = useRoute()
+const router = useRouter()
 const compteRequis = ref(false)
 // connexion / inscription dans la fenêtre du site, puis retour sur les avis
 function ouvrirCompte(mode) {
@@ -32,7 +35,7 @@ const nomDuCompte = computed(() => {
 
 // Avis de démonstration : uniquement si le back-end n'est PAS configuré (développement sans Supabase)
 const avisInitiaux = [
-  { id: 'initial-1', nom: 'Amina M.', ville: 'Mamoudzou', note: 5, commentaire: 'Un devis clair et rapide pour préparer mon projet.', date: '2026-09-12' },
+  { id: 'initial-1', nom: 'Amina M.', ville: 'Mamoudzou', note: 5, commentaire: 'Une estimation claire et rapide pour préparer mon projet.', date: '2026-09-12' },
   { id: 'initial-2', nom: 'Youssouf B.', ville: 'Koungou', note: 4, commentaire: 'Les quantités sont faciles à comprendre. Très pratique avant de demander un devis.', date: '2026-09-10' },
   { id: 'initial-3', nom: 'Sarah A.', ville: 'Dzaoudzi', note: 5, commentaire: 'Enfin un outil pensé pour les projets de construction à Mayotte.', date: '2026-09-06' },
   { id: 'initial-4', nom: 'Nassim R.', ville: 'Pamandzi', note: 4, commentaire: 'Simple, lisible et utile pour comparer les matériaux.', date: '2026-09-02' }
@@ -79,18 +82,37 @@ const rangeeMobile = computed(() => {
   for (let i = 0; i < Math.max(s.length, g.length); i++) { if (s[i]) r.push(s[i]); if (g[i]) r.push(g[i]) }
   return r
 })
-// mobile : carte affichée, pour les points sous la rangée
+// mobile : la rangée passe seule à l'avis suivant toutes les 2,8 s, en boucle (retour au premier après le dernier).
+// Un doigt posé sur la rangée met en pause 8 s ; si l'utilisateur limite les animations, le passage se fait sans glissé.
 const rangee = ref(null)
-const carteVisible = ref(0)
-function suivreRangee() {
+let minuterieRangee = null
+let repriseRangee = null
+function avisSuivant() {
   const el = rangee.value
-  const pas = el?.querySelector('.avis-carte')?.offsetWidth
-  if (pas) carteVisible.value = Math.min(rangeeMobile.value.length - 1, Math.round(el.scrollLeft / (pas + 12)))
+  if (!el || !el.offsetParent || document.hidden) return // rangée masquée (ordinateur) ou onglet en arrière-plan
+  const cartes = [...el.querySelectorAll('.avis-carte')]
+  if (cartes.length < 2) return
+  // carte affichée = la plus proche du début de la rangée ; on vise la suivante d'après sa position réelle
+  const positions = cartes.map((c) => c.offsetLeft - cartes[0].offsetLeft)
+  const actuelle = positions.reduce((meilleure, p, i) => (Math.abs(p - el.scrollLeft) < Math.abs(positions[meilleure] - el.scrollLeft) ? i : meilleure), 0)
+  const fin = el.scrollLeft + el.clientWidth >= el.scrollWidth - 4
+  const suivante = fin ? 0 : (actuelle + 1) % cartes.length
+  const doux = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollTo({ left: positions[suivante], behavior: doux ? 'smooth' : 'auto' })
 }
-function allerA(i) {
-  const cartes = rangee.value?.querySelectorAll('.avis-carte')
-  if (cartes?.[i]) rangee.value.scrollTo({ left: cartes[i].offsetLeft - cartes[0].offsetLeft, behavior: 'smooth' })
+function demarrerDefilement() {
+  if (minuterieRangee) return
+  minuterieRangee = setInterval(avisSuivant, 2800)
 }
+function arreterDefilement() { clearInterval(minuterieRangee); minuterieRangee = null; clearTimeout(repriseRangee) }
+function pauseDefilement() {
+  arreterDefilement()
+  repriseRangee = setTimeout(demarrerDefilement, 8000)
+}
+onMounted(demarrerDefilement)
+onActivated(demarrerDefilement) // accueil gardé en mémoire (keep-alive)
+onDeactivated(arreterDefilement)
+onBeforeUnmount(arreterDefilement)
 // lien « laisser un avis » de la page Trustpilot de BTM (réglé dans l'admin → Contenus → Accueil — avis)
 const lienTrustpilot = computed(() => (/^https:\/\//.test(contenu.avis.lienTrustpilot || '') ? contenu.avis.lienTrustpilot : ''))
 
@@ -117,6 +139,17 @@ function donnerAvis() {
   if (lienTrustpilot.value) choixOuvert.value = true
   else ouvrirModal()
 }
+// retour de connexion depuis l'onglet « Laisser un avis » (/?avis=site#avis) : le formulaire s'ouvre directement,
+// puis le paramètre est retiré (?avis=1 : le choix site / Trustpilot)
+watch(() => route.query.avis, (demande) => {
+  if (!demande) return
+  router.replace({ path: route.path, hash: route.hash })
+  if (demande !== 'site') return donnerAvis()
+  // arrivée par le lien de confirmation (page rechargée) : la session est relue juste après, on l'attend
+  if (connecte.value || !backendDisponible) return ouvrirModal()
+  const arreter = watch(connecte, (oui) => { if (oui) { arreter(); ouvrirModal() } })
+  setTimeout(arreter, 10000)
+}, { immediate: true })
 function choisirSite() {
   choixOuvert.value = false
   ouvrirModal()
@@ -163,6 +196,9 @@ async function envoyerAvis() {
   }
 }
 
+/** « MARIO JAMES MIKAIL » → « Mario James Mikail » (noms Trustpilot parfois tout en majuscules) */
+const nomAffiche = (nom) => (nom === nom.toUpperCase() ? nom.toLowerCase() : nom)
+
 function formaterDate(date) {
   return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(date))
 }
@@ -171,7 +207,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 </script>
 
 <template>
-  <section id="avis" class="section avis-section" aria-labelledby="avis-titre">
+  <section id="avis" class="section section-nuit avis-section" aria-labelledby="avis-titre">
     <div class="conteneur avis-grille">
       <!-- Synthèse -->
       <header class="avis-synthese">
@@ -201,7 +237,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
         <p v-else-if="etatAvis === 'erreur'" class="avis-vide">Les avis ne peuvent pas s’afficher pour le moment. Réessayez dans quelques instants.</p>
         <p v-else class="avis-vide">{{ contenu.avis.vide }}</p>
 
-        <BoutonBase variante="primaire" :icone-droite="mien ? 'fa-solid fa-pen' : 'fa-solid fa-arrow-right'" @click="donnerAvis">{{ mien ? 'Modifier mon avis' : contenu.avis.bouton }}</BoutonBase>
+        <BoutonBase class="avis-action" variante="primaire" :icone-droite="mien ? 'fa-solid fa-pen' : 'fa-solid fa-arrow-right'" @click="donnerAvis">{{ mien ? 'Modifier mon avis' : contenu.avis.bouton }}</BoutonBase>
       </header>
 
       <!-- Mur d'avis : site | Trustpilot | site -->
@@ -226,7 +262,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
               <footer class="avis-auteur">
                 <span class="avis-avatar" aria-hidden="true">{{ element.nom.charAt(0).toUpperCase() }}</span>
                 <span>
-                  <strong>{{ element.nom }}</strong>
+                  <strong>{{ nomAffiche(element.nom) }}</strong>
                   <small>
                     {{ element.source === 'trustpilot' ? 'Trustpilot' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time>
                     <template v-if="element.modifie"> · modifié</template>
@@ -241,7 +277,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
         </div>
 
         <!-- Téléphone : une rangée qui alterne avis du site et avis Trustpilot -->
-        <div ref="rangee" class="avis-colonne avis-colonne-mobile" @scroll.passive="suivreRangee">
+        <div ref="rangee" class="avis-colonne avis-colonne-mobile" @pointerdown="pauseDefilement" @focusin="pauseDefilement">
           <div class="avis-piste">
             <article v-for="element in rangeeMobile" :key="`m-${element.id}`" class="avis-carte" :class="{ 'avis-trustpilot': element.source === 'trustpilot' }">
               <span v-if="element.source === 'trustpilot'" class="avis-trustpilot-marque"><i class="fa-solid fa-star" aria-hidden="true"></i> Trustpilot</span>
@@ -252,16 +288,12 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
               <footer class="avis-auteur">
                 <span class="avis-avatar" aria-hidden="true">{{ element.nom.charAt(0).toUpperCase() }}</span>
                 <span>
-                  <strong>{{ element.nom }}</strong>
+                  <strong>{{ nomAffiche(element.nom) }}</strong>
                   <small>{{ element.source === 'trustpilot' ? 'Trustpilot' : element.ville }} · <time :datetime="element.date">{{ formaterDate(element.date) }}</time></small>
                 </span>
               </footer>
             </article>
           </div>
-        </div>
-        <!-- points : où l'on en est dans la rangée (un clic y amène) -->
-        <div v-if="rangeeMobile.length > 1" class="avis-points">
-          <button v-for="(element, i) in rangeeMobile" :key="`p-${element.id}`" type="button" :class="{ actif: i === carteVisible }" :aria-label="`Avis ${i + 1} sur ${rangeeMobile.length}`" :aria-current="i === carteVisible || undefined" @click="allerA(i)"></button>
         </div>
       </div>
     </div>
@@ -361,7 +393,36 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 </template>
 
 <style scoped>
-.avis-section { background: var(--fond); overflow: hidden; }
+.avis-section { background: var(--fond-nuit); overflow: hidden; }
+
+/* ---------- Thème sombre : la nuit du héros continue ----------
+   Fond et titres : --fond-nuit et .section-nuit (style.css). Ces règles l'emportent sur celles du téléphone ;
+   les fenêtres (avis-modal) suivent le thème du site. En thème clair, les styles ci-dessous s'appliquent tels quels. */
+:global(html[data-theme="sombre"] .avis-section .avis-score > strong) { color: #fff; }
+:global(html[data-theme="sombre"] .avis-section .avis-score small), :global(html[data-theme="sombre"] .avis-section .avis-repartition li) { color: rgba(255, 255, 255, .6); }
+:global(html[data-theme="sombre"] .avis-section .avis-vide) { color: rgba(255, 255, 255, .7); }
+:global(html[data-theme="sombre"] .avis-section .etoiles::before), :global(html[data-theme="sombre"] .avis-section .avis-note .eteinte) { color: rgba(255, 255, 255, .18); }
+:global(html[data-theme="sombre"] .avis-section .avis-barre) { background: rgba(255, 255, 255, .12); }
+:global(html[data-theme="sombre"] .avis-section .avis-barre > span) { background: #f59e0b; }
+:global(html[data-theme="sombre"] .avis-section .avis-resume) { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .12); }
+:global(html[data-theme="sombre"] .avis-section .avis-score) { border-color: rgba(255, 255, 255, .1); }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot)) { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .12); }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-commentaire) { color: #e2e8f0; }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-auteur strong) { color: #fff; }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-auteur small) { color: rgba(255, 255, 255, .55); }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-avatar) { background: rgba(255, 255, 255, .14); color: #e3d6c4; }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-source) { color: rgba(255, 255, 255, .55); }
+:global(html[data-theme="sombre"] .avis-section .avis-carte:not(.avis-trustpilot) .avis-source:hover) { background: rgba(255, 255, 255, .08); color: #f4e9db; }
+/* Trustpilot en thème sombre : cartes blanches, aux couleurs officielles de Trustpilot (vert sur blanc) */
+:global(html[data-theme="sombre"] .avis-section .avis-carte.avis-trustpilot) { border-color: #e5e5dd; background: #fff; box-shadow: 0 10px 24px -14px rgba(0, 0, 0, .5); }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot-marque) { color: #191919; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-commentaire) { color: #191919; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-auteur strong) { color: #191919; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-auteur small) { color: #6b6b65; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-avatar) { background: #e6f8f1; color: #00b67a; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-note .eteinte) { background: #dcdce6; color: #fff; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-source) { color: #6b6b65; }
+:global(html[data-theme="sombre"] .avis-section .avis-trustpilot .avis-source:hover) { background: #e6f8f1; color: #00b67a; }
 .avis-grille { display: grid; grid-template-columns: minmax(280px, 380px) 1fr; gap: clamp(40px, 6vw, 88px); align-items: center; }
 
 /* ---------- Synthèse ---------- */
@@ -382,7 +443,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-repartition { list-style: none; margin: 0 0 32px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .avis-repartition li { display: grid; grid-template-columns: 12px 1fr 20px; gap: 12px; align-items: center; font-size: .82rem; color: var(--gris-500); }
 .avis-barre { height: 6px; border-radius: 99px; background: var(--gris-200); overflow: hidden; }
-.avis-barre > span { display: block; height: 100%; border-radius: inherit; background: var(--ardoise); transition: width .6s ease; }
+.avis-barre > span { display: block; height: 100%; border-radius: inherit; background: var(--encre); transition: width .6s ease; }
 .avis-barre-nombre { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ---------- Mur défilant ---------- */
@@ -406,44 +467,51 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-trustpilot .avis-note i { width: 18px; height: 18px; display: grid; place-items: center; background: #00b67a; color: #fff; font-size: .62rem; }
 .avis-trustpilot .avis-note .eteinte { background: #3a3a3a; color: #8c8c8c; }
 .avis-trustpilot .avis-commentaire { color: #f1f1ec; }
+.avis-carte.avis-trustpilot { gap: 14px; padding: 22px 24px; border-radius: 18px; }
 .avis-trustpilot .avis-auteur strong { color: #fff; }
 .avis-trustpilot .avis-auteur small { color: #a3a39b; }
 .avis-trustpilot .avis-avatar { background: #2c2c2c; color: #00b67a; }
 .avis-source { margin-left: auto; width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 50%; color: #5f6368; font-size: .78rem; }
 .avis-trustpilot .avis-source { color: #a3a39b; }
 .avis-trustpilot .avis-source:hover { background: #2c2c2c; color: #00b67a; }
-.avis-source:hover { background: #f1f3f4; color: var(--lagon-800); }
+.avis-source:hover { background: var(--surface-creuse); color: var(--lagon-800); }
 .avis-modal-note { margin: 6px 0 0; color: var(--texte-secondaire); font-size: .9rem; line-height: 1.5; }
 .avis-trustpilot-invitation { align-self: center; margin-top: 160px; }
 .avis-carte.avis-trustpilot-invitation > .avis-trustpilot-marque { position: static; }
-.avis-colonne-mobile, .avis-points { display: none; }
+.avis-colonne-mobile { display: none; }
 .avis-resume { display: contents; } /* ordinateur : note et répartition l'une sous l'autre */
 @keyframes defiler { from { transform: translateY(0); } to { transform: translateY(calc(-50% - 8px)); } }
 
-.avis-carte { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: #fff; border: 1px solid var(--bordure); border-radius: 18px; }
+.avis-carte { display: flex; flex-direction: column; gap: 16px; padding: 24px; background: var(--carte); border: 1px solid var(--bordure); border-radius: 18px; }
 .avis-note { display: flex; gap: 3px; font-size: .8rem; color: #f59e0b; }
 .avis-note .eteinte { color: var(--gris-200); }
-.avis-commentaire { margin: 0; color: var(--ardoise); font-size: 1rem; line-height: 1.6; }
+/* toutes les cartes (site et Trustpilot) gardent la même taille : 3 lignes d'avis au plus, auteur sur une ligne */
+.avis-commentaire {
+  margin: 0; color: var(--ardoise); font-size: 1rem; line-height: 1.6;
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
 .avis-auteur { display: flex; align-items: center; gap: 12px; }
+.avis-auteur > span:not(.avis-avatar) { min-width: 0; }
 .avis-avatar { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border-radius: 50%; background: var(--lagon-50); color: var(--lagon-800); font-weight: 700; font-size: .9rem; }
-.avis-auteur strong { display: block; font-size: .9rem; color: var(--ardoise); }
+.avis-auteur strong, .avis-auteur small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avis-auteur strong { font-size: .9rem; color: var(--ardoise); text-transform: capitalize; }
 .avis-auteur small { color: var(--gris-500); font-size: .78rem; }
 
 /* ---------- Formulaire ---------- */
-.avis-modal-fond { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 20px; background: rgba(6, 32, 44, .62); backdrop-filter: blur(5px); }
+.avis-modal-fond { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 20px; background: rgba(17, 17, 17, .62); backdrop-filter: blur(5px); }
 .avis-fermer {
   position: fixed; top: 22px; right: 24px; z-index: 2; width: 44px; height: 44px; display: grid; place-items: center;
   border: 1px solid rgba(255,255,255,.45); border-radius: 50%; background: rgba(255,255,255,.14); color: #fff; font-size: 1.2rem;
   cursor: pointer; transition: background .2s, transform .2s;
 }
 .avis-fermer:hover { background: rgba(255,255,255,.25); transform: rotate(90deg); }
-.avis-modal { width: min(100%, 480px); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 32px; background: #fff; border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
+.avis-modal { width: min(100%, 480px); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 32px; background: var(--carte); border-radius: var(--rayon-lg); box-shadow: var(--ombre-lg); animation: apparaitre .25s ease; }
 .avis-modal h2 { color: var(--ardoise); font-size: 1.7rem; }
 .avis-ligne { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .avis-label, .avis-rating legend { display: block; margin: 18px 0 7px; color: var(--ardoise); font-weight: 600; font-size: .86rem; }
 .avis-label span { color: var(--gris-500); font-weight: 400; }
-.avis-modal input, .avis-modal textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); background: #fff; color: var(--texte); font: inherit; resize: vertical; }
-.avis-modal input:focus, .avis-modal textarea:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .18); }
+.avis-modal input, .avis-modal textarea { width: 100%; padding: 12px 14px; border: 1.5px solid var(--gris-300); border-radius: var(--rayon-sm); background: var(--carte); color: var(--texte); font: inherit; resize: vertical; }
+.avis-modal input:focus, .avis-modal textarea:focus { outline: none; border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .18); }
 .avis-rating { border: 0; padding: 0; margin: 0; }
 .avis-rating-choix { display: flex; gap: 6px; }
 .avis-rating-choix button { padding: 2px; border: 0; background: transparent; color: var(--gris-200); font-size: 1.9rem; line-height: 1; cursor: pointer; transition: color .15s, transform .15s; }
@@ -451,7 +519,7 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-rating-choix button:hover { transform: scale(1.1); }
 .avis-submit { margin-top: 24px; width: 100%; justify-content: center; }
 .avis-succes { padding: 20px 0 4px; text-align: center; }
-.avis-succes-icone { width: 56px; height: 56px; display: grid; place-items: center; margin: 0 auto 16px; border-radius: 50%; background: #d1fae5; color: #047857; font-size: 1.3rem; }
+.avis-succes-icone { width: 56px; height: 56px; display: grid; place-items: center; margin: 0 auto 16px; border-radius: 50%; background: var(--succes-pastille); color: var(--succes-texte); font-size: 1.3rem; }
 .avis-succes p { margin: 8px 0 24px; color: var(--texte-secondaire); }
 
 .avis-modal input.avis-lecture { background: var(--gris-100, #f3f4f6); color: var(--gris-700); cursor: default; }
@@ -468,10 +536,10 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
 .avis-choix-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .avis-choix-option {
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; text-align: left;
-  border: 1.5px solid var(--bordure); border-radius: var(--rayon-sm, 12px); background: #fff; color: var(--ardoise);
+  border: 1.5px solid var(--bordure); border-radius: var(--rayon-sm, 12px); background: var(--carte); color: var(--ardoise);
   font: inherit; text-decoration: none; cursor: pointer; transition: border-color .2s, box-shadow .2s, transform .2s;
 }
-.avis-choix-option:hover, .avis-choix-option:focus-visible { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(6, 182, 212, .12); transform: translateY(-1px); }
+.avis-choix-option:hover, .avis-choix-option:focus-visible { border-color: var(--lagon-500); box-shadow: 0 0 0 4px rgba(17, 17, 17, .12); transform: translateY(-1px); }
 .avis-choix-option strong { display: block; font-size: .88rem; }
 .avis-choix-option small { display: block; margin-top: 2px; color: var(--gris-500); font-size: .72rem; line-height: 1.35; }
 .avis-choix-icone { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 9px; background: var(--lagon-50); color: var(--lagon-800); font-size: .85rem; }
@@ -494,45 +562,64 @@ onMounted(() => { chargerAvis(); chargerMonAvis() })
   .avis-synthese { max-width: 520px; }
   .avis-mur { height: 520px; }
 }
+/* Téléphone : comme la fiche d'une app sur un store. Note en carte, avis qu'on fait glisser (la carte suivante
+   dépasse pour inviter au geste), bouton pleine largeur sous la note ; les fenêtres montent du bas de l'écran. */
 @media (max-width: 600px) {
+  .avis-grille { gap: 0; }
+  .avis-synthese { max-width: none; }
+  .avis-synthese .section-titre { font-size: 1.75rem; }
+  .avis-synthese .avis-action { width: 100%; min-height: 52px; margin-bottom: 18px; justify-content: center; border-radius: 999px; }
+  .avis-vide { margin: 16px 0 20px; }
+
+  /* Synthèse : grande note à gauche, répartition à droite, dans une carte */
+  .avis-resume {
+    display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 20px;
+    margin: 20px 0 16px; padding: 18px; background: var(--carte); border: 1px solid var(--bordure); border-radius: 20px;
+  }
+  .avis-score { flex-direction: column; align-items: center; gap: 6px; margin: 0; padding-right: 20px; border-right: 1px solid var(--bordure); }
+  .avis-score > strong { font-size: 3.2rem; }
+  .avis-score .etoiles { font-size: .9rem; letter-spacing: 1px; }
+  .avis-score small { margin-top: 2px; font-size: .78rem; text-align: center; }
+  .avis-repartition { gap: 5px; margin: 0; }
+  .avis-repartition li { grid-template-columns: 10px 1fr 16px; gap: 8px; font-size: .74rem; }
+
+  /* Rangée d'avis : on glisse d'une carte à l'autre, cartes de même hauteur */
   .avis-mur {
     display: block; height: auto; overflow: visible; mask-image: none; -webkit-mask-image: none;
     margin-inline: calc(-1 * var(--gouttiere));
   }
-  .avis-grille { gap: 28px; }
-
-  /* Synthèse : note à gauche, répartition à droite, dans une carte */
-  .avis-resume {
-    display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 22px;
-    margin: 24px 0 18px; padding: 18px 20px; background: #fff; border: 1px solid var(--bordure); border-radius: 18px;
-  }
-  .avis-score { flex-direction: column; align-items: flex-start; gap: 8px; margin: 0; }
-  .avis-score > strong { font-size: 3.2rem; }
-  .avis-score .etoiles { font-size: .95rem; letter-spacing: 1px; }
-  .avis-score small { margin-top: 2px; font-size: .8rem; }
-  .avis-repartition { gap: 5px; margin: 0; }
-  .avis-repartition li { grid-template-columns: 10px 1fr 14px; gap: 8px; font-size: .74rem; }
-  .avis-synthese :deep(.btn) { width: 100%; justify-content: center; }
-
-  /* Rangée d'avis : on glisse d'une carte à l'autre */
   .avis-colonne-site, .avis-colonne-trustpilot { display: none; }
   .avis-colonne-mobile {
     display: block; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--gouttiere); scrollbar-width: none;
-    padding: 4px var(--gouttiere) 4px; -webkit-overflow-scrolling: touch;
+    padding: 2px var(--gouttiere) 6px; overscroll-behavior-x: contain;
   }
   .avis-colonne-mobile::-webkit-scrollbar { display: none; }
   .avis-colonne-mobile .avis-piste { flex-direction: row; animation: none; width: max-content; gap: 12px; }
-  .avis-colonne-mobile .avis-carte { width: min(84vw, 330px); gap: 12px; padding: 20px; scroll-snap-align: start; flex: none; }
+  .avis-colonne-mobile .avis-carte { width: 80vw; max-width: 320px; gap: 12px; padding: 18px; border-radius: 20px; scroll-snap-align: start; flex: none; }
+  .avis-colonne-mobile .avis-commentaire { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; font-size: .95rem; line-height: 1.55; }
   .avis-colonne-mobile .avis-auteur { margin-top: auto; } /* l'auteur reste en bas quand une carte voisine est plus longue */
-  .avis-colonne-mobile .avis-carte.avis-trustpilot > .avis-trustpilot-marque { top: 20px; right: 20px; }
-  .avis-points { display: flex; justify-content: center; gap: 2px; margin-top: 10px; }
-  .avis-points button { width: 24px; height: 24px; padding: 0; border: 0; background: none; cursor: pointer; }
-  .avis-points button::before { content: ''; display: block; width: 7px; height: 7px; margin: auto; border-radius: 99px; background: var(--gris-300); transition: width .25s, background .25s; }
-  .avis-points button.actif::before { width: 20px; background: var(--lagon-600, var(--ardoise)); }
+  .avis-colonne-mobile .avis-carte.avis-trustpilot > .avis-trustpilot-marque { top: 18px; right: 18px; }
   .avis-colonne-mobile .avis-carte[aria-hidden] { display: none; }
-  .avis-fermer { top: 10px; right: 12px; }
-  .avis-modal { padding: 26px 20px; }
+
+  /* Fenêtres : feuille qui monte du bas, bouton fermer posé juste au-dessus */
+  .avis-modal-fond { display: flex; flex-direction: column; justify-content: flex-end; padding: 0; }
+  .avis-fermer { position: static; align-self: flex-end; width: 40px; height: 40px; margin: 0 14px 10px; font-size: 1.05rem; }
+  .avis-fermer:hover { transform: none; }
+  .avis-modal, .avis-modal.avis-choix {
+    width: 100%; max-height: calc(100dvh - 72px); padding: 26px 20px calc(22px + env(safe-area-inset-bottom));
+    border-radius: 24px 24px 0 0; animation: avis-feuille .3s cubic-bezier(.22, .61, .36, 1);
+  }
+  .avis-modal h2 { font-size: 1.5rem; }
+  .avis-modal input, .avis-modal textarea { font-size: 16px; } /* 16 px : iOS ne zoome pas sur le champ */
+  .avis-rating-choix { justify-content: space-between; max-width: 280px; }
+  .avis-rating-choix button { font-size: 2.3rem; }
   .avis-ligne { grid-template-columns: 1fr; gap: 0; }
+  .avis-submit, .avis-succes .btn { width: 100%; min-height: 52px; justify-content: center; border-radius: 999px; }
   .avis-choix-options { grid-template-columns: 1fr; }
+  .avis-choix-option { min-height: 64px; padding: 12px 14px; }
+  .avis-choix-option strong { font-size: .95rem; }
+  .avis-choix-option small { font-size: .78rem; }
 }
+@keyframes avis-feuille { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) { .avis-modal { animation: none !important; } }
 </style>

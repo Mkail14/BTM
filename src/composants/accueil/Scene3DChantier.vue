@@ -1,8 +1,11 @@
 <script setup>
 import { onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
 import * as THREE from 'three'
+import { appareilLeger } from '@/composables/useAppareil.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
+// « pret » : maquette affichée (ou en échec) — l'écran de chargement du site peut partir
+const emit = defineEmits(['pret'])
 const sceneElement = ref(null)
 let renderer = null
 let scene = null
@@ -49,8 +52,8 @@ function setup3DScene() {
   camera = new THREE.PerspectiveCamera(28, width / height, 0.1, 100)
   camera.position.set(0.4, 1.15, 5.6)
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer = new THREE.WebGLRenderer({ antialias: !appareilLeger.value, alpha: true, powerPreference: 'high-performance' })
+  renderer.setPixelRatio(appareilLeger.value ? 1 : Math.min(window.devicePixelRatio, 2))
   renderer.setSize(width, height)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.setClearColor(0x000000, 0)
@@ -109,11 +112,13 @@ function setup3DScene() {
         if (!scene || maGeneration !== generation) return
         model = loadedModel
         scene.add(model)
+        emit('pret')
       })
     },
     undefined,
     (error) => {
       console.error('Erreur de chargement du modèle 3D :', error)
+      emit('pret')
     }
   )
 

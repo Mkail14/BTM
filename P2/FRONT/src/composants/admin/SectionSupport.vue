@@ -1,6 +1,6 @@
 <script setup>
 /**
- * Support (espace admin) : les discussions « Sur le site ». Le conseiller voit ce qu'Awa a déjà répondu,
+ * Support (espace admin) : les discussions « Sur le site ». Le conseiller voit ce que Tamilya a déjà répondu,
  * le parcours suivi dans les questions guidées, répond en direct (le client voit la réponse dans sa fenêtre de discussion),
  * puis clôture ou rend la main à l'assistante. Nouvelles demandes : pastille, e-mail sur contact@btm.yt et,
  * si autorisée, notification du navigateur.
@@ -22,16 +22,16 @@ const { rafraichirDemandes, notificationsNavigateur, activerNotifications } = us
 const FILTRES = [
   { id: 'a-traiter', label: 'À traiter' },
   { id: 'en-cours', label: 'En cours' },
-  { id: 'assistante', label: 'Avec Awa' },
+  { id: 'assistante', label: 'Avec Tamilya' },
   { id: 'fermees', label: 'Clôturées' }
 ]
 const STATUTS = {
   attente: { label: 'Attend un conseiller', classe: 'adm-badge-attention' },
   humain: { label: 'Conseiller en ligne', classe: 'adm-badge-info' },
-  ia: { label: 'Avec Awa (IA)', classe: 'adm-badge-violet' },
+  ia: { label: 'Avec Tamilya (IA)', classe: 'adm-badge-violet' },
   fermee: { label: 'Clôturée', classe: '' }
 }
-const AUTEURS = { client: 'Client', ia: 'Awa · IA', conseiller: 'Vous (conseiller)', systeme: '' }
+const AUTEURS = { client: 'Client', ia: 'Tamilya · IA', conseiller: 'Vous (conseiller)', systeme: '' }
 
 const filtre = ref('a-traiter')
 const conversations = ref([])
@@ -47,7 +47,7 @@ let minuterieFil = null
 
 const dernierId = computed(() => messages.value.at(-1)?.id || 0)
 const qui = (c) => c?.nom || c?.email || 'Visiteur'
-// Awa hors service : une discussion vient de vous être passée faute de crédits IA (fonction « assistant », RAISON_CREDITS)
+// Tamilya hors service : une discussion vient de vous être passée faute de crédits IA (fonction « assistant », RAISON_CREDITS)
 const awaHorsService = computed(() => conversations.value.some((c) =>
   c.raison?.startsWith('Plus de crédits IA') && Date.now() - new Date(c.mis_a_jour_le).getTime() < 3 * 3600_000))
 
@@ -166,7 +166,7 @@ async function statut(nouveau) {
     active.value.statut = nouveau
     await suivreFil()
     canal?.message()
-    notifier({ humain: 'Vous avez pris la conversation en charge.', ia: 'Conversation rendue à Awa.', fermee: 'Conversation clôturée.' }[nouveau])
+    notifier({ humain: 'Vous avez pris la conversation en charge.', ia: 'Conversation rendue à Tamilya.', fermee: 'Conversation clôturée.' }[nouveau])
     chargerListe(true)
     rafraichirDemandes()
   } catch (e) { notifier(e.message, 'erreur') }
@@ -212,7 +212,7 @@ const date = (d) => {
       </div>
       <p v-if="awaHorsService" class="sp-hors-service" role="alert">
         <i class="fa-solid fa-robot" aria-hidden="true"></i>
-        <span><strong>Awa est hors service : plus de crédits IA.</strong> Toutes les clés Gemini ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
+        <span><strong>Tamilya est hors service : plus de crédits IA.</strong> Toutes les clés Gemini ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
       </p>
       <p v-if="notificationsNavigateur === 'default'" class="sp-notif">
         <i class="fa-regular fa-bell" aria-hidden="true"></i> Être prévenu même dans un autre onglet ?
@@ -228,7 +228,7 @@ const date = (d) => {
               <strong>{{ qui(c) }}</strong>
               <time>{{ date(c.mis_a_jour_le) }}</time>
             </span>
-            <span class="sp-conv-raison">{{ c.raison || (c.statut === 'ia' ? 'Discussion avec Awa' : '—') }}</span>
+            <span class="sp-conv-raison">{{ c.raison || (c.statut === 'ia' ? 'Discussion avec Tamilya' : '—') }}</span>
             <span class="adm-badge sans-point" :class="STATUTS[c.statut]?.classe">{{ STATUTS[c.statut]?.label }}</span>
           </button>
         </li>
@@ -274,7 +274,7 @@ const date = (d) => {
 
         <div class="sp-actions">
           <button v-if="active.statut === 'attente' || active.statut === 'ia'" type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="statut('humain')"><i class="fa-solid fa-hand" aria-hidden="true"></i> Prendre en charge</button>
-          <button v-if="active.statut !== 'ia' && active.statut !== 'fermee'" type="button" class="adm-btn adm-btn-fantome adm-btn-sm" @click="statut('ia')"><i class="fa-solid fa-robot" aria-hidden="true"></i> Rendre à Awa</button>
+          <button v-if="active.statut !== 'ia' && active.statut !== 'fermee'" type="button" class="adm-btn adm-btn-fantome adm-btn-sm" @click="statut('ia')"><i class="fa-solid fa-robot" aria-hidden="true"></i> Rendre à Tamilya</button>
           <button v-if="active.statut !== 'fermee'" type="button" class="adm-btn adm-btn-fantome adm-btn-sm" @click="statut('fermee')"><i class="fa-solid fa-check" aria-hidden="true"></i> Clôturer</button>
         </div>
         <form class="sp-reponse" @submit.prevent="repondre">

@@ -1,11 +1,10 @@
-// Assistante BTM (support client) : répond avec Gemini (Google) à partir des vraies offres des fournisseurs,
-// et passe la main à un conseiller humain (l'admin) quand la demande la dépasse ou que le client le demande.
+// Assistance BTM (support client) : Tamilya (API de BTM AI, https://tamilya.yt) répond à partir des vraies offres
+// des fournisseurs, et la main passe à un conseiller humain (l'admin) quand la demande la dépasse ou que le client le demande.
 // Le navigateur ne touche jamais aux tables : chaque conversation est protégée par un jeton secret.
-// Clés Gemini : secrets GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3, puis celles de Supabase Vault
-// (gemini_api_key_1, _2… lues par cles_assistant(), migration 0023) ; la suivante prend le relais.
-// Facultatifs : GEMINI_MODELES (liste séparée par des virgules), ANTHROPIC_API_KEY (Claude, dernier recours).
-// Sans aucune clé, toute demande part directement vers un conseiller.
-import Anthropic from "npm:@anthropic-ai/sdk";
+// Secret obligatoire : TAMILYA_API_KEY (code d'accès tml_…, jamais dans le code ni côté navigateur).
+// Tamilya exige aussi une clé Gemini (en-tête X-Gemini-Key) : secrets GEMINI_API_KEY, GEMINI_API_KEY_2, GEMINI_API_KEY_3,
+// puis celles de Supabase Vault (gemini_api_key_1, _2… lues par cles_assistant(), migration 0023) ; la suivante prend le relais.
+// Sans code Tamilya ou sans clé Gemini, toute demande part directement vers un conseiller.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { envoyerMail } from "./smtpBrut.ts";
 
@@ -16,7 +15,6 @@ const corsHeaders = {
 const json = (corps: unknown, status = 200) =>
   new Response(JSON.stringify(corps), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-const MODELE_CLAUDE = "claude-haiku-4-5"; // dernier recours, si ANTHROPIC_API_KEY est configurée
 const MAX_REPONSES_IA = 40;         // par conversation : au-delà, un conseiller prend le relais
 const MAX_LONGUEUR = 1000;
 const MAX_CONVERSATIONS_HEURE = 10; // par adresse IP : nouvelles conversations
@@ -35,7 +33,7 @@ async function notifierConseiller(admin: ReturnType<typeof createClient>, conv: 
   const horsService = conv.raison === RAISON_CREDITS; // toutes les clés d'IA sont à court de quota
   const texte = [
     ...(horsService ? [
-      "⚠ AWA EST HORS SERVICE : toutes les clés Gemini ont atteint leur quota.",
+      "⚠ TAMILYA EST HORS SERVICE : toutes les clés Gemini ont atteint leur quota.",
       "Les nouvelles discussions vous sont transmises directement jusqu’à ce que les quotas se rechargent",
       "(en général le lendemain) ou qu’une nouvelle clé soit ajoutée dans Supabase (secret GEMINI_API_KEY_3).",
       "",
@@ -52,102 +50,55 @@ async function notifierConseiller(admin: ReturnType<typeof createClient>, conv: 
     `Répondre dans l’espace admin : ${SITE}/admin/support?c=${conv.id}`,
   ].join("\n");
   await envoyerMail({ hote: Deno.env.get("MAIL_HOTE_SMTP") || "ssl0.ovh.net", utilisateur, motDePasse, nom: "BTM Assistance" }, {
-    a: utilisateur, objet: horsService ? `⚠ Awa hors service (crédits IA épuisés) — à reprendre : ${qui}` : `Demande d’assistance : ${qui}`, texte, repondreA: conv.email && EMAIL.test(conv.email) ? conv.email : undefined,
+    a: utilisateur, objet: horsService ? `⚠ Tamilya hors service (crédits IA épuisés) — à reprendre : ${qui}` : `Demande d’assistance : ${qui}`, texte, repondreA: conv.email && EMAIL.test(conv.email) ? conv.email : undefined,
   }).catch((e) => console.error("Notification conseiller :", e?.message || e));
 }
 
-const CONSIGNES = `Tu es Awa, l'assistante virtuelle de BTM (Bâtiment & Travaux Mayotte).
-BTM est une plateforme gratuite de mise en relation : elle ne vend rien. Elle aide les particuliers et les professionnels
-de Mayotte à chiffrer leurs travaux (mur, dalle, fondation, terrasse, carrelage) ou à acheter directement des matériaux,
-puis à les retirer chez un fournisseur partenaire au meilleur prix.
+// Tamilya (https://tamilya.yt/developpeurs/documentation) : API sans mémoire ni outils.
+// Conditions (https://tamilya.yt/developpeurs/charte) : ne jamais la renommer ni changer sa personnalité, ne pas lui
+// faire demander de données sensibles, clé côté serveur uniquement, et indiquer aux utilisateurs que les réponses
+// viennent d'une IA fournie par BTM AI (mention affichée dans la fenêtre de discussion).
+const TAMILYA_URL = "https://tamilya.yt/api/v1/tamilya";
+const TAMILYA_MAX_MESSAGES = 40, TAMILYA_MAX_MISSION = 2000, TAMILYA_MAX_CONTEXTE = 8000, TAMILYA_MAX_TEXTE = 4000;
+// Pas d'appel d'outils chez Tamilya : elle signale un passage au conseiller par ce repère, retiré avant affichage
+const REPERE_TRANSFERT = "[CONSEILLER]";
 
-Comment fonctionne BTM (à expliquer simplement quand c'est utile) :
-- Calculateur : « Selon mes mesures » (on donne les dimensions, BTM calcule les quantités) ou « Je sais ce qu'il me faut »
-  (on choisit directement ses matériaux et ses quantités).
-- Les résultats comparent les fournisseurs : prix exact chez chacun, disponibilité, économie par rapport au comptoir.
-- En enregistrant son devis (compte gratuit), le client obtient un code de retrait (ex. K7QM-4XPA) à présenter au fournisseur :
-  il paie alors le « prix BTM », plus bas que le prix au comptoir, sans aucun frais BTM.
-- Chaque achat avec un code rapporte du crédit fidélité, utilisable au comptoir lors d'un prochain retrait (visible dans « Mes projets »).
-- Les codes promo BTM et les promotions des fournisseurs ne servent qu'une fois par client.
-- Les professionnels (SIRET vérifié) peuvent réunir plusieurs ouvrages et achats dans un seul devis.
+// Mission (≤ 2000 caractères) : uniquement le rôle confié, sans toucher au nom ni à la personnalité de Tamilya
+const MISSION = `Tu es l'agent d'accueil du support client de BTM (Bâtiment & Travaux Mayotte), plateforme gratuite qui aide les
+particuliers et professionnels de Mayotte à chiffrer leurs travaux et à retirer leurs matériaux chez un fournisseur partenaire
+au meilleur prix. Règle toi-même le problème du client quand c'est possible : pose une ou deux questions précises si la demande
+est floue, puis donne une solution concrète, étape par étape, avec les menus du site, et demande si c'est réglé.
+Réponses brèves (1 à 4 phrases), texte simple sans Markdown, vouvoiement. Ne demande jamais de données sensibles
+(papiers d'identité, coordonnées bancaires, santé).
+Si le client veut un humain, si tes solutions n'ont pas réglé son problème, ou s'il faut une action de l'équipe (remboursement,
+vérification de paiement, devis enregistré à corriger, compte bloqué, litige avec un fournisseur), écris une courte phrase
+disant que tu transmets sa demande à un conseiller BTM qui lui répondra ici même, puis termine ta réponse par ${REPERE_TRANSFERT}
+suivi d'une phrase résumant la demande pour le conseiller. N'utilise ce repère dans aucun autre cas.`;
 
-Ta façon de parler :
-- Chaleureuse, naturelle et simple, comme une conseillère en magasin. Vouvoiement. Français courant, phrases courtes.
-- Réponses brèves : 1 à 4 phrases en général. Texte simple, sans titres ni tableaux ni Markdown.
-- Tu peux poser une question pour mieux comprendre le besoin.
-- Mène une vraie conversation : réponds à ce que le client vient d'écrire, en tenant compte de tout l'échange.
-  Ne salue et ne te présente qu'une seule fois ; ne répète jamais une phrase ou une explication déjà donnée.
-  Un simple « coucou » ou « merci » appelle une réponse courte et chaleureuse, pas un discours.
-  Si le client repose la même question, c'est que ta réponse ne l'a pas aidé : dis-le autrement, plus simplement,
-  ou demande-lui ce qui bloque.
-- Tu es une assistante virtuelle : tu ne prétends jamais être une personne. Si on te le demande, dis-le franchement
-  et propose un conseiller humain.
+const CONSIGNES = `Fonctionnement de BTM :
+- Calculateur : « Selon mes mesures » (BTM calcule les quantités) ou « Je sais ce qu'il me faut » (choix direct des matériaux).
+- Les résultats comparent les fournisseurs : prix chez chacun, disponibilité, économie par rapport au comptoir.
+- En enregistrant son devis (compte gratuit), le client obtient un code de retrait de 8 caractères (ex. K7QM-4XPA) à présenter
+  au fournisseur : il paie le « prix BTM », plus bas que le comptoir, sans frais BTM. S'il a choisi un fournisseur dans son devis,
+  le code n'est valable que chez lui. Le code figure sur le devis et le PDF.
+- Chaque achat avec un code rapporte du crédit fidélité (affiché à côté du nom une fois connecté, déduit au retrait suivant).
+- Codes promo BTM et promotions fournisseurs : une fois par client, saisis sur le devis, peuvent expirer.
+- Professionnels (SIRET vérifié) : plusieurs ouvrages et achats dans un seul devis.
+- Mot de passe oublié : bouton « Connexion » en haut, puis « Mot de passe oublié ? » ; un code arrive par e-mail (vérifier les indésirables).
+- E-mail de confirmation : envoyé par contact@btm.yt, vérifier les indésirables et patienter quelques minutes.
+- Écart de prix au comptoir : le prix BTM ne s'applique qu'avec le code de retrait ; montrer le devis au fournisseur.
+- Modifier ou supprimer son compte : cliquer sur son nom en haut à droite.
+Limites : l'assistance ne peut ni modifier un devis, ni annuler un paiement, ni voir le compte du client.
+Prix et disponibilités : uniquement les offres ci-dessous ; ne jamais inventer un prix, un fournisseur, un délai ou une promotion.
+Quantités : béton courant à 350 kg de ciment par m³, soit 10 sacs de 35 kg par m³ ; volume = surface × épaisseur
+(dalle de 4 m² sur 10 cm = 0,4 m³ = 4 sacs). Pour un chiffrage complet, proposer le calculateur « Selon mes mesures ».
+Sécurité d'un ouvrage (structure, étanchéité) : principes généraux et recommandation d'un professionnel du bâtiment.`;
 
-Ton rôle : régler toi-même le problème du client chaque fois que c'est possible.
-- Commence toujours par essayer : si la demande est floue, pose une ou deux questions précises (quel devis, quel
-  fournisseur, quel message s'affiche, à quelle étape), puis donne une solution concrète, étape par étape, avec les
-  bons menus du site. Ensuite, demande si c'est réglé.
-- Problèmes courants que tu sais traiter :
-  · code de retrait introuvable ou refusé : le devis doit être enregistré ; le code fait 8 caractères (ex. K7QM-4XPA) ;
-    s'il a choisi un fournisseur dans son devis, le code n'est valable que chez lui ; le code est sur le devis et le PDF ;
-  · code promo refusé : il ne sert qu'une fois par compte, il peut avoir expiré, il se saisit sur le devis ;
-  · mot de passe oublié : bouton « Connexion » en haut du site, puis « Mot de passe oublié ? » dans la fenêtre ; un code arrive par e-mail (regarder les courriers indésirables) ;
-  · e-mail de confirmation non reçu : il vient de contact@btm.yt, regarder les indésirables, attendre quelques minutes ;
-  · crédit fidélité : affiché à côté du nom une fois connecté, déduit par le fournisseur au retrait suivant ;
-  · écart de prix au comptoir : le prix BTM ne s'applique qu'avec le code de retrait ; montrer le devis au fournisseur ;
-  · modifier ou supprimer son compte : cliquer sur son nom en haut à droite.
+// Demandes évidentes, traitées sans appeler l'IA
+const VEUT_HUMAIN = /(conseill(er|ère)|\bhumain|une (vraie )?personne|quelqu.un de (chez )?btm|l.?admin\b|l.?équipe btm|parler à quelqu)/i;
+const ANNULE_CONSEILLER = /(plus besoin|pas besoin|pas la peine|annul).{0,30}(conseill|humain)|(continuer|rester) avec (toi|vous|tamilya)/i;
 
-Passe la main à un conseiller (outil transferer_conseiller) seulement dans ces trois cas :
-1. Le client demande à parler à un humain, à un conseiller, à l'admin ou à l'équipe BTM, même une seule fois :
-   transfère tout de suite, sans chercher à le retenir ni à répondre à sa place.
-2. Tu as proposé une solution et le client dit que le problème persiste, ou tu as fait le tour de ce que tu peux proposer.
-3. Il faut une action que seule l'équipe peut faire : rembourser, vérifier un paiement ou un double débit, corriger un
-   devis enregistré, intervenir sur un compte bloqué, régler un litige avec un fournisseur. Rassemble d'abord, si le
-   client ne les a pas donnés, le code de retrait ou le nom du devis, le fournisseur, la date et le montant ; puis transfère
-   avec une raison complète, pour que le conseiller n'ait rien à redemander.
-Dans tous les autres cas, n'utilise pas l'outil : continue d'aider. Un client mécontent : excuse-toi et cherche une
-solution ; transfère s'il le demande ou si tu ne peux rien faire. Sécurité d'un ouvrage (structure, porteur, étanchéité) :
-donne les principes généraux, recommande un professionnel du bâtiment, et transfère si le client le souhaite.
-Quand tu transfères, écris une courte phrase au client (ex. « Je transmets votre demande à un conseiller BTM avec
-tous les détails : il vous répond ici même. »).
-
-Règles :
-- Pour les prix et la disponibilité, utilise uniquement les offres fournies ci-dessous ; n'invente jamais un prix,
-  un fournisseur, un délai ou une promotion. Si l'information n'y est pas, dis-le.
-- Tu ne peux ni modifier un devis, ni annuler un paiement, ni voir le compte du client.
-- Quantités : calcule avec ce repère, en montrant le calcul simplement : béton courant dosé à 350 kg de ciment par m³,
-  soit 10 sacs de 35 kg par m³ ; volume = surface × épaisseur (une dalle de 10 cm fait 0,1 m³ par m²).
-  Exemple : dalle de 4 m² sur 10 cm = 0,4 m³ = 4 sacs. Pour un chiffrage complet (sable, gravier, acier, prix),
-  propose le calculateur « Selon mes mesures ».
-- Hors sujet (sans rapport avec le bâtiment ou BTM) : réponds poliment que tu es là pour BTM et ramène la conversation.`;
-
-const OUTIL_TRANSFERT: Anthropic.Tool = {
-  name: "transferer_conseiller",
-  description: "Passe la conversation à un conseiller humain de BTM, qui répondra au client dans cette même discussion. Uniquement si le client demande un humain, si tes solutions n'ont pas réglé le problème, ou si une action de l'équipe est indispensable (remboursement, vérification de paiement, litige, compte bloqué).",
-  input_schema: {
-    type: "object",
-    properties: { raison: { type: "string", description: "En une phrase, pourquoi un conseiller doit prendre le relais (pour le conseiller)." } },
-    required: ["raison"],
-    additionalProperties: false,
-  },
-};
-// Discussion en attente d'un conseiller : le client préfère finalement continuer avec Awa
-const OUTIL_ANNULER: Anthropic.Tool = {
-  name: "annuler_conseiller",
-  description: "Annule la demande de conseiller : à utiliser seulement si le client dit qu'il n'a plus besoin d'un conseiller ou qu'il préfère continuer avec Awa.",
-  input_schema: { type: "object", properties: {}, additionalProperties: false },
-};
-
-// ---------- Modèles d'IA : toujours une réponse disponible ----------
-// Gemini, avec jusqu'à 3 clés de projets Google différents (quotas séparés) : la clé 1 répond tant qu'elle le peut ;
-// quand elle n'a plus de quota (429) ou est refusée, elle est mise de côté et la clé suivante prend le relais.
-// Les quotas sont comptés par modèle : une clé épuisée sur un modèle peut encore répondre avec le suivant.
-// Un modèle saturé chez Google (503) ou trop lent laisse la place au suivant. Claude en dernier recours.
-// Si plus rien ne répond, la discussion passe au conseiller (admin), alerté par e-mail et dans l'admin.
-// Les mises de côté durent tant que l'instance de la fonction reste « chaude ».
-const MODELES_GEMINI = (Deno.env.get("GEMINI_MODELES") || "gemini-3.5-flash,gemini-3.8-flash,gemini-3.5-flash-lite")
-  .split(",").map((m) => m.trim()).filter(Boolean);
-// Clés : secrets d'Edge Functions d'abord, puis Supabase Vault (relu toutes les 5 min par instance)
+// Clés Gemini (en-tête X-Gemini-Key exigé par Tamilya) : secrets d'Edge Functions d'abord, puis Supabase Vault (relu toutes les 5 min)
 let clesVault: { cles: string[]; lues: number } | null = null;
 async function clesGemini(admin: ReturnType<typeof createClient>): Promise<string[]> {
   const secrets = ["GEMINI_API_KEY", "GEMINI_API_KEY_2", "GEMINI_API_KEY_3"].map((nom) => Deno.env.get(nom)?.trim() || "");
@@ -158,107 +109,69 @@ async function clesGemini(admin: ReturnType<typeof createClient>): Promise<strin
   }
   return [...new Set([...secrets, ...clesVault.cles].filter(Boolean))];
 }
-type Cause = "quota" | "refus" | "sature";
-const repos = new Map<string, { jusqua: number; cause: Cause }>(); // clé, modèle ou « clé|modèle » → mis de côté
-const auRepos = (k: string): Cause | null => { const r = repos.get(k); return r && r.jusqua > Date.now() ? r.cause : null; };
-const mettreDeCote = (k: string, cause: Cause, ms: number) => repos.set(k, { jusqua: Date.now() + ms, cause });
+const repos = new Map<string, number>(); // clé Gemini → mise de côté jusqu'à (quota épuisé ou clé refusée)
+const auRepos = (k: string) => (repos.get(k) || 0) > Date.now();
+
 // Raison affichée au conseiller quand toutes les clés ont épuisé leur quota (repérée par l'admin : bandeau d'alerte)
-const RAISON_CREDITS = "Plus de crédits IA : toutes les clés Gemini ont atteint leur quota. Awa est hors service, un conseiller doit répondre.";
+const RAISON_CREDITS = "Plus de crédits IA : toutes les clés Gemini ont atteint leur quota. Tamilya est hors service, un conseiller doit répondre.";
 
 type Echange = { role: "client" | "assistante"; texte: string };
-type ReponseIa = { texte: string; appel: { nom: string; raison: string } | null }; // appel : outil demandé (transfert, annulation)
-type ErreurIa = Error & { statut?: number; credits?: boolean }; // credits : toutes les clés sont à court de quota
-const erreurIa = (message: string, statut: number): ErreurIa => Object.assign(new Error(message), { statut });
+type ReponseIa = { texte: string; transfert: string | null }; // transfert : raison pour le conseiller
+type ErreurIa = Error & { credits?: boolean }; // credits : toutes les clés sont à court de quota
 
-// La fenêtre de discussion affiche du texte brut : on retire le Markdown que le modèle ajoute parfois (**gras**, titres, puces)
+// La fenêtre de discussion affiche du texte brut : on retire le Markdown éventuel (**gras**, titres, puces)
 const sansMarkdown = (t: string) => t
   .replace(/\*\*(.+?)\*\*/gs, "$1").replace(/__(.+?)__/gs, "$1").replace(/(^|\s)\*(\S[^*\n]*?)\*(?=\s|[.,;:!?]|$)/g, "$1$2")
   .replace(/^#{1,6}\s+/gm, "").replace(/^\s*[*-]\s+/gm, "· ").replace(/\n{3,}/g, "\n\n").trim();
-const raisonDe = (args: unknown) => String((args as { raison?: string } | undefined)?.raison || "Demande à reprendre par un conseiller.");
 
-async function appelerGemini(cle: string, modele: string, systeme: string, echanges: Echange[], outils: Anthropic.Tool[]): Promise<ReponseIa> {
-  // Gemini attend une alternance user / model : deux messages consécutifs du même côté sont réunis
-  const contents: { role: string; parts: { text: string }[] }[] = [];
+/** Messages au format Tamilya : alternance user / assistant, 40 au plus, le premier et le dernier venant du client */
+function messagesTamilya(echanges: Echange[]) {
+  const messages: { role: "user" | "assistant"; content: string }[] = [];
   for (const e of echanges) {
-    const role = e.role === "client" ? "user" : "model";
-    const dernier = contents.at(-1);
-    if (dernier?.role === role) dernier.parts[0].text += `\n\n${e.texte}`;
-    else contents.push({ role, parts: [{ text: e.texte }] });
+    const texte = e.texte.trim();
+    if (!texte) continue;
+    const role = e.role === "client" ? "user" : "assistant";
+    const dernier = messages.at(-1);
+    if (dernier?.role === role) dernier.content = `${dernier.content}\n\n${texte}`.slice(0, TAMILYA_MAX_TEXTE);
+    else messages.push({ role, content: texte.slice(0, TAMILYA_MAX_TEXTE) });
   }
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modele}:generateContent`, {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-goog-api-key": cle },
-    signal: AbortSignal.timeout(20000),
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: systeme }] },
-      contents,
-      // mêmes outils que pour Claude ; un outil sans paramètre est déclaré sans « parameters »
-      tools: [{ functionDeclarations: outils.map((o) => {
-        const s = o.input_schema as { properties?: Record<string, unknown>; required?: string[] };
-        return Object.keys(s.properties || {}).length
-          ? { name: o.name, description: o.description, parameters: { type: "object", properties: s.properties, required: s.required || [] } }
-          : { name: o.name, description: o.description };
-      }) }],
-      generationConfig: { maxOutputTokens: 1024, thinkingConfig: { thinkingLevel: "low" } }, // réflexion courte : réponse en 2 à 4 s
-    }),
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw erreurIa(`Gemini ${modele} : ${r.status} ${j?.error?.message || ""}`.trim(), r.status);
-  const parts: { text?: string; thought?: boolean; functionCall?: { name: string; args?: { raison?: string } } }[] = j?.candidates?.[0]?.content?.parts || [];
-  const texte = parts.filter((p) => typeof p.text === "string" && !p.thought).map((p) => p.text).join("\n").trim();
-  const appel = parts.find((p) => p.functionCall && outils.some((o) => o.name === p.functionCall!.name))?.functionCall;
-  if (!texte && !appel) throw erreurIa(`Gemini ${modele} : réponse vide (${j?.candidates?.[0]?.finishReason || "inconnu"})`, 0);
-  return { texte: sansMarkdown(texte), appel: appel ? { nom: appel.name, raison: raisonDe(appel.args) } : null };
+  const derniers = messages.slice(-TAMILYA_MAX_MESSAGES);
+  while (derniers.length && derniers[0].role !== "user") derniers.shift();
+  return derniers;
 }
 
-async function appelerClaude(cle: string, systeme: string, echanges: Echange[], outils: Anthropic.Tool[]): Promise<ReponseIa> {
-  const resultat = await new Anthropic({ apiKey: cle }).messages.create({
-    model: MODELE_CLAUDE, max_tokens: 1024, system: systeme, tools: outils,
-    messages: echanges.map((e) => ({ role: e.role === "client" ? "user" : "assistant", content: e.texte })),
-  });
-  const texte = resultat.content.filter((b): b is Anthropic.TextBlock => b.type === "text").map((b) => b.text).join("\n").trim();
-  const appel = resultat.content.find((b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && outils.some((o) => o.name === b.name));
-  return { texte: sansMarkdown(texte), appel: appel ? { nom: appel.name, raison: raisonDe(appel.input) } : null };
-}
-
-async function demanderIa(cles: string[], systeme: string, echanges: Echange[], outils: Anthropic.Tool[]): Promise<ReponseIa> {
-  const debut = Date.now();
+async function demanderTamilya(code: string, clesG: string[], contexte: string, echanges: Echange[]): Promise<ReponseIa> {
+  const messages = messagesTamilya(echanges);
+  if (!messages.length || messages.at(-1)!.role !== "user") throw new Error("Tamilya : aucun message client à envoyer.");
+  const corps = JSON.stringify({ mission: MISSION.slice(0, TAMILYA_MAX_MISSION), context: contexte.slice(0, TAMILYA_MAX_CONTEXTE), messages });
   const erreurs: string[] = [];
-  const causesCles: Cause[] = []; // pourquoi chaque clé n'a pas répondu (quota ou refus), pour l'alerte finale
-  for (const modele of MODELES_GEMINI) {
-    if (auRepos(modele)) continue;
-    for (let i = 0; i < cles.length && Date.now() - debut < 30000; i++) {
-      const cle = cles[i]; // toujours dans l'ordre : la clé 1 d'abord, la suivante quand elle ne peut plus
-      const deCote = auRepos(cle) || auRepos(`${cle}|${modele}`);
-      if (deCote) { causesCles.push(deCote); continue; }
-      try {
-        return await appelerGemini(cle, modele, systeme, echanges, outils);
-      } catch (e) {
-        const statut = (e as ErreurIa).statut;
-        const message = (e as Error).message;
-        erreurs.push(`clé ${i + 1} · ${message}`);
-        if (statut === 429) {                                                     // plus de quota : clé suivante
-          // quota du jour épuisé : de côté 1 h (il se recharge chaque jour) ; quota par minute : 1 min
-          mettreDeCote(`${cle}|${modele}`, "quota", /per.?day|daily|jour/i.test(message) ? 3600_000 : 60_000);
-          causesCles.push("quota");
-          continue;
-        }
-        if (statut === 401 || statut === 403 || (statut === 400 && /api.?key/i.test(message))) {
-          mettreDeCote(cle, "refus", 10 * 60_000);                                // clé refusée : clé suivante
-          causesCles.push("refus");
-          continue;
-        }
-        if (statut === undefined || statut >= 500) mettreDeCote(modele, "sature", 30_000); // saturé ou trop lent
-        break;                                                                    // → modèle suivant
-      }
+  let quotas = 0;
+  for (let i = 0; i < clesG.length; i++) {
+    const cle = clesG[i]; // la clé 1 d'abord, la suivante quand elle ne peut plus
+    if (auRepos(cle)) { quotas++; continue; }
+    const r = await fetch(TAMILYA_URL, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${code}`, "X-Gemini-Key": cle, "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(60000), // la documentation conseille d'attendre au moins 60 s
+      body: corps,
+    }).catch((e) => { erreurs.push(`clé ${i + 1} · réseau : ${e?.message || e}`); return null; });
+    if (!r) break;
+    const j = await r.json().catch(() => ({}));
+    if (r.ok && typeof j?.reply === "string" && j.reply.trim()) {
+      const brut = j.reply as string;
+      const pos = brut.indexOf(REPERE_TRANSFERT);
+      const texte = sansMarkdown(pos >= 0 ? brut.slice(0, pos) : brut);
+      const transfert = pos >= 0 ? (brut.slice(pos + REPERE_TRANSFERT.length).trim().slice(0, 300) || "Demande à reprendre par un conseiller.") : null;
+      return { texte, transfert };
     }
+    const codeErreur = String(j?.error || r.status);
+    erreurs.push(`clé ${i + 1} · Tamilya ${r.status} ${codeErreur}`);
+    if (codeErreur === "gemini_quota") { repos.set(cle, Date.now() + 3600_000); quotas++; continue; } // clé Gemini suivante
+    if (codeErreur === "invalid_gemini_key") { repos.set(cle, Date.now() + 10 * 60_000); continue; }
+    break; // code Tamilya refusé, limite atteinte, maintenance… : inutile d'essayer une autre clé Gemini
   }
-  const cleClaude = Deno.env.get("ANTHROPIC_API_KEY");
-  if (cleClaude) {
-    try { return await appelerClaude(cleClaude, systeme, echanges, outils); } catch (e) { erreurs.push(`Claude · ${(e as Error).message}`); }
-  }
-  const echec: ErreurIa = new Error(erreurs.join(" | ") || "Aucune clé d'IA disponible.");
-  echec.credits = causesCles.length > 0 && causesCles.every((c) => c === "quota");
+  const echec: ErreurIa = new Error(erreurs.join(" | ") || "Aucune clé Gemini disponible pour Tamilya.");
+  echec.credits = clesG.length > 0 && quotas === clesG.length;
   throw echec;
 }
 
@@ -416,10 +329,22 @@ Deno.serve(async (req) => {
     if (conv.statut === "fermee") await majConv({ statut: "ia" });
 
     // Un conseiller a pris la discussion en main (statut « humain ») : on l'avertit, l'assistante se tait.
-    // En attente d'un conseiller (« attente ») : Awa continue d'aider, le client n'est jamais laissé sans réponse.
-    const enAttente = conv.statut === "attente";
+    // En attente d'un conseiller (« attente ») : Tamilya continue d'aider, le client n'est jamais laissé sans réponse.
+    let enAttente = conv.statut === "attente";
     if (conv.statut === "humain" || enAttente) await majConv({ non_lu: true });
     if (conv.statut === "humain") return reponse(apresInitial);
+
+    // Tamilya n'a pas d'outils : les demandes évidentes de conseiller (ou d'annulation) sont repérées ici
+    if (!enAttente && VEUT_HUMAIN.test(texte) && !ANNULE_CONSEILLER.test(texte)) {
+      await passerConseiller("Le client a demandé à parler à un conseiller.", "Je vous mets en relation avec un conseiller BTM. Il vous répond ici même dès que possible — vous pouvez déjà lui expliquer votre demande.");
+      return reponse(apresInitial);
+    }
+    if (enAttente && ANNULE_CONSEILLER.test(texte)) {
+      await ajouter("systeme", "Demande de conseiller annulée : vous continuez avec Tamilya.");
+      await majConv({ statut: "ia", raison: null, non_lu: false });
+      enAttente = false;
+    }
+
     if (conv.reponses_ia >= MAX_REPONSES_IA) {
       if (!enAttente) await passerConseiller("Conversation longue : limite de l'assistante atteinte.", "Pour aller plus loin, je vous passe un conseiller BTM : il vous répond ici même dès que possible.");
       return reponse(apresInitial);
@@ -430,9 +355,10 @@ Deno.serve(async (req) => {
       return reponse(apresInitial);
     }
 
+    const codeTamilya = Deno.env.get("TAMILYA_API_KEY")?.trim() || "";
     const cles = await clesGemini(admin);
-    if (!cles.length && !Deno.env.get("ANTHROPIC_API_KEY")) {
-      if (!enAttente) await passerConseiller("Assistante indisponible (aucune clé d'IA configurée).", "Merci pour votre message ! Un conseiller BTM va vous répondre ici même dès que possible.");
+    if (!codeTamilya || !cles.length) {
+      if (!enAttente) await passerConseiller("Assistante indisponible (secret TAMILYA_API_KEY ou clé Gemini manquant).", "Merci pour votre message ! Un conseiller BTM va vous répondre ici même dès que possible.");
       return reponse(apresInitial);
     }
 
@@ -443,21 +369,20 @@ Deno.serve(async (req) => {
       role: m.auteur === "client" ? "client" : "assistante",
       texte: m.auteur === "conseiller" ? `(Message du conseiller BTM) ${m.texte}` : m.texte,
     }));
-    while (echanges.length && echanges[0].role !== "client") echanges.shift();
 
     try {
       const situation = enAttente
-        ? "\n\nSituation : un conseiller BTM a été prévenu et va rejoindre cette discussion. En attendant, continue d'aider le client normalement (sans redemander de conseiller : c'est déjà fait).\nSi le client dit qu'il ne veut pas de conseiller, qu'il n'en a plus besoin ou qu'il préfère parler avec toi, tu dois appeler l'outil annuler_conseiller (en plus de ta réponse) : sinon le conseiller le dérangera inutilement."
+        ? "\n\nSituation : un conseiller BTM a été prévenu et va rejoindre cette discussion. En attendant, continue d'aider le client normalement, sans redemander de conseiller (c'est déjà fait) et sans utiliser le repère de transfert."
         : "";
-      const systeme = `${CONSIGNES}\n\n${await contexteOffres(admin)}\n\nPage consultée par le client : ${conv.page || "inconnue"}.${conv.nom ? ` Le client s'appelle ${conv.nom}.` : ""}${situation}`;
-      const r = await demanderIa(cles, systeme, echanges, enAttente ? [OUTIL_ANNULER] : [OUTIL_TRANSFERT]);
+      const contexte = `${CONSIGNES}
+
+Page consultée par le client : ${conv.page || "inconnue"}.${conv.nom ? ` Le client s'appelle ${conv.nom}.` : ""}${situation}
+
+${await contexteOffres(admin)}`;
+      const r = await demanderTamilya(codeTamilya, cles, contexte, echanges);
       await majConv({ reponses_ia: conv.reponses_ia + 1 });
-      if (r.appel?.nom === OUTIL_TRANSFERT.name) {
-        await passerConseiller(r.appel.raison, r.texte || "Je transmets votre demande à un conseiller BTM avec tous les détails : il vous répond ici même.");
-      } else if (r.appel?.nom === OUTIL_ANNULER.name) {
-        await ajouter("systeme", "Demande de conseiller annulée : vous continuez avec Awa.");
-        await majConv({ statut: "ia", raison: null, non_lu: false });
-        await ajouter("ia", r.texte || "C’est noté, je reste avec vous. Que puis-je faire pour vous ?");
+      if (r.transfert && !enAttente) {
+        await passerConseiller(r.transfert, r.texte || "Je transmets votre demande à un conseiller BTM avec tous les détails : il vous répond ici même.");
       } else {
         await ajouter("ia", r.texte || "Pouvez-vous me dire plus précisément ce que vous cherchez ?");
       }
@@ -466,7 +391,7 @@ Deno.serve(async (req) => {
       // déjà en attente d'un conseiller : il est prévenu, inutile de le redire
       // plus de crédits sur aucune clé : alerte claire au conseiller ; sinon panne technique passagère
       if (!enAttente) {
-        await passerConseiller((e as ErreurIa).credits ? RAISON_CREDITS : "Assistante indisponible (erreur technique des IA).",
+        await passerConseiller((e as ErreurIa).credits ? RAISON_CREDITS : "Assistante indisponible (erreur technique de Tamilya).",
           "Je vous passe un conseiller BTM : il prend le relais et vous répond ici même dès que possible.");
       }
     }

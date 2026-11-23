@@ -131,10 +131,30 @@ async function envoyer() {
     canal?.message() // le conseiller relit tout de suite la discussion
   } catch (e) {
     serveur.value.messages = serveur.value.messages.filter((m) => !m.provisoire)
-    saisie.value = texte
-    erreur.value = e.message
+    // connexion coupée ou réponse trop lente : le serveur a souvent déjà enregistré le message (et parfois la réponse).
+    // On relit la conversation ; si le message y est, la réponse de Tamilya sera ramenée par la relève.
+    if (await recupererEnvoi(texte)) {
+      erreur.value = ''
+    } else {
+      saisie.value = texte
+      erreur.value = e.message
+    }
   } finally {
     envoi.value = false
+  }
+}
+// relève provisoire (statut « ia ») : jusqu'à cette date, on va chercher une réponse de Tamilya arrivée en retard
+let rattrapageJusqua = 0
+async function recupererEnvoi(texte) {
+  try {
+    const r = await lireConversation(numeriqueDernier())
+    if (!r) return false
+    integrer(r)
+    const recu = serveur.value.messages.some((m) => m.auteur === 'client' && typeof m.id === 'number' && m.texte.startsWith(texte))
+    if (recu) rattrapageJusqua = Date.now() + 90000
+    return recu
+  } catch {
+    return false
   }
 }
 const numeriqueDernier = () => [...serveur.value.messages].reverse().find((m) => typeof m.id === 'number')?.id || 0
@@ -210,10 +230,13 @@ watch(saisie, (v) => { if (chezConseiller.value) ecriture.frappe(v) })
 
 let releveEnCours = false
 async function actualiser() {
-  if (!chezConseiller.value || document.hidden || releveEnCours) return
+  const rattrapage = Date.now() < rattrapageJusqua
+  if ((!chezConseiller.value && !rattrapage) || document.hidden || releveEnCours) return
   releveEnCours = true
   try {
     integrer(await lireConversation(numeriqueDernier(), { vu: minimise.value ? 0 : numeriqueDernier() }))
+    // la réponse en retard est arrivée : fin de la relève provisoire
+    if (rattrapage && serveur.value.messages.at(-1)?.auteur !== 'client') rattrapageJusqua = 0
   } catch { /* nouvel essai au prochain tour */ } finally {
     releveEnCours = false
   }

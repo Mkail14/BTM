@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { supabaseConfigure } from '@/services/supabase/client.js'
 import * as auth from '@/services/supabase/serviceAuth.js'
-import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
+import { lireRoleCompte } from '@/services/supabase/serviceCompte.js'
 import { memoriserSuspension } from '@/services/suspension.js'
 
 const utilisateur = ref(null)

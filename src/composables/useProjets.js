@@ -11,7 +11,7 @@
  */
 import { ref, computed } from 'vue'
 import * as local from '@/services/stockage/stockageProjets.js'
-import { listerProjetsCloud, creerProjetCloud, supprimerProjetCloud } from '@/services/supabase/serviceProjets.js'
+import { listerProjetsCloud, creerProjetCloud, supprimerProjetCloud } from '@/services/api/serviceProjets.js'
 import { useAuth, surChangementCompte } from './useAuth.js'
 
 /** Projets locaux visibles pour ce compte (null = visiteur non connecté) */

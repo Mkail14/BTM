@@ -6,7 +6,7 @@
  * matériau est compté au prix du fournisseur choisi le moins cher qui l'a en stock.
  */
 import { computed, onMounted, ref } from 'vue'
-import { chargerFournisseurs } from '@/services/supabase/serviceFournisseurs.js'
+import { chargerFournisseurs } from '@/services/api/serviceFournisseurs.js'
 import { chargerOffres, parFournisseur, chiffrerChez } from '@/services/supabase/serviceOffres.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 

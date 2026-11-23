@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { chargerFournisseurs, chargerCategories } from '@/services/supabase/serviceFournisseurs.js'
+import { chargerFournisseurs, chargerCategories } from '@/services/api/serviceFournisseurs.js'
 import CarteFournisseur from '@/composants/fournisseurs/CarteFournisseur.vue'
 import FiltresFournisseurs from '@/composants/fournisseurs/FiltresFournisseurs.vue'
 import BandeauPage from '@/composants/commun/BandeauPage.vue'

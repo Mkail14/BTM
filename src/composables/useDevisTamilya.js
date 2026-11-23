@@ -1,5 +1,5 @@
 /**
- * useDevisAwa — le devis fait dans la discussion avec Awa, sans passer par le calculateur.
+ * useDevisTamilya — le devis fait dans la discussion avec Tamilya, sans passer par le calculateur.
  * Tamilya pose les questions du formulaire (celles de `typesProjets`), calcule avec le même moteur et les mêmes prix
  * que le calculateur, puis enregistre le projet dans « Mes projets » : dans le compte s'il est connecté, sinon sur
  * l'appareil (il rejoint le compte à la prochaine connexion, comme tout projet créé sans compte).
@@ -9,7 +9,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { typesProjets, trouverTypeProjet } from '@/donnees/typesProjets.js'
 import { calculerEstimation, validerDimensions, resumerDimensions, formaterEuros, formaterQuantite, formaterNombre } from '@/services/calculs/moteurCalculs.js'
-import { chargerCatalogue } from '@/services/supabase/serviceMateriaux.js'
+import { chargerCatalogue } from '@/services/api/serviceMateriaux.js'
 import { exporterEstimationPdf } from '@/services/export/exportPdf.js'
 import { useProjets } from '@/composables/useProjets.js'
 import { useCalculateur } from '@/composables/useCalculateur.js'
@@ -67,7 +67,7 @@ function question(champ) {
   return `${champ.question}\nRépondez en ${UNITES[champ.unite] || champ.unite}${exemple}.${champ.optionnel ? ' S’il n’y en a pas, dites « aucune ».' : ''}`
 }
 
-export function useDevisAwa() {
+export function useDevisTamilya() {
   const router = useRouter()
   const { sauvegarder } = useProjets()
   const calc = useCalculateur()

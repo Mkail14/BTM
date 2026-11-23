@@ -7,7 +7,7 @@ import { calculerEstimation, validerDimensions, normaliserResultat, appliquerCod
 import { fusionnerResultats, TYPE_ACHAT } from '@/services/calculs/fusion.js'
 import { arrondi } from '@/services/calculs/utilitaires.js'
 import { lireCalcul, ecrireCalcul, effacerCalcul, mettreDeCoteCalcul, reprendreCalculMisDeCote, oublierCalculMisDeCote } from '@/services/stockage/stockageCalcul.js'
-import { chargerCatalogue } from '@/services/supabase/serviceMateriaux.js'
+import { chargerCatalogue } from '@/services/api/serviceMateriaux.js'
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
 import { useContenuSite, chargerContenus } from '@/composables/useContenuSite.js'
 import { surChangementCompte } from '@/composables/useAuth.js'
@@ -132,8 +132,6 @@ export function useCalculateur() {
     chargement.value = true
     try {
       // Le calcul ne doit jamais rester bloqué sur le réseau : sans réponse de Supabase à temps,
-      // on calcule avec les prix locaux et le taux de frais par défaut (et on réessaiera au prochain calcul)
-      // prix, taux des frais et petite latence volontaire (10.2) en parallèle : 3 s d'attente au plus
       // le code promo est revérifié (l'admin a pu le désactiver, il a pu expirer) ;
       // sans réponse de Supabase, on garde le code déjà validé plutôt que de le retirer à tort
       const [c, codeVerifie] = await Promise.all([

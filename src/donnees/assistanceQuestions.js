@@ -4,7 +4,7 @@
  * Une étape `resolu` demande au visiteur si sa question est réglée ; sinon, Tamilya (IA) cherche avec lui à partir de
  * son explication (étape `libre`, parcours suivi joint), et passe la main à un conseiller seulement si elle n'y arrive pas.
  * Le bouton « Parler à un conseiller » reste toujours disponible : le visiteur peut demander un humain à tout moment.
- * Un choix `devis` lance le devis fait dans la discussion (useDevisAwa).
+ * Un choix `devis` lance le devis fait dans la discussion (useDevisTamilya).
  */
 export const ETAPES = {
   depart: {

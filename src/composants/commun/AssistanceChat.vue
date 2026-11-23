@@ -1,14 +1,14 @@
 <script setup>
 /**
- * Discussion « Sur le site » : Tamilya (questions guidées, puis assistante IA pour les questions libres)
+ * Discussion « Sur le site » : Tamilya, IA de BTM AI (questions guidées, puis assistante IA pour les questions libres)
  * ou un conseiller BTM (l'admin) quand la demande la dépasse. La conversation est gardée dans le navigateur :
  * le visiteur retrouve la réponse du conseiller s'il revient plus tard.
- * Awa fait aussi le devis dans la discussion (useDevisAwa) : questions, calcul, enregistrement dans « Mes projets », PDF.
+ * Tamilya fait aussi le devis dans la discussion (useDevisTamilya) : questions, calcul, enregistrement dans « Mes projets », PDF.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { ETAPES } from '@/donnees/assistanceQuestions.js'
-import { useDevisAwa, demandeDeDevis } from '@/composables/useDevisAwa.js'
+import { useDevisTamilya, demandeDeDevis } from '@/composables/useDevisTamilya.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import {
   conversationGardee, oublierConversation, envoyerQuestion, demanderConseiller, lireConversation,
@@ -21,7 +21,7 @@ const { connecte } = useAuth()
 const {
   messages: messagesDevis, actif: devisActif, occupe: devisOccupe, choix: choixDevis, dernier: dernierDevis,
   demarrer: demarrerDevis, choisir: choisirDevis, repondre: repondreDevis, annuler: annulerDevis, pdf: pdfDevis, ouvrir: ouvrirDevis, reinitialiser: oublierDevis
-} = useDevisAwa()
+} = useDevisTamilya()
 
 const minimise = ref(false)
 const guide = ref([]) // échanges des questions guidées (dans le navigateur seulement)
@@ -61,7 +61,7 @@ const vuParConseiller = computed(() => !!dernierClientId.value && serveur.value.
 // la conversation a commencé avec le conseiller dès qu'il a pris la main ou écrit
 const conseillerPresent = computed(() => chezConseiller.value && (statut.value === 'humain' || serveur.value.messages.some((m) => m.auteur === 'conseiller')))
 // qui répond en ce moment : la barre prend sa couleur (Tamilya en fuchsia, le conseiller en ardoise)
-const interlocuteur = computed(() => (statut.value === 'fermee' ? 'fermee' : conseillerPresent.value ? 'conseiller' : 'awa'))
+const interlocuteur = computed(() => (statut.value === 'fermee' ? 'fermee' : conseillerPresent.value ? 'conseiller' : 'tamilya'))
 const titre = computed(() => ({ conseiller: 'Conseiller BTM', fermee: 'Conversation clôturée' })[interlocuteur.value] || 'Tamilya · Assistante IA')
 // en attente d'un conseiller, Tamilya continue de répondre (fonction « assistant ») : le client n'est jamais sans réponse
 const sousTitre = computed(() => {
@@ -390,13 +390,13 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         <p><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Cette conversation a été clôturée par un conseiller BTM.</p>
         <small>Pour continuer, ouvrez une « Nouvelle discussion » depuis le menu de l’avatar.</small>
       </div>
-      <!-- conditions de Tamilya : indiquer que les réponses viennent d'une IA fournie par BTM AI -->
-      <p v-if="!cloturee" class="ac-mention">Réponses générées par Tamilya, une intelligence artificielle fournie par <a href="https://tamilya.yt" target="_blank" rel="noopener">BTM AI</a>.</p>
-      <form v-if="!cloturee" class="ac-saisie" @submit.prevent="envoyer">
+      <form v-else class="ac-saisie" @submit.prevent="envoyer">
         <label class="visually-hidden" for="ac-message">Votre message</label>
         <input id="ac-message" v-model="saisie" type="text" maxlength="1000" :placeholder="devisActif ? 'Votre réponse…' : statut === 'humain' ? 'Écrire au conseiller…' : 'Posez votre question…'" autocomplete="off" />
         <button type="submit" :disabled="!saisie.trim() || envoi" aria-label="Envoyer"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
       </form>
+      <!-- conditions de Tamilya : indiquer que les réponses viennent d'une IA fournie par BTM AI -->
+      <p class="ac-mention">Réponses générées par Tamilya, une intelligence artificielle fournie par <a href="https://tamilya.yt" target="_blank" rel="noopener">BTM AI</a>.</p>
     </template>
   </aside>
 </template>
@@ -409,7 +409,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 }
 .ac.minimise { width: min(320px, calc(100vw - 32px)); }
 .ac-barre { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; background: #111; color: #fff; }
-.ac-barre-awa { background: linear-gradient(120deg, #171717, #111111); } /* bandeau toujours foncé, texte blanc */
+.ac-barre-tamilya { background: linear-gradient(120deg, #171717, #111111); } /* bandeau toujours foncé, texte blanc */
 .ac-barre-conseiller { background: var(--encre); }
 .ac-profil { position: relative; flex: none; }
 .ac-barre .ac-avatar { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); transition: background .15s, box-shadow .15s; }
@@ -462,9 +462,8 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-cloture p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ardoise-2); font-size: .84rem; font-weight: 600; }
 .ac-cloture p i { color: #047857; }
 .ac-cloture small { color: var(--texte-secondaire); font-size: .76rem; }
-.ac-mention { margin: 0; padding: 6px 10px 0; border-top: 1px solid var(--gris-200); background: var(--carte); color: var(--gris-500); font-size: .7rem; text-align: center; }
+.ac-mention { margin: 0; padding: 4px 10px 8px; background: var(--carte); color: var(--gris-500); font-size: .7rem; text-align: center; }
 .ac-mention a { color: inherit; text-decoration: underline; }
-.ac-mention + .ac-saisie { border-top: 0; }
 .ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: var(--carte); }
 .ac-saisie input { min-width: 0; flex: 1; min-height: 40px; padding: 0 12px; border: 1px solid var(--gris-200); border-radius: 999px; outline: 0; font: inherit; font-size: .86rem; }
 .ac-saisie input:focus { border-color: var(--lagon-500); }

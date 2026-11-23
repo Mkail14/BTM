@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { lireRoleCompte } from '@/services/supabase/serviceAdmin.js'
+import { lireRoleCompte } from '@/services/supabase/serviceCompte.js'
 import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
 import { modeSite } from '@/composables/useModeSite.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'

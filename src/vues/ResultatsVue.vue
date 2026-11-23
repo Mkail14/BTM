@@ -14,7 +14,7 @@ import { formaterEuros, formaterNombre, formaterQuantite, sujetEstimation, detai
 import { exporterEstimationPdf } from '@/services/export/exportPdf.js'
 import { infoType, libelleOuvrage } from '@/services/calculs/fusion.js'
 import { appliquerPrixFournisseurs } from '@/services/supabase/serviceOffres.js'
-import { lireChoixCredit, choisirCredit } from '@/services/supabase/serviceProjets.js'
+import { lireChoixCredit, choisirCredit } from '@/services/api/serviceProjets.js'
 import { useCreditFidelite } from '@/composables/useCreditFidelite.js'
 import ComparateurFournisseurs from '@/composants/resultats/ComparateurFournisseurs.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'

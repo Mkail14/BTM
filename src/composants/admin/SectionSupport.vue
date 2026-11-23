@@ -48,7 +48,7 @@ let minuterieFil = null
 const dernierId = computed(() => messages.value.at(-1)?.id || 0)
 const qui = (c) => c?.nom || c?.email || 'Visiteur'
 // Tamilya hors service : une discussion vient de vous être passée faute de crédits IA (fonction « assistant », RAISON_CREDITS)
-const awaHorsService = computed(() => conversations.value.some((c) =>
+const tamilyaHorsService = computed(() => conversations.value.some((c) =>
   c.raison?.startsWith('Plus de crédits IA') && Date.now() - new Date(c.mis_a_jour_le).getTime() < 3 * 3600_000))
 
 // ---------- Accusés de lecture et « écrit… » ----------
@@ -210,9 +210,9 @@ const date = (d) => {
       <div class="sp-filtres adm-pilules">
         <button v-for="f in FILTRES" :key="f.id" type="button" class="adm-pilule" :class="{ actif: filtre === f.id }" @click="filtre = f.id">{{ f.label }}</button>
       </div>
-      <p v-if="awaHorsService" class="sp-hors-service" role="alert">
+      <p v-if="tamilyaHorsService" class="sp-hors-service" role="alert">
         <i class="fa-solid fa-robot" aria-hidden="true"></i>
-        <span><strong>Tamilya est hors service : plus de crédits IA.</strong> Toutes les clés Gemini de Tamilya ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
+        <span><strong>Tamilya est hors service : plus de crédits IA.</strong> Toutes les API de Tamilya (BTM AI) ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
       </p>
       <p v-if="notificationsNavigateur === 'default'" class="sp-notif">
         <i class="fa-regular fa-bell" aria-hidden="true"></i> Être prévenu même dans un autre onglet ?

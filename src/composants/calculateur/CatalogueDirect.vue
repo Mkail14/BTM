@@ -8,7 +8,7 @@
  * Valider mène aux résultats, où l'on compare le prix exact chez chaque fournisseur.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { chargerCatalogue } from '@/services/supabase/serviceMateriaux.js'
+import { chargerCatalogue } from '@/services/api/serviceMateriaux.js'
 import { chargerOffres, meilleuresOffres } from '@/services/supabase/serviceOffres.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 

@@ -5,7 +5,7 @@
  *  - fenêtre de confirmation unique, utilisable en `await confirmer({...})`.
  */
 import { reactive, ref } from 'vue'
-import * as api from '@/services/supabase/serviceAdmin.js'
+import * as api from '@/services/api/serviceAdmin.js'
 import { surChangementCompte } from '@/composables/useAuth.js'
 
 const chargeurs = {

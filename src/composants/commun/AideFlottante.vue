@@ -146,7 +146,7 @@ onBeforeUnmount(() => {
       <section class="aide-feuille" role="dialog" aria-modal="true" aria-labelledby="aide-feuille-titre">
         <span class="aide-feuille-poignee" aria-hidden="true"></span>
         <h2 id="aide-feuille-titre">Besoin d’aide ?</h2>
-        <p>Tamilya, l’assistante IA de BTM AI, répond tout de suite. Un conseiller prend le relais si besoin.</p>
+        <p>Tamilya, l’assistante BTM, répond tout de suite. Un conseiller prend le relais si besoin.</p>
         <div class="aide-feuille-liste">
           <button type="button" class="aide-feuille-ligne" @click="ouvrirAssistant">
             <span class="aide-feuille-icone"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { chargerFournisseurs } from '@/services/supabase/serviceFournisseurs.js'
+import { chargerFournisseurs } from '@/services/api/serviceFournisseurs.js'
 import CarteBase from '@/composants/commun/CarteBase.vue'
 
 const props = defineProps({ modelValue: { type: String, default: '' } })

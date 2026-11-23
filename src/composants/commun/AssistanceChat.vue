@@ -1,14 +1,14 @@
 <script setup>
 /**
- * Discussion « Sur le site » : Awa (questions guidées, puis assistante IA pour les questions libres)
+ * Discussion « Sur le site » : Tamilya, IA de BTM AI (questions guidées, puis assistante IA pour les questions libres)
  * ou un conseiller BTM (l'admin) quand la demande la dépasse. La conversation est gardée dans le navigateur :
  * le visiteur retrouve la réponse du conseiller s'il revient plus tard.
- * Awa fait aussi le devis dans la discussion (useDevisAwa) : questions, calcul, enregistrement dans « Mes projets », PDF.
+ * Tamilya fait aussi le devis dans la discussion (useDevisTamilya) : questions, calcul, enregistrement dans « Mes projets », PDF.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { ETAPES } from '@/donnees/assistanceQuestions.js'
-import { useDevisAwa, demandeDeDevis } from '@/composables/useDevisAwa.js'
+import { useDevisTamilya, demandeDeDevis } from '@/composables/useDevisTamilya.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import {
   conversationGardee, oublierConversation, envoyerQuestion, demanderConseiller, lireConversation,
@@ -21,7 +21,7 @@ const { connecte } = useAuth()
 const {
   messages: messagesDevis, actif: devisActif, occupe: devisOccupe, choix: choixDevis, dernier: dernierDevis,
   demarrer: demarrerDevis, choisir: choisirDevis, repondre: repondreDevis, annuler: annulerDevis, pdf: pdfDevis, ouvrir: ouvrirDevis, reinitialiser: oublierDevis
-} = useDevisAwa()
+} = useDevisTamilya()
 
 const minimise = ref(false)
 const guide = ref([]) // échanges des questions guidées (dans le navigateur seulement)
@@ -49,7 +49,7 @@ const cloturee = computed(() => statut.value === 'fermee')
 // le parcours guidé envoyé au conseiller n'est pas réaffiché au visiteur
 const messagesServeur = computed(() => serveur.value.messages.filter((m) => !(m.auteur === 'client' && m.texte.startsWith('Parcours suivi :'))))
 const etapeActive = computed(() => guide.value.at(-1)?.etape || null)
-// conversation enregistrée et devis d'Awa dans un seul fil ; un message pas encore horodaté (envoi en cours) reste à la fin
+// conversation enregistrée et devis de Tamilya dans un seul fil ; un message pas encore horodaté (envoi en cours) reste à la fin
 const fil = computed(() => {
   if (!messagesDevis.value.length) return messagesServeur.value
   const instant = (m) => (m.cree_le ? new Date(m.cree_le).getTime() : Infinity)
@@ -60,16 +60,16 @@ const dernierClientId = computed(() => [...messagesServeur.value].reverse().find
 const vuParConseiller = computed(() => !!dernierClientId.value && serveur.value.vuConseiller >= dernierClientId.value)
 // la conversation a commencé avec le conseiller dès qu'il a pris la main ou écrit
 const conseillerPresent = computed(() => chezConseiller.value && (statut.value === 'humain' || serveur.value.messages.some((m) => m.auteur === 'conseiller')))
-// qui répond en ce moment : la barre prend sa couleur (Awa en fuchsia, le conseiller en ardoise)
-const interlocuteur = computed(() => (statut.value === 'fermee' ? 'fermee' : conseillerPresent.value ? 'conseiller' : 'awa'))
-const titre = computed(() => ({ conseiller: 'Conseiller BTM', fermee: 'Conversation clôturée' })[interlocuteur.value] || 'Awa · Assistante BTM')
-// en attente d'un conseiller, Awa continue de répondre (fonction « assistant ») : le client n'est jamais sans réponse
+// qui répond en ce moment : la barre prend sa couleur (Tamilya en fuchsia, le conseiller en ardoise)
+const interlocuteur = computed(() => (statut.value === 'fermee' ? 'fermee' : conseillerPresent.value ? 'conseiller' : 'tamilya'))
+const titre = computed(() => ({ conseiller: 'Conseiller BTM', fermee: 'Conversation clôturée' })[interlocuteur.value] || 'Tamilya · Assistante IA')
+// en attente d'un conseiller, Tamilya continue de répondre (fonction « assistant ») : le client n'est jamais sans réponse
 const sousTitre = computed(() => {
   if (interlocuteur.value === 'conseiller') return 'Vous discutez avec un conseiller'
   if (interlocuteur.value === 'fermee') return 'Discussion terminée'
-  return statut.value === 'attente' ? 'Awa vous répond · un conseiller va vous rejoindre' : 'Assistante virtuelle · répond tout de suite'
+  return statut.value === 'attente' ? 'Tamilya vous répond · un conseiller va vous rejoindre' : 'Assistante virtuelle · répond tout de suite'
 })
-// affichée juste après la demande de conseiller, effacée dès que quelqu'un (client, Awa ou conseiller) écrit
+// affichée juste après la demande de conseiller, effacée dès que quelqu'un (client, Tamilya ou conseiller) écrit
 const noteFermer = computed(() => chezConseiller.value && debutAttente.value === serveur.value.messages.length && !serveur.value.email && !connecte.value && !demandeCoordonnees.value)
 const peutRecommencer = computed(() => !!serveur.value.statut || guide.value.length > 1)
 
@@ -89,7 +89,7 @@ function choisir(c) {
   etapeVers(c.suite)
 }
 function resolu(oui) {
-  // pas réglé : Awa cherche d'abord avec le visiteur ; le conseiller reste à un clic (« Parler à un conseiller »)
+  // pas réglé : Tamilya cherche d'abord avec le visiteur ; le conseiller reste à un clic (« Parler à un conseiller »)
   if (!oui) { guide.value.push({ auteur: 'client', texte: 'Non, ce n’est pas réglé' }); parcours.value.push('Pas réglé'); return etapeVers('pas-regle') }
   guide.value.push({ auteur: 'client', texte: 'Oui, merci' })
   guide.value.push({ auteur: 'ia', texte: 'Avec plaisir ! Puis-je vous aider pour autre chose ?', etape: 'depart' })
@@ -100,7 +100,7 @@ function resolu(oui) {
 function integrer(r) {
   if (!r) return
   const connus = new Set(serveur.value.messages.map((m) => m.id))
-  // le message du client enregistré côté serveur (ramené par la relève pendant qu'Awa réfléchit)
+  // le message du client enregistré côté serveur (ramené par la relève pendant que Tamilya réfléchit)
   // remplace sa copie provisoire : il ne s'affiche jamais en double
   const recu = r.messages.some((m) => m.auteur === 'client' && !connus.has(m.id))
   serveur.value = {
@@ -115,7 +115,7 @@ function integrer(r) {
 async function envoyer() {
   const texte = saisie.value.trim()
   if (!texte || envoi.value) return
-  // devis dans la discussion : la réponse va à Awa sur place ; une demande de devis écrite le démarre
+  // devis dans la discussion : la réponse va à Tamilya sur place ; une demande de devis écrite le démarre
   if (devisActif.value) { saisie.value = ''; repondreDevis(texte); return }
   if (!chezConseiller.value && demandeDeDevis(texte)) { saisie.value = ''; demarrerDevis(texte); return }
   erreur.value = ''
@@ -138,7 +138,7 @@ async function envoyer() {
   }
 }
 const numeriqueDernier = () => [...serveur.value.messages].reverse().find((m) => typeof m.id === 'number')?.id || 0
-// la discussion vient de passer chez un conseiller (à la demande du client ou d'Awa)
+// la discussion vient de passer chez un conseiller (à la demande du client ou de Tamilya)
 function noterPassage(avant) { if (!avant && chezConseiller.value) debutAttente.value = serveur.value.messages.length }
 
 function passerConseiller() {
@@ -250,7 +250,7 @@ async function reprendre() {
 }
 defineExpose({ reprendre })
 
-const AUTEURS = { ia: { nom: 'Awa', badge: 'IA' }, conseiller: { nom: 'Conseiller BTM', badge: 'BTM' } }
+const AUTEURS = { ia: { nom: 'Tamilya', badge: 'IA' }, conseiller: { nom: 'Conseiller BTM', badge: 'BTM' } }
 const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '')
 </script>
 
@@ -265,7 +265,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         </button>
         <div v-if="menuOuvert" id="ac-options" class="ac-options">
           <p class="ac-options-qui"><strong>{{ titre }}</strong><small>{{ sousTitre }}</small></p>
-          <button v-if="!devisActif && !cloturee" type="button" @click="menuOuvert = false; demarrerDevis()"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire un devis avec Awa</button>
+          <button v-if="!devisActif && !cloturee" type="button" @click="menuOuvert = false; demarrerDevis()"><i class="fa-solid fa-calculator" aria-hidden="true"></i> Faire un devis avec Tamilya</button>
           <button v-if="!chezConseiller && !cloturee" type="button" @click="passerConseiller"><i class="fa-solid fa-headset" aria-hidden="true"></i> Parler à un conseiller</button>
           <button v-if="peutRecommencer" type="button" @click="recommencer"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Nouvelle discussion</button>
           <button type="button" @click="menuOuvert = false; minimise = true"><i class="fa-solid fa-minus" aria-hidden="true"></i> Réduire la fenêtre</button>
@@ -282,7 +282,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         <!-- Questions guidées -->
         <template v-for="(m, i) in guide" :key="`g${i}`">
           <div class="ac-ligne" :class="m.auteur === 'client' ? 'client' : 'ia'">
-            <span v-if="m.auteur !== 'client'" class="ac-qui">Awa <em>IA</em></span>
+            <span v-if="m.auteur !== 'client'" class="ac-qui">Tamilya <em>IA</em></span>
             <p class="ac-bulle">{{ m.texte }}</p>
             <router-link v-if="m.lien" :to="m.lien.to" class="ac-lien" @click="minimise = true">{{ m.lien.label }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></router-link>
           </div>
@@ -300,7 +300,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
           </div>
         </template>
 
-        <!-- Conversation enregistrée (assistante IA et conseiller) et devis fait avec Awa -->
+        <!-- Conversation enregistrée (assistante IA et conseiller) et devis fait avec Tamilya -->
         <template v-for="m in fil" :key="m.id">
           <p v-if="m.auteur === 'systeme'" class="ac-systeme">{{ m.texte }}</p>
           <div v-else class="ac-ligne" :class="m.auteur === 'client' ? 'client' : m.auteur">
@@ -367,6 +367,8 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         <input id="ac-message" v-model="saisie" type="text" maxlength="1000" :placeholder="devisActif ? 'Votre réponse…' : statut === 'humain' ? 'Écrire au conseiller…' : 'Posez votre question…'" autocomplete="off" />
         <button type="submit" :disabled="!saisie.trim() || envoi" aria-label="Envoyer"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
       </form>
+      <!-- conditions de Tamilya : indiquer que les réponses viennent d'une IA fournie par BTM AI -->
+      <p class="ac-mention">Réponses générées par Tamilya, une intelligence artificielle fournie par <a href="https://tamilya.yt" target="_blank" rel="noopener">BTM AI</a>.</p>
     </template>
   </aside>
 </template>
@@ -379,7 +381,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 }
 .ac.minimise { width: min(320px, calc(100vw - 32px)); }
 .ac-barre { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; background: var(--lagon-600); color: #fff; }
-.ac-barre-awa { background: #c026d3; }
+.ac-barre-tamilya { background: #c026d3; }
 .ac-barre-conseiller { background: var(--ardoise); }
 .ac-profil { position: relative; flex: none; }
 .ac-barre .ac-avatar { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); transition: background .15s, box-shadow .15s; }
@@ -432,6 +434,8 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-cloture p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ardoise-2); font-size: .84rem; font-weight: 600; }
 .ac-cloture p i { color: #047857; }
 .ac-cloture small { color: var(--texte-secondaire); font-size: .76rem; }
+.ac-mention { margin: 0; padding: 4px 10px 8px; background: #fff; color: var(--gris-500); font-size: .7rem; text-align: center; }
+.ac-mention a { color: inherit; text-decoration: underline; }
 .ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: #fff; }
 .ac-saisie input { min-width: 0; flex: 1; min-height: 40px; padding: 0 12px; border: 1px solid var(--gris-200); border-radius: 999px; outline: 0; font: inherit; font-size: .86rem; }
 .ac-saisie input:focus { border-color: var(--lagon-500); }

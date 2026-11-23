@@ -5,7 +5,7 @@
  * Choisir un fournisseur applique ses prix au devis (PDF, enregistrement) et l'ajoute au PDF.
  */
 import { computed, onMounted, ref } from 'vue'
-import { chargerFournisseurs } from '@/services/supabase/serviceFournisseurs.js'
+import { chargerFournisseurs } from '@/services/api/serviceFournisseurs.js'
 import { chargerOffres, parFournisseur, chiffrerChez } from '@/services/supabase/serviceOffres.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 

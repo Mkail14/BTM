@@ -61,7 +61,8 @@ export async function listerJournal() {
 export async function trouverDevisParCode(code) {
   const { data, error } = await supabase.rpc('trouver_devis_par_code', { p_code: code })
   if (error) throw erreurSql(error, '0013')
-  return { ...data, cout_total: Number(data.cout_total), resultat: normaliserResultat(data.resultat), paiement: versPaiement(data.paiement), credit_disponible: Number(data.credit_disponible) || 0, commission: Number(data.commission) || 0 }
+  return { ...data, cout_total: Number(data.cout_total), resultat: normaliserResultat(data.resultat), paiement: versPaiement(data.paiement), credit_disponible: 
+  Number(data.credit_disponible) || 0, commission: Number(data.commission) || 0 }
 }
 
 /**

@@ -2,7 +2,7 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import routeur from './routeur'
 import { chargerContenus } from './composables/useContenuSite.js'
-import { chargerTypesProjets } from './services/supabase/serviceTypesProjets.js'
+import { chargerTypesProjets } from './services/api/serviceTypesProjets.js'
 // Polices et icônes servies par le site lui-même : aucune requête vers Google Fonts ou un CDN
 // (pas d'adresse IP des visiteurs transmise à un tiers, et un affichage plus rapide)
 import '@fontsource/inter/400.css'

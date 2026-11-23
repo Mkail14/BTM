@@ -1,6 +1,6 @@
 <script setup>
 /**
- * Bouton d’aide : choix entre la discussion « Sur le site » (Awa, puis un conseiller BTM), WhatsApp et l’e-mail.
+ * Bouton d’aide : choix entre la discussion « Sur le site » (Tamilya, puis un conseiller BTM), WhatsApp et l’e-mail.
  * Une pastille rouge signale une réponse du conseiller arrivée pendant que la discussion était fermée.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -97,7 +97,7 @@ onBeforeUnmount(() => {
                 <h3>Discuter avec l’assistance</h3>
               </div>
             </div>
-            <p class="aide-page-description">Awa, l’assistante BTM, vous répond tout de suite. Si votre demande la dépasse, un conseiller BTM prend le relais dans la même discussion.</p>
+            <p class="aide-page-description">Tamilya, l’assistante IA de BTM AI, vous répond tout de suite. Si votre demande la dépasse, un conseiller BTM prend le relais dans la même discussion.</p>
             <div class="aide-page-actions">
               <button class="aide-action aide-action-site" type="button" @click="ouvrirAssistant">
                 <i class="fa-solid fa-message" aria-hidden="true"></i>

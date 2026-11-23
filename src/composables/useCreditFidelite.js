@@ -3,7 +3,7 @@
  * et « Mes projets » (détail des derniers mouvements). Rechargé à chaque changement de compte.
  */
 import { ref } from 'vue'
-import { lireCreditFidelite } from '@/services/supabase/serviceProjets.js'
+import { lireCreditFidelite } from '@/services/supabase/serviceCreditFidelite.js'
 import { useAuth, surChangementCompte } from '@/composables/useAuth.js'
 
 const VIDE = { solde: 0, mouvements: [] }

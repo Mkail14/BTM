@@ -1,6 +1,6 @@
 /**
  * useDevisAwa — le devis fait dans la discussion avec Awa, sans passer par le calculateur.
- * Awa pose les questions du formulaire (celles de `typesProjets`), calcule avec le même moteur et les mêmes prix
+ * Tamilya pose les questions du formulaire (celles de `typesProjets`), calcule avec le même moteur et les mêmes prix
  * que le calculateur, puis enregistre le projet dans « Mes projets » : dans le compte s'il est connecté, sinon sur
  * l'appareil (il rejoint le compte à la prochaine connexion, comme tout projet créé sans compte).
  * Tout se passe dans le navigateur : ces messages ne sont pas envoyés à l'assistante IA du serveur.
@@ -25,7 +25,7 @@ function ouvrageDans(texte) {
 
 /**
  * « Fais-moi un devis pour un mur », « combien coûte une dalle de 8 m sur 6 ? » : une demande de nouveau devis,
- * qu'Awa traite elle-même. Une question sur un devis existant (retrouvé, payé, code de retrait…) n'en est pas une.
+ * que Tamilya traite elle-même. Une question sur un devis existant (retrouvé, payé, code de retrait…) n'en est pas une.
  */
 export function demandeDeDevis(texte) {
   const t = sansAccent(texte)
@@ -196,7 +196,7 @@ export function useDevisAwa() {
       const prix = await Promise.race([chargerCatalogue().catch(() => null), new Promise((r) => setTimeout(() => r(null), 3000))])
       const resultat = calculerEstimation(type.id, valeurs, { catalogue: prix?.catalogue })
       const mesures = mesuresDe(type, resultat.dimensions)
-      const nom = `${type.libelle} ${mesures} (Awa)`
+      const nom = `${type.libelle} ${mesures} (Tamilya)`
       const projet = await sauvegarder({ nom, resultat, fournisseur: null })
       const code = projet?.code_retrait || ''
       const lignes = resultat.lignes.map((l) => `• ${l.libelle} : ${formaterQuantite(l.quantite, l.unite)} — ${formaterEuros(l.sousTotal)}`).join('\n')

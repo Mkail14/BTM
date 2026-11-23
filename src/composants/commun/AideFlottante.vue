@@ -1,6 +1,6 @@
 <script setup>
 /**
- * Bouton d’aide : choix entre la discussion « Sur le site » (Awa, puis un conseiller BTM), WhatsApp et l’e-mail.
+ * Bouton d’aide : choix entre la discussion « Sur le site » (Tamilya, puis un conseiller BTM), WhatsApp et l’e-mail.
  * Une pastille rouge signale une réponse du conseiller arrivée pendant que la discussion était fermée.
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -146,11 +146,11 @@ onBeforeUnmount(() => {
       <section class="aide-feuille" role="dialog" aria-modal="true" aria-labelledby="aide-feuille-titre">
         <span class="aide-feuille-poignee" aria-hidden="true"></span>
         <h2 id="aide-feuille-titre">Besoin d’aide ?</h2>
-        <p>Awa, l’assistante BTM, répond tout de suite. Un conseiller prend le relais si besoin.</p>
+        <p>Tamilya, l’assistante IA de BTM AI, répond tout de suite. Un conseiller prend le relais si besoin.</p>
         <div class="aide-feuille-liste">
           <button type="button" class="aide-feuille-ligne" @click="ouvrirAssistant">
             <span class="aide-feuille-icone"><i class="fa-solid fa-comments" aria-hidden="true"></i></span>
-            <span><strong>Discuter avec Awa</strong><small>Réponse immédiate, sur le site</small></span>
+            <span><strong>Discuter avec Tamilya</strong><small>Réponse immédiate, sur le site</small></span>
             <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
           </button>
           <a class="aide-feuille-ligne" :href="`https://wa.me/${numeroWhatsApp}?text=${messageWhatsApp}`" target="_blank" rel="noopener noreferrer" @click="fermer">
@@ -177,7 +177,7 @@ onBeforeUnmount(() => {
                 <h3>Discuter avec l’assistance</h3>
               </div>
             </div>
-            <p class="aide-page-description">Awa, l’assistante BTM, vous répond tout de suite. Si votre demande la dépasse, un conseiller BTM prend le relais dans la même discussion.</p>
+            <p class="aide-page-description">Tamilya, l’assistante IA de BTM AI, vous répond tout de suite. Si votre demande la dépasse, un conseiller BTM prend le relais dans la même discussion.</p>
             <div class="aide-page-actions">
               <button class="aide-action aide-action-site" type="button" @click="ouvrirAssistant">
                 <i class="fa-solid fa-message" aria-hidden="true"></i>

@@ -1,14 +1,14 @@
 /**
  * Questions guidées de l'assistance « Sur le site » : réponses immédiates aux demandes courantes, sans IA.
  * Chaque étape propose des choix (`suite` = étape suivante, `conseiller` = passer la main à un conseiller).
- * Une étape `resolu` demande au visiteur si sa question est réglée ; sinon, Awa (IA) cherche avec lui à partir de
+ * Une étape `resolu` demande au visiteur si sa question est réglée ; sinon, Tamilya (IA) cherche avec lui à partir de
  * son explication (étape `libre`, parcours suivi joint), et passe la main à un conseiller seulement si elle n'y arrive pas.
  * Le bouton « Parler à un conseiller » reste toujours disponible : le visiteur peut demander un humain à tout moment.
  * Un choix `devis` lance le devis fait dans la discussion (useDevisAwa).
  */
 export const ETAPES = {
   depart: {
-    texte: 'Bonjour, je suis Awa, l’assistante de BTM. Sur quoi puis-je vous aider ?',
+    texte: 'Bonjour, je suis Tamilya, l’assistante IA de BTM AI. Sur quoi puis-je vous aider ?',
     choix: [
       { label: 'Faire une estimation', suite: 'devis', icone: 'fa-solid fa-calculator' },
       { label: 'Mon code de retrait ou un achat', suite: 'retrait', icone: 'fa-solid fa-ticket' },
@@ -21,7 +21,7 @@ export const ETAPES = {
   devis: {
     texte: 'Je peux faire votre estimation ici même : je vous pose quelques questions, je calcule, et le projet est enregistré dans « Mes projets » avec son PDF. Vous préférez le faire vous-même ? Le calculateur donne le même résultat en 2 minutes.',
     lien: { label: 'Ouvrir le calculateur', to: '/calculateur' },
-    choix: [{ label: 'Faire mon estimation avec Awa', devis: true, icone: 'fa-solid fa-wand-magic-sparkles' }]
+    choix: [{ label: 'Faire mon estimation avec Tamilya', devis: true, icone: 'fa-solid fa-wand-magic-sparkles' }]
   },
   retrait: {
     texte: 'Quel est le souci avec votre retrait ?',
@@ -84,7 +84,7 @@ export const ETAPES = {
     texte: 'Je vous écoute : écrivez votre question ci-dessous.',
     libre: true
   },
-  // réponse guidée sans effet : Awa cherche avec le visiteur avant tout passage à un conseiller
+  // réponse guidée sans effet : Tamilya cherche avec le visiteur avant tout passage à un conseiller
   'pas-regle': {
     texte: 'D’accord, cherchons ensemble. Dites-moi ce qui bloque exactement : ce qui s’affiche, à quelle étape, chez quel fournisseur…',
     libre: true

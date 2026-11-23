@@ -13,7 +13,9 @@
    - Authentication → URL Configuration : `https://www.btm.yt` et les adresses de prévisualisation ;
    - Authentication → Emails : modèle « mot de passe oublié » (`emails/mot-de-passe-oublie.html`) ;
    - Authentication → Settings : activer **Leaked password protection** ;
-   - Edge Functions → Secrets : `AWA_SECRET` (son empreinte SHA-256 est dans la table `awa_partner_keys` de BTM AI ; `AWA_URL` facultatif, défaut `https://btm-ai.vercel.app/api/awa`) : l’assistante Awa est celle de BTM AI.
+   - Edge Functions → Secrets : `TAMILYA_API_KEY` (code d’accès `tml_…` créé sur https://tamilya.yt/developpeurs, engagement développeur coché)
+     et au moins une clé Gemini `GEMINI_API_KEY` (`_2`, `_3` en relais) : l’assistante du site est Tamilya (API de BTM AI).
+     La fenêtre de discussion indique que les réponses viennent d’une IA fournie par BTM AI (conditions de Tamilya).
    - Devis faits dans Tamilya (BTM AI) : secret `TAMILYA_SECRET` (même valeur que `BTM_DEVIS_SECRET` de BTM AI), puis
      `npx supabase functions deploy devis-tamilya --no-verify-jwt`. Le devis rejoint « Mes projets » du compte btm.yt
      de même adresse e-mail et Tamilya affiche le code de retrait.

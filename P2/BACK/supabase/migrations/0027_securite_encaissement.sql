@@ -4,7 +4,7 @@
 --      et un matériau sans prix chez le fournisseur prend le prix de référence BTM (jamais celui du devis).
 --   2. Un devis encaissé ne peut plus être modifié par son propriétaire (prix, quantités, fournisseur).
 --   3. Limites d'essais : vérification des codes promo (10 codes faux par heure et par compte),
---      fonction « compte suspendu » (5 essais par quart d'heure et par adresse), assistante Awa (fonction serveur).
+--      fonction « compte suspendu » (5 essais par quart d'heure et par adresse), assistante Tamilya (fonction serveur).
 --   4. Ménage : fonctions de déclencheur non appelables par l'API, search_path fixé, codes promo réservés aux comptes.
 --   5. Performances : index des clés étrangères, règles RLS qui ne relisent plus auth.uid() à chaque ligne.
 -- =====================================================================================================

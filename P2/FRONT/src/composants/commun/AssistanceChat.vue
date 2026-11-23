@@ -3,12 +3,12 @@
  * Discussion « Sur le site » : Tamilya, IA de BTM AI (questions guidées, puis assistante IA pour les questions libres)
  * ou un conseiller BTM (l'admin) quand la demande la dépasse. La conversation est gardée dans le navigateur :
  * le visiteur retrouve la réponse du conseiller s'il revient plus tard.
- * Awa fait aussi le devis dans la discussion (useDevisAwa) : questions, calcul, enregistrement dans « Mes projets », PDF.
+ * Tamilya fait aussi le devis dans la discussion (useDevisTamilya) : questions, calcul, enregistrement dans « Mes projets », PDF.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { ETAPES } from '@/donnees/assistanceQuestions.js'
-import { useDevisAwa, demandeDeDevis } from '@/composables/useDevisAwa.js'
+import { useDevisTamilya, demandeDeDevis } from '@/composables/useDevisTamilya.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import {
   conversationGardee, oublierConversation, envoyerQuestion, demanderConseiller, lireConversation,
@@ -21,7 +21,7 @@ const { connecte } = useAuth()
 const {
   messages: messagesDevis, actif: devisActif, occupe: devisOccupe, choix: choixDevis, dernier: dernierDevis,
   demarrer: demarrerDevis, choisir: choisirDevis, repondre: repondreDevis, annuler: annulerDevis, pdf: pdfDevis, ouvrir: ouvrirDevis, reinitialiser: oublierDevis
-} = useDevisAwa()
+} = useDevisTamilya()
 
 const minimise = ref(false)
 const guide = ref([]) // échanges des questions guidées (dans le navigateur seulement)
@@ -61,7 +61,7 @@ const vuParConseiller = computed(() => !!dernierClientId.value && serveur.value.
 // la conversation a commencé avec le conseiller dès qu'il a pris la main ou écrit
 const conseillerPresent = computed(() => chezConseiller.value && (statut.value === 'humain' || serveur.value.messages.some((m) => m.auteur === 'conseiller')))
 // qui répond en ce moment : la barre prend sa couleur (Tamilya en fuchsia, le conseiller en ardoise)
-const interlocuteur = computed(() => (statut.value === 'fermee' ? 'fermee' : conseillerPresent.value ? 'conseiller' : 'awa'))
+const interlocuteur = computed(() => (statut.value === 'fermee' ? 'fermee' : conseillerPresent.value ? 'conseiller' : 'tamilya'))
 const titre = computed(() => ({ conseiller: 'Conseiller BTM', fermee: 'Conversation clôturée' })[interlocuteur.value] || 'Tamilya · Assistante IA')
 // en attente d'un conseiller, Tamilya continue de répondre (fonction « assistant ») : le client n'est jamais sans réponse
 const sousTitre = computed(() => {
@@ -381,7 +381,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 }
 .ac.minimise { width: min(320px, calc(100vw - 32px)); }
 .ac-barre { display: flex; align-items: center; gap: 10px; padding: 12px 10px 12px 14px; background: var(--lagon-600); color: #fff; }
-.ac-barre-awa { background: #c026d3; }
+.ac-barre-tamilya { background: #c026d3; }
 .ac-barre-conseiller { background: var(--ardoise); }
 .ac-profil { position: relative; flex: none; }
 .ac-barre .ac-avatar { position: relative; width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); transition: background .15s, box-shadow .15s; }

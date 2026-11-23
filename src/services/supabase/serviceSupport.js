@@ -44,10 +44,13 @@ export async function changerCompteSupport(id) {
   } catch { /* reprise au prochain chargement */ }
 }
 
+// Plus long que le budget de la fonction pour Tamilya (BUDGET_TAMILYA, 55 s) : la réponse n'est jamais abandonnée en route
+const DELAI_NAVIGATEUR = 75000
+
 async function assistant(corps) {
   if (!supabaseConfigure) throw new Error('Assistance indisponible pour le moment.')
   const conv = conversationGardee()
-  const { data, error } = await supabase.functions.invoke('assistant', { body: { ...conv, page: window.location.pathname, ...corps }, timeout: 45000 })
+  const { data, error } = await supabase.functions.invoke('assistant', { body: { ...conv, page: window.location.pathname, ...corps }, timeout: DELAI_NAVIGATEUR })
   if (error) {
     if (/abort/i.test(error.message)) throw new Error('L’assistance ne répond pas pour le moment. Réessayez dans un instant.')
     let message = error.message

@@ -63,6 +63,9 @@ const TAMILYA_URL = "https://tamilya.yt/api/v1/tamilya";
 const TAMILYA_MAX_MESSAGES = 40, TAMILYA_MAX_MISSION = 2000, TAMILYA_MAX_CONTEXTE = 8000, TAMILYA_MAX_TEXTE = 4000;
 // Pas d'appel d'outils chez Tamilya : elle signale un passage au conseiller par ce repère, retiré avant affichage
 const REPERE_TRANSFERT = "[CONSEILLER]";
+// Temps maximal passé à attendre Tamilya pour un message (toutes clés et nouvel essai compris) : Tamilya peut mettre
+// jusqu'à 40 s ; la fonction garde le temps d'enregistrer la réponse avant l'abandon du navigateur (75 s).
+const BUDGET_TAMILYA = 55_000;
 
 // Mission (≤ 2000 caractères) : uniquement le rôle confié, sans toucher au nom ni à la personnalité de Tamilya
 const MISSION = `Tu es l'agent d'accueil du support client de BTM (Bâtiment & Travaux Mayotte), plateforme gratuite qui aide les
@@ -146,14 +149,19 @@ async function demanderTamilya(code: string, clesG: string[], contexte: string, 
   if (!messages.length || messages.at(-1)!.role !== "user") throw new Error("Tamilya : aucun message client à envoyer.");
   const corps = JSON.stringify({ mission: MISSION.slice(0, TAMILYA_MAX_MISSION), context: contexte.slice(0, TAMILYA_MAX_CONTEXTE), messages });
   const erreurs: string[] = [];
-  let quotas = 0;
+  let quotas = 0, nouvelEssai = true;
+  // Budget global : la fonction répond toujours avant que le navigateur abandonne (DELAI_NAVIGATEUR côté front, 75 s).
+  // Sans lui, une réponse lente de Tamilya arrivait après l'abandon du navigateur et ne s'affichait jamais.
+  const limite = Date.now() + BUDGET_TAMILYA;
   for (let i = 0; i < clesG.length; i++) {
     const cle = clesG[i]; // la clé 1 d'abord, la suivante quand elle ne peut plus
     if (auRepos(cle)) { quotas++; continue; }
+    const reste = limite - Date.now();
+    if (reste < 5000) { erreurs.push("temps écoulé"); break; }
     const r = await fetch(TAMILYA_URL, {
       method: "POST",
       headers: { "Authorization": `Bearer ${code}`, "X-Gemini-Key": cle, "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(60000), // la documentation conseille d'attendre au moins 60 s
+      signal: AbortSignal.timeout(reste),
       body: corps,
     }).catch((e) => { erreurs.push(`clé ${i + 1} · réseau : ${e?.message || e}`); return null; });
     if (!r) break;
@@ -169,6 +177,13 @@ async function demanderTamilya(code: string, clesG: string[], contexte: string, 
     erreurs.push(`clé ${i + 1} · Tamilya ${r.status} ${codeErreur}`);
     if (codeErreur === "gemini_quota") { repos.set(cle, Date.now() + 3600_000); quotas++; continue; } // clé Gemini suivante
     if (codeErreur === "invalid_gemini_key") { repos.set(cle, Date.now() + 10 * 60_000); continue; }
+    // panne passagère (la documentation conseille de réessayer 502 et 503) : un seul nouvel essai, s'il reste du temps
+    if ((r.status === 502 || r.status === 503) && nouvelEssai && limite - Date.now() > 20000) {
+      nouvelEssai = false;
+      await new Promise((ok) => setTimeout(ok, 1500));
+      i--;
+      continue;
+    }
     break; // code Tamilya refusé, limite atteinte, maintenance… : inutile d'essayer une autre clé Gemini
   }
   const echec: ErreurIa = new Error(erreurs.join(" | ") || "Aucune clé Gemini disponible pour Tamilya.");

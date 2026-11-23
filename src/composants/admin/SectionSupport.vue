@@ -212,7 +212,7 @@ const date = (d) => {
       </div>
       <p v-if="tamilyaHorsService" class="sp-hors-service" role="alert">
         <i class="fa-solid fa-robot" aria-hidden="true"></i>
-        <span><strong>Tamilya est hors service : plus de crédits IA.</strong> Toutes les API de Tamilya (BTM AI) ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
+        <span><strong>Tamilya est hors service : plus de crédits IA.</strong> Toutes les clés Gemini de Tamilya ont atteint leur quota : les nouvelles discussions vous arrivent directement, à vous de répondre.</span>
       </p>
       <p v-if="notificationsNavigateur === 'default'" class="sp-notif">
         <i class="fa-regular fa-bell" aria-hidden="true"></i> Être prévenu même dans un autre onglet ?

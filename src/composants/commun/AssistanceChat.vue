@@ -1,6 +1,6 @@
 <script setup>
 /**
- * Discussion « Sur le site » : Tamilya, IA de BTM AI (questions guidées, puis assistante IA pour les questions libres)
+ * Discussion « Sur le site » : Tamilya (questions guidées, puis assistante IA pour les questions libres)
  * ou un conseiller BTM (l'admin) quand la demande la dépasse. La conversation est gardée dans le navigateur :
  * le visiteur retrouve la réponse du conseiller s'il revient plus tard.
  * Tamilya fait aussi le devis dans la discussion (useDevisTamilya) : questions, calcul, enregistrement dans « Mes projets », PDF.
@@ -390,7 +390,9 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         <p><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Cette conversation a été clôturée par un conseiller BTM.</p>
         <small>Pour continuer, ouvrez une « Nouvelle discussion » depuis le menu de l’avatar.</small>
       </div>
-      <form v-else class="ac-saisie" @submit.prevent="envoyer">
+      <!-- conditions de Tamilya : indiquer que les réponses viennent d'une IA fournie par BTM AI -->
+      <p v-if="!cloturee" class="ac-mention">Réponses générées par Tamilya, une intelligence artificielle fournie par <a href="https://tamilya.yt" target="_blank" rel="noopener">BTM AI</a>.</p>
+      <form v-if="!cloturee" class="ac-saisie" @submit.prevent="envoyer">
         <label class="visually-hidden" for="ac-message">Votre message</label>
         <input id="ac-message" v-model="saisie" type="text" maxlength="1000" :placeholder="devisActif ? 'Votre réponse…' : statut === 'humain' ? 'Écrire au conseiller…' : 'Posez votre question…'" autocomplete="off" />
         <button type="submit" :disabled="!saisie.trim() || envoi" aria-label="Envoyer"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
@@ -462,8 +464,9 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-cloture p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ardoise-2); font-size: .84rem; font-weight: 600; }
 .ac-cloture p i { color: #047857; }
 .ac-cloture small { color: var(--texte-secondaire); font-size: .76rem; }
-.ac-mention { margin: 0; padding: 4px 10px 8px; background: var(--carte); color: var(--gris-500); font-size: .7rem; text-align: center; }
+.ac-mention { margin: 0; padding: 6px 10px 0; border-top: 1px solid var(--gris-200); background: var(--carte); color: var(--gris-500); font-size: .7rem; text-align: center; }
 .ac-mention a { color: inherit; text-decoration: underline; }
+.ac-mention + .ac-saisie { border-top: 0; }
 .ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: var(--carte); }
 .ac-saisie input { min-width: 0; flex: 1; min-height: 40px; padding: 0 12px; border: 1px solid var(--gris-200); border-radius: 999px; outline: 0; font: inherit; font-size: .86rem; }
 .ac-saisie input:focus { border-color: var(--lagon-500); }

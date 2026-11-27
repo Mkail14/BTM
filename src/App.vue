@@ -69,6 +69,8 @@ const InscriptionFournisseur = defineAsyncComponent(() => import('@/composants/c
 const { etat: inscriptionFournisseur } = useInscriptionFournisseur()
 watch(() => inscriptionFournisseur.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
 const FenetreFidelite = defineAsyncComponent(() => import('@/composants/commun/FenetreFidelite.vue'))
+// Mot de passe temporaire (script admin:reset) : à remplacer avant toute autre action
+const ChangementMotDePasseObligatoire = defineAsyncComponent(() => import('@/composants/commun/ChangementMotDePasseObligatoire.vue'))
 const { etat: fidelite } = useFenetreFidelite()
 watch(() => fidelite.ouverte, (ouverte) => { document.body.style.overflow = ouverte ? 'hidden' : '' })
 // fournisseur resté en « Voir le site » (onglet ouvert avant la fermeture du site) : retour à son espace
@@ -165,6 +167,7 @@ surveillerInactivite(delaiInactivite, async () => {
   <InscriptionFournisseur v-if="inscriptionFournisseur.ouverte" />
   <!-- « Fidélité BTM » : clic sur le crédit à côté du nom -->
   <FenetreFidelite v-if="fidelite.ouverte" />
+  <ChangementMotDePasseObligatoire v-if="utilisateur?.doitChangerMdp" />
   <!-- Repère de version (develop, locale) : jamais sur btm.yt -->
   <span v-if="environnement !== 'en-ligne'" class="repere-version" :class="environnement" :title="`Version ${LIBELLES_ENVIRONNEMENT[environnement].toLowerCase()} du site`">{{ LIBELLES_ENVIRONNEMENT[environnement] }}</span>
   <div v-if="visiteFournisseur" class="visite-fournisseur" role="region" aria-label="Visite du site">

@@ -9,7 +9,7 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { chargerCatalogue } from '@/services/api/serviceMateriaux.js'
-import { chargerOffres, meilleuresOffres } from '@/services/supabase/serviceOffres.js'
+import { chargerOffres, meilleuresOffres } from '@/services/api/serviceOffres.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
 const props = defineProps({ initial: { type: Array, default: () => [] } }) // lignes d'un achat déjà composé

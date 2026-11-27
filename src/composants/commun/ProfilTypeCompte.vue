@@ -5,7 +5,7 @@
  */
 import { computed, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
-import { demanderVerificationPro, passerParticulier } from '@/services/supabase/serviceAuth.js'
+import { demanderVerificationPro, passerParticulier } from '@/services/api/serviceAuth.js'
 import { nettoyerSiret, formaterSiret, siretValide, rechercherSiret } from '@/services/entreprises.js'
 
 const { typeProfil, demandePro, rechargerRole } = useAuth()

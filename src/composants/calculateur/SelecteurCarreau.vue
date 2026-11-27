@@ -9,7 +9,7 @@
  * d'un rechargement de la liste ; le prix exact est relu par le fournisseur à l'encaissement.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { listerCarreauxPublics, libelleFormat, prixAuM2 } from '@/services/supabase/serviceCarreaux.js'
+import { listerCarreauxPublics, libelleFormat, prixAuM2 } from '@/services/api/serviceCarreaux.js'
 import CarteCarreau from '@/composants/calculateur/CarteCarreau.vue'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 

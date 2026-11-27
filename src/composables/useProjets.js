@@ -1,6 +1,6 @@
 /**
  * useProjets — gestion des projets sauvegardés (F05).
- * localStorage toujours actif ; synchronisation Supabase si l'utilisateur est connecté.
+ * localStorage toujours actif ; synchronisation avec l'API BTM si l'utilisateur est connecté.
  *
  * Cloisonnement entre comptes (le navigateur peut être partagé) :
  *  - un projet local porte `proprietaire` : l'id du compte qui l'a enregistré, ou null s'il a été

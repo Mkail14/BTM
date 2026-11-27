@@ -8,7 +8,7 @@
  * Téléphone : bandeau défilant, détails toujours visibles, pas de curseur. Mouvements réduits : simple défilement manuel.
  */
 import { computed, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref } from 'vue'
-import { listerRealisationsPubliques, MAX_REALISATIONS } from '@/services/supabase/serviceRealisations.js'
+import { listerRealisationsPubliques, MAX_REALISATIONS } from '@/services/api/serviceRealisations.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'

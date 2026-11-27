@@ -1,11 +1,11 @@
 /**
- * useContenuSite — textes éditables du site (table `contenus_site`).
+ * useContenuSite — textes éditables du site (contenus du site, lus par l'API : /api/contenus).
  * État partagé : chargé une seule fois, puis mis à jour en direct par l'admin.
  * Chaque section fusionne la base sur les valeurs par défaut : un champ vide en base
  * ne casse jamais l'affichage.
  */
 import { reactive } from 'vue'
-import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
+import { api, apiConfiguree } from '@/services/api/client.js'
 import { contenusParDefaut } from '@/donnees/contenusSite.js'
 
 const copie = (o) => JSON.parse(JSON.stringify(o))
@@ -27,11 +27,9 @@ export function appliquerSection(cle, valeur = {}) {
 export function chargerContenus() {
   if (chargement) return chargement
   chargement = (async () => {
-    if (!supabaseConfigure) return
+    if (!apiConfiguree) return
     try {
-      const { data, error } = await supabase.from('contenus_site').select('cle, valeur')
-      if (error) throw error
-      for (const ligne of data || []) appliquerSection(ligne.cle, ligne.valeur)
+      for (const ligne of (await api.get('/contenus')) || []) appliquerSection(ligne.cle, ligne.valeur)
     } catch (e) {
       console.warn('Contenus du site indisponibles, textes par défaut', e)
     }

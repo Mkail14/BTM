@@ -20,7 +20,7 @@ const route = useRoute()
 const router = useRouter()
 const { connecte, utilisateur, deconnexion, backendDisponible, fournisseurLie, typeProfil, demandePro } = useAuth()
 const libelleTypeCompte = computed(() => ({ verifie: 'Professionnel vérifié', en_attente: 'Professionnel · SIRET en vérification', refuse: 'Pro : demande refusée' })[demandePro.value?.statut] || (fournisseurLie.value || typeProfil.value === 'fournisseur' ? 'Professionnel (fournisseur)' : 'Particulier'))
-const { mettreAJourProfil, supprimerCompte: supprimerCompteAuth } = useAuth()
+const { mettreAJourProfil, confirmerNouvelEmail, supprimerCompte: supprimerCompteAuth } = useAuth()
 const defile = ref(false)
 const profilOuvert = ref(false)
 const avisOuvert = ref(false) // feuille « Laisser un avis » (visiteur, onglet du bas)
@@ -28,6 +28,7 @@ const telephoneProfilValide = ref(true)
 const telephoneProfilErreur = ref('')
 const profilFormulaire = ref({ pseudo: '', email: '', telephone: '' })
 const profilMessage = ref('')
+const codeEmail = ref(null) // nouvelle adresse en attente du code reçu : { email, code }
 const profilErreur = ref('')
 const profilChargement = ref(false)
 const correctionIdentite = ref(false)
@@ -177,11 +178,28 @@ async function enregistrerProfil() {
   try {
     const utilisateurMisAJour = await mettreAJourProfil(profilFormulaire.value)
     utilisateur.value = utilisateurMisAJour
-    profilMessage.value = profilFormulaire.value.email !== ancienEmail
-      ? 'Un e-mail de confirmation a été envoyé à la nouvelle adresse.'
+    const nouvel = profilFormulaire.value.email.trim().toLowerCase()
+    if (nouvel !== ancienEmail) codeEmail.value = { email: nouvel, code: '' }
+    profilMessage.value = nouvel !== ancienEmail
+      ? 'Un code de confirmation a été envoyé à la nouvelle adresse : saisissez-le ci-dessous.'
       : 'Vos informations ont été enregistrées.'
   } catch (error) {
     profilErreur.value = error.message || 'Impossible d’enregistrer vos informations.'
+  } finally {
+    profilChargement.value = false
+  }
+}
+
+async function confirmerCodeEmail() {
+  profilErreur.value = ''
+  if (!/^d{6}$/.test(codeEmail.value.code.trim())) { profilErreur.value = 'Saisissez les 6 chiffres reçus par e-mail.'; return }
+  profilChargement.value = true
+  try {
+    utilisateur.value = await confirmerNouvelEmail(codeEmail.value.code.trim())
+    codeEmail.value = null
+    profilMessage.value = 'Votre adresse e-mail a été modifiée.'
+  } catch (error) {
+    profilErreur.value = error.message || 'Code invalide.'
   } finally {
     profilChargement.value = false
   }
@@ -409,7 +427,8 @@ async function supprimerCompte() {
             <button class="profil-retour-lien" type="button" @click="profilVue = 'infos'"><i class="fa-solid fa-arrow-left"></i> Retour aux informations</button>
             <h3>Modifier mes informations</h3>
             <div class="champ"><label for="profil-pseudo">Pseudo</label><input id="profil-pseudo" v-model="profilFormulaire.pseudo" type="text" required /></div>
-            <div class="champ"><label for="profil-email">Adresse e-mail</label><input id="profil-email" v-model="profilFormulaire.email" type="email" required /><small class="profil-aide">Une confirmation sera demandée si vous changez d’adresse.</small></div>
+            <div class="champ"><label for="profil-email">Adresse e-mail</label><input id="profil-email" v-model="profilFormulaire.email" type="email" required /><small class="profil-aide">Un code de confirmation sera envoyé si vous changez d’adresse.</small></div>
+            <div v-if="codeEmail" class="champ"><label for="profil-code-email">Code reçu à {{ codeEmail.email }}</label><input id="profil-code-email" v-model="codeEmail.code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" /><button class="btn btn-secondaire" type="button" :disabled="profilChargement" @click="confirmerCodeEmail"><i class="fa-solid fa-envelope-circle-check"></i> Confirmer la nouvelle adresse</button></div>
             <ChampTelephone id="profil-telephone" v-model="profilFormulaire.telephone" v-model:valide="telephoneProfilValide" :erreur="telephoneProfilErreur" />
             <p class="profil-identite-note"><i class="fa-solid fa-lock"></i> Nom et prénom non modifiables ici. Pour une correction, envoyez une pièce d’identité par e-mail.</p>
             <p v-if="profilMessage" class="profil-retour profil-succes" role="status">{{ profilMessage }}</p><p v-if="profilErreur" class="profil-retour profil-erreur" role="alert">{{ profilErreur }}</p>

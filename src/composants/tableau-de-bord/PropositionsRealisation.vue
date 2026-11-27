@@ -7,7 +7,7 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { useMesRealisations } from '@/composables/useMesRealisations.js'
-import { envoyerRealisation, declinerRealisation } from '@/services/supabase/serviceRealisations.js'
+import { envoyerRealisation, declinerRealisation } from '@/services/api/serviceRealisations.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import RecadragePhoto from '@/composants/commun/RecadragePhoto.vue'

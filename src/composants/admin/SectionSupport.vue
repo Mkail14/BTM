@@ -12,7 +12,7 @@ import { useSupport } from '@/composables/useSupport.js'
 import {
   listerConversations, lireMessagesSupport, repondreSupport, changerStatutSupport, presenceSupport,
   canalSupport, emetteurEcriture, recepteurEcriture
-} from '@/services/supabase/serviceSupport.js'
+} from '@/services/api/serviceSupport.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -68,15 +68,15 @@ function surSignal(s) {
   else if (s.type === 'vu') clientVu.value = Math.max(clientVu.value, Number(s.id) || 0)
   else if (s.type === 'message') { recevoirEcriture(false); suivreFil() }
 }
-// un canal par discussion ouverte
-watch(() => (active.value?.id && active.value?.jeton ? `${active.value.id}|${active.value.jeton}` : ''), (cle) => {
+// un relevé de présence par discussion ouverte (le jeton secret reste au client : le conseiller est authentifié par son compte)
+watch(() => active.value?.id || '', (cle) => {
   ecriture.arret()
   canal?.fermer()
   canal = null
   recevoirEcriture(false)
   clientVu.value = 0
   vuSignale = 0
-  if (cle) { canal = canalSupport(active.value.id, active.value.jeton, 'conseiller', surSignal); signalerVu() }
+  if (cle) { canal = canalSupport(active.value.id, null, 'conseiller', surSignal); signalerVu() }
 })
 
 /** Le conseiller a la discussion sous les yeux : le client voit « Vu » tout de suite */

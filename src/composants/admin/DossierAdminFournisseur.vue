@@ -10,7 +10,7 @@ import AdminPanneau from './AdminPanneau.vue'
 import ContratPartenaire from '@/composants/commun/ContratPartenaire.vue'
 import { useAdmin } from '@/composables/useAdmin.js'
 import { DOCUMENTS, iconeDocument, STATUTS_DOCUMENT } from '@/donnees/documentsFournisseur.js'
-import { listerMessages, envoyerMessage, marquerLus, listerDocuments, lienDocument, demanderDocuments, statuerDocument } from '@/services/supabase/serviceDossierFournisseur.js'
+import { listerMessages, envoyerMessage, marquerLus, listerDocuments, lienDocument, demanderDocuments, statuerDocument } from '@/services/api/serviceDossierFournisseur.js'
 
 const props = defineProps({
   demande: { type: Object, required: true },
@@ -64,7 +64,7 @@ async function demander() {
   } catch (e) { erreur.value = e.message }
 }
 async function ouvrir(doc) {
-  try { window.open(await lienDocument(doc.chemin), '_blank', 'noopener') } catch (e) { erreur.value = e.message }
+  try { window.open(await lienDocument(doc), '_blank', 'noopener') } catch (e) { erreur.value = e.message }
 }
 const refus = ref(null) // { id, motif }
 async function statuer(doc, decision, motif = '') {

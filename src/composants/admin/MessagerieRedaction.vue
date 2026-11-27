@@ -4,7 +4,7 @@
  * Les pièces jointes sont lues dans le navigateur puis envoyées à la fonction « boite-mail » (10 Mo au total).
  */
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { envoyerMessage, lireFichier } from '@/services/supabase/serviceMessagerie.js'
+import { envoyerMessage, lireFichier } from '@/services/api/serviceMessagerie.js'
 import { texteVersHtml } from '@/services/htmlMessage.js'
 import EditeurRiche from './EditeurRiche.vue'
 

@@ -1,7 +1,7 @@
 /**
  * Prix unitaires provisoires des matériaux (section 9 du CDC).
- * Miroir de la table Supabase `materiaux` — utilisé en repli hors-ligne
- * ou quand Supabase n'est pas configuré.
+ * Miroir de la table `materiaux` de la base — utilisé en repli hors-ligne
+ * ou quand l'API n'est pas configurée.
  * ⚠️ Prix indicatifs à vérifier auprès des fournisseurs de Mayotte.
  */
 export const materiaux = {
@@ -20,7 +20,7 @@ export const materiaux = {
   joint_carrelage: { id: 'joint_carrelage', libelle: 'Mortier joint carrelage',      unite: 'kg',  prixUnitaire: 3.5 }
 }
 
-/** Convertit une liste de lignes Supabase en dictionnaire indexé par id */
+/** Convertit une liste de lignes de l’API en dictionnaire indexé par id */
 export function indexerMateriaux(lignes) {
   return Object.fromEntries(
     lignes.map((m) => [m.id, { id: m.id, libelle: m.libelle, unite: m.unite, prixUnitaire: Number(m.prix_unitaire) }])

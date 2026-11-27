@@ -29,8 +29,7 @@ export default defineConfig({
     }
   },
   server: { port: 5173, host: true },
-  // supabase/tests : tests de la base (node --test, npm run test:base), pas des tests vitest
-  test: { exclude: ['**/node_modules/**', 'supabase/tests/**'] },
+  test: { exclude: ['**/node_modules/**'] },
   build: {
     outDir: 'dist',
     sourcemap: false,
@@ -39,8 +38,7 @@ export default defineConfig({
         // jspdf n'est pas listé : importé à la demande (services/export), il a déjà son propre bloc. Le nommer ici y
         // rangeait aussi des outils partagés avec le site, et ses 420 Ko étaient téléchargés à chaque ouverture.
         manualChunks: {
-          vendor: ['vue', 'vue-router'],
-          supabase: ['@supabase/supabase-js']
+          vendor: ['vue', 'vue-router']
         }
       }
     }

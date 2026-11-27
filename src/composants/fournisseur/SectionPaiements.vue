@@ -14,7 +14,7 @@ import { useAdmin } from '@/composables/useAdmin.js'
 import { useEspaceFournisseur, formatDate, formatHeure } from '@/composables/useEspaceFournisseur.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 import { formaterIban } from '@/services/versements.js'
-import * as api from '@/services/supabase/serviceEspaceFournisseur.js'
+import * as api from '@/services/api/serviceEspaceFournisseur.js'
 import AdminPanneau from '@/composants/admin/AdminPanneau.vue'
 
 const props = defineProps({ recherche: { type: String, default: '' } })
@@ -245,7 +245,7 @@ async function confirmerAnnulation() {
     <!-- ========== Journal ========== -->
     <section v-else class="adm-carte">
       <p class="adm-alerte adm-alerte-info pai-info"><i class="fa-solid fa-lock" aria-hidden="true"></i> Chaque encaissement et chaque annulation sont inscrits ici, avec la personne et l’heure. Le journal ne peut être ni modifié ni effacé.</p>
-      <div v-if="journalIndisponible" class="adm-vide"><i class="fa-solid fa-database" aria-hidden="true"></i><p>Journal indisponible : exécutez la migration 0013 sur Supabase.</p></div>
+      <div v-if="journalIndisponible" class="adm-vide"><i class="fa-solid fa-database" aria-hidden="true"></i><p>Journal indisponible pour le moment : réessayez dans un instant.</p></div>
       <div v-else-if="!journalFiltre.length" class="adm-vide"><i class="fa-solid fa-list-check" aria-hidden="true"></i><p>Aucune opération pour le moment.</p></div>
       <ol v-else class="pai-journal">
         <li v-for="j in journalFiltre" :key="j.id" :class="j.type">

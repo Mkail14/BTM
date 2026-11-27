@@ -1,6 +1,6 @@
 /**
  * Annuaire des fournisseurs BTP de Mayotte (section 11 du CDC).
- * Miroir de la table Supabase `fournisseurs` — repli hors-ligne.
+ * Miroir de la table `fournisseurs` de la base — repli hors-ligne.
  * Les informations doivent être vérifiées et mises à jour si nécessaire (C04).
  */
 export const categories = [
@@ -39,7 +39,7 @@ export const fournisseurs = [
 // catégorie absente de la liste locale (créée par l'admin) : son identifiant, avec une majuscule
 export const libelleCategorie = (id) => categories.find((c) => c.id === id)?.libelle || (id ? id[0].toUpperCase() + id.slice(1).replace(/-/g, ' ') : '')
 
-/** Normalise une ligne Supabase vers le format front */
+/** Normalise une ligne de l’API vers le format front */
 export function normaliserFournisseur(ligne) {
   return {
     id: ligne.id,

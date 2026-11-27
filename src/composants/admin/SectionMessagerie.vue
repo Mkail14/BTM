@@ -20,7 +20,7 @@ import { useMessagerie } from '@/composables/useMessagerie.js'
 import { apercuPdf, fermerApercuPdf } from '@/services/export/livrerPdf.js'
 import {
   ouvrirBoite, listerMessages, lireMessage, lireMessages, lirePieceJointe, marquerMessages, deplacerMessages, supprimerMessages, versBlob
-} from '@/services/supabase/serviceMessagerie.js'
+} from '@/services/api/serviceMessagerie.js'
 import MessagerieRedaction from './MessagerieRedaction.vue'
 
 const { notifier, confirmer } = useAdmin()

@@ -6,7 +6,7 @@
  */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAuth } from '@/composables/useAuth.js'
-import { mesDemandesAvis, publierAvisFournisseur, declinerAvisFournisseur } from '@/services/supabase/serviceAvisFournisseurs.js'
+import { mesDemandesAvis, publierAvisFournisseur, declinerAvisFournisseur } from '@/services/api/serviceAvisFournisseurs.js'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 
 const { utilisateur } = useAuth()

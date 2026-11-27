@@ -12,7 +12,7 @@ import { computed, ref } from 'vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import { VERSION, DATE_VERSION, contratDeLaDemande } from '@/donnees/contratPartenaire.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
-import { signerContrat } from '@/services/supabase/serviceDossierFournisseur.js'
+import { signerContrat } from '@/services/api/serviceDossierFournisseur.js'
 
 const props = defineProps({
   demande: { type: Object, required: true },

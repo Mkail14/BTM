@@ -2,18 +2,24 @@
  * Offres des fournisseurs (modèle plateforme) : ce que chacun propose, à quel prix, et si c'est disponible.
  *  - prix : prix BTM, réservé aux achats avec un code de retrait ;
  *  - prix_comptoir : ce que paie un client qui vient sans code.
- * Lecture publique via la fonction SQL offres_publiques (migration 0017) ; le stock exact n'est jamais publié.
+ * Lecture publique (/api/offres) ; le stock exact n'est jamais publié.
  */
-import { supabase, supabaseConfigure } from './client.js'
+import { api, apiConfiguree } from './client.js'
 import { arrondi } from '@/services/calculs/utilitaires.js'
 import { listerCarreauxPublics, libelleFormat } from './serviceCarreaux.js'
 
 let cache = null
 export async function chargerOffres({ force = false } = {}) {
-  if (!supabaseConfigure) return []
+  if (!apiConfiguree) return []
   if (cache && !force) return cache
-  const [{ data, error }, carreaux] = await Promise.all([supabase.rpc('offres_publiques'), listerCarreauxPublics({ force })])
-  if (error) { console.warn('Offres indisponibles', error); return [] }
+  let data
+  let carreaux
+  try {
+    [data, carreaux] = await Promise.all([api.get('/offres'), listerCarreauxPublics({ force })])
+  } catch (e) {
+    console.warn('Offres indisponibles', e)
+    return []
+  }
   cache = [
     ...data.map((o) => ({ ...o, prix: Number(o.prix), prix_comptoir: Number(o.prix_comptoir) })),
     // un modèle de carreau n'est proposé que par le fournisseur qui l'a mis en ligne (ligne « carreau:<id> » du devis)

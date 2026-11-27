@@ -2,7 +2,7 @@
 /**
  * Fenêtre de connexion / inscription, superposée au site (fond flouté) — seul moyen de se connecter,
  * il n'existe pas de page de connexion. Ouverte via useFenetreAuth (affichée par App.vue).
- * Connectée à Supabase Auth si configuré, sinon affichée comme structure d'interface (stub, section 10.6 du CDC).
+ * Connectée à l'API BTM (VITE_API_URL) ; sans elle, affichée comme structure d'interface (stub, section 10.6 du CDC).
  * Inscription : on choisit d'abord son profil (particulier ou professionnel), puis des étapes courtes :
  *  - particulier : Identité → Sécurité → Validation ;
  *  - professionnel : Entreprise (SIRET) → Contact → Sécurité → Validation.
@@ -23,10 +23,8 @@ import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 import LogoBtm from '@/composants/commun/LogoBtm.vue'
 import MotDePasseOublie from '@/composants/commun/MotDePasseOublie.vue'
 import { roleSession } from '@/routeur/index.js'
-import { supabase } from '@/services/supabase/client.js'
-import { lireRoleCompte } from '@/services/supabase/serviceCompte.js'
 import { fermerAuth } from '@/composables/useFenetreAuth.js'
-import { lireSuspension, connexionExterne, connexionGoogleJeton, renvoyerConfirmation } from '@/services/supabase/serviceAuth.js'
+import { connexionExterne, connexionGoogleJeton, renvoyerConfirmation, verifierCode } from '@/services/api/serviceAuth.js'
 import { afficherBoutonGoogle, prechargerGoogle } from '@/services/googleIdentite.js'
 import { memoriserSuspension } from '@/services/suspension.js'
 
@@ -98,7 +96,8 @@ async function refuserSiClient(compte) {
 let connexionEnCours = null
 function terminerConnexion() {
   connexionEnCours ||= (async () => {
-    const demandee = reserve ? null : redirectionDemandee()
+    // compte tout juste créé avec un devis en cours : retour à l'estimation
+    const demandee = reserve ? null : (redirectionDemandee() || (compteCree.value?.avecDevis ? '/resultats' : null))
     // rôle lu par le routeur et gardé en cache : sa garde ne refait pas la requête
     const compte = demandee ? {} : (await roleSession()) || {}
     if (await refuserSiClient(compte)) { connexionEnCours = null; return }
@@ -139,8 +138,7 @@ const quitterOubli = () => { if (dejaConnecte) emit('fermer'); else modeOubli.va
 // quel que soit le parcours (lien de l'e-mail, profil). Rôle relu à neuf : la session vient d'être ouverte.
 async function finOubli() {
   try {
-    const { data } = await supabase.auth.getUser()
-    const compte = data.user ? await lireRoleCompte(data.user.id) : {}
+    const compte = (await roleSession()) || {}
     if (await refuserSiClient(compte)) return
     const { role, fournisseur_id: fid } = compte
     const cible = props.redirect || (role === 'admin' ? '/admin' : role === 'fournisseur' && fid ? '/espace-fournisseur' : null)
@@ -284,6 +282,7 @@ function validerMotDePasse(e) {
   if (!motDePasse.value) e.motDePasse = 'Ce champ est obligatoire'
   // 8 caractères pour un nouveau mot de passe ; à la connexion, un ancien compte peut en avoir moins
   else if (estInscription.value && motDePasse.value.length < 8) e.motDePasse = 'Au moins 8 caractères'
+  else if (estInscription.value && (!/\p{Lu}/u.test(motDePasse.value) || !/\p{Ll}/u.test(motDePasse.value) || !/[0-9]/.test(motDePasse.value))) e.motDePasse = 'Au moins une majuscule, une minuscule et un chiffre'
 }
 
 function valider() {
@@ -327,7 +326,7 @@ async function soumettre() {
     if (d) { erreurs.value = { email: d }; return }
   }
   if (!derniereEtape.value) { etape.value++; return }
-  if (!backendDisponible) { erreurGlobale.value = 'Le backend Supabase n’est pas encore configuré : ce formulaire est une maquette fonctionnelle.'; return }
+  if (!backendDisponible) { erreurGlobale.value = 'L’API BTM n’est pas configurée : ce formulaire est une maquette fonctionnelle.'; return }
   chargement.value = true
   try {
     if (estInscription.value) {
@@ -338,20 +337,25 @@ async function soumettre() {
       const { confirmationRequise } = await inscription(email.value.trim(), motDePasse.value, {
         civilite: civilite.value, nom: nom.value.trim(), prenom: prenom.value.trim(), pseudo: pseudoAuto.value, telephone: telephone.value,
         type_profil: typeCompte.value, ...(pro ? { pro_siret: nettoyerSiret(siret.value), pro_raison_sociale: raisonSociale.value.trim() } : {})
-      }, redirectionDemandee() || (avecDevis ? '/resultats' : ''))
-      // sans confirmation demandée, la session est ouverte : le watch sur `connecte` termine la connexion
+      })
+      // l'adresse se vérifie avec le code à 6 chiffres reçu : sa saisie ouvre la session
       if (confirmationRequise) compteCree.value = { email: email.value.trim(), pro, avecDevis }
     } else {
       // le bouton reste en chargement jusqu'à l'arrivée sur la page de destination
-      await connexion(email.value.trim(), motDePasse.value)
+      await connexion(email.value.trim(), motDePasse.value, { resterConnecte: resterConnecte.value })
       await terminerConnexion()
     }
   } catch (err) {
-    // compte banni (migration 0022) : la page « Compte suspendu » remplace la fenêtre de connexion
-    if (!estInscription.value && /banned/i.test(err?.message || '')) {
-      memoriserSuspension(await lireSuspension(email.value.trim(), motDePasse.value))
+    // compte banni : la page « Compte suspendu » remplace la fenêtre de connexion
+    if (err?.code === 'COMPTE_SUSPENDU') {
+      memoriserSuspension({ jusqua: err.details.jusqua, motif: err.details.motif })
       fermerAuth()
       await router.push({ name: 'compte-suspendu' })
+      return
+    }
+    // adresse pas encore vérifiée : l'API vient d'envoyer un nouveau code, on passe à sa saisie
+    if (err?.code === 'EMAIL_NON_VERIFIE') {
+      compteCree.value = { email: email.value.trim(), pro: false, avecDevis: false, depuisConnexion: true }
       return
     }
     const message = traduire(err.message)
@@ -367,7 +371,25 @@ async function soumettre() {
   }
 }
 
-// Nouvel envoi du lien de confirmation (« Rien reçu ? »)
+// Code de vérification reçu par e-mail : sa saisie vérifie l'adresse et ouvre la session
+// (le watch sur `connecte` termine alors la connexion)
+const codeVerification = ref('')
+async function validerCode() {
+  erreurGlobale.value = ''
+  const code = codeVerification.value.replace(/\D/g, '')
+  if (code.length !== 6) { erreurs.value = { code: 'Le code contient 6 chiffres' }; return }
+  erreurs.value = {}
+  chargement.value = true
+  try {
+    await verifierCode(compteCree.value.email, code)
+  } catch (err) {
+    erreurGlobale.value = traduire(err?.message)
+  } finally {
+    chargement.value = false
+  }
+}
+
+// Nouvel envoi du code (« Rien reçu ? »)
 const renvoi = ref('') // '' | 'envoi' | 'fait'
 async function renvoyer() {
   erreurGlobale.value = ''
@@ -387,7 +409,7 @@ const externe = ref('') // fournisseur en cours de redirection
 async function continuerAvec(fournisseur) {
   if (externe.value) return
   erreurGlobale.value = ''; succes.value = ''
-  if (!backendDisponible) { erreurGlobale.value = 'Le backend Supabase n’est pas encore configuré.'; return }
+  if (!backendDisponible) { erreurGlobale.value = 'L’API BTM n’est pas configurée.'; return }
   externe.value = fournisseur
   try {
     const avecDevis = !!(calc.resultat.value || calc.cumul.value.length)
@@ -402,7 +424,7 @@ async function continuerAvec(fournisseur) {
 }
 
 // Google : bouton officiel (fenêtre « btm.yt », la page ne change pas) ; si Google ne se charge pas,
-// le bouton maison ci-dessus prend le relais (redirection par Supabase)
+// le bouton maison ci-dessus prend le relais (il invite à recharger la page)
 const zoneGoogle = ref(null)
 const googleSecours = ref(!backendDisponible)
 // Le bouton de Google met un moment à apparaître : un bouton identique est affiché à sa place jusque-là
@@ -451,7 +473,7 @@ async function avecJetonGoogle(jeton, nonce) {
 
 function traduire(m = '') {
   if (/database error (saving|updating)/i.test(m)) return MESSAGE_EMAIL_JETABLE // déclencheur trg_refuser_email_jetable (migration 0019)
-  // le serveur d'envoi (SMTP) ne répond pas : Supabase abandonne l'inscription au bout de 10 s
+  // le serveur d'envoi (SMTP) ne répond pas
   if (/http 50[234]|timeout|deadline|sending .*email/i.test(m)) return 'Notre service d’envoi d’e-mails ne répond pas pour le moment : votre compte n’a pas été créé. Réessayez dans quelques minutes.'
   if (/invalid login/i.test(m)) return 'E-mail ou mot de passe incorrect.'
   if (/banned/i.test(m)) return MESSAGE_SUSPENDU() // bannissement posé par un administrateur (migration 0022)
@@ -521,22 +543,27 @@ function traduire(m = '') {
           </p>
         </div>
         <MotDePasseOublie v-else-if="modeOubli" :email-initial="email || utilisateur?.email || ''" :connecte="dejaConnecte" :par-lien="parLien" :lien-expire="lienExpire" @retour="quitterOubli" @termine="finOubli" />
-        <!-- Inscription réussie, adresse à confirmer : plus de formulaire, seulement la marche à suivre -->
-        <div v-else-if="compteCree" class="auth-cree" role="status">
+        <!-- Adresse à vérifier (inscription, ou connexion d'un compte pas encore vérifié) : saisie du code reçu -->
+        <form v-else-if="compteCree" class="auth-cree" novalidate @submit.prevent="validerCode">
           <span class="auth-cree-icone" aria-hidden="true"><i class="fa-solid fa-envelope-circle-check"></i></span>
-          <h2 id="auth-titre" class="auth-titre">Plus qu’une étape : confirmez votre e-mail</h2>
-          <p>Votre compte est créé. Nous venons d’envoyer un lien à <strong>{{ compteCree.email }}</strong> : ouvrez-le pour activer votre compte.</p>
-          <p v-if="compteCree.avecDevis">Vos réponses sont gardées : ce lien vous ramène directement à votre estimation.</p>
+          <h2 id="auth-titre" class="auth-titre">{{ compteCree.depuisConnexion ? 'Vérifiez votre adresse e-mail' : 'Plus qu’une étape : vérifiez votre e-mail' }}</h2>
+          <p>{{ compteCree.depuisConnexion ? 'Votre adresse n’est pas encore vérifiée.' : 'Votre compte est créé.' }} Nous venons d’envoyer un code à 6 chiffres à <strong>{{ compteCree.email }}</strong> : saisissez-le ci-dessous (valable 10 minutes).</p>
+          <div class="champ">
+            <label for="auth-code">Code reçu par e-mail</label>
+            <input id="auth-code" v-model="codeVerification" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" class="mono" :aria-invalid="!!erreurs.code" />
+            <p v-if="erreurs.code" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.code }}</p>
+          </div>
+          <p v-if="compteCree.avecDevis">Vos réponses sont gardées : vous retrouverez votre estimation juste après.</p>
           <p v-if="compteCree.pro">Vos outils professionnels s’ouvriront dès que notre équipe aura validé votre SIRET.</p>
           <p class="champ-aide">Rien reçu après quelques minutes ? Regardez dans vos courriers indésirables, ou
-            <button type="button" class="auth-lien" :disabled="renvoi === 'envoi'" @click="renvoyer">{{ renvoi === 'fait' ? 'e-mail renvoyé ✓' : 'renvoyez l’e-mail' }}</button>.
+            <button type="button" class="auth-lien" :disabled="renvoi === 'envoi'" @click="renvoyer">{{ renvoi === 'fait' ? 'code renvoyé ✓' : 'renvoyez un code' }}</button>.
           </p>
           <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
           <div class="auth-actions">
-            <BoutonBase type="button" variante="secondaire" @click="fermer">Fermer</BoutonBase>
-            <BoutonBase type="button" bloc icone="fa-solid fa-right-to-bracket" @click="apresConfirmation = true; emit('changer-mode', 'connexion')">J’ai confirmé, me connecter</BoutonBase>
+            <BoutonBase type="button" variante="secondaire" @click="fermer">Plus tard</BoutonBase>
+            <BoutonBase type="submit" bloc :chargement="chargement" icone="fa-solid fa-check">Valider le code</BoutonBase>
           </div>
-        </div>
+        </form>
         <template v-else>
           <button v-if="viaAccueil && (!estInscription || etape === 0)" type="button" class="auth-retour-accueil" @click="revenirAccueil">
             <i class="fa-solid fa-chevron-left" aria-hidden="true"></i> Autres options
@@ -546,7 +573,7 @@ function traduire(m = '') {
           <p v-if="!estInscription || etape === 0 || typeCompte === 'professionnel'" class="texte-secondaire auth-intro">{{ reserve ? 'Réservé aux fournisseurs partenaires et à l’équipe BTM.' : !estInscription ? 'Accédez à vos projets sauvegardés.' : etape === 0 ? 'Gratuit. Choisissez votre profil pour commencer.' : 'Votre SIRET est vérifié par notre équipe : votre compte fonctionne tout de suite.' }}</p>
 
           <BandeauAvertissement v-if="!backendDisponible" type="info" compact class="auth-note">
-            Authentification prévue avec Supabase — renseignez <code>VITE_SUPABASE_URL</code> et <code>VITE_SUPABASE_ANON_KEY</code> pour l’activer.
+            Connexion indisponible : renseignez <code>VITE_API_URL</code> (adresse de l’API BTM) pour l’activer.
           </BandeauAvertissement>
 
           <ol v-if="estInscription && etape > 0" class="auth-etapes" :aria-label="`Étape ${etape} sur ${ETAPES.length}`">

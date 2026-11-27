@@ -6,7 +6,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import { surChangementCompte } from '@/composables/useAuth.js'
-import { conversationGardee, lireConversation, changerCompteSupport } from '@/services/supabase/serviceSupport.js'
+import { conversationGardee, lireConversation, changerCompteSupport } from '@/services/api/serviceSupport.js'
 import AssistanceChat from './AssistanceChat.vue'
 
 const contenu = useContenuSite()

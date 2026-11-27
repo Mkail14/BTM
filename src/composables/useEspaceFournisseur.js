@@ -6,7 +6,7 @@
  */
 import { computed, ref } from 'vue'
 import { useAuth, surChangementCompte } from '@/composables/useAuth.js'
-import * as api from '@/services/supabase/serviceEspaceFournisseur.js'
+import * as api from '@/services/api/serviceEspaceFournisseur.js'
 
 const fiche = ref(null)
 const devis = ref(null)       // null = pas encore chargé

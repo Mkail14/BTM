@@ -1,16 +1,16 @@
 /**
  * useOuverture — trois versions du même site :
- *  - en ligne (btm.yt, production Vercel) : la page « Bientôt en ligne » remplace le site public tant que
+ *  - en ligne (btm.yt, publié par GitHub Pages) : la page « Bientôt en ligne » remplace le site public tant que
  *    moins de SEUIL_FOURNISSEURS fournisseurs partenaires sont prêts (visibles et hors démonstration).
  *    Les espaces admin et fournisseur, et les pages légales, restent accessibles ;
- *  - develop (prévisualisation Vercel) et local (ordinateur) : le site complet, avec un repère discret
+ *  - develop (prévisualisation) et local (ordinateur) : le site complet, avec un repère discret
  *    indiquant la version. « ?bientot » y affiche la page d'attente pour la vérifier.
  * L'ouverture est automatique : dès le 3e partenaire réel, btm.yt affiche le site sans redéploiement.
  * L'admin peut forcer l'état (Compte BTM → Mise en ligne) : ligne « ouverture » de contenus_site,
  * { mode: 'auto' | 'en-ligne' | 'maintenance' }. « maintenance » ferme le site même avec assez de partenaires.
  */
 import { computed, ref } from 'vue'
-import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
+import { api, apiConfiguree } from '@/services/api/client.js'
 
 export const SEUIL_FOURNISSEURS = 3
 export const MODES_OUVERTURE = ['auto', 'en-ligne', 'maintenance']
@@ -32,17 +32,14 @@ const apercuDemande = typeof window !== 'undefined' && new URLSearchParams(windo
 
 /** Nombre de fournisseurs partenaires réels : visibles dans l'annuaire et hors démonstration (prix réels) */
 export async function compterPartenaires() {
-  if (!supabaseConfigure) return 0
-  const { count, error } = await supabase.from('fournisseurs').select('id', { count: 'exact', head: true }).eq('actif', true).eq('demonstration', false)
-  if (error) throw error
-  return count || 0
+  if (!apiConfiguree) return 0
+  return (await api.get('/fournisseurs/nombre'))?.nombre || 0
 }
 
 /** Mode choisi par l'admin ; illisible ou absent : automatique */
 export async function lireModeOuverture() {
-  if (!supabaseConfigure) return 'auto'
-  const { data, error } = await supabase.from('contenus_site').select('valeur').eq('cle', CLE_OUVERTURE).maybeSingle()
-  if (error) throw error
+  if (!apiConfiguree) return 'auto'
+  const data = await api.get(`/contenus/${CLE_OUVERTURE}`)
   return MODES_OUVERTURE.includes(data?.valeur?.mode) ? data.valeur.mode : 'auto'
 }
 

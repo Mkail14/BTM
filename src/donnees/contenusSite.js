@@ -1,5 +1,5 @@
 /**
- * Textes éditables du site — miroir de la table Supabase `contenus_site`.
+ * Textes éditables du site — miroir de la table `contenus_site` (base MariaDB de BTM).
  * `contenusParDefaut` sert de repli (hors-ligne, ou section jamais modifiée) ;
  * `sectionsContenus` décrit le formulaire de l'admin (libellés, types de champ, limites).
  */
@@ -52,7 +52,7 @@ export const contenusParDefaut = {
   pied: {
     description: 'Bâtiment & Travaux Mayotte — estimation de matériaux BTP et annuaire des fournisseurs de matériaux à Mayotte.',
     note: 'Plateforme BTM — Estimations et accompagnement des travaux à Mayotte',
-    mention: 'Vue 3 · Vite · Supabase · Vercel'
+    mention: 'Vue 3 · Vite · Node.js · MariaDB'
   }
 }
 

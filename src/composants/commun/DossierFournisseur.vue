@@ -13,7 +13,7 @@ import ContratPartenaire from '@/composants/commun/ContratPartenaire.vue'
 import ApercuContrat from '@/composants/commun/ApercuContrat.vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { iconeDocument, STATUTS_DOCUMENT } from '@/donnees/documentsFournisseur.js'
-import { listerMessages, envoyerMessage, marquerLus, listerDocuments, deposerDocument, lienDocument } from '@/services/supabase/serviceDossierFournisseur.js'
+import { listerMessages, envoyerMessage, marquerLus, listerDocuments, deposerDocument, lienDocument } from '@/services/api/serviceDossierFournisseur.js'
 
 const props = defineProps({
   demande: { type: Object, required: true },
@@ -70,7 +70,7 @@ async function choisirFichier(doc, e) {
   } catch (err) { erreur.value = err.message } finally { depot.value = '' }
 }
 async function ouvrirFichier(doc) {
-  try { window.open(await lienDocument(doc.chemin), '_blank', 'noopener') } catch (e) { erreur.value = e.message }
+  try { window.open(await lienDocument(doc), '_blank', 'noopener') } catch (e) { erreur.value = e.message }
 }
 const aFaire = computed(() => (documents.value || []).filter((d) => ['a_fournir', 'refuse'].includes(d.statut)).length + (props.demande.contrat_signe_le ? 0 : 1))
 const nonLus = computed(() => (messages.value || []).filter((m) => m.auteur === 'btm' && !m.lu_le).length)

@@ -13,7 +13,7 @@ import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import {
   conversationGardee, oublierConversation, envoyerQuestion, demanderConseiller, lireConversation,
   canalSupport, emetteurEcriture, recepteurEcriture
-} from '@/services/supabase/serviceSupport.js'
+} from '@/services/api/serviceSupport.js'
 
 const emit = defineEmits(['fermer', 'reponse-vue'])
 const { connecte } = useAuth()
@@ -391,14 +391,12 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
         <small>Pour continuer, ouvrez une « Nouvelle discussion » depuis le menu de l’avatar.</small>
       </div>
       <!-- conditions de Tamilya : indiquer que les réponses viennent d'une IA fournie par BTM AI -->
-      <p v-if="!cloturee" class="ac-mention">Réponses générées par Tamilya, une intelligence artificielle fournie par <a href="https://tamilya.yt" target="_blank" rel="noopener">BTM AI</a>.</p>
+      <p v-if="!cloturee" class="ac-mention">Réponses générées par l’IA Tamilya de <a href="https://tamilya.yt" target="_blank" rel="noopener">BTM AI</a>.</p>
       <form v-if="!cloturee" class="ac-saisie" @submit.prevent="envoyer">
         <label class="visually-hidden" for="ac-message">Votre message</label>
         <input id="ac-message" v-model="saisie" type="text" maxlength="1000" :placeholder="devisActif ? 'Votre réponse…' : statut === 'humain' ? 'Écrire au conseiller…' : 'Posez votre question…'" autocomplete="off" />
         <button type="submit" :disabled="!saisie.trim() || envoi" aria-label="Envoyer"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
       </form>
-      <!-- conditions de Tamilya : indiquer que les réponses viennent d'une IA fournie par BTM AI -->
-      <p class="ac-mention">Réponses générées par Tamilya, une intelligence artificielle fournie par <a href="https://tamilya.yt" target="_blank" rel="noopener">BTM AI</a>.</p>
     </template>
   </aside>
 </template>
@@ -464,7 +462,7 @@ const heure = (d) => (d ? new Date(d).toLocaleTimeString('fr-FR', { hour: '2-dig
 .ac-cloture p { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ardoise-2); font-size: .84rem; font-weight: 600; }
 .ac-cloture p i { color: #047857; }
 .ac-cloture small { color: var(--texte-secondaire); font-size: .76rem; }
-.ac-mention { margin: 0; padding: 6px 10px 0; border-top: 1px solid var(--gris-200); background: var(--carte); color: var(--gris-500); font-size: .7rem; text-align: center; }
+.ac-mention { margin: 0; padding: 6px 10px 0; border-top: 1px solid var(--gris-200); background: var(--carte); color: var(--gris-500); font-size: .7rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-mention a { color: inherit; text-decoration: underline; }
 .ac-mention + .ac-saisie { border-top: 0; }
 .ac-saisie { display: flex; align-items: center; gap: 8px; padding: 10px; border-top: 1px solid var(--gris-200); background: var(--carte); }

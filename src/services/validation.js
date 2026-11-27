@@ -1,6 +1,6 @@
 /** Validation des champs d'identité (nom, prénom, e-mail) */
 import { estDomaineJetable } from '@/donnees/domainesJetables.js'
-import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
+import { api, apiConfiguree } from '@/services/api/client.js'
 
 // Lettres (accents compris), espaces, apostrophes et tirets uniquement
 const HORS_NOM = /[^\p{L}\s'’-]/gu
@@ -72,12 +72,10 @@ function memoriser(cache, domaine, verifier) {
   return cache.get(domaine)
 }
 
-/** Liste complète en base (~98 000 domaines, mise à jour chaque nuit) : la liste locale n'en contient qu'un extrait */
+/** Liste de la base (table domaines_jetables, RG01) : la liste locale n'en contient qu'un extrait */
 async function domaineJetableEnBase(domaine) {
-  if (!supabaseConfigure) return null
-  const { data, error } = await supabase.rpc('est_email_jetable', { p_email: `x@${domaine}` })
-  if (error) throw error
-  return data === true
+  if (!apiConfiguree) return null
+  return (await api.get(`/email-jetable?domaine=${encodeURIComponent(domaine)}`))?.jetable === true
 }
 
 /** DNS sur HTTPS : le domaine possède-t-il un serveur de messagerie (enregistrement MX) ? */

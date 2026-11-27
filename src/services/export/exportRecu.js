@@ -5,7 +5,7 @@
  */
 import { livrerPdf } from './livrerPdf.js'
 import { formaterEuros, formaterQuantite } from '@/services/calculs/moteurCalculs.js'
-import { MOYENS } from '@/services/supabase/serviceEspaceFournisseur.js'
+import { MOYENS } from '@/services/api/serviceEspaceFournisseur.js'
 import { NOIR, CREME, CREME_CLAIR, GRIS, chargerLogo } from './charte.js'
 const propre = (texte) => String(texte ?? '').replace(/[  ]/g, ' ').replace(/−/g, '-')
 const euros = (n) => propre(formaterEuros(n))

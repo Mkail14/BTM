@@ -1,24 +1,11 @@
 /**
- * Messagerie contact@btm.yt (espace admin) : tout passe par la fonction Supabase « boite-mail »,
- * qui vérifie le rôle admin et garde les identifiants de la boîte côté serveur.
+ * Messagerie contact@btm.yt (espace admin) : tout passe par l'API BTM (/api/admin/messagerie), qui vérifie le rôle
+ * admin et garde les identifiants de la boîte côté serveur.
  */
-import { FunctionRegion } from '@supabase/supabase-js'
-import { supabase, supabaseConfigure } from './client.js'
+import { api } from './client.js'
 
-async function boiteMail(corps) {
-  if (!supabaseConfigure) throw new Error('Backend Supabase non configuré')
-  // exécutée à Paris, à côté des serveurs de messagerie OVH : chaque échange IMAP est quasi instantané
-  // délai maximal : jamais de chargement sans fin si la boîte ou la fonction ne répond pas
-  const { data, error } = await supabase.functions.invoke('boite-mail', { body: corps, region: FunctionRegion.EuWest3, timeout: corps.action === 'envoyer' ? 60000 : 30000 })
-  if (error) {
-    if (error.name === 'AbortError' || /abort/i.test(error.message)) throw new Error('La boîte mail ne répond pas pour le moment. Réessayez dans un instant.')
-    let message = error.message
-    try { message = (await error.context.json()).erreur || message } catch { /* corps non JSON */ }
-    throw new Error(message)
-  }
-  if (data?.erreur) throw new Error(data.erreur)
-  return data
-}
+// délai maximal : jamais de chargement sans fin si la boîte ne répond pas
+const boiteMail = (corps) => api.post('/admin/messagerie', corps, { delai: corps.action === 'envoyer' ? 90000 : 45000 })
 
 /** Dossiers + messages du dossier en un seul appel (ouverture et actualisation de la messagerie) */
 export const ouvrirBoite = (dossier = 'INBOX', recherche = '') => boiteMail({ action: 'ouverture', dossier, recherche })

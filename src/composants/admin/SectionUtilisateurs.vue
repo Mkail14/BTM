@@ -10,7 +10,7 @@ import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
 import AdminPanneau from './AdminPanneau.vue'
 import PanneauPropositionRealisation from './PanneauPropositionRealisation.vue'
 import { formaterSiret, lienAnnuaire, rechercherSiret } from '@/services/entreprises.js'
-import { envoyerLienMotDePasse } from '@/services/supabase/serviceAuth.js'
+import { envoyerLienMotDePasse } from '@/services/api/serviceAuth.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
@@ -157,7 +157,7 @@ async function confirmerSuppression() {
 const proposition = ref(null) // profil à qui proposer
 
 // ---------- Bannissement (migration 0022) ----------
-// Bloqué par Supabase Auth (plus de connexion) ; un ban temporaire se lève tout seul à sa date de fin.
+// Bloqué par l’API (plus de connexion, sessions fermées) ; un ban temporaire se lève tout seul à sa date de fin.
 const banActif = api.banActif
 const DUREES = [
   { id: '24h', label: '24 heures', heures: 24 },

@@ -1,7 +1,7 @@
 /**
  * Domaines d'adresses e-mail jetables (temporaires) refusés à l'inscription et au changement d'e-mail.
  * Extrait des plus courants, pour un message immédiat sans requête réseau : la liste complète (~98 000 domaines,
- * rafraîchie chaque nuit) est dans la table Supabase `domaines_jetables` (migration 0019), interrogée ensuite.
+ * rafraîchie chaque nuit) est dans la table `domaines_jetables` de la base, interrogée ensuite par l’API (/api/email-jetable).
  * Un sous-domaine d'un domaine listé est aussi refusé (ex. « x.yopmail.com »).
  */
 export const DOMAINES_JETABLES = new Set([

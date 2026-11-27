@@ -1,7 +1,7 @@
 /**
  * Projets sauvegardés — localStorage (section 12 du CDC, F05).
  * Utilisé comme stockage principal hors connexion et comme cache local
- * lorsque l'utilisateur est connecté à Supabase.
+ * lorsque l'utilisateur est connecté (API BTM).
  */
 import { normaliserResultat } from '@/services/calculs/moteurCalculs.js'
 

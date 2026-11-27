@@ -5,9 +5,9 @@ import { useAdmin, initiales, correspond } from '@/composables/useAdmin.js'
 import AdminPanneau from './AdminPanneau.vue'
 import PanneauAccesFournisseur from './PanneauAccesFournisseur.vue'
 import ChampHoraires from '@/composants/fournisseur/ChampHoraires.vue'
-import { listerTousCarreaux } from '@/services/supabase/serviceCarreaux.js'
+import { listerTousCarreaux } from '@/services/api/serviceCarreaux.js'
 import DemandesFournisseurs from './DemandesFournisseurs.vue'
-import { listerDemandes } from '@/services/supabase/serviceInscriptionFournisseur.js'
+import { listerDemandes } from '@/services/api/serviceInscriptionFournisseur.js'
 
 const { api, donnees, erreurs, charger, recherche, confirmer, executer, notifier } = useAdmin()
 onMounted(() => charger(['fournisseurs', 'categories', 'profils'], { force: true }))

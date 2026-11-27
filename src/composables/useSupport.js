@@ -4,7 +4,7 @@
  * du navigateur s'affiche à chaque nouvelle demande (en plus de l'e-mail reçu sur contact@btm.yt).
  */
 import { ref } from 'vue'
-import { compterDemandes } from '@/services/supabase/serviceSupport.js'
+import { compterDemandes } from '@/services/api/serviceSupport.js'
 
 const enAttente = ref(0)
 const notificationsNavigateur = ref(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported')

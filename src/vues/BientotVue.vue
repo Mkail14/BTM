@@ -20,7 +20,7 @@ import { SEUIL_FOURNISSEURS } from '@/composables/useOuverture.js'
 import { ouvrirInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { useTheme } from '@/composables/useTheme.js'
-import { listerMessages, listerDocuments } from '@/services/supabase/serviceDossierFournisseur.js'
+import { listerMessages, listerDocuments } from '@/services/api/serviceDossierFournisseur.js'
 const DossierFournisseur = defineAsyncComponent(() => import('@/composants/commun/DossierFournisseur.vue'))
 
 const props = defineProps({

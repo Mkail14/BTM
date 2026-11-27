@@ -24,7 +24,7 @@ const ecrire = (stockage, cle, valeur) => { try { stockage.setItem(cle, JSON.str
 const vivants = (onglets, maintenant = Date.now()) => Object.fromEntries(Object.entries(onglets || {}).filter(([, t]) => maintenant - t < VIE))
 
 /**
- * À appeler avant la création du client Supabase. Premier onglet d'une nouvelle visite (aucun autre onglet du site
+ * À appeler au chargement du client de l’API, avant toute lecture du jeton. Premier onglet d'une nouvelle visite (aucun autre onglet du site
  * ouvert, et pas un rechargement) : la session restée sur l'appareil est effacée.
  */
 export function oublierSessionSiSiteFerme() {
@@ -33,7 +33,7 @@ export function oublierSessionSiSiteFerme() {
     const onglet = lire(sessionStorage, CLE_ONGLET)
     const rechargement = onglet && Date.now() - onglet.vu < RETOUR
     if (rechargement || Object.keys(vivants(lire(localStorage, CLE_ONGLETS))).length) return
-    for (const cle of Object.keys(localStorage)) if (/^sb-.+-auth-token/.test(cle)) localStorage.removeItem(cle)
+    for (const cle of Object.keys(localStorage)) if (cle === 'btm-jeton' || /^sb-.+-auth-token/.test(cle)) localStorage.removeItem(cle)
     localStorage.removeItem(CLE_ACTIVITE)
   } catch { /* stockage indisponible : la session n'y est pas gardée non plus */ }
 }

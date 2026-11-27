@@ -9,7 +9,7 @@ import { useAdmin } from '@/composables/useAdmin.js'
 import { useEspaceFournisseur } from '@/composables/useEspaceFournisseur.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 import { formaterIban, ibanValide, bicValide, normaliserIban, masquerIban } from '@/services/versements.js'
-import * as api from '@/services/supabase/serviceEspaceFournisseur.js'
+import * as api from '@/services/api/serviceEspaceFournisseur.js'
 
 const { notifier, confirmer } = useAdmin()
 const { fiche, monRib, soldeBtm } = useEspaceFournisseur()

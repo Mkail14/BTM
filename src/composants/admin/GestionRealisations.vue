@@ -1,4 +1,6 @@
 <script setup>
+// adresse de base du site (« / » en local, « /BTM/ » sur GitHub Pages) : préfixe des fichiers de public/
+const BASE = import.meta.env.BASE_URL
 /**
  * Réalisations de la page d'accueil (contenu du site) :
  *  - proposition à un utilisateur de publier l'un de ses projets (aussi depuis la page Utilisateurs), relance si déclinée ;
@@ -161,7 +163,7 @@ async function enregistrer() {
       </div>
       <div class="gr-tete-actions">
         <span class="gr-compteur" :class="{ plein: enLigne.length >= MAX_REALISATIONS }"><strong>{{ enLigne.length }}</strong> / {{ MAX_REALISATIONS }} en ligne</span>
-        <a href="/#realisations" target="_blank" rel="noopener" class="adm-btn adm-btn-fantome adm-btn-sm"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Voir sur le site</a>
+        <a :href="`${BASE}#realisations`" target="_blank" rel="noopener" class="adm-btn adm-btn-fantome adm-btn-sm"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Voir sur le site</a>
         <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter moi-même</button>
         <button type="button" class="adm-btn adm-btn-noir adm-btn-sm" @click="proposition = true"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Proposer à un utilisateur</button>
       </div>

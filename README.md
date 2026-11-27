@@ -25,15 +25,23 @@ VITE_API_URL=http://localhost:3001/api
 Lancez l'API à côté (`cd ../BACK && npm run dev`). Sans cette variable, le site tourne en mode local avec les
 données de `src/donnees/` (fournisseurs fictifs).
 
-## Les trois versions du site
+## Publication (GitHub Pages)
+
+Le site est publié sur **https://mkail14.github.io/BTM/** par le workflow `.github/workflows/deploiement-pages.yml` :
+à chaque fusion sur `main`, GitHub lance les tests, compile le site et le met en ligne (onglet *Actions*).
+
+- L'adresse de l'API vient de la variable du dépôt `VITE_API_URL` (Settings → Secrets and variables → Actions → Variables).
+- Le site vit sous `/BTM/` : les fichiers de `public/` s'écrivent avec `import.meta.env.BASE_URL` dans le code, jamais `/fichier`.
+- GitHub Pages ne connaît pas les adresses du routeur : `404.html` (copie d'`index.html`) affiche la bonne page.
+- Côté API, `FRONTEND_URL` doit contenir `https://mkail14.github.io` (sinon le navigateur bloque les appels).
 
 | Version | Où | Ce qui s'affiche |
 |---|---|---|
-| En ligne | btm.yt (branche `main`) | Page « Bientôt en ligne » tant qu'il y a moins de 2 fournisseurs partenaires réels (`demonstration = false`) |
-| Develop | prévisualisation Vercel (branche `develop`) | Le site complet |
+| Démonstration | mkail14.github.io/BTM (`BTM_ENVIRONNEMENT=develop`) | Le site complet, avec le repère « Develop » |
 | Locale | `npm run dev` | Le site complet |
+| En ligne (plus tard) | btm.yt (`BTM_ENVIRONNEMENT=en-ligne`) | Page « Bientôt en ligne » tant qu'il y a moins de 3 fournisseurs partenaires réels |
 
-Pour publier `develop` sur btm.yt, fusionnez `develop` dans `main` sur GitHub. Vercel déploie ensuite `main`. L’onglet « Compte BTM → Mise en ligne » règle uniquement l’ouverture du site public ou son mode maintenance ; il ne publie pas de code.
+L’onglet « Compte BTM → Mise en ligne » de l'admin règle uniquement l’ouverture du site public ou son mode maintenance ; il ne publie pas de code.
 
 ## Organisation
 

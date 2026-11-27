@@ -4,10 +4,12 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vitejs.dev/config/
 // Trois versions du site (lues par src/composables/useOuverture.js) :
-//  - en-ligne : déploiement de production Vercel (btm.yt) ;
-//  - develop  : prévisualisation Vercel (branche develop ou autre branche que main) ;
+//  - en-ligne : le site public final (btm.yt) ;
+//  - develop  : version de démonstration, site complet (GitHub Pages : BTM_ENVIRONNEMENT=develop) ;
 //  - local    : npm run dev / build sur l'ordinateur.
-const ENVIRONNEMENT = process.env.VERCEL_ENV === 'production' ? 'en-ligne' : process.env.VERCEL_ENV === 'preview' ? 'develop' : 'local'
+const ENVIRONNEMENT = ['en-ligne', 'develop'].includes(process.env.BTM_ENVIRONNEMENT) ? process.env.BTM_ENVIRONNEMENT : 'local'
+// Adresse de base : « / » en local, « /BTM/ » sur GitHub Pages (mkail14.github.io/BTM) — réglée par le workflow
+const BASE = process.env.BASE_PATH || '/'
 
 // Police du grand titre de l'accueil (Barlow Condensed 700, alphabet latin) demandée dès la lecture de la page :
 // sans cela, le navigateur ne la découvre qu'une fois le site affiché et le titre attend un téléchargement de plus.
@@ -16,11 +18,12 @@ const prechargerPoliceTitre = {
   transformIndexHtml(html, ctx) {
     const police = Object.keys(ctx.bundle || {}).find((f) => /barlow-condensed-latin-700-normal.*\.woff2$/.test(f))
     if (!police) return
-    return [{ tag: 'link', attrs: { rel: 'preload', as: 'font', type: 'font/woff2', href: `/${police}`, crossorigin: '' }, injectTo: 'head' }]
+    return [{ tag: 'link', attrs: { rel: 'preload', as: 'font', type: 'font/woff2', href: `${BASE}${police}`, crossorigin: '' }, injectTo: 'head' }]
   }
 }
 
 export default defineConfig({
+  base: BASE,
   plugins: [vue(), prechargerPoliceTitre],
   define: { __ENVIRONNEMENT__: JSON.stringify(ENVIRONNEMENT) },
   resolve: {

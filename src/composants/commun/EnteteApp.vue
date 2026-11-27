@@ -1,4 +1,6 @@
 <script setup>
+// adresse de base du site (« / » en local, « /BTM/ » sur GitHub Pages) : préfixe des fichiers de public/
+const BASE = import.meta.env.BASE_URL
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth.js'
@@ -282,7 +284,7 @@ async function supprimerCompte() {
   <header id="entete-app" class="entete" :class="{ 'entete-defile': defile || route.path !== '/', 'entete-claire': enteteClaire }">
     <div class="conteneur entete-inner">
       <router-link to="/" class="entete-logo" aria-label="BTM — Accueil">
-        <img src="/logo-groupe-btm.png" alt="Groupe BTM" width="86" height="40" class="entete-logo-image" />
+        <img :src="`${BASE}logo-groupe-btm.png`" alt="Groupe BTM" width="86" height="40" class="entete-logo-image" />
       </router-link>
 
       <div class="entete-droit">

@@ -14,7 +14,7 @@ async function rafraichirDemandes() {
   try {
     const nb = await compterDemandes()
     if (nb > enAttente.value && notificationsNavigateur.value === 'granted' && document.hidden) {
-      new Notification('Nouvelle demande d’assistance', { body: 'Un client attend un conseiller BTM.', icon: '/favicon.svg', tag: 'btm-support' })
+      new Notification('Nouvelle demande d’assistance', { body: 'Un client attend un conseiller BTM.', icon: `${import.meta.env.BASE_URL}favicon.svg`, tag: 'btm-support' })
     }
     enAttente.value = nb
   } catch { /* nouvel essai au prochain tour */ }

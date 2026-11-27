@@ -25,7 +25,7 @@ const exemple = (lettre, categorie_id, categorie, commune, description, couleur)
   description: `Fiche fictive : ${description}, pour montrer le fonctionnement du site.`,
   livraison: true,
   horaires: null,
-  logo: `/logos/exemple-${lettre}.svg`,
+  logo: `${import.meta.env.BASE_URL}logos/exemple-${lettre}.svg`,
   couleur,
   demonstration: true
 })
@@ -60,7 +60,7 @@ export function normaliserFournisseur(ligne) {
     horaires: ligne.horaires,
     latitude: ligne.latitude ?? null,
     longitude: ligne.longitude ?? null,
-    logo: ligne.logo_url || `/logos/${ligne.slug}.svg`,
+    logo: ligne.logo_url || `${import.meta.env.BASE_URL}logos/${ligne.slug}.svg`,
     couleur: '#111111'
   }
 }

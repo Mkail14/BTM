@@ -23,7 +23,7 @@ const routes = [
 ]
 
 const routeur = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL), // « /BTM/ » sur GitHub Pages
   routes,
   scrollBehavior(to, from, position) {
     if (position) return position

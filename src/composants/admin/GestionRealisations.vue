@@ -1,4 +1,6 @@
 <script setup>
+// adresse de base du site (« / » en local, « /BTM/ » sur GitHub Pages) : préfixe des fichiers de public/
+const BASE = import.meta.env.BASE_URL
 /**
  * Réalisations de la page d'accueil (contenu du site) :
  *  - proposition à un utilisateur de publier l'un de ses projets (aussi depuis la page Utilisateurs), relance si déclinée ;
@@ -9,7 +11,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAdmin, formatDate } from '@/composables/useAdmin.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
-import { MAX_REALISATIONS, supprimerPhotos } from '@/services/supabase/serviceRealisations.js'
+import { MAX_REALISATIONS, supprimerPhotos } from '@/services/api/serviceRealisations.js'
 import AdminPanneau from './AdminPanneau.vue'
 import PanneauPropositionRealisation from './PanneauPropositionRealisation.vue'
 
@@ -143,7 +145,7 @@ async function enregistrer() {
     if (creation) filtre.value = 'publiee'
     notifier(creation ? 'Réalisation créée et mise en ligne.' : 'Réalisation mise à jour.')
   } catch (e) {
-    formErreur.value = e?.migration ? 'Appliquez d’abord la migration 0025 (réalisations) sur Supabase.' : (e?.message || 'Enregistrement impossible.')
+    formErreur.value = e?.message || 'Enregistrement impossible.'
   } finally {
     enregistrement.value = false
   }
@@ -161,7 +163,7 @@ async function enregistrer() {
       </div>
       <div class="gr-tete-actions">
         <span class="gr-compteur" :class="{ plein: enLigne.length >= MAX_REALISATIONS }"><strong>{{ enLigne.length }}</strong> / {{ MAX_REALISATIONS }} en ligne</span>
-        <a href="/#realisations" target="_blank" rel="noopener" class="adm-btn adm-btn-fantome adm-btn-sm"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Voir sur le site</a>
+        <a :href="`${BASE}#realisations`" target="_blank" rel="noopener" class="adm-btn adm-btn-fantome adm-btn-sm"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i> Voir sur le site</a>
         <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" @click="ouvrir()"><i class="fa-solid fa-plus" aria-hidden="true"></i> Ajouter moi-même</button>
         <button type="button" class="adm-btn adm-btn-noir adm-btn-sm" @click="proposition = true"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Proposer à un utilisateur</button>
       </div>

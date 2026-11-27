@@ -46,8 +46,6 @@ onBeforeUnmount(arreterMessagerie)
 const { enAttente, suivre: suivreSupport, arreter: arreterSupport } = useSupport()
 onMounted(suivreSupport)
 onBeforeUnmount(arreterSupport)
-const refProjet = (import.meta.env.VITE_SUPABASE_URL || '').match(/https:\/\/([^.]+)\.supabase\.co/)?.[1]
-const lienSql = refProjet ? `https://supabase.com/dashboard/project/${refProjet}/sql/new` : 'https://supabase.com/dashboard'
 
 const section = computed(() => sections.find((s) => s.id === route.params.section) || sections[0])
 const menuOuvert = ref(false)
@@ -146,13 +144,12 @@ async function seDeconnecter() {
       <div v-if="migrationManquante" class="adm-carte adm-migration" role="alert">
         <span class="adm-migration-icone"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
         <div>
-          <strong>La base Supabase n’est pas à jour</strong>
+          <strong>La base de données n’est pas à jour</strong>
           <p>
-            Les textes du site, les frais de service et la modération des avis ont besoin de nouvelles tables.
-            Dans le SQL Editor, exécutez une à une les migrations manquantes du dossier <span class="adm-mono">BACK/supabase/migrations/</span> (0007, 0008, 0009), puis rechargez cette page.
+            Une table ou une colonne attendue par l’API manque. Dans phpMyAdmin, importez de nouveau
+            <span class="adm-mono">BACK/database/btm.sql</span> sur une base vide, puis rechargez cette page.
           </p>
         </div>
-        <a :href="lienSql" target="_blank" rel="noopener noreferrer" class="adm-btn adm-btn-noir">Ouvrir le SQL Editor <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
       </div>
 
       <component :is="section.composant" :key="section.id" />

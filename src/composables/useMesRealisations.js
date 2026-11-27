@@ -3,7 +3,7 @@
  * État partagé : l'en-tête affiche une pastille sur « Mes projets » tant qu'une proposition attend sa réponse.
  */
 import { computed, ref } from 'vue'
-import { mesRealisations } from '@/services/supabase/serviceRealisations.js'
+import { mesRealisations } from '@/services/api/serviceRealisations.js'
 import { surChangementCompte } from '@/composables/useAuth.js'
 
 const liste = ref([])

@@ -6,7 +6,7 @@
  */
 import { useAdmin } from '@/composables/useAdmin.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
-import * as api from '@/services/supabase/serviceCarreaux.js'
+import * as api from '@/services/api/serviceCarreaux.js'
 
 defineProps({ carreaux: { type: Array, required: true } })
 const emit = defineEmits(['maj'])
@@ -14,7 +14,7 @@ const { confirmer, notifier } = useAdmin()
 
 async function basculer(c) {
   try {
-    await api.enregistrerCarreau(c.fournisseur_id, { ...c, actif: !c.actif })
+    await api.enregistrerCarreau(c.fournisseur_id, { ...c, actif: !c.actif }, { admin: true })
     notifier(c.actif ? `« ${c.nom} » est masqué du calculateur.` : `« ${c.nom} » est de nouveau proposé.`, 'info')
     emit('maj')
   } catch (e) { notifier(e?.message || 'Modification impossible.', 'erreur') }
@@ -22,7 +22,7 @@ async function basculer(c) {
 async function supprimer(c) {
   if (!(await confirmer({ titre: 'Supprimer ce modèle ?', texte: `« ${c.nom} » ne sera plus proposé. Préférez « masquer » si le fournisseur doit pouvoir le corriger.`, libelle: 'Supprimer', danger: true }))) return
   try {
-    await api.supprimerCarreau(c.id)
+    await api.supprimerCarreau(c.id, { admin: true })
     notifier('Modèle supprimé.')
     emit('maj')
   } catch (e) { notifier(e?.message || 'Suppression impossible.', 'erreur') }

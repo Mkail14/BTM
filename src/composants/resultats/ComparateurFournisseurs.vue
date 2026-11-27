@@ -7,7 +7,7 @@
  */
 import { computed, onMounted, ref } from 'vue'
 import { chargerFournisseurs } from '@/services/api/serviceFournisseurs.js'
-import { chargerOffres, parFournisseur, chiffrerChez } from '@/services/supabase/serviceOffres.js'
+import { chargerOffres, parFournisseur, chiffrerChez } from '@/services/api/serviceOffres.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
 
 const props = defineProps({

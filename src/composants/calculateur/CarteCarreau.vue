@@ -7,7 +7,7 @@
  * `ligne` : sur téléphone, présentation en ligne compacte (aperçu à gauche, texte à droite).
  */
 import { computed } from 'vue'
-import { libelleFormat, libelleVente, prixAuM2, unitesPour, uniteVente } from '@/services/supabase/serviceCarreaux.js'
+import { libelleFormat, libelleVente, prixAuM2, unitesPour, uniteVente } from '@/services/api/serviceCarreaux.js'
 import { formaterEuros, formaterNombre } from '@/services/calculs/moteurCalculs.js'
 
 const props = defineProps({

@@ -68,7 +68,7 @@ async function enregistrerTrustpilot() {
       formulaire.value = null
     }, f.id ? 'Avis Trustpilot mis à jour.' : 'Avis Trustpilot ajouté : il apparaît au centre du mur d’avis.')
   } catch (e) {
-    formErreur.value = /source|0028|column|policy/i.test(e?.message || '') ? 'Appliquez d’abord la migration 0028 (avis Trustpilot) sur Supabase.' : (e?.message || 'Enregistrement impossible.')
+    formErreur.value = (e?.message || 'Enregistrement impossible.')
   } finally {
     enregistrement.value = false
   }

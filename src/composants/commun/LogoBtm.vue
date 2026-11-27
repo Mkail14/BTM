@@ -1,11 +1,13 @@
 <script setup>
+// adresse de base du site (« / » en local, « /BTM/ » sur GitHub Pages) : préfixe des fichiers de public/
+const BASE = import.meta.env.BASE_URL
 defineProps({ taille: { type: Number, default: 40 } })
 </script>
 
 <template>
   <!-- le « b » de BTM en noir (carte de Mayotte ajourée), sur un seul carré crème : lisible sur fond clair comme sur fond sombre -->
   <span class="logo-btm" :style="{ width: `${taille}px`, height: `${taille}px` }" aria-hidden="true">
-    <img src="/logo-b-noir.png" alt="" />
+    <img :src="`${BASE}logo-b-noir.png`" alt="" />
   </span>
 </template>
 

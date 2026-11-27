@@ -78,7 +78,7 @@ function setup3DScene() {
   const loader = new GLTFLoader()
 
   loader.load(
-    '/model1.glb',
+    `${import.meta.env.BASE_URL}model1.glb`,
     (gltf) => {
       if (!scene || maGeneration !== generation) return // démonté ou reconstruit pendant le chargement
       const loadedModel = gltf.scene

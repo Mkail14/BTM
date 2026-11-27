@@ -1,8 +1,8 @@
 <script setup>
 /**
  * Accès d'un fournisseur à son espace : invitation par e-mail, suivi (invité → actif), relance, retrait.
- * L'invitation part automatiquement par e-mail. Si le service d'envoi ne la délivre pas (Supabase sans
- * serveur SMTP configuré), l'admin la transmet lui-même : lien copié ou e-mail préparé — jamais affiché en clair.
+ * L'invitation part automatiquement par e-mail (un code pour choisir son mot de passe). Si elle ne part pas (serveur SMTP
+ * non configuré sur l'API), l'admin la transmet lui-même : lien de la page copié ou e-mail préparé.
  */
 import { computed, ref } from 'vue'
 import { useAdmin, initiales } from '@/composables/useAdmin.js'
@@ -125,7 +125,7 @@ async function retirer() {
         <i class="fa-solid fa-envelope-circle-check" aria-hidden="true"></i>
         <div>
           <strong>Invitation prête — à transmettre</strong>
-          <p>L’e-mail n’a pas pu partir automatiquement (le service d’envoi de Supabase ne délivre qu’aux adresses de l’équipe tant qu’aucun serveur SMTP n’est configuré). Envoyez-la depuis votre messagerie :</p>
+          <p>L’e-mail n’a pas pu partir automatiquement (aucun serveur SMTP n’est encore configuré). Envoyez-la depuis votre messagerie :</p>
           <div class="pa-bandeau-actions">
             <a :href="mailto" class="adm-btn adm-btn-noir adm-btn-sm"><i class="fa-regular fa-envelope" aria-hidden="true"></i> Préparer l’e-mail</a>
             <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="enCours === 'copier'" @click="copierLien"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copier le lien</button>

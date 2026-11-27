@@ -1,7 +1,6 @@
 /**
  * Bouton « Continuer avec Google » (Google Identity Services) : la fenêtre Google s'ouvre depuis le site
- * et affiche « btm.yt » (et non l'adresse technique de Supabase, comme avec la redirection OAuth).
- * Google rend un jeton d'identité, échangé contre une session par supabase.auth.signInWithIdToken.
+ * et affiche « btm.yt ». Google rend un jeton d'identité, vérifié par l'API BTM (/api/auth/google) qui ouvre la session.
  * L'identifiant client n'est pas secret (il figure dans toute page qui affiche un bouton Google).
  * Dans Google Cloud, l'adresse du site doit figurer dans « Origines JavaScript autorisées ».
  */
@@ -32,7 +31,7 @@ export function prechargerGoogle() {
 
 /**
  * Affiche le bouton Google dans `element`. `surJeton(jeton, nonce)` reçoit le jeton d'identité et le nonce
- * en clair (Google en a reçu l'empreinte : Supabase vérifie que les deux correspondent).
+ * en clair (Google en a reçu l'empreinte : l'API vérifie que les deux correspondent).
  * `texte` : 'continue_with' | 'signup_with' | 'signin_with' ; `pilule` : bouton noir arrondi (accueil de la connexion).
  * La promesse se résout quand le bouton est réellement visible (cadre de Google chargé, 3 s au plus) :
  * jusque-là, la fenêtre affiche un bouton identique à sa place.

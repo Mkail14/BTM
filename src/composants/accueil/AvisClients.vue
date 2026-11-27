@@ -3,7 +3,7 @@
  * AvisClients — synthèse des notes (moyenne + répartition) à gauche,
  * mur d'avis défilant verticalement à droite : avis du site à gauche et à droite, avis Trustpilot au centre (sens opposé).
  * Un utilisateur qui a déjà publié peut modifier son avis (migration 0024).
- * Les avis sont stockés dans Supabase (table avis) ; à défaut de connexion au back-end, des avis de démonstration s'affichent.
+ * Les avis sont stockés dans la base de BTM (table avis, lue par l’API) ; à défaut de connexion au back-end, des avis de démonstration s'affichent.
  * « Donner mon avis » propose d'abord le choix : sur le site (compte requis, sinon fenêtre de connexion / inscription)
  * ou sur Trustpilot (page Trustpilot de BTM dans un nouvel onglet).
  */
@@ -12,7 +12,7 @@ import { useRoute, useRouter } from 'vue-router'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
 import { useAuth } from '@/composables/useAuth.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
-import { listerAvis, publierAvis, monAvis, modifierAvis } from '@/services/supabase/serviceAvis.js'
+import { listerAvis, publierAvis, monAvis, modifierAvis } from '@/services/api/serviceAvis.js'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 
 const { utilisateur, connecte, backendDisponible } = useAuth()
@@ -33,7 +33,7 @@ const nomDuCompte = computed(() => {
   return infos.pseudo || utilisateur.value?.email?.split('@')[0] || ''
 })
 
-// Avis de démonstration : uniquement si le back-end n'est PAS configuré (développement sans Supabase)
+// Avis de démonstration : uniquement si le back-end n'est PAS configuré (développement sans API)
 const avisInitiaux = [
   { id: 'initial-1', nom: 'Amina M.', ville: 'Mamoudzou', note: 5, commentaire: 'Une estimation claire et rapide pour préparer mon projet.', date: '2026-09-12' },
   { id: 'initial-2', nom: 'Youssouf B.', ville: 'Koungou', note: 4, commentaire: 'Les quantités sont faciles à comprendre. Très pratique avant de demander un devis.', date: '2026-09-10' },

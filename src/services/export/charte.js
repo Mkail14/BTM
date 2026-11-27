@@ -10,7 +10,7 @@ export const ENCRE = [38, 38, 38]
 const cache = {}
 
 /** Logo du site en data URL pour jsPDF (null si le fichier ne charge pas : le PDF garde alors le texte « BTM ») */
-export async function chargerLogo(chemin = '/logo-groupe-btm.png') {
+export async function chargerLogo(chemin = `${import.meta.env.BASE_URL}logo-groupe-btm.png`) {
   if (!(chemin in cache)) {
     cache[chemin] = fetch(chemin)
       .then((r) => (r.ok ? r.blob() : null))

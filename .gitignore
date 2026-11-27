@@ -6,4 +6,3 @@ dist/
 *.log
 vite.config.js.timestamp-*.mjs
 .playwright-mcp/
-supabase/.temp/

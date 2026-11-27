@@ -1,4 +1,6 @@
 <script setup>
+// adresse de base du site (« / » en local, « /BTM/ » sur GitHub Pages) : préfixe des fichiers de public/
+const BASE = import.meta.env.BASE_URL
 import { computed } from 'vue'
 import { useContenuSite } from '@/composables/useContenuSite.js'
 import { typesProjets } from '@/donnees/typesProjets.js'
@@ -17,7 +19,7 @@ const lienTelephone = computed(() => {
   <footer id="pied-de-page" class="pied">
     <div class="conteneur pied-grille">
       <section class="pied-marque">
-        <router-link to="/" class="pied-logo" aria-label="BTM — Accueil"><img src="/logo-groupe-btm.png" alt="Groupe BTM" width="112" height="52" /></router-link>
+        <router-link to="/" class="pied-logo" aria-label="BTM — Accueil"><img :src="`${BASE}logo-groupe-btm.png`" alt="Groupe BTM" width="112" height="52" /></router-link>
         <p>{{ contenu.pied.description }}</p>
         <p class="pied-localisation"><i class="fa-solid fa-location-dot"></i> {{ contenu.contact.localisation }}</p>
       </section>

@@ -1,5 +1,5 @@
 /**
- * Types de projets (BF01) — miroir de la table Supabase `types_projets`.
+ * Types de projets (BF01) — miroir de la table `types_projets` de la base.
  * Les constantes `parametres` correspondent à la section 9 du cahier des charges.
  * Elles sont provisoires et devront être validées avec des professionnels locaux.
  * Le tableau est réactif : les textes et constantes modifiés dans /admin

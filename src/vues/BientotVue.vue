@@ -1,4 +1,6 @@
 <script setup>
+// adresse de base du site (« / » en local, « /BTM/ » sur GitHub Pages) : préfixe des fichiers de public/
+const BASE = import.meta.env.BASE_URL
 /**
  * Page d'attente de btm.yt : le site est en création et n'ouvre qu'avec au moins SEUIL_FOURNISSEURS
  * fournisseurs partenaires (voir useOuverture et App.vue). Même identité que l'accueil : décor du
@@ -20,7 +22,7 @@ import { SEUIL_FOURNISSEURS } from '@/composables/useOuverture.js'
 import { ouvrirInscriptionFournisseur } from '@/composables/useInscriptionFournisseur.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { useTheme } from '@/composables/useTheme.js'
-import { listerMessages, listerDocuments } from '@/services/supabase/serviceDossierFournisseur.js'
+import { listerMessages, listerDocuments } from '@/services/api/serviceDossierFournisseur.js'
 const DossierFournisseur = defineAsyncComponent(() => import('@/composants/commun/DossierFournisseur.vue'))
 
 const props = defineProps({
@@ -87,7 +89,7 @@ const seDeconnecter = () => deconnexion()
     <header class="bientot-entete">
       <div class="conteneur bientot-entete-inner">
         <span class="bientot-logo">
-          <img src="/logo-groupe-btm.png" alt="Groupe BTM" width="86" height="40" />
+          <img :src="`${BASE}logo-groupe-btm.png`" alt="Groupe BTM" width="86" height="40" />
         </span>
         <!-- même groupe que l'en-tête du site : thème (jour / nuit du décor) puis accès partenaires -->
         <div class="bientot-entete-actions">

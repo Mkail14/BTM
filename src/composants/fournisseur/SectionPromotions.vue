@@ -9,7 +9,7 @@ import { useAdmin } from '@/composables/useAdmin.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { useEspaceFournisseur, formatDate } from '@/composables/useEspaceFournisseur.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
-import * as api from '@/services/supabase/serviceEspaceFournisseur.js'
+import * as api from '@/services/api/serviceEspaceFournisseur.js'
 import AdminPanneau from '@/composants/admin/AdminPanneau.vue'
 
 const props = defineProps({ recherche: { type: String, default: '' } })

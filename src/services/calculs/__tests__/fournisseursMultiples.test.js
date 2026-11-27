@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-vi.mock('@/services/supabase/client.js', () => ({ supabase: {}, supabaseConfigure: false }))
-const { appliquerPrixFournisseurs } = await import('@/services/supabase/serviceOffres.js')
+vi.mock('@/services/api/client.js', () => ({ api: {}, apiConfiguree: false }))
+const { appliquerPrixFournisseurs } = await import('@/services/api/serviceOffres.js')
 
 const devis = {
   total: 300, totalMateriaux: 300,

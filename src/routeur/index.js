@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { lireRoleCompte } from '@/services/supabase/serviceCompte.js'
-import { supabase, supabaseConfigure } from '@/services/supabase/client.js'
+import { apiConfiguree } from '@/services/api/client.js'
+import { utilisateurCourant, roleDe } from '@/services/api/serviceAuth.js'
 import { modeSite } from '@/composables/useModeSite.js'
 import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 // Accueil livré avec le code principal : première page vue, son titre s'affiche sans attendre un second téléchargement
@@ -23,7 +23,7 @@ const routes = [
 ]
 
 const routeur = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL), // « /BTM/ » sur GitHub Pages
   routes,
   scrollBehavior(to, from, position) {
     if (position) return position
@@ -33,48 +33,27 @@ const routeur = createRouter({
 })
 
 /**
- * Rôle du compte de la session en cours, mis en cache par compte (évite une requête à chaque page).
- * getSession() lit la session locale : pas d'appel réseau pour un visiteur non connecté.
+ * Rôle du compte de la session en cours. Le compte est lu une fois auprès de l'API (/auth/moi) puis gardé en
+ * mémoire : pas d'appel réseau à chaque page, ni pour un visiteur sans jeton. L'API revérifie tout à chaque requête.
  */
-let cacheRole = { id: null, role: null, fournisseur_id: null }
 export async function roleSession({ premiere = false } = {}) {
-  if (!supabaseConfigure) return null
-  // Une session périmée fait renouveler le jeton par le réseau : sans réponse en 4 s, on navigue comme un visiteur
-  // plutôt que de laisser le clic sans effet (la RLS protège les données quoi qu'il arrive).
+  if (!apiConfiguree) return null
+  // API lente : sans réponse en 4 s, on navigue comme un visiteur plutôt que de laisser le clic sans effet.
   // Première page (rechargement, lien) : on attend bien plus longtemps — sinon l'admin rechargé passait par l'accueil.
-  const { data } = await Promise.race([
-    supabase.auth.getSession(),
-    new Promise((r) => setTimeout(() => r({ data: { session: null } }), premiere ? 15000 : 4000))
+  const compte = await Promise.race([
+    utilisateurCourant(),
+    new Promise((r) => setTimeout(() => r(null), premiere ? 15000 : 4000))
   ])
-  const id = data.session?.user?.id
-  if (!id) return null
-  if (cacheRole.id === id) return cacheRole
-  let lu = { id, ...(await lireRoleCompte(id)) }
-  if (!lu.role) lu = { id, ...(await lireRoleCompte(id)) } // lecture ratée (réseau) : une seconde tentative
-  if (lu.role) cacheRole = lu // encore ratée : pas mise en cache, retentée à la page suivante
-  return lu
+  return compte ? { id: compte.id, ...roleDe(compte) } : null
 }
 
 // Pages qu'un compte admin ou fournisseur peut ouvrir : son espace et le choix d'un nouveau mot de passe
 // (la connexion n'est pas une page : c'est une fenêtre superposée, ouverte par useFenetreAuth)
 export const PAGES_ESPACE = { admin: ['admin', 'nouveau-mot-de-passe'], fournisseur: ['espace-fournisseur', 'nouveau-mot-de-passe'] }
 
-/**
- * Lien de l'e-mail « mot de passe oublié » : Supabase ramène sur le site avec « type=recovery » dans l'adresse (ou une
- * erreur si le lien a expiré), parfois sur l'accueil quand l'adresse de retour n'est pas autorisée. Où qu'il arrive,
- * le compte est conduit une fois à la page du nouveau mot de passe. Lu au chargement, avant que Supabase nettoie l'adresse.
- */
-const ARRIVEE = typeof window === 'undefined' ? '' : window.location.hash + window.location.search
-let lienMotDePasse = /[#&?]type=recovery\b/.test(ARRIVEE) || /[#&?]error_code=otp_expired\b/.test(ARRIVEE)
-
 routeur.beforeEach(async (to, from) => {
-  // Session locale + rôle en cache : aucun appel réseau à la navigation (la base revérifie tout par la RLS)
+  // Compte en mémoire : aucun appel réseau à la navigation (l'API revérifie tout à chaque requête)
   const compte = await roleSession({ premiere: !from.matched.length })
-  // après la lecture de la session : Supabase a déjà lu le jeton dans l'adresse, la redirection ne le lui retire pas
-  if (lienMotDePasse) {
-    lienMotDePasse = false
-    if (to.name !== 'nouveau-mot-de-passe') return { name: 'nouveau-mot-de-passe', query: to.query }
-  }
   // Les comptes admin et fournisseur n'utilisent pas le site public (ni accueil, ni devis, ni projets) :
   // toujours ramenés à leur espace.
   if (compte?.role === 'admin' && !PAGES_ESPACE.admin.includes(to.name)) return { name: 'admin' }

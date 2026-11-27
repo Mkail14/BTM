@@ -4,7 +4,7 @@
  * du navigateur s'affiche à chaque nouvelle demande (en plus de l'e-mail reçu sur contact@btm.yt).
  */
 import { ref } from 'vue'
-import { compterDemandes } from '@/services/supabase/serviceSupport.js'
+import { compterDemandes } from '@/services/api/serviceSupport.js'
 
 const enAttente = ref(0)
 const notificationsNavigateur = ref(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported')
@@ -14,7 +14,7 @@ async function rafraichirDemandes() {
   try {
     const nb = await compterDemandes()
     if (nb > enAttente.value && notificationsNavigateur.value === 'granted' && document.hidden) {
-      new Notification('Nouvelle demande d’assistance', { body: 'Un client attend un conseiller BTM.', icon: '/favicon.svg', tag: 'btm-support' })
+      new Notification('Nouvelle demande d’assistance', { body: 'Un client attend un conseiller BTM.', icon: `${import.meta.env.BASE_URL}favicon.svg`, tag: 'btm-support' })
     }
     enAttente.value = nb
   } catch { /* nouvel essai au prochain tour */ }

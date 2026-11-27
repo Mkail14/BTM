@@ -7,7 +7,7 @@
  *    tout de suite. Effacés à la déconnexion ou au changement de compte.
  */
 import { ref, shallowRef } from 'vue'
-import { compterNonLus } from '@/services/supabase/serviceMessagerie.js'
+import { compterNonLus } from '@/services/api/serviceMessagerie.js'
 import { surChangementCompte, useAuth } from '@/composables/useAuth.js'
 
 const CLE = 'btm-messagerie'

@@ -13,7 +13,7 @@ import { ouvrirAuth } from '@/composables/useFenetreAuth.js'
 import {
   conversationGardee, oublierConversation, envoyerQuestion, demanderConseiller, lireConversation,
   canalSupport, emetteurEcriture, recepteurEcriture
-} from '@/services/supabase/serviceSupport.js'
+} from '@/services/api/serviceSupport.js'
 
 const emit = defineEmits(['fermer', 'reponse-vue'])
 const { connecte } = useAuth()

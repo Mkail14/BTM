@@ -9,11 +9,10 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useAdmin, initiales } from '@/composables/useAdmin.js'
 import AdminPanneau from './AdminPanneau.vue'
-import { statuerDemande } from '@/services/supabase/serviceInscriptionFournisseur.js'
+import { statuerDemande, compteursDemandes } from '@/services/api/serviceInscriptionFournisseur.js'
 import { formaterSiret, lienAnnuaire, siretValide } from '@/services/entreprises.js'
 import { reponse } from '@/donnees/questionnaireFournisseur.js'
 import DossierAdminFournisseur from './DossierAdminFournisseur.vue'
-import { supabase } from '@/services/supabase/client.js'
 
 const props = defineProps({
   demandes: { type: Array, default: null }, // null : chargement
@@ -42,13 +41,11 @@ const suivi = ref({}) // { [demande_id]: { messages, aVerifier } }
 async function chargerSuivi() {
   const ids = (props.demandes || []).map((d) => d.id)
   if (!ids.length) return
-  const [m, docs] = await Promise.all([
-    supabase.from('messages_demande_fournisseur').select('demande_id').in('demande_id', ids).eq('auteur', 'fournisseur').is('lu_le', null),
-    supabase.from('documents_demande_fournisseur').select('demande_id, statut').in('demande_id', ids)
-  ])
   const s = {}
-  for (const l of m.data || []) (s[l.demande_id] ||= { messages: 0, aVerifier: 0, documents: 0 }).messages++
-  for (const l of docs.data || []) { const x = (s[l.demande_id] ||= { messages: 0, aVerifier: 0, documents: 0 }); x.documents++; if (l.statut === 'envoye') x.aVerifier++ }
+  for (const c of await compteursDemandes().catch(() => [])) {
+    if (!ids.includes(c.demande_id)) continue
+    s[c.demande_id] = { messages: c.non_lus, aVerifier: c.a_verifier, documents: c.a_fournir + c.a_verifier + c.valides + c.refuses }
+  }
   suivi.value = s
 }
 onMounted(chargerSuivi)

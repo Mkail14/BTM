@@ -1,14 +1,12 @@
 <script setup>
 /**
  * Mot de passe oublié, dans la fenêtre de connexion :
- *  1. l'utilisateur saisit son e-mail et reçoit un lien (e-mail « Reset Password » de Supabase, gabarit
- *     emails/mot-de-passe-oublie.html) ;
- *  2. le lien ramène sur /nouveau-mot-de-passe, qui ouvre la session du compte et rouvre cette fenêtre
- *     (parLien) pour qu'il choisisse son nouveau mot de passe.
+ *  1. l'utilisateur saisit son e-mail et reçoit un code à 6 chiffres (valable 10 minutes, une seule fois) ;
+ *  2. il saisit ce code et choisit son nouveau mot de passe : la session s'ouvre, ses autres appareils sont déconnectés.
  * Que l'adresse ait un compte ou non, l'écran dit la même chose : on ne révèle pas qui est inscrit.
  */
 import { onBeforeUnmount, ref } from 'vue'
-import { envoyerLienMotDePasse, definirMotDePasse } from '@/services/supabase/serviceAuth.js'
+import { envoyerCodeMotDePasse, reinitialiserMotDePasse } from '@/services/api/serviceAuth.js'
 import { erreurEmail } from '@/services/validation.js'
 import SaisieMotDePasse from '@/composants/commun/SaisieMotDePasse.vue'
 import BoutonBase from '@/composants/commun/BoutonBase.vue'
@@ -17,22 +15,23 @@ import BandeauAvertissement from '@/composants/commun/BandeauAvertissement.vue'
 const props = defineProps({
   emailInitial: { type: String, default: '' },
   connecte: Boolean, // ouvert depuis le profil d'un compte déjà connecté : « Annuler » au lieu de « Retour à la connexion »
-  parLien: Boolean, // arrivé par le lien de l'e-mail : la session est ouverte, il ne reste qu'à choisir le mot de passe
-  lienExpire: Boolean // lien de l'e-mail expiré ou déjà utilisé : on propose d'en redemander un
+  parLien: Boolean, // ancien parcours par lien (gardé pour compatibilité, sans effet)
+  lienExpire: Boolean
 })
 const emit = defineEmits(['retour', 'termine'])
 
-const DELAI_RENVOI = 60 // secondes : Supabase n'envoie qu'un e-mail par minute à une même adresse
-const etape = ref(props.parLien ? 'mot-de-passe' : 'email') // 'email' | 'envoye' | 'mot-de-passe' | 'fini'
+const DELAI_RENVOI = 60 // secondes : l'API n'envoie qu'un code par minute à une même adresse
+const etape = ref('email') // 'email' | 'code' | 'fini'
 const email = ref(props.emailInitial.trim())
+const code = ref('')
 const motDePasse = ref('')
 const confirmation = ref('')
 const erreurs = ref({})
-const erreurGlobale = ref(props.lienExpire ? 'Ce lien a expiré ou a déjà servi : demandez-en un nouveau ci-dessous.' : '')
+const erreurGlobale = ref(props.lienExpire ? 'Ce lien n’est plus utilisé : demandez un code ci-dessous.' : '')
 const info = ref('')
 const chargement = ref(false)
 
-// ---------- Renvoi du lien ----------
+// ---------- Renvoi du code ----------
 const attente = ref(0)
 let minuteur = null
 function lancerAttente() {
@@ -42,18 +41,7 @@ function lancerAttente() {
 }
 onBeforeUnmount(() => clearInterval(minuteur))
 
-function traduire(m = '') {
-  if (/rate limit|security purposes|only request this after/i.test(m)) return 'Patientez une minute avant de demander un nouveau lien.'
-  if (/banned/i.test(m)) return 'Ce compte a été suspendu par l’équipe BTM. Pour toute question : contact@btm.yt.'
-  if (/same|different from the old/i.test(m)) return 'Choisissez un mot de passe différent de l’ancien.'
-  if (/weak|should be at least|characters/i.test(m)) return 'Ce mot de passe est trop simple : au moins 8 caractères.'
-  if (/session|jwt|not authenticated/i.test(m)) return 'Votre lien n’est plus valable : demandez-en un nouveau depuis « Mot de passe oublié ».'
-  if (/http 50[234]|timeout|deadline|sending .*email/i.test(m)) return 'Notre service d’envoi d’e-mails ne répond pas pour le moment. Réessayez dans quelques minutes.'
-  if (/failed to fetch|network/i.test(m)) return 'Connexion impossible : vérifiez votre accès à Internet.'
-  return m || 'Une erreur est survenue.'
-}
-
-async function envoyerLien() {
+async function envoyerCode() {
   erreurGlobale.value = ''
   info.value = ''
   email.value = email.value.trim()
@@ -62,12 +50,12 @@ async function envoyerLien() {
   if (m) return
   chargement.value = true
   try {
-    await envoyerLienMotDePasse(email.value)
-    if (etape.value === 'envoye') info.value = 'Nouvel e-mail envoyé : seul le dernier lien reçu fonctionne.'
-    etape.value = 'envoye'
+    await envoyerCodeMotDePasse(email.value)
+    if (etape.value === 'code') info.value = 'Nouveau code envoyé : seul le dernier reçu fonctionne.'
+    etape.value = 'code'
     lancerAttente()
   } catch (e) {
-    erreurGlobale.value = traduire(e?.message)
+    erreurGlobale.value = e?.message || 'Une erreur est survenue.'
   } finally {
     chargement.value = false
   }
@@ -76,17 +64,20 @@ async function envoyerLien() {
 async function changer() {
   erreurGlobale.value = ''
   const e = {}
+  code.value = code.value.replace(/\D/g, '')
+  if (code.value.length !== 6) e.code = 'Le code contient 6 chiffres'
   if (motDePasse.value.length < 8) e.motDePasse = 'Au moins 8 caractères'
+  else if (!/\p{Lu}/u.test(motDePasse.value) || !/\p{Ll}/u.test(motDePasse.value) || !/[0-9]/.test(motDePasse.value)) e.motDePasse = 'Au moins une majuscule, une minuscule et un chiffre'
   if (confirmation.value !== motDePasse.value) e.confirmation = 'Les mots de passe ne correspondent pas'
   erreurs.value = e
   if (Object.keys(e).length) return
   chargement.value = true
   try {
-    await definirMotDePasse(motDePasse.value)
+    await reinitialiserMotDePasse(email.value, code.value, motDePasse.value)
     etape.value = 'fini'
     setTimeout(() => emit('termine'), 1800)
   } catch (err) {
-    erreurGlobale.value = traduire(err?.message)
+    erreurGlobale.value = err?.message || 'Une erreur est survenue.'
   } finally {
     chargement.value = false
   }
@@ -94,6 +85,7 @@ async function changer() {
 
 function modifierAdresse() {
   etape.value = 'email'
+  code.value = ''
   erreurs.value = {}
   erreurGlobale.value = ''
   info.value = ''
@@ -109,31 +101,15 @@ function modifierAdresse() {
       <p class="texte-secondaire">Vous êtes connecté avec votre nouveau mot de passe.</p>
     </div>
 
-    <!-- E-mail envoyé : il reste à cliquer sur le lien -->
-    <div v-else-if="etape === 'envoye'" class="mo-envoye" role="status">
-      <span class="mo-icone mo-icone-mail"><i class="fa-solid fa-envelope-open-text" aria-hidden="true"></i></span>
-      <h2 id="auth-titre" class="mo-titre">Vérifiez vos e-mails</h2>
-      <p class="texte-secondaire mo-intro">
-        Si un compte existe pour <strong>{{ email }}</strong>, un e-mail vient d’y être envoyé.
-        <strong>Cliquez sur le lien qu’il contient</strong> : il ouvre le site pour choisir votre nouveau mot de passe. Il est valable 1 heure.
-      </p>
-      <p class="champ-aide">
-        Rien reçu ? Regardez dans les indésirables, ou
-        <button type="button" class="mo-lien" :disabled="attente > 0 || chargement" @click="envoyerLien">{{ attente > 0 ? `renvoyer l’e-mail dans ${attente} s` : 'renvoyer l’e-mail' }}</button>.
-      </p>
-      <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
-      <BandeauAvertissement v-if="info" type="info" compact>{{ info }}</BandeauAvertissement>
-    </div>
-
     <template v-else>
-      <h2 id="auth-titre" class="mo-titre">{{ parLien ? 'Nouveau mot de passe' : 'Mot de passe oublié' }}</h2>
+      <h2 id="auth-titre" class="mo-titre">Mot de passe oublié</h2>
       <p class="texte-secondaire mo-intro">
-        <template v-if="parLien">Votre lien est valide : choisissez votre nouveau mot de passe (8 caractères minimum).</template>
-        <template v-else>Indiquez l’adresse e-mail de votre compte : nous vous envoyons un lien pour choisir un nouveau mot de passe.</template>
+        <template v-if="etape === 'code'">Si un compte existe pour <strong>{{ email }}</strong>, un code à 6 chiffres vient d’y être envoyé (valable 10 minutes). Saisissez-le, puis choisissez votre nouveau mot de passe.</template>
+        <template v-else>Indiquez l’adresse e-mail de votre compte : nous vous envoyons un code pour choisir un nouveau mot de passe.</template>
       </p>
 
       <!-- 1. Adresse e-mail -->
-      <form v-if="etape === 'email'" class="mo-form" novalidate @submit.prevent="envoyerLien">
+      <form v-if="etape === 'email'" class="mo-form" novalidate @submit.prevent="envoyerCode">
         <div class="champ">
           <label for="mo-email">Adresse e-mail</label>
           <input id="mo-email" v-model="email" type="email" maxlength="254" autocomplete="email" placeholder="vous@exemple.yt" :aria-invalid="!!erreurs.email" style="font-family: var(--font-corps)" />
@@ -141,15 +117,24 @@ function modifierAdresse() {
         </div>
         <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
         <div class="mo-actions">
-          <BoutonBase type="submit" bloc :chargement="chargement" icone="fa-solid fa-paper-plane">Recevoir le lien</BoutonBase>
+          <BoutonBase type="submit" bloc :chargement="chargement" icone="fa-solid fa-paper-plane">Recevoir le code</BoutonBase>
         </div>
       </form>
 
-      <!-- 2. Arrivé par le lien : nouveau mot de passe -->
+      <!-- 2. Code reçu + nouveau mot de passe -->
       <form v-else class="mo-form" novalidate @submit.prevent="changer">
         <div class="champ">
+          <label for="mo-code">Code reçu par e-mail</label>
+          <input id="mo-code" v-model="code" type="text" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" class="mono" :aria-invalid="!!erreurs.code" />
+          <p v-if="erreurs.code" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.code }}</p>
+          <p v-else class="champ-aide">
+            Rien reçu ? Regardez dans les indésirables, ou
+            <button type="button" class="mo-lien" :disabled="attente > 0 || chargement" @click="envoyerCode">{{ attente > 0 ? `renvoyer un code dans ${attente} s` : 'renvoyer un code' }}</button>.
+          </p>
+        </div>
+        <div class="champ">
           <label for="mo-mdp">Nouveau mot de passe</label>
-          <SaisieMotDePasse id="mo-mdp" v-model="motDePasse" autocomplete="new-password" placeholder="8 caractères minimum" :aria-invalid="!!erreurs.motDePasse" />
+          <SaisieMotDePasse id="mo-mdp" v-model="motDePasse" autocomplete="new-password" placeholder="8 caractères, majuscule, minuscule, chiffre" :aria-invalid="!!erreurs.motDePasse" />
           <p v-if="erreurs.motDePasse" class="champ-erreur" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.motDePasse }}</p>
         </div>
         <div class="champ">
@@ -159,6 +144,7 @@ function modifierAdresse() {
         </div>
 
         <BandeauAvertissement v-if="erreurGlobale" type="erreur" compact>{{ erreurGlobale }}</BandeauAvertissement>
+        <BandeauAvertissement v-if="info" type="info" compact>{{ info }}</BandeauAvertissement>
         <div class="mo-actions">
           <BoutonBase type="submit" bloc :chargement="chargement" icone="fa-solid fa-key">Changer mon mot de passe</BoutonBase>
         </div>
@@ -166,8 +152,8 @@ function modifierAdresse() {
     </template>
 
     <p v-if="etape !== 'fini'" class="mo-pied">
-      <button v-if="etape === 'envoye'" type="button" class="mo-lien" @click="modifierAdresse">Modifier l’adresse</button>
-      <button type="button" class="mo-lien" @click="emit('retour')"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> {{ parLien ? 'Plus tard' : connecte ? 'Annuler' : 'Retour à la connexion' }}</button>
+      <button v-if="etape === 'code'" type="button" class="mo-lien" @click="modifierAdresse">Modifier l’adresse</button>
+      <button type="button" class="mo-lien" @click="emit('retour')"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> {{ connecte ? 'Annuler' : 'Retour à la connexion' }}</button>
     </p>
   </div>
 </template>

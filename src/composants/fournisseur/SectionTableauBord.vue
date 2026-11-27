@@ -9,7 +9,7 @@ import { computed, ref } from 'vue'
 import { useEspaceFournisseur, formatDate, formatHeure } from '@/composables/useEspaceFournisseur.js'
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
-import { MOYENS } from '@/services/supabase/serviceEspaceFournisseur.js'
+import { MOYENS } from '@/services/api/serviceEspaceFournisseur.js'
 import AdminGraphiqueBarres from '@/composants/admin/AdminGraphiqueBarres.vue'
 
 const { fiche, paiements, enAttente, soldeBtm, ruptures } = useEspaceFournisseur()

@@ -17,7 +17,7 @@ import { useEspaceFournisseur } from '@/composables/useEspaceFournisseur.js'
 import ChampTelephone from '@/composants/commun/ChampTelephone.vue'
 import SaisieMotDePasse from '@/composants/commun/SaisieMotDePasse.vue'
 
-const { utilisateur, mettreAJourProfil, envoyerLienMotDePasse, deconnexionPartout, supprimerCompte, deconnexion } = useAuth()
+const { utilisateur, mettreAJourProfil, confirmerNouvelEmail, envoyerLienMotDePasse, deconnexionPartout, supprimerCompte, deconnexion } = useAuth()
 const { notifier, confirmer } = useAdmin()
 
 // ---------- Informations ----------
@@ -79,24 +79,41 @@ async function changerMotDePasse() {
   }
 }
 
-// ---------- Changement d'e-mail : Supabase envoie un lien, l'adresse change quand on clique dessus ----------
-const flux = ref(null) // { nouvel, envoi, erreur }
+// ---------- Changement d'e-mail : un code part vers la nouvelle adresse, elle change quand il est saisi ----------
+const flux = ref(null) // { nouvel, code, codeEnvoye, envoi, erreur }
 function changerEmail() {
-  flux.value = { nouvel: '', envoi: false, erreur: '' }
+  flux.value = { nouvel: '', code: '', codeEnvoye: false, envoi: false, erreur: '' }
   edition.value = 'email'
 }
 async function envoyerLienEmail() {
   const f = flux.value
+  if (f.codeEnvoye) return confirmerCodeEmail()
   const nouvel = f.nouvel.trim().toLowerCase()
   f.erreur = erreurEmail(nouvel) || (nouvel === utilisateur.value?.email ? 'C’est déjà votre adresse actuelle.' : '')
   if (f.erreur) return
   f.envoi = true
   try {
-    utilisateur.value = await mettreAJourProfil({ email: nouvel })
-    notifier(`Lien de confirmation envoyé à ${nouvel} : l’adresse changera quand vous cliquerez dessus.`)
+    await mettreAJourProfil({ email: nouvel })
+    f.codeEnvoye = true
+    notifier(`Code envoyé à ${nouvel} : saisissez-le pour confirmer la nouvelle adresse.`)
+  } catch (e) {
+    f.erreur = e?.message || 'Envoi du code impossible.'
+  } finally {
+    f.envoi = false
+  }
+}
+async function confirmerCodeEmail() {
+  const f = flux.value
+  f.erreur = /^d{6}$/.test(f.code.trim()) ? '' : 'Saisissez les 6 chiffres reçus par e-mail.'
+  if (f.erreur) return
+  f.envoi = true
+  try {
+    utilisateur.value = await confirmerNouvelEmail(f.code.trim())
+    notifier('Votre adresse e-mail a été modifiée.')
     edition.value = null
   } catch (e) {
-    f.erreur = e?.message || 'Envoi du lien impossible.'
+    f.erreur = e?.message || 'Code invalide.'
+  } finally {
     f.envoi = false
   }
 }
@@ -117,7 +134,7 @@ async function envoyerLien() {
   }
 }
 
-// ---------- Activité du compte (données de Supabase Auth) ----------
+// ---------- Activité du compte (données du compte, lues par l'API) ----------
 const dateHeure = (d) => (d ? new Intl.DateTimeFormat('fr-FR', { timeZone: 'Indian/Mayotte', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(d)) : null)
 const date = (d) => (d ? new Intl.DateTimeFormat('fr-FR', { timeZone: 'Indian/Mayotte', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(d)) : null)
 const METHODES = { email: 'E-mail et mot de passe', google: 'Google' }
@@ -310,19 +327,20 @@ async function fermerCompte() {
     </div>
   </form>
 
-  <!-- E-mail : nouvelle adresse, Supabase y envoie un lien de confirmation -->
+  <!-- E-mail : nouvelle adresse, un code de confirmation y est envoyé -->
   <form v-else-if="edition === 'email'" class="cp-vue" novalidate @submit.prevent="envoyerLienEmail">
     <header class="cp-tete">
-      <div><h2>Changer l’e-mail de connexion</h2><p>Un lien de confirmation sera envoyé à la nouvelle adresse. Rien ne change avant que vous cliquiez dessus.</p></div>
+      <div><h2>Changer l’e-mail de connexion</h2><p>Un code de confirmation sera envoyé à la nouvelle adresse. Rien ne change avant que vous le saisissiez.</p></div>
       <div class="cp-tete-boutons">
         <button type="button" class="adm-btn adm-btn-clair adm-btn-sm" :disabled="flux.envoi" @click="edition = null">Annuler</button>
-        <button type="submit" class="adm-btn adm-btn-noir adm-btn-sm" :disabled="flux.envoi"><span v-if="flux.envoi" class="spinner" aria-hidden="true"></span> Envoyer le lien</button>
+        <button type="submit" class="adm-btn adm-btn-noir adm-btn-sm" :disabled="flux.envoi"><span v-if="flux.envoi" class="spinner" aria-hidden="true"></span> {{ flux.codeEnvoye ? 'Confirmer' : 'Envoyer le code' }}</button>
       </div>
     </header>
     <p v-if="flux.erreur" class="adm-erreur-texte cp-erreur" role="alert"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i> {{ flux.erreur }}</p>
     <div class="cp-mdp">
       <div class="adm-champ"><label>Adresse actuelle</label><input :value="utilisateur?.email" disabled /></div>
-      <div class="adm-champ"><label for="mc-email">Nouvelle adresse</label><input id="mc-email" v-model="flux.nouvel" type="email" autocomplete="email" placeholder="contact@entreprise.yt" /></div>
+      <div class="adm-champ"><label for="mc-email">Nouvelle adresse</label><input id="mc-email" v-model="flux.nouvel" type="email" autocomplete="email" placeholder="contact@entreprise.yt" :disabled="flux.codeEnvoye" /></div>
+      <div v-if="flux.codeEnvoye" class="adm-champ"><label for="mc-code">Code reçu (6 chiffres)</label><input id="mc-code" v-model="flux.code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456" /></div>
     </div>
   </form>
 

@@ -15,7 +15,7 @@ import { useAdmin } from '@/composables/useAdmin.js'
 import { useEspaceFournisseur, formatDate, formatHeure } from '@/composables/useEspaceFournisseur.js'
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
 import { formaterEuros, formaterQuantite } from '@/services/calculs/moteurCalculs.js'
-import * as api from '@/services/supabase/serviceEspaceFournisseur.js'
+import * as api from '@/services/api/serviceEspaceFournisseur.js'
 
 const { MOYENS } = api
 const route = useRoute()

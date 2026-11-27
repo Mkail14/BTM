@@ -11,8 +11,8 @@ import { chargerCatalogue } from '@/services/api/serviceMateriaux.js'
 import { trouverTypeProjet } from '@/donnees/typesProjets.js'
 import { useContenuSite, chargerContenus } from '@/composables/useContenuSite.js'
 import { surChangementCompte } from '@/composables/useAuth.js'
-import { verifierCode, codeDejaUtilise } from '@/services/supabase/serviceCodesPromo.js'
-import { utilisateurCourant } from '@/services/supabase/serviceAuth.js'
+import { verifierCode, codeDejaUtilise } from '@/services/api/serviceCodesPromo.js'
+import { utilisateurCourant } from '@/services/api/serviceAuth.js'
 
 // État partagé (singleton module) — reste vivant entre les vues.
 // Onglet neuf (lien de confirmation d'inscription) : on reprend le devis que le visiteur avait mis de côté.
@@ -131,9 +131,9 @@ export function useCalculateur() {
 
     chargement.value = true
     try {
-      // Le calcul ne doit jamais rester bloqué sur le réseau : sans réponse de Supabase à temps,
+      // Le calcul ne doit jamais rester bloqué sur le réseau : sans réponse de l’API à temps,
       // le code promo est revérifié (l'admin a pu le désactiver, il a pu expirer) ;
-      // sans réponse de Supabase, on garde le code déjà validé plutôt que de le retirer à tort
+      // sans réponse de l’API, on garde le code déjà validé plutôt que de le retirer à tort
       const [c, codeVerifie] = await Promise.all([
         catalogue ? null : avecDelai(chargerCatalogue(), 3000, null),
         codePromo.value ? avecDelai(verifierCode(codePromo.value.code).catch(() => 'injoignable'), 3000, 'injoignable') : null,
@@ -141,7 +141,7 @@ export function useCalculateur() {
         new Promise((r) => setTimeout(r, 450))
       ])
       if (c) { catalogue = c.catalogue; sourcePrix.value = c.source }
-      else if (!catalogue) console.warn('Prix Supabase trop longs à charger : prix locaux utilisés pour ce calcul')
+      else if (!catalogue) console.warn('Prix de l’API trop longs à charger : prix locaux utilisés pour ce calcul')
       if (codePromo.value && codeVerifie === null) {
         messageCode.value = `Le code ${codePromo.value.code} n’est plus valable : il a été retiré de l’estimation.`
         codePromo.value = null

@@ -14,12 +14,12 @@ import { useAdmin } from '@/composables/useAdmin.js'
 import { useEspaceFournisseur } from '@/composables/useEspaceFournisseur.js'
 import { useAuth } from '@/composables/useAuth.js'
 import { formaterEuros } from '@/services/calculs/moteurCalculs.js'
-import * as api from '@/services/supabase/serviceEspaceFournisseur.js'
-import * as apiCarreaux from '@/services/supabase/serviceCarreaux.js'
+import * as api from '@/services/api/serviceEspaceFournisseur.js'
+import * as apiCarreaux from '@/services/api/serviceCarreaux.js'
 import { analyserCatalogue, genererModele, telecharger } from '@/services/catalogueCsv.js'
 import AdminPanneau from '@/composants/admin/AdminPanneau.vue'
 import SectionCarreaux from '@/composants/fournisseur/SectionCarreaux.vue'
-import { televerserPhoto } from '@/services/supabase/serviceRealisations.js'
+import { televerserPhoto } from '@/services/api/serviceRealisations.js'
 
 const props = defineProps({ recherche: { type: String, default: '' } })
 const { notifier, confirmer } = useAdmin()

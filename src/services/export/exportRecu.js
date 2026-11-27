@@ -5,7 +5,7 @@
  */
 import { livrerPdf } from './livrerPdf.js'
 import { formaterEuros, formaterQuantite } from '@/services/calculs/moteurCalculs.js'
-import { MOYENS } from '@/services/supabase/serviceEspaceFournisseur.js'
+import { MOYENS } from '@/services/api/serviceEspaceFournisseur.js'
 import { NOIR, CREME, CREME_CLAIR, GRIS, chargerLogo } from './charte.js'
 const propre = (texte) => String(texte ?? '').replace(/[  ]/g, ' ').replace(/−/g, '-')
 const euros = (n) => propre(formaterEuros(n))
@@ -19,7 +19,7 @@ const horodatage = (d) => new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', 
 export async function exporterRecuPdf({ paiement: p, fiche, encaissePar }, mode = 'telecharger') {
   const { jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
-  const logoB = await chargerLogo('/logo-b-noir.png')
+  const logoB = await chargerLogo(`${import.meta.env.BASE_URL}logo-b-noir.png`)
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const largeur = doc.internal.pageSize.getWidth()
   const marge = 16

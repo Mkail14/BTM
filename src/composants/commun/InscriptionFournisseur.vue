@@ -19,7 +19,7 @@ import { useInscriptionFournisseur } from '@/composables/useInscriptionFournisse
 import { useAuth } from '@/composables/useAuth.js'
 import { useFenetreAuth } from '@/composables/useFenetreAuth.js'
 import { chargerCategories } from '@/services/api/serviceFournisseurs.js'
-import { inscrireFournisseur, corrigerMaDemande } from '@/services/supabase/serviceInscriptionFournisseur.js'
+import { inscrireFournisseur, corrigerMaDemande } from '@/services/api/serviceInscriptionFournisseur.js'
 import { siretValide, rechercherSiret, formaterSiret, nettoyerSiret } from '@/services/entreprises.js'
 import { erreurEmail } from '@/services/validation.js'
 import { QUESTIONNAIRE } from '@/donnees/questionnaireFournisseur.js'

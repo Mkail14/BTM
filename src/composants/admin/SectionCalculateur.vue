@@ -195,7 +195,7 @@ async function enregistrerTaux() {
       </div>
 
       <p v-if="erreurs.materiaux" class="adm-alerte prix-alerte" role="alert"><i class="fa-solid fa-circle-exclamation"></i> {{ erreurs.materiaux }}</p>
-      <p v-else-if="donnees.materiaux && !donnees.materiaux.length" class="adm-alerte adm-alerte-info prix-alerte"><i class="fa-solid fa-circle-info"></i> La table des matériaux est vide : exécutez <span class="adm-mono">BACK/supabase/seed.sql</span> pour créer les prix de départ.</p>
+      <p v-else-if="donnees.materiaux && !donnees.materiaux.length" class="adm-alerte adm-alerte-info prix-alerte"><i class="fa-solid fa-circle-info"></i> La table des matériaux est vide : importez <span class="adm-mono">BACK/database/btm.sql</span> (phpMyAdmin) pour créer les prix de départ.</p>
 
       <div v-if="!donnees.materiaux" class="adm-chargement"><span class="spinner spinner-grand"></span></div>
       <div v-else-if="donnees.materiaux.length" class="adm-table-cadre">
